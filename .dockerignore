@@ -1,0 +1,16 @@
+# Version control and local IDE metadata
+.git/
+.idea/
+.vscode/
+*.iml
+
+# Generated build output
+target/
+build/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.log

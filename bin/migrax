@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+set -eu
+SELF_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -f "$SELF_DIR/../lib/migrax.jar" ]; then
+  JAR="$SELF_DIR/../lib/migrax.jar"
+elif [ -f "$SELF_DIR/../target/migrax-0.1.0.jar" ]; then
+  JAR="$SELF_DIR/../target/migrax-0.1.0.jar"
+else
+  echo "Migrax CLI JAR not found. Extract the CLI distribution or build the project first." >&2
+  exit 1
+fi
+exec java -jar "$JAR" "$@"

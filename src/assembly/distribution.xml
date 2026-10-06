@@ -1,0 +1,26 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.2.0 https://maven.apache.org/xsd/assembly-2.2.0.xsd">
+  <id>cli</id>
+  <formats>
+    <format>zip</format>
+  </formats>
+  <includeBaseDirectory>true</includeBaseDirectory>
+  <baseDirectory>migrax-${project.version}</baseDirectory>
+  <files>
+    <file>
+      <source>${project.build.directory}/${project.build.finalName}.jar</source>
+      <outputDirectory>lib</outputDirectory>
+      <destName>migrax.jar</destName>
+    </file>
+    <file>
+      <source>${project.basedir}/bin/migrax</source>
+      <outputDirectory>bin</outputDirectory>
+      <fileMode>0755</fileMode>
+    </file>
+    <file>
+      <source>${project.basedir}/bin/migrax.cmd</source>
+      <outputDirectory>bin</outputDirectory>
+    </file>
+  </files>
+</assembly>

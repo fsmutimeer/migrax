@@ -1,0 +1,218 @@
+package io.migrax.plugin;
+
+import io.migrax.model.SchemaModel;
+
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+public final class DatabaseSchemaReader {
+  private DatabaseSchemaReader() {}
+
+  public static SchemaModel read(Connection connection) throws SQLException {
+    DatabaseMetaData metadata = connection.getMetaData();
+    String catalog = connection.getCatalog();
+    String schema = connection.getSchema();
+    List<SchemaModel.Table> tables = new ArrayList<>();
+    try (ResultSet result = metadata.getTables(catalog, schema, "%", new String[]{"TABLE"})) {
+      while (result.next()) {
+        String name = result.getString("TABLE_NAME");
+        if (name == null || name.toLowerCase(java.util.Locale.ROOT).startsWith("migrax_")) {
+          continue;
+        }
+        tables.add(readTable(metadata, catalog, schema, name));
+      }
+    }
+    tables.sort(Comparator.comparing(SchemaModel.Table::name));
+    return new SchemaModel(tables);
+  }
+
+  private static SchemaModel.Table readTable(
+      DatabaseMetaData metadata, String catalog, String schema, String table) throws SQLException {
+    List<SchemaModel.Column> columns = new ArrayList<>();
+    try (ResultSet result = metadata.getColumns(catalog, schema, table, "%")) {
+      while (result.next()) {
+        String databaseType = result.getString("TYPE_NAME");
+        String logicalType = logicalType(databaseType, result.getInt("DATA_TYPE"));
+        Integer size = result.getInt("COLUMN_SIZE");
+        if (result.wasNull()) {
+          size = null;
+        }
+        Integer length = "varchar".equals(logicalType) && size != null && size != 255
+            ? size
+            : null;
+        Integer precision = "decimal".equals(logicalType) ? size : null;
+        int scaleValue = result.getInt("DECIMAL_DIGITS");
+        Integer scale = result.wasNull() || !"decimal".equals(logicalType) ? null : scaleValue;
+        String defaultValue = result.getString("COLUMN_DEF");
+        String autoIncrement = optionalString(result, "IS_AUTOINCREMENT");
+        columns.add(new SchemaModel.Column(
+            result.getString("COLUMN_NAME"),
+            logicalType,
+            result.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls,
+            length,
+            precision,
+            scale,
+            defaultValue,
+            false,
+            "YES".equalsIgnoreCase(autoIncrement),
+            null,
+            logicalType));
+      }
+    }
+
+    SchemaModel.PrimaryKey primaryKey = readPrimaryKey(metadata, catalog, schema, table);
+    List<SchemaModel.Index> indexes = readIndexes(metadata, catalog, schema, table);
+    List<SchemaModel.ForeignKey> foreignKeys = readForeignKeys(metadata, catalog, schema, table);
+    return new SchemaModel.Table(table, columns, primaryKey, indexes, foreignKeys);
+  }
+
+  private static SchemaModel.PrimaryKey readPrimaryKey(
+      DatabaseMetaData metadata, String catalog, String schema, String table) throws SQLException {
+    Map<Short, String> columns = new LinkedHashMap<>();
+    String constraintName = null;
+    try (ResultSet result = metadata.getPrimaryKeys(catalog, schema, table)) {
+      while (result.next()) {
+        columns.put(result.getShort("KEY_SEQ"), result.getString("COLUMN_NAME"));
+        if (constraintName == null) {
+          constraintName = result.getString("PK_NAME");
+        }
+      }
+    }
+    if (columns.isEmpty()) {
+      return null;
+    }
+    return new SchemaModel.PrimaryKey(columns.entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .map(Map.Entry::getValue)
+        .toList(), constraintName);
+  }
+
+  private static List<SchemaModel.Index> readIndexes(
+      DatabaseMetaData metadata, String catalog, String schema, String table) throws SQLException {
+    Map<String, List<IndexedColumn>> grouped = new LinkedHashMap<>();
+    Map<String, Boolean> unique = new LinkedHashMap<>();
+    List<String> primaryKeyIndexes = new ArrayList<>();
+    Map<Short, String> primaryKeyColumns = new LinkedHashMap<>();
+    try (ResultSet primaryKeys = metadata.getPrimaryKeys(catalog, schema, table)) {
+      while (primaryKeys.next()) {
+        String primaryKeyName = primaryKeys.getString("PK_NAME");
+        if (primaryKeyName != null) {
+          primaryKeyIndexes.add(primaryKeyName);
+        }
+        primaryKeyColumns.put(primaryKeys.getShort("KEY_SEQ"), primaryKeys.getString("COLUMN_NAME"));
+      }
+    }
+    List<String> orderedPrimaryKey = primaryKeyColumns.entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .map(Map.Entry::getValue)
+        .toList();
+    try (ResultSet result = metadata.getIndexInfo(catalog, schema, table, false, false)) {
+      while (result.next()) {
+        String name = result.getString("INDEX_NAME");
+        String column = result.getString("COLUMN_NAME");
+        if (name == null || column == null || primaryKeyIndexes.contains(name)) {
+          continue;
+        }
+        grouped.computeIfAbsent(name, ignored -> new ArrayList<>())
+            .add(new IndexedColumn(result.getShort("ORDINAL_POSITION"), column));
+        unique.put(name, !result.getBoolean("NON_UNIQUE"));
+      }
+    }
+    List<SchemaModel.Index> indexes = new ArrayList<>();
+    for (var entry : grouped.entrySet()) {
+      List<String> columns = entry.getValue().stream()
+          .sorted(Comparator.comparingInt(IndexedColumn::position))
+          .map(IndexedColumn::name)
+          .toList();
+      if (unique.getOrDefault(entry.getKey(), false) && columns.equals(orderedPrimaryKey)) {
+        continue;
+      }
+      indexes.add(new SchemaModel.Index(entry.getKey(),
+          columns,
+          unique.getOrDefault(entry.getKey(), false)));
+    }
+    return indexes;
+  }
+
+  private static List<SchemaModel.ForeignKey> readForeignKeys(
+      DatabaseMetaData metadata, String catalog, String schema, String table) throws SQLException {
+    Map<String, List<ForeignKeyColumn>> grouped = new LinkedHashMap<>();
+    Map<String, String> targetTables = new LinkedHashMap<>();
+    try (ResultSet result = metadata.getImportedKeys(catalog, schema, table)) {
+      while (result.next()) {
+        String name = result.getString("FK_NAME");
+        if (name == null) {
+          name = "fk_" + table + "_" + result.getString("FKCOLUMN_NAME");
+        }
+        String fkName = name;
+        grouped.computeIfAbsent(fkName, ignored -> new ArrayList<>()).add(
+            new ForeignKeyColumn(result.getShort("KEY_SEQ"),
+                result.getString("FKCOLUMN_NAME"), result.getString("PKCOLUMN_NAME")));
+        targetTables.put(fkName, result.getString("PKTABLE_NAME"));
+      }
+    }
+    List<SchemaModel.ForeignKey> keys = new ArrayList<>();
+    for (var entry : grouped.entrySet()) {
+      List<ForeignKeyColumn> columns = entry.getValue().stream()
+          .sorted(Comparator.comparingInt(ForeignKeyColumn::position))
+          .toList();
+      keys.add(new SchemaModel.ForeignKey(
+          entry.getKey(),
+          columns.stream().map(ForeignKeyColumn::name).toList(),
+          targetTables.get(entry.getKey()),
+          columns.stream().map(ForeignKeyColumn::referencedName).toList()));
+    }
+    return keys;
+  }
+
+  private static String logicalType(String typeName, int jdbcType) {
+    if (typeName != null) {
+      String type = typeName.toLowerCase(java.util.Locale.ROOT);
+      if (type.contains("text")) return "text";
+      if (type.contains("char") || type.equals("enum")) return "varchar";
+      if (type.contains("int")) return type.contains("big") ? "bigint" : "integer";
+      if (type.contains("decimal") || type.contains("numeric")) return "decimal";
+      if (type.contains("bool") || type.equals("bit")) return "boolean";
+      if (type.contains("timestamp") || type.equals("datetime")) return "timestamp";
+      if (type.equals("date")) return "date";
+      if (type.equals("time")) return "time";
+      if (type.contains("double")) return "double";
+      if (type.contains("float") || type.contains("real")) return "float";
+      if (type.contains("blob") || type.contains("binary")) return "blob";
+      if (type.contains("uuid")) return "uuid";
+    }
+    return switch (jdbcType) {
+      case java.sql.Types.TINYINT, java.sql.Types.SMALLINT, java.sql.Types.INTEGER -> "integer";
+      case java.sql.Types.BIGINT -> "bigint";
+      case java.sql.Types.NUMERIC, java.sql.Types.DECIMAL -> "decimal";
+      case java.sql.Types.BOOLEAN, java.sql.Types.BIT -> "boolean";
+      case java.sql.Types.DATE -> "date";
+      case java.sql.Types.TIME, java.sql.Types.TIME_WITH_TIMEZONE -> "time";
+      case java.sql.Types.TIMESTAMP, java.sql.Types.TIMESTAMP_WITH_TIMEZONE -> "timestamp";
+      case java.sql.Types.DOUBLE -> "double";
+      case java.sql.Types.FLOAT, java.sql.Types.REAL -> "float";
+      case java.sql.Types.BINARY, java.sql.Types.VARBINARY, java.sql.Types.LONGVARBINARY,
+          java.sql.Types.BLOB -> "blob";
+      default -> "varchar";
+    };
+  }
+
+  private static String optionalString(ResultSet result, String column) {
+    try {
+      return result.getString(column);
+    } catch (SQLException ignored) {
+      return null;
+    }
+  }
+
+  private record IndexedColumn(short position, String name) {}
+
+  private record ForeignKeyColumn(short position, String name, String referencedName) {}
+}
