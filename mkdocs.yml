@@ -44,6 +44,10 @@ theme:
     - content.tabs.link
     - toc.follow
 
+extra:
+  # No "Made with Material for MkDocs" line in the footer.
+  generator: false
+
 extra_css:
   - stylesheets/extra.css
 
