@@ -1,0 +1,156 @@
+name: Migrax check
+description: >-
+  Checks that entity changes have migrations, lints new migration files for locking and risky
+  SQL, and comments the planned SQL on the pull request.
+branding:
+  icon: database
+  color: blue
+
+inputs:
+  working-directory:
+    description: Service folder (with pom.xml or build.gradle).
+    default: .
+  java-version:
+    description: Java version used to build Migrax and the service.
+    default: '21'
+  fail-on-lint-warnings:
+    description: Fail on lint warnings, not only errors.
+    default: 'false'
+  comment:
+    description: Post or update a pull request comment with the results.
+    default: 'true'
+  github-token:
+    description: Token used to comment.
+    default: ${{ github.token }}
+
+outputs:
+  changes:
+    description: Number of entity changes without a migration.
+    value: ${{ steps.migrax.outputs.changes }}
+  findings:
+    description: Number of lint findings in changed migrations.
+    value: ${{ steps.migrax.outputs.findings }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: ${{ inputs.java-version }}
+
+    - name: Build Migrax
+      shell: bash
+      run: mvn -B -q -f "$GITHUB_ACTION_PATH/pom.xml" package -DskipTests -Dspotbugs.skip=true
+
+    - name: Run Migrax
+      id: migrax
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        set +e
+        MIGRAX="$GITHUB_ACTION_PATH/bin/migrax"
+        OUT="$RUNNER_TEMP/migrax"
+        mkdir -p "$OUT"
+
+        sh "$MIGRAX" check --json > "$OUT/check.json" 2> "$OUT/check.err"
+        CHECK=$?
+        sh "$MIGRAX" plan --json > "$OUT/plan.json" 2> "$OUT/plan.err"
+
+        # Lint only migration files this pull request adds or changes.
+        BASE="${GITHUB_BASE_REF:-}"
+        FILES=""
+        if [ -n "$BASE" ]; then
+          git fetch -q origin "$BASE" --depth=1 2>/dev/null
+          FILES=$(git diff --relative --name-only --diff-filter=AM "origin/$BASE"...HEAD -- . \
+            | grep -E '\.sql$' | grep -v '/rollback/' || true)
+        fi
+        if [ -n "$FILES" ]; then
+          # shellcheck disable=SC2086
+          sh "$MIGRAX" lint $FILES --json > "$OUT/lint.json" 2> "$OUT/lint.err"
+        else
+          echo '{"files":0,"findings":[]}' > "$OUT/lint.json"
+        fi
+        LINT=$?
+
+        CHANGES=$(grep -o '"changes":\[[^]]*\]' "$OUT/check.json" | grep -o '"[^"]*"' | grep -vc changes)
+        FINDINGS=$(grep -o '"code":' "$OUT/lint.json" | wc -l | tr -d ' ')
+        ERRORS=$(grep -o '"severity":"error"' "$OUT/lint.json" | wc -l | tr -d ' ')
+        echo "changes=$CHANGES" >> "$GITHUB_OUTPUT"
+        echo "findings=$FINDINGS" >> "$GITHUB_OUTPUT"
+        echo "check_exit=$CHECK" >> "$GITHUB_OUTPUT"
+        echo "lint_errors=$ERRORS" >> "$GITHUB_OUTPUT"
+        echo "lint_exit=$LINT" >> "$GITHUB_OUTPUT"
+        echo "out=$OUT" >> "$GITHUB_OUTPUT"
+        cat "$OUT/check.err" "$OUT/lint.err" 2>/dev/null
+        exit 0
+
+    - name: Comment on the pull request
+      if: inputs.comment == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      env:
+        MIGRAX_OUT: ${{ steps.migrax.outputs.out }}
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          const read = (name) => {
+            try { return JSON.parse(fs.readFileSync(`${process.env.MIGRAX_OUT}/${name}`, 'utf8')); }
+            catch (e) { return null; }
+          };
+          const check = read('check.json');
+          const plan = read('plan.json');
+          const lint = read('lint.json');
+          const marker = '<!-- migrax-check -->';
+          let body = `${marker}\n### Migrax\n\n`;
+          if (!check) {
+            body += 'Migrax could not read the entities; see the job log.\n';
+          } else if (check.ok) {
+            body += 'Entities match the migrations.\n';
+          } else {
+            if (check.conflicts.length) {
+              body += `Migrations share numbers: ${JSON.stringify(check.conflicts)}. Run \`migrax merge\`.\n\n`;
+            }
+            if (check.changes.length) {
+              body += `**${check.changes.length} entity change(s) have no migration.** Run \`migrax generate\` and commit the result.\n\n`;
+            }
+          }
+          if (plan && plan.operations.length) {
+            body += `<details><summary>Planned SQL (${plan.dialect})</summary>\n\n\`\`\`sql\n`;
+            body += plan.operations.map((o) => `${o.sql};`).join('\n');
+            body += '\n```\n</details>\n\n';
+          }
+          if (lint && lint.findings.length) {
+            body += `**Lint: ${lint.findings.length} finding(s) in changed migrations**\n\n`;
+            for (const f of lint.findings) {
+              body += `- \`${f.code}\` ${f.severity} in \`${f.file}\` (statement ${f.statement}): ${f.message}<br>Fix: ${f.fix}\n`;
+            }
+          } else if (lint) {
+            body += `Lint: no findings in ${lint.files} changed migration file(s).\n`;
+          }
+          const { owner, repo } = context.repo;
+          const issue_number = context.issue.number;
+          const comments = await github.paginate(github.rest.issues.listComments,
+            { owner, repo, issue_number });
+          const existing = comments.find((c) => c.body && c.body.includes(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+          } else {
+            await github.rest.issues.createComment({ owner, repo, issue_number, body });
+          }
+
+    - name: Fail on problems
+      shell: bash
+      run: |
+        if [ "${{ steps.migrax.outputs.check_exit }}" != "0" ]; then
+          echo "::error::Entities changed without a migration, or migrations share numbers. Run 'migrax generate' or 'migrax merge'."
+          exit 1
+        fi
+        if [ "${{ steps.migrax.outputs.lint_errors }}" != "0" ]; then
+          echo "::error::Migrax lint found errors in changed migrations."
+          exit 1
+        fi
+        if [ "${{ inputs.fail-on-lint-warnings }}" = "true" ] && [ "${{ steps.migrax.outputs.findings }}" != "0" ]; then
+          echo "::error::Migrax lint found warnings in changed migrations."
+          exit 1
+        fi
