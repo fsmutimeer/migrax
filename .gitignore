@@ -1,6 +1,6 @@
 # Maven build output
-/target/
-/build/
+target/
+build/
 
 # IDE metadata
 /.idea/
@@ -13,3 +13,7 @@ Thumbs.db
 *.swp
 *.swo
 *.log
+compat/hibernate/work/
+
+# MkDocs output
+site/
