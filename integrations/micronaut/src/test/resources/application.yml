@@ -1,0 +1,14 @@
+datasources:
+  default:
+    url: jdbc:h2:mem:migrax_micronaut;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ''
+jpa:
+  default:
+    entity-scan:
+      packages: 'io.migrax.micronaut.app'
+    properties:
+      hibernate:
+        hbm2ddl:
+          auto: validate
