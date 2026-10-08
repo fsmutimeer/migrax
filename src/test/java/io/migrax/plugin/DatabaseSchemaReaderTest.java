@@ -36,8 +36,8 @@ class DatabaseSchemaReaderTest {
       }
 
       assertTrue(table != null);
-      assertEquals(List.of("ID"), table.primaryKey().columns());
-      assertEquals("PK_EXISTING_RECORDS", table.primaryKey().constraintName());
+      assertEquals(List.of("id"), table.primaryKey().columns());
+      assertEquals("pk_existing_records", table.primaryKey().constraintName());
       assertTrue(table.column("USERNAME") != null || table.column("username") != null);
       assertEquals(1, table.indexes().size());
 
@@ -60,8 +60,8 @@ class DatabaseSchemaReaderTest {
           .map(DropPrimaryKey.class::cast)
           .findFirst()
           .orElseThrow();
-      assertEquals("PK_EXISTING_RECORDS", drop.constraintName());
-      assertTrue(new PostgresDialect().render(drop).contains("\"PK_EXISTING_RECORDS\""));
+      assertEquals("pk_existing_records", drop.constraintName());
+      assertTrue(new PostgresDialect().render(drop).contains("DROP CONSTRAINT pk_existing_records"));
     }
   }
 }

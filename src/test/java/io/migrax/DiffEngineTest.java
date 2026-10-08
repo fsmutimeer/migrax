@@ -40,13 +40,15 @@ class DiffEngineTest {
   }
 
   @Test
-  void ignoresDatabaseMetadataDifferencesWhenColumnShapeIsUnchanged() {
+  void detectsDefaultChangesButIgnoresWhitespace() {
     var before = column("varchar", "varchar", 255, "'legacy default'");
-    var after = column("varchar", "varchar", 255, "'normalized default'");
-
+    var after = column("varchar", "varchar", 255, "'new default'");
     var operations = diffColumn(before, after);
+    assertEquals(1, operations.size());
+    assertTrue(((io.migrax.ops.AlterColumn) operations.get(0)).defaultChanged());
 
-    assertTrue(operations.isEmpty());
+    assertTrue(diffColumn(before, column("varchar", "varchar", 255, " 'legacy default' "))
+        .isEmpty());
   }
 
   @Test

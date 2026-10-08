@@ -20,7 +20,7 @@ import java.util.Set;
 final class ProjectContext {
   private static final List<String> PROJECT_MARKERS = List.of(
       "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts");
-  private static final List<String> CLASS_DIRECTORIES = List.of(
+  static final List<String> CLASS_DIRECTORIES = List.of(
       "target/classes",
       "build/classes/java/main",
       "build/classes/kotlin/main",
@@ -57,17 +57,55 @@ final class ProjectContext {
     if (configured != null) {
       return configured;
     }
+    try {
+      configured = io.migrax.plugin.ProjectDatabaseConfig.settings(
+          root.resolve("src/main/resources")).get("migrax.package");
+    } catch (IOException ignored) {
+      configured = null;
+    }
+    if (configured != null && !configured.isBlank()) {
+      return configured.trim();
+    }
     Path pom = root.resolve("pom.xml");
-    return Files.isRegularFile(pom) ? mavenGroupId(pom) : null;
+    if (Files.isRegularFile(pom)) {
+      return mavenGroupId(pom);
+    }
+    for (String file : List.of("build.gradle.kts", "build.gradle")) {
+      Path build = root.resolve(file);
+      if (Files.isRegularFile(build)) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+            .compile("(?m)^\\s*group\\s*=\\s*[\"']([^\"']+)[\"']")
+            .matcher(Files.readString(build));
+        if (matcher.find()) {
+          return matcher.group(1);
+        }
+      }
+    }
+    return null;
   }
 
   static URLClassLoader runtimeLoader(Path root, String[] args) throws IOException {
-    Set<Path> entries = new LinkedHashSet<>();
-    String configured = firstNonBlank(
+    return runtimeLoader(root, explicitClasspath(args), List.of());
+  }
+
+  /** Returns the user-supplied classpath from --classpath, -Dmigrax.classpath or MIGRAX_CLASSPATH. */
+  static String explicitClasspath(String[] args) {
+    return firstNonBlank(
         option(args, "--classpath"),
         System.getProperty("migrax.classpath"), System.getenv("MIGRAX_CLASSPATH"));
-    if (configured != null) {
-      for (String item : configured.split(java.util.regex.Pattern.quote(java.io.File.pathSeparator))) {
+  }
+
+  /**
+   * Builds the class loader used to read the application's entities and JDBC driver.
+   *
+   * @param explicit user-supplied path list, or null
+   * @param resolved dependency entries resolved from the project's build tool
+   */
+  static URLClassLoader runtimeLoader(Path root, String explicit, List<Path> resolved)
+      throws IOException {
+    Set<Path> entries = new LinkedHashSet<>();
+    if (explicit != null) {
+      for (String item : explicit.split(java.util.regex.Pattern.quote(java.io.File.pathSeparator))) {
         if (!item.isBlank()) {
           Path path = Path.of(item.trim());
           entries.add((path.isAbsolute() ? path : root.resolve(path)).toAbsolutePath().normalize());
@@ -81,7 +119,9 @@ final class ProjectContext {
         entries.add(path.toAbsolutePath().normalize());
       }
     }
-    for (String directory : DEPENDENCY_DIRECTORIES) {
+    // Fallback folders are scanned only when the build tool did not resolve dependencies:
+    // build/libs usually holds the application's own packaged jar, which may be stale.
+    for (String directory : resolved.isEmpty() ? DEPENDENCY_DIRECTORIES : List.<String>of()) {
       Path path = root.resolve(directory);
       if (Files.isDirectory(path)) {
         try (var children = Files.list(path)) {
@@ -90,6 +130,12 @@ final class ProjectContext {
               .map(child -> child.toAbsolutePath().normalize())
               .forEach(entries::add);
         }
+      }
+    }
+
+    for (Path entry : resolved) {
+      if (Files.exists(entry)) {
+        entries.add(entry.toAbsolutePath().normalize());
       }
     }
 

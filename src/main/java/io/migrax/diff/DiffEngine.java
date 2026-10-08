@@ -5,6 +5,8 @@ import io.migrax.ops.AddColumn;
 import io.migrax.ops.AddForeignKey;
 import io.migrax.ops.AddIndex;
 import io.migrax.ops.AddPrimaryKey;
+import io.migrax.ops.AddUnique;
+import io.migrax.ops.DropUnique;
 import io.migrax.ops.AlterColumn;
 import io.migrax.ops.CreateSequence;
 import io.migrax.ops.CreateTable;
@@ -20,7 +22,28 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Compares two {@link SchemaModel} snapshots and calculates the ordered list of DDL
+ * {@link Operation}s required to transform the earlier schema into the newer schema.
+ *
+ * <p><strong>Note on column renames:</strong> Column name changes between snapshots produce
+ * a {@link io.migrax.ops.DropColumn} followed by an {@link io.migrax.ops.AddColumn} pair
+ * (a destructive change). To preserve table data on production systems, review the generated
+ * migration script and replace the drop/add pair with an explicit {@code RENAME COLUMN} operation
+ * before applying.
+ *
+ * @since 0.1.0
+ */
 public final class DiffEngine {
+
+  /**
+   * Computes the ordered schema migration operations between two models.
+   *
+   * @param before the baseline schema model
+   * @param after  the target schema model
+   * @return immutable ordered list of migration operations
+   * @since 0.1.0
+   */
   public List<Operation> diff(SchemaModel before, SchemaModel after) {
     List<Operation> drops = new ArrayList<>();
     List<Operation> changes = new ArrayList<>();
@@ -77,10 +100,21 @@ public final class DiffEngine {
       }
       for (SchemaModel.Column newColumn : newTable.columns()) {
         SchemaModel.Column oldColumn = oldTable.column(newColumn.name());
+        String uniqueName = SchemaModel.uniqueConstraintName(newTable.name(), newColumn.name());
         if (oldColumn == null) {
           changes.add(new AddColumn(newTable.name(), newColumn));
-        } else if (!sameColumn(oldColumn, newColumn)) {
+          if (newColumn.unique()) {
+            adds.add(new AddUnique(newTable.name(), newColumn.name(), uniqueName));
+          }
+          continue;
+        }
+        if (!sameColumn(oldColumn, newColumn)) {
           changes.add(new AlterColumn(newTable.name(), oldColumn, newColumn));
+        }
+        if (!oldColumn.unique() && newColumn.unique()) {
+          adds.add(new AddUnique(newTable.name(), newColumn.name(), uniqueName));
+        } else if (oldColumn.unique() && !newColumn.unique()) {
+          drops.add(new DropUnique(newTable.name(), newColumn.name(), uniqueName));
         }
       }
 
@@ -128,15 +162,20 @@ public final class DiffEngine {
         && before.columns().equals(after.columns());
   }
 
+  /**
+   * Compares what ALTER COLUMN can change. Uniqueness is handled with separate constraint
+   * operations, and the sequence behind an id is created or dropped on its own, so neither
+   * counts here.
+   */
   private static boolean sameColumn(SchemaModel.Column before, SchemaModel.Column after) {
     return before.name().equals(after.name())
         && before.nullable() == after.nullable()
-        && Objects.equals(before.length(), after.length())
+        && Objects.equals(SchemaModel.effectiveLength(before), SchemaModel.effectiveLength(after))
         && Objects.equals(before.precision(), after.precision())
         && Objects.equals(before.scale(), after.scale())
-        && before.unique() == after.unique()
         && before.identity() == after.identity()
-        && Objects.equals(before.sequenceName(), after.sequenceName())
+        && Objects.equals(AlterColumn.normalizeDefault(before.defaultValue()),
+            AlterColumn.normalizeDefault(after.defaultValue()))
         && Objects.equals(before.logicalType(), after.logicalType())
         && sameExplicitSqlType(before, after);
   }

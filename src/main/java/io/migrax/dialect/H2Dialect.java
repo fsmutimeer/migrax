@@ -1,11 +1,92 @@
 package io.migrax.dialect;
 
+import io.migrax.model.SchemaModel;
+import io.migrax.ops.AlterColumn;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * H2 database dialect (H2 2.x), for development and tests.
+ *
+ * @since 0.1.0
+ */
 public final class H2Dialect extends AbstractDialect {
-    @Override public String id() { return "h2"; }
+  private static final Set<String> RESERVED = Set.of(
+      "_rowid_", "array", "asymmetric", "authorization", "both", "cast", "current_catalog",
+      "current_path", "current_role", "current_schema", "day", "groups", "hour", "if", "ilike",
+      "interval", "key", "leading", "limit", "localtime", "localtimestamp", "minus", "minute",
+      "month", "offset", "over", "partition", "qualify", "range", "regexp", "row", "rownum",
+      "rows", "second", "symmetric", "system_user", "top", "trailing", "uescape", "unknown",
+      "value", "window", "year");
 
-    @Override protected String sequenceDefault(String name){return "NEXT VALUE FOR "+q(name);}
-    @Override protected String renderType(io.migrax.model.SchemaModel.Column c) { if(c.sqlType()!=null&&!c.sqlType().equalsIgnoreCase(c.logicalType())) return c.sqlType(); String t=c.logicalType(); if("varchar".equals(t))return "varchar("+(c.length()==null?255:c.length())+")"; if("bigint".equals(t))return "bigint"; if("integer".equals(t))return "integer"; if("decimal".equals(t))return c.precision()!=null?"numeric("+c.precision()+","+(c.scale()==null?0:c.scale())+")":"numeric"; if("double".equals(t))return "double"; if("float".equals(t))return "real"; if("timestamp".equals(t))return "timestamp"; if("boolean".equals(t))return "boolean"; if("uuid".equals(t))return "uuid"; if("blob".equals(t))return "blob"; return c.sqlType(); }
+  @Override
+  public String id() {
+    return "h2";
+  }
 
-    @Override public String quote(String identifier) { return "\"" + identifier.replace("\"", "\"\"") + "\""; }
-    @Override protected String dropIndex(String table, String name) { return "DROP INDEX " + q(name); }
+  @Override
+  protected Set<String> reservedWords() {
+    return RESERVED;
+  }
+
+  @Override
+  protected String sequenceDefault(String name) {
+    return "NEXT VALUE FOR " + q(name);
+  }
+
+  @Override
+  protected String logicalType(SchemaModel.Column c, String logical) {
+    return switch (logical) {
+      case "varchar", "nvarchar" -> "varchar(" + length(c) + ")";
+      case "text", "clob" -> "clob";
+      case "varbinary" -> "varbinary(" + length(c) + ")";
+      case "integer" -> "integer";
+      case "bigint" -> "bigint";
+      case "boolean" -> "boolean";
+      case "decimal" -> numeric("numeric", c, "numeric(38,2)");
+      case "double" -> "double precision";
+      case "float" -> "real";
+      case "uuid" -> "uuid";
+      case "date" -> "date";
+      case "time" -> "time";
+      case "timestamp" -> "timestamp(6)";
+      case "timestamptz" -> "timestamp(6) with time zone";
+      case "blob" -> "blob";
+      case "json" -> "json";
+      default -> null;
+    };
+  }
+
+  @Override
+  public String quote(String identifier) {
+    return "\"" + identifier.replace("\"", "\"\"") + "\"";
+  }
+
+  /** H2 changes type and nullability with separate statements. */
+  @Override
+  protected String alterColumn(AlterColumn change) {
+    SchemaModel.Column after = change.after();
+    String prefix = "ALTER TABLE " + q(change.table()) + " ALTER COLUMN " + q(after.name());
+    List<String> statements = new ArrayList<>();
+    if (change.typeChanged() || change.sizeChanged()) {
+      statements.add(prefix + " SET DATA TYPE " + renderType(after));
+    }
+    if (change.nullabilityChanged()) {
+      statements.add(prefix + (after.nullable() ? " SET NULL" : " SET NOT NULL"));
+    }
+    if (change.defaultChanged()) {
+      statements.add(prefix + (after.defaultValue() == null || after.defaultValue().isBlank()
+          ? " DROP DEFAULT" : " SET DEFAULT " + after.defaultValue()));
+    }
+    if (statements.isEmpty()) {
+      statements.add(prefix + " SET DATA TYPE " + renderType(after));
+    }
+    return String.join(";\n", statements);
+  }
+
+  @Override
+  protected String dropIndex(String table, String name) {
+    return "DROP INDEX " + q(name);
+  }
 }

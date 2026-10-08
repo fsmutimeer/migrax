@@ -174,4 +174,27 @@ class ProjectDatabaseConfigTest {
         .resolveMigrationDirectory(
             "classpath:../../outside", resources.getParent(), resources));
   }
+
+  @Test
+  void sanitizesCredentialsInJdbcUrls() {
+    assertEquals(
+        "jdbc:postgresql://user:***@localhost:5432/db",
+        io.migrax.plugin.RuntimeJdbc.sanitizeUrl("jdbc:postgresql://user:supersecret@localhost:5432/db"));
+    assertEquals(
+        "jdbc:mysql://localhost:3306/db?user=root&password=***",
+        io.migrax.plugin.RuntimeJdbc.sanitizeUrl("jdbc:mysql://localhost:3306/db?user=root&password=supersecret"));
+  }
+
+  @Test
+  void findsHibernateSchemaGenerationThatFightsWithMigrations() {
+    Map<String, String> config = new java.util.LinkedHashMap<>();
+    config.put("quarkus.hibernate-orm.schema-management.strategy", "update");
+    config.put("%dev.spring.jpa.hibernate.ddl-auto", "create-drop");
+    config.put("%test.quarkus.hibernate-orm.database.generation", "drop-and-create");
+    config.put("hibernate.hbm2ddl.auto", "validate");
+
+    assertEquals(java.util.List.of("quarkus.hibernate-orm.schema-management.strategy=update",
+            "%dev.spring.jpa.hibernate.ddl-auto=create-drop"),
+        ProjectDatabaseConfig.schemaGeneration(config));
+  }
 }

@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.os }}, Java ${{ matrix.java }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        java: ['17', '21']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+      # Unit tests, H2 + Hibernate schema validation, and the SpotBugs gate.
+      - run: mvn -B verify
+
+      - name: Smoke test the installed CLI (POSIX)
+        if: runner.os != 'Windows'
+        run: |
+          MIGRAX_INSTALL_DIR="$RUNNER_TEMP/migrax" MIGRAX_BIN_DIR="$RUNNER_TEMP/bin" sh install.sh
+          "$RUNNER_TEMP/bin/migrax" version
+          "$RUNNER_TEMP/bin/migrax" help
+      - name: Smoke test the installed CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File install.ps1 -InstallDir "$env:RUNNER_TEMP\migrax" -NoPathUpdate
+          & "$env:RUNNER_TEMP\migrax\bin\migrax.cmd" version
+          & "$env:RUNNER_TEMP\migrax\bin\migrax.cmd" help
+
+  integrations:
+    name: Spring Boot, Quarkus, Micronaut, Helidon and Gradle integrations
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -B install -DskipTests
+      # Real Spring Boot and Quarkus applications with Hibernate validating the migrated schema.
+      - run: mvn -B install -f integrations/pom.xml
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
+      - name: Gradle plugin smoke test
+        run: |
+          P="$RUNNER_TEMP/shop"
+          mkdir -p "$P/src/main/java/demo" "$P/src/main/resources"
+          printf 'pluginManagement { repositories { mavenLocal(); gradlePluginPortal() } }\nrootProject.name = "shop"\n' > "$P/settings.gradle.kts"
+          printf 'plugins { java; id("io.migrax") version "0.1.0" }\ngroup = "demo"\nrepositories { mavenLocal(); mavenCentral() }\ndependencies { implementation("jakarta.persistence:jakarta.persistence-api:3.1.0"); runtimeOnly("com.h2database:h2:2.3.232") }\n' > "$P/build.gradle.kts"
+          printf 'package demo;\nimport jakarta.persistence.*;\n@Entity public class Item { @Id @GeneratedValue Long id; String name; }\n' > "$P/src/main/java/demo/Item.java"
+          printf 'spring.datasource.url=jdbc:h2:file:./data/db\n' > "$P/src/main/resources/application.properties"
+          cd "$P" && gradle -q migraxGenerate migraxMigrate migraxStatus migraxVerify
+
+  hibernate:
+    name: Hibernate ${{ matrix.hibernate }}
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        # The newest patch of every minor version Migrax reads with Hibernate's own mapping.
+        hibernate: [5.4.33.Final, 5.5.9.Final, 5.6.15.Final, 6.0.2.Final, 6.1.7.Final,
+                    6.2.52.Final, 6.3.2.Final, 6.4.10.Final, 6.5.3.Final, 6.6.58.Final,
+                    7.0.10.Final, 7.1.36.Final, 7.2.25.Final, 7.3.13.Final, 7.4.12.Final]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -B install -DskipTests
+      - run: MIGRAX_INSTALL_DIR="$RUNNER_TEMP/migrax" MIGRAX_BIN_DIR="$RUNNER_TEMP/bin" sh install.sh
+      # Generates, migrates and verifies a fixture with that Hibernate version validating it.
+      - run: MIGRAX="$RUNNER_TEMP/bin/migrax" bash compat/hibernate/run.sh ${{ matrix.hibernate }}
+
+  databases:
+    name: Real databases (MySQL, MariaDB, PostgreSQL, SQL Server, Oracle)
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # Runs the migration runner and applies generated migrations on each engine, then starts
+      # Hibernate with schema validation against them.
+      - run: mvn -B verify -Pdatabase-integration
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: database-integration-reports
+          path: target/failsafe-reports/

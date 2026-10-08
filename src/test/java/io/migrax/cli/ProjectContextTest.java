@@ -49,4 +49,19 @@ class ProjectContextTest {
       assertTrue(loader.getResource("sample/runtime-marker.txt") != null);
     }
   }
+
+  @Test
+  void usesGradleGroupOrConfiguredPackage() throws Exception {
+    Path gradle = Files.createDirectories(directory.resolve("gradle-project"));
+    Files.writeString(gradle.resolve("build.gradle.kts"),
+        "plugins { java }\n\ngroup = \"com.example.shop\"\nversion = \"1.0\"\n");
+    org.junit.jupiter.api.Assertions.assertEquals("com.example.shop",
+        ProjectContext.packageName(gradle, null));
+
+    Files.createDirectories(gradle.resolve("src/main/resources"));
+    Files.writeString(gradle.resolve("src/main/resources/application.properties"),
+        "migrax.package=com.example.domain\n");
+    org.junit.jupiter.api.Assertions.assertEquals("com.example.domain",
+        ProjectContext.packageName(gradle, null));
+  }
 }

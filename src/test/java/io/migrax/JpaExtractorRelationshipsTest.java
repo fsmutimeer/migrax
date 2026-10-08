@@ -94,7 +94,7 @@ class JpaExtractorRelationshipsTest {
         "jdbc:h2:mem:relationship-ddl;DB_CLOSE_DELAY=-1")) {
       new MigrationRunner().migrate(connection, java.util.List.of(migration));
       try (var keys = connection.getMetaData().getImportedKeys(
-          connection.getCatalog(), "PUBLIC", "owner_target_link")) {
+          connection.getCatalog(), "PUBLIC", "OWNER_TARGET_LINK")) {
         int count = 0;
         while (keys.next()) {
           count++;
@@ -102,10 +102,10 @@ class JpaExtractorRelationshipsTest {
         assertEquals(2, count);
       }
       try (var keys = connection.getMetaData().getImportedKeys(
-          connection.getCatalog(), "PUBLIC", "mapping_child")) {
+          connection.getCatalog(), "PUBLIC", "MAPPING_CHILD")) {
         assertTrue(keys.next());
-        assertEquals("mapping_owner", keys.getString("PKTABLE_NAME"));
-        assertEquals("owner_ref", keys.getString("FKCOLUMN_NAME"));
+        assertEquals("MAPPING_OWNER", keys.getString("PKTABLE_NAME"));
+        assertEquals("OWNER_REF", keys.getString("FKCOLUMN_NAME"));
       }
     }
   }

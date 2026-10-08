@@ -1,0 +1,23 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.migrax</groupId>
+  <artifactId>migrax-integrations</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+  <name>Migrax integrations</name>
+  <description>
+    Framework integrations built on the core io.migrax:migrax artifact. Build the core first
+    (mvn install in the repository root), then this aggregator.
+  </description>
+
+  <modules>
+    <module>spring-boot-starter</module>
+    <module>quarkus</module>
+    <module>micronaut</module>
+    <module>helidon</module>
+    <module>gradle-plugin</module>
+    <module>gradle-plugin-marker</module>
+  </modules>
+</project>

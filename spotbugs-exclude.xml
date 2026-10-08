@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SpotBugs findings that are intended behavior for a migration tool. Every other finding at
+  Medium priority or higher fails `mvn verify`.
+-->
+<FindBugsFilter>
+  <!-- Executing SQL read from reviewed migration files is the runner's job. Dynamic parts of
+       the history-table statements are dialect keywords chosen by Migrax, never user input. -->
+  <Match>
+    <Class name="io.migrax.runner.MigrationRunner"/>
+    <Or>
+      <Bug pattern="SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE"/>
+      <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
+    </Or>
+  </Match>
+  <!-- Path.getFileName() and getParent() are only called on migration and snapshot files,
+       which always have a name and a parent folder. -->
+  <Match>
+    <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    <Or>
+      <Class name="io.migrax.runner.MigrationRunner"/>
+      <Class name="io.migrax.diff.Migrations"/>
+      <Class name="io.migrax.util.Json"/>
+      <Class name="io.migrax.cli.Main"/>
+      <Class name="io.migrax.importer.Importer"/>
+      <Class name="io.migrax.runner.Migration"/>
+      <Class name="io.migrax.runner.ClasspathMigrations"/>
+    </Or>
+  </Match>
+  <!-- doPrivileged belongs to the SecurityManager, which is deprecated for removal. -->
+  <Match>
+    <Bug pattern="DP_CREATE_CLASSLOADER_INSIDE_DO_PRIVILEGED"/>
+  </Match>
+</FindBugsFilter>

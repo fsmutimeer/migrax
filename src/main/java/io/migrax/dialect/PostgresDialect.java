@@ -1,12 +1,110 @@
 package io.migrax.dialect;
 
+import io.migrax.model.SchemaModel;
+import io.migrax.ops.AlterColumn;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * PostgreSQL database dialect.
+ *
+ * @since 0.1.0
+ */
 public final class PostgresDialect extends AbstractDialect {
-    @Override public String id() { return "postgresql"; }
+  private static final Set<String> RESERVED = Set.of(
+      "analyse", "analyze", "array", "asymmetric", "authorization", "binary", "both", "cast",
+      "collate", "collation", "concurrently", "current_catalog", "current_role",
+      "current_schema", "deferrable", "do", "freeze", "ilike", "initially", "isnull", "lateral",
+      "leading", "limit", "localtime", "localtimestamp", "notnull", "offset", "only", "overlaps",
+      "placing", "returning", "similar", "symmetric", "tablesample", "trailing", "variadic",
+      "verbose", "window");
 
-    @Override protected String renderType(io.migrax.model.SchemaModel.Column c) { if(c.sqlType()!=null&&!c.sqlType().equalsIgnoreCase(c.logicalType())) return c.sqlType(); String t=c.logicalType(); if ("varchar".equals(t)) return c.length()!=null?"varchar("+c.length()+")":"varchar(255)"; if("bigint".equals(t))return "bigint"; if("integer".equals(t))return "integer"; if("decimal".equals(t))return c.precision()!=null?"numeric("+c.precision()+","+(c.scale()==null?0:c.scale())+")":"numeric"; if("double".equals(t))return "double precision"; if("float".equals(t))return "real"; if("timestamp".equals(t))return "timestamp"; if("boolean".equals(t))return "boolean"; if("uuid".equals(t))return "uuid"; if("blob".equals(t))return "bytea"; return c.sqlType(); }
+  @Override
+  public String id() {
+    return "postgresql";
+  }
 
-    @Override public String quote(String identifier) { return "\"" + identifier.replace("\"", "\"\"") + "\""; }
-    @Override protected String alterColumn(String table, io.migrax.model.SchemaModel.Column before, io.migrax.model.SchemaModel.Column after) {
-        return "ALTER TABLE " + q(table) + " ALTER COLUMN " + q(after.name()) + " TYPE " + renderType(after) + ", ALTER COLUMN " + q(after.name()) + (after.nullable() ? " DROP NOT NULL" : " SET NOT NULL");
+  @Override
+  protected Set<String> reservedWords() {
+    return RESERVED;
+  }
+
+  @Override
+  protected String logicalType(SchemaModel.Column c, String logical) {
+    return switch (logical) {
+      case "varchar", "nvarchar" -> "varchar(" + length(c) + ")";
+      case "text" -> "text";
+      // Hibernate stores @Lob values as PostgreSQL large objects.
+      case "clob", "blob" -> "oid";
+      case "varbinary" -> "bytea";
+      case "integer" -> "integer";
+      case "bigint" -> "bigint";
+      case "boolean" -> "boolean";
+      case "decimal" -> numeric("numeric", c, "numeric(38,2)");
+      case "double" -> "double precision";
+      case "float" -> "real";
+      case "uuid" -> "uuid";
+      case "date" -> "date";
+      case "time" -> "time(6)";
+      case "timestamp" -> "timestamp(6)";
+      case "timestamptz" -> "timestamp(6) with time zone";
+      case "json" -> "jsonb";
+      default -> null;
+    };
+  }
+
+  /**
+   * Non-blocking form of an operation on an existing table, for migrations marked
+   * {@code -- migrax:no-transaction}: indexes are built CONCURRENTLY, unique constraints are
+   * attached to a concurrently built index, and foreign keys are added NOT VALID and then
+   * validated without blocking writes.
+   */
+  public String renderOnline(io.migrax.ops.Operation operation) {
+    if (operation instanceof io.migrax.ops.AddIndex x) {
+      return "CREATE " + (x.index().unique() ? "UNIQUE " : "") + "INDEX CONCURRENTLY "
+          + q(x.index().name()) + " ON " + q(x.table()) + " (" + join(x.index().columns()) + ")";
     }
+    if (operation instanceof io.migrax.ops.AddUnique x) {
+      return "CREATE UNIQUE INDEX CONCURRENTLY " + q(x.name()) + " ON " + q(x.table())
+          + " (" + q(x.column()) + ");\nALTER TABLE " + q(x.table()) + " ADD CONSTRAINT "
+          + q(x.name()) + " UNIQUE USING INDEX " + q(x.name());
+    }
+    if (operation instanceof io.migrax.ops.AddForeignKey x) {
+      return render(operation) + " NOT VALID;\nALTER TABLE " + q(x.table())
+          + " VALIDATE CONSTRAINT " + q(x.fk().name());
+    }
+    return render(operation);
+  }
+
+  @Override
+  public String quote(String identifier) {
+    return "\"" + identifier.replace("\"", "\"\"") + "\"";
+  }
+
+  /** Emits only the clauses that changed, combined into one ALTER TABLE. */
+  @Override
+  protected String alterColumn(AlterColumn change) {
+    SchemaModel.Column after = change.after();
+    String column = " ALTER COLUMN " + q(after.name());
+    List<String> clauses = new ArrayList<>();
+    if (change.typeChanged() || change.sizeChanged()) {
+      clauses.add(column + " TYPE " + renderType(after));
+    }
+    if (change.nullabilityChanged()) {
+      clauses.add(column + (after.nullable() ? " DROP NOT NULL" : " SET NOT NULL"));
+    }
+    if (change.defaultChanged()) {
+      clauses.add(column + (after.defaultValue() == null || after.defaultValue().isBlank()
+          ? " DROP DEFAULT" : " SET DEFAULT " + after.defaultValue()));
+    }
+    if (change.before().identity() != after.identity()) {
+      clauses.add(column + (after.identity()
+          ? " ADD GENERATED BY DEFAULT AS IDENTITY" : " DROP IDENTITY IF EXISTS"));
+    }
+    if (clauses.isEmpty()) {
+      clauses.add(column + " TYPE " + renderType(after));
+    }
+    return "ALTER TABLE " + q(change.table()) + String.join(",", clauses);
+  }
 }
