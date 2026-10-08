@@ -200,4 +200,28 @@ class MigrationRunnerTest {
       }
     }
   }
+
+  @Test
+  void sortsMigrationsNumericallySoTenDoesNotPrecedeTwo() throws Exception {
+    Path m2 = migrations.resolve("2_create_table.sql");
+    Files.writeString(m2, "CREATE TABLE authors (id BIGINT PRIMARY KEY, name VARCHAR(100));");
+
+    Path m10 = migrations.resolve("10_add_column.sql");
+    Files.writeString(m10, "ALTER TABLE authors ADD COLUMN bio VARCHAR(255);");
+
+    try (var connection = DriverManager.getConnection(
+        "jdbc:h2:mem:migration-numeric-sort;DB_CLOSE_DELAY=-1")) {
+      MigrationRunner runner = new MigrationRunner();
+      // Pass in reverse order (10 before 2); runner must sort numerically and apply 2 before 10
+      assertEquals(2, runner.migrate(connection, List.of(m10, m2)));
+
+      try (var statement = connection.createStatement();
+           var rows = statement.executeQuery("SELECT version FROM migrax_history ORDER BY applied_at")) {
+        rows.next();
+        assertEquals("2_create_table.sql", rows.getString(1));
+        rows.next();
+        assertEquals("10_add_column.sql", rows.getString(1));
+      }
+    }
+  }
 }

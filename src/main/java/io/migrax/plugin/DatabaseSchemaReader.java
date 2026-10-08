@@ -11,26 +11,136 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import io.migrax.util.Log;
 
 public final class DatabaseSchemaReader {
+
   private DatabaseSchemaReader() {}
 
   public static SchemaModel read(Connection connection) throws SQLException {
+    return read(connection, null);
+  }
+
+  public static SchemaModel read(Connection connection, String explicitSchema) throws SQLException {
     DatabaseMetaData metadata = connection.getMetaData();
     String catalog = connection.getCatalog();
-    String schema = connection.getSchema();
+    String schema = resolveSchema(connection, metadata, explicitSchema);
+    Log.debug("Reading database schema metadata for catalog '{}', schema '{}'", catalog, schema);
     List<SchemaModel.Table> tables = new ArrayList<>();
     try (ResultSet result = metadata.getTables(catalog, schema, "%", new String[]{"TABLE"})) {
       while (result.next()) {
         String name = result.getString("TABLE_NAME");
-        if (name == null || name.toLowerCase(java.util.Locale.ROOT).startsWith("migrax_")) {
+        String lower = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
+        if (name == null || lower.startsWith("migrax_") || lower.equals("flyway_schema_history")
+            || lower.equals("databasechangelog") || lower.equals("databasechangeloglock")
+            // SQL Server's master database reports these system tables as user tables.
+            || lower.startsWith("spt_") || lower.equals("msreplication_options")) {
           continue;
         }
         tables.add(readTable(metadata, catalog, schema, name));
       }
     }
-    tables.sort(Comparator.comparing(SchemaModel.Table::name));
-    return new SchemaModel(tables);
+    boolean upperCase = metadata.storesUpperCaseIdentifiers();
+    List<SchemaModel.Table> normalized = new ArrayList<>();
+    for (SchemaModel.Table table : tables) {
+      normalized.add(foldUniqueIndexes(upperCase ? lowerCaseNames(table) : table));
+    }
+    normalized.sort(Comparator.comparing(SchemaModel.Table::name));
+    return new SchemaModel(normalized);
+  }
+
+  /**
+   * H2 and Oracle store unquoted names in upper case. Entity names are compared in lower case,
+   * so upper-case names are lowercased; names that were created quoted in mixed or lower case
+   * keep their spelling.
+   */
+  private static SchemaModel.Table lowerCaseNames(SchemaModel.Table table) {
+    List<SchemaModel.Column> columns = table.columns().stream()
+        .map(c -> new SchemaModel.Column(fold(c.name()), c.sqlType(), c.nullable(), c.length(),
+            c.precision(), c.scale(), c.defaultValue(), c.unique(), c.identity(),
+            fold(c.sequenceName()), c.logicalType()))
+        .toList();
+    SchemaModel.PrimaryKey key = table.primaryKey() == null ? null
+        : new SchemaModel.PrimaryKey(fold(table.primaryKey().columns()),
+            fold(table.primaryKey().constraintName()));
+    List<SchemaModel.Index> indexes = table.indexes().stream()
+        .map(i -> new SchemaModel.Index(fold(i.name()), fold(i.columns()), i.unique()))
+        .toList();
+    List<SchemaModel.ForeignKey> keys = table.foreignKeys().stream()
+        .map(k -> new SchemaModel.ForeignKey(fold(k.name()), fold(k.columns()),
+            fold(k.referencedTable()), fold(k.referencedColumns())))
+        .toList();
+    return new SchemaModel.Table(fold(table.name()), columns, key, indexes, keys);
+  }
+
+  private static String fold(String name) {
+    return name != null && name.equals(name.toUpperCase(java.util.Locale.ROOT))
+        ? name.toLowerCase(java.util.Locale.ROOT)
+        : name;
+  }
+
+  private static List<String> fold(List<String> names) {
+    return names.stream().map(DatabaseSchemaReader::fold).toList();
+  }
+
+  /**
+   * A single-column unique index or constraint is how a unique column looks in the database.
+   * Recording it as the column's unique flag makes the baseline match the entity model.
+   */
+  private static SchemaModel.Table foldUniqueIndexes(SchemaModel.Table table) {
+    List<SchemaModel.Index> remaining = new ArrayList<>();
+    java.util.Set<String> uniqueColumns = new java.util.HashSet<>();
+    for (SchemaModel.Index index : table.indexes()) {
+      if (index.unique() && index.columns().size() == 1
+          && table.column(index.columns().get(0)) != null) {
+        uniqueColumns.add(index.columns().get(0));
+      } else {
+        remaining.add(index);
+      }
+    }
+    if (uniqueColumns.isEmpty()) {
+      return table;
+    }
+    List<SchemaModel.Column> columns = table.columns().stream()
+        .map(c -> uniqueColumns.contains(c.name())
+            ? new SchemaModel.Column(c.name(), c.sqlType(), c.nullable(), c.length(),
+                c.precision(), c.scale(), c.defaultValue(), true, c.identity(),
+                c.sequenceName(), c.logicalType())
+            : c)
+        .toList();
+    return new SchemaModel.Table(
+        table.name(), columns, table.primaryKey(), remaining, table.foreignKeys());
+  }
+
+  private static String resolveSchema(
+      Connection connection, DatabaseMetaData metadata, String explicitSchema) {
+    if (explicitSchema != null && !explicitSchema.isBlank()) {
+      return explicitSchema.trim();
+    }
+    String schema = null;
+    try {
+      schema = connection.getSchema();
+    } catch (Throwable ignored) {}
+    if (schema != null && !schema.isBlank()) {
+      return schema;
+    }
+    try {
+      String productName = metadata.getDatabaseProductName();
+      if (productName != null) {
+        String lower = productName.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("oracle")) {
+          String user = metadata.getUserName();
+          if (user != null && !user.isBlank()) {
+            return user.toUpperCase(java.util.Locale.ROOT);
+          }
+        } else if (lower.contains("microsoft") || lower.contains("sql server")) {
+          return "dbo";
+        } else if (lower.contains("postgres")) {
+          return "public";
+        }
+      }
+    } catch (Throwable ignored) {}
+    return null;
   }
 
   private static SchemaModel.Table readTable(
@@ -44,13 +154,27 @@ public final class DatabaseSchemaReader {
         if (result.wasNull()) {
           size = null;
         }
-        Integer length = "varchar".equals(logicalType) && size != null && size != 255
-            ? size
-            : null;
-        Integer precision = "decimal".equals(logicalType) ? size : null;
         int scaleValue = result.getInt("DECIMAL_DIGITS");
-        Integer scale = result.wasNull() || !"decimal".equals(logicalType) ? null : scaleValue;
-        String defaultValue = result.getString("COLUMN_DEF");
+        boolean noScale = result.wasNull() || scaleValue == 0;
+        // Oracle reports every integer type as NUMBER(p,0).
+        if ("decimal".equals(logicalType) && "number".equalsIgnoreCase(databaseType)
+            && noScale && size != null) {
+          logicalType = size == 1 ? "boolean" : size <= 10 ? "integer"
+              : size <= 19 ? "bigint" : logicalType;
+        }
+        boolean textual = "varchar".equals(logicalType) || "nvarchar".equals(logicalType)
+            || "varbinary".equals(logicalType);
+        Integer length = textual && size != null && size != 255 ? size : null;
+        Integer precision = "decimal".equals(logicalType) ? size : null;
+        Integer scale = "decimal".equals(logicalType) && !result.wasNull() ? scaleValue : null;
+        // Hibernate's default BigDecimal column is numeric(38,2), which entities leave unsized.
+        if (precision != null && precision == 38 && scale != null && scale == 2) {
+          precision = null;
+          scale = null;
+        }
+        // Databases report defaults in their own normalized form (for example
+        // 'x'::character varying), which would never match entity defaults; leave them out.
+        String defaultValue = null;
         String autoIncrement = optionalString(result, "IS_AUTOINCREMENT");
         columns.add(new SchemaModel.Column(
             result.getString("COLUMN_NAME"),
@@ -175,9 +299,22 @@ public final class DatabaseSchemaReader {
   private static String logicalType(String typeName, int jdbcType) {
     if (typeName != null) {
       String type = typeName.toLowerCase(java.util.Locale.ROOT);
+      if (type.contains("json")) return "json";
+      if (type.contains("uuid") || type.equals("uniqueidentifier")) return "uuid";
+      if (type.contains("time zone") || type.contains("datetimeoffset")
+          || type.equals("timestamptz")) return "timestamptz";
+      if (type.contains("clob")) return "clob";
       if (type.contains("text")) return "text";
+      if (type.equals("oid")) return "blob";
+      if (type.startsWith("datetime")) return "timestamp";
+      if (type.startsWith("nvarchar") || type.startsWith("nchar")) return "nvarchar";
       if (type.contains("char") || type.equals("enum")) return "varchar";
-      if (type.contains("int")) return type.contains("big") ? "bigint" : "integer";
+      // PostgreSQL reports int8/int4/int2 and bigserial; the JDBC type settles the size.
+      if (type.contains("int") || type.contains("serial")) {
+        return jdbcType == java.sql.Types.BIGINT || type.contains("big") || type.equals("int8")
+            ? "bigint" : "integer";
+      }
+      if (type.equals("float8")) return "double";
       if (type.contains("decimal") || type.contains("numeric")) return "decimal";
       if (type.contains("bool") || type.equals("bit")) return "boolean";
       if (type.contains("timestamp") || type.equals("datetime")) return "timestamp";
@@ -185,7 +322,8 @@ public final class DatabaseSchemaReader {
       if (type.equals("time")) return "time";
       if (type.contains("double")) return "double";
       if (type.contains("float") || type.contains("real")) return "float";
-      if (type.contains("blob") || type.contains("binary")) return "blob";
+      if (type.contains("blob")) return "blob";
+      if (type.contains("binary") || type.equals("bytea") || type.equals("raw")) return "varbinary";
       if (type.contains("uuid")) return "uuid";
     }
     return switch (jdbcType) {
@@ -198,8 +336,10 @@ public final class DatabaseSchemaReader {
       case java.sql.Types.TIMESTAMP, java.sql.Types.TIMESTAMP_WITH_TIMEZONE -> "timestamp";
       case java.sql.Types.DOUBLE -> "double";
       case java.sql.Types.FLOAT, java.sql.Types.REAL -> "float";
-      case java.sql.Types.BINARY, java.sql.Types.VARBINARY, java.sql.Types.LONGVARBINARY,
-          java.sql.Types.BLOB -> "blob";
+      case java.sql.Types.BINARY, java.sql.Types.VARBINARY, java.sql.Types.LONGVARBINARY ->
+          "varbinary";
+      case java.sql.Types.BLOB -> "blob";
+      case java.sql.Types.CLOB, java.sql.Types.NCLOB -> "clob";
       default -> "varchar";
     };
   }

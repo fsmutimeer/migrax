@@ -13,6 +13,7 @@ import java.util.HexFormat;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import io.migrax.util.Log;
 
 public final class DatabaseMigrationLock {
   private static final ConcurrentHashMap<String, ReentrantLock> H2_LOCKS = new ConcurrentHashMap<>();
@@ -22,6 +23,7 @@ public final class DatabaseMigrationLock {
   public static AutoCloseable acquire(Connection connection) throws SQLException {
     String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
     String resource = lockName(connection);
+    Log.debug("Acquiring migration lock for {} on {}", resource, product);
     if (product.contains("mysql") || product.contains("mariadb")) {
       try (PreparedStatement statement = connection.prepareStatement("SELECT GET_LOCK(?, 0)")) {
         statement.setString(1, resource);

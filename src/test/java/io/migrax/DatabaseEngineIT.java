@@ -47,6 +47,7 @@ class DatabaseEngineIT {
           grantOracleLockPermission(oracle);
         }
         exerciseRunner(container);
+        exerciseGeneratedSchema(container);
       }
     });
   }
@@ -60,6 +61,45 @@ class DatabaseEngineIT {
     try (Connection admin = DriverManager.getConnection(container.getJdbcUrl(), properties);
          Statement statement = admin.createStatement()) {
       statement.execute("GRANT EXECUTE ON SYS.DBMS_LOCK TO " + username);
+    }
+  }
+
+  /**
+   * The end-to-end proof for each engine: apply the migration Migrax generates for the fixture
+   * entities, then start Hibernate with schema validation and save and load rows.
+   */
+  private static void exerciseGeneratedSchema(JdbcDatabaseContainer<?> container)
+      throws Exception {
+    Path migrations = Files.createTempDirectory("migrax-generated-it");
+    try (Connection connection = DriverManager.getConnection(
+        container.getJdbcUrl(), container.getUsername(), container.getPassword())) {
+      // Start from a clean history; the runner checks above recorded their own files.
+      try (Statement statement = connection.createStatement()) {
+        statement.executeUpdate("DELETE FROM migrax_history");
+        statement.executeUpdate("DELETE FROM migrax_failures");
+      }
+      for (String probe : List.of("migration_probe", "partial_probe")) {
+        try (Statement statement = connection.createStatement()) {
+          statement.executeUpdate("DROP TABLE " + probe);
+        } catch (SQLException absent) {
+          // Engines with transactional DDL rolled the failed probe back.
+        }
+      }
+      io.migrax.dialect.Dialect dialect =
+          io.migrax.dialect.Dialects.fromJdbcUrl(container.getJdbcUrl());
+      HibernateValidationTest.generateAndApply(connection, io.migrax.model.NamingStrategy.SPRING,
+          dialect, migrations.resolve("0100_entities.sql"));
+      // The schema reader (used by drift and the first generate) must see exactly the
+      // schema Migrax created on this engine.
+      var expected = HibernateValidationTest.model(io.migrax.model.NamingStrategy.SPRING,
+          dialect, io.migrax.model.ModelExtractor.Mode.ANNOTATIONS);
+      var actual = io.migrax.plugin.DatabaseSchemaReader.read(connection);
+      assertEquals(List.of(), io.migrax.verify.SchemaComparator.compare(expected, actual,
+          dialect.id()).stream().map(Object::toString).toList(), dialect.id());
+    }
+    try (org.hibernate.SessionFactory factory = HibernateValidationTest.hibernate(
+        container.getJdbcUrl(), container.getUsername(), container.getPassword(), true)) {
+      HibernateValidationTest.persistAndQuery(factory);
     }
   }
 

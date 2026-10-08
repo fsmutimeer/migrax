@@ -36,4 +36,34 @@ class JsonTest {
     assertEquals(List.of("id"), restored.table("users").primaryKey().columns());
     assertNull(restored.table("users").primaryKey().constraintName());
   }
+
+  @Test
+  void throwsDescriptiveErrorOnMalformedOrTruncatedJson() {
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class, () -> Json.parse(""));
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class, () -> Json.parse("{\"tables\":"));
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class, () -> Json.parse("{\"tables\": [}"));
+    org.junit.jupiter.api.Assertions.assertThrows(
+        IllegalArgumentException.class, () -> Json.parse("{\"tables\": [{\"name\": \"unclosed"));
+  }
+
+  @Test
+  void escapesCarriageReturnAndTabInSnapshotStrings() {
+    var schema = new SchemaModel(List.of(new SchemaModel.Table(
+        "special_table",
+        List.of(new SchemaModel.Column(
+            "col", "varchar", true, null, null, null, "'val\rwith\ttab'", false, false, null, "varchar")),
+        null,
+        List.of(),
+        List.of())));
+
+    String json = Json.write(schema);
+    org.junit.jupiter.api.Assertions.assertTrue(json.contains("\\r"));
+    org.junit.jupiter.api.Assertions.assertTrue(json.contains("\\t"));
+
+    SchemaModel restored = Json.parse(json);
+    assertEquals("'val\rwith\ttab'", restored.table("special_table").columns().get(0).defaultValue());
+  }
 }
