@@ -1,0 +1,33 @@
+/* Hero on the home page */
+.mx-hero {
+  padding: 2.2rem 0 1rem;
+}
+.mx-hero h1 {
+  font-weight: 800;
+  font-size: 2.6rem;
+  line-height: 1.15;
+  margin-bottom: 0.6rem;
+}
+.mx-hero p.mx-tagline {
+  font-size: 1.15rem;
+  opacity: 0.85;
+  max-width: 44rem;
+}
+.mx-hero .md-button {
+  margin: 0.4rem 0.4rem 0 0;
+}
+
+/* Feature cards */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid > .card {
+  border-radius: 0.6rem;
+}
+
+/* Small badges in tables */
+.mx-ok { color: #2e7d32; font-weight: 600; }
+.mx-note { opacity: 0.8; font-size: 0.85em; }
+
+/* Terminal-looking output blocks */
+.md-typeset pre > code {
+  border-radius: 0.5rem;
+}

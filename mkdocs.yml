@@ -1,0 +1,119 @@
+site_name: Migrax
+site_description: Database migrations generated from your JPA entities, checked before they reach production.
+site_url: https://fsmutimeer.github.io/migrax/
+repo_url: https://github.com/fsmutimeer/migrax
+repo_name: fsmutimeer/migrax
+edit_uri: edit/main/docs/
+exclude_docs: |
+  requirements.txt
+copyright: Copyright &copy; 2026 Migrax contributors
+
+theme:
+  name: material
+  icon:
+    logo: material/database-arrow-up
+    repo: fontawesome/brands/github
+  favicon: assets/favicon.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+    - toc.follow
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quick start: getting-started/quickstart.md
+  - Guides:
+      - How Migrax works: guides/how-it-works.md
+      - Changing entities: guides/changing-entities.md
+      - Rollbacks and recovery: guides/rollbacks-and-recovery.md
+      - Working in a team: guides/team-workflow.md
+      - Continuous integration: guides/ci.md
+      - Production safety: guides/production-safety.md
+      - Advanced migrations: guides/advanced-migrations.md
+  - Frameworks:
+      - frameworks/index.md
+      - Spring Boot: frameworks/spring-boot.md
+      - Quarkus: frameworks/quarkus.md
+      - Micronaut: frameworks/micronaut.md
+      - Helidon: frameworks/helidon.md
+      - Jakarta EE and plain Hibernate: frameworks/jakarta-ee.md
+      - Maven plugin: frameworks/maven.md
+      - Gradle plugin: frameworks/gradle.md
+  - Reference:
+      - CLI commands: reference/cli.md
+      - Configuration: reference/configuration.md
+      - Naming strategies: reference/naming.md
+      - Databases: reference/databases.md
+      - Hibernate versions: reference/hibernate.md
+      - Lint rules: reference/lint-rules.md
+      - Troubleshooting: reference/troubleshooting.md
+      - Limitations: reference/limitations.md
+  - Project:
+      - Versioning and releases: project/versioning.md
+      - Contributing: project/contributing.md
+      - Changelog: project/changelog.md
