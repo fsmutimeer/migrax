@@ -76,7 +76,7 @@ change a command or option.
 ## Releases
 
 Versioning follows [Semantic Versioning](https://semver.org). See
-[Versioning and releases](https://fsmutimeer.github.io/migrax/project/versioning/) for the release steps; in short:
+[Versioning and releases](https://docs-migrax.github.io/project/versioning/) for the release steps; in short:
 
 ```bash
 git switch -c release/0.2.0 main
