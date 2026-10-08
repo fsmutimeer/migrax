@@ -4,6 +4,7 @@ git # Migrax
 [![Release](https://img.shields.io/github/v/release/fsmutimeer/migrax?sort=semver)](https://github.com/fsmutimeer/migrax/releases)
 [![Docs](https://img.shields.io/badge/docs-docs--migrax.github.io-3f51b5)](https://docs-migrax.github.io/)
 ![Java 17+](https://img.shields.io/badge/java-17%2B-orange)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **Your entities change. Migrax writes the migration.**
 
@@ -81,3 +82,7 @@ framework, CI and production safety.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for building, testing, branch and commit conventions.
 Versions follow [Semantic Versioning](https://semver.org); changes are listed in
 [CHANGELOG.md](CHANGELOG.md).
+
+## License
+
+Migrax is released under the [MIT License](LICENSE).

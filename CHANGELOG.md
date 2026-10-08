@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- MIT license.
+
 ## [0.1.0] - 2026-10-08
 
 First release.
