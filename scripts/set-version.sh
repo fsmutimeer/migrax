@@ -46,7 +46,8 @@ if [[ $NEW != *-* ]]; then
       -e "s/(io\.migrax:[a-z-]+:)$old/\1$NEW/g" \
       -e "s/(id\(\"io\.migrax\"\) version \")$old/\1$NEW/g" \
       -e "s/(fsmutimeer\/migrax@v)$old/\1$NEW/g" \
-      -e "s/(migrax |Migrax )$old/\1$NEW/g"
+      -e "s/(migrax |Migrax )$old/\1$NEW/g" \
+      -e "s/(migrax-)$old/\1$NEW/g"
   fi
 fi
 

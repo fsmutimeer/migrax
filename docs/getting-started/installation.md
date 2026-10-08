@@ -7,8 +7,16 @@ and no administrator rights are needed.
 
 === "From a release"
 
-    Download `migrax-<version>.zip` from the
-    [GitHub releases page](https://github.com/fsmutimeer/migrax/releases) and extract it.
+    1. Open the [GitHub releases page](https://github.com/fsmutimeer/migrax/releases).
+    2. Under **Assets** of the newest release, download **`migrax-<version>.zip`**.
+    3. Extract it (on Windows: right-click the file, **Extract All…**). You get a folder
+       `migrax-<version>` containing `install.ps1`, `install.sh`, `bin` and `lib`.
+
+    !!! warning "Download the `.zip`, not a `.jar`"
+
+        The release also lists `.jar` files. Those are libraries for build tools and
+        frameworks (the Maven plugin, the Gradle plugin, the startup integrations); they don't
+        contain the command line tool or the installer. Only the ZIP does.
 
 === "From source"
 
@@ -23,15 +31,20 @@ and no administrator rights are needed.
 
 ## 2. Run the installer
 
-From the extracted folder (or the source folder):
+Open a terminal **in the extracted folder** (or the source folder) and run the installer:
 
 === "Windows"
 
-    ```powershell
+    In Command Prompt or PowerShell, for example with the folder extracted to `D:\`:
+
+    ```bat
+    cd /d D:\migrax-0.1.0
     powershell -ExecutionPolicy Bypass -File install.ps1
     ```
 
-    Installs to `%LOCALAPPDATA%\migrax` and adds its `bin` folder to your user `PATH`.
+    (In PowerShell, use `cd D:\migrax-0.1.0`.) The installer copies Migrax to
+    `%LOCALAPPDATA%\migrax` and adds its `bin` folder to your user `PATH`. After that you can
+    delete the extracted folder and the ZIP.
 
 === "macOS and Linux"
 
@@ -44,6 +57,8 @@ From the extracted folder (or the source folder):
 
 ## 3. Check it
 
+**Close the terminal and open a new one**, then:
+
 ```console
 $ migrax version
 migrax 0.1.0
@@ -51,17 +66,26 @@ migrax 0.1.0
 
 !!! tip "`migrax` is not recognized?"
 
-    A terminal reads `PATH` once, when it starts. Windows that were already open before the
-    installer ran don't see the new entry, so open a new terminal.
+    A terminal reads `PATH` once, when it starts, so a window that was open while the installer
+    ran doesn't see the new entry: open a new terminal. Terminals inside an editor (VS Code,
+    IntelliJ IDEA) copy the editor's `PATH` from when the editor started, so close every editor
+    window and open it again.
 
-    Terminals inside an editor (VS Code, IntelliJ IDEA) copy the editor's `PATH` from when
-    the editor started: close every editor window and open it again.
+    To keep using the current window instead:
 
-    To use the current PowerShell window right away:
+    === "Command Prompt"
 
-    ```powershell
-    $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
-    ```
+        ```bat
+        set "PATH=%PATH%;%LOCALAPPDATA%\migrax\bin"
+        ```
+
+    === "PowerShell"
+
+        ```powershell
+        $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+        ```
+
+    The `D:\>` prompt is Command Prompt; `PS D:\>` is PowerShell. Their commands differ.
 
 ## Which Java does Migrax use?
 
@@ -85,6 +109,7 @@ Extra JVM options go in `MIGRAX_JAVA_OPTS`.
 ## Updating and uninstalling
 
 Run the installer of the new version again to update. To uninstall, delete the install folder
-and remove its `bin` folder from `PATH`.
+(`%LOCALAPPDATA%\migrax` on Windows, `~/.local/share/migrax` and the `~/.local/bin/migrax` link
+on macOS and Linux) and remove its `bin` folder from your user `PATH`.
 
 Next: [Quick start](quickstart.md).
