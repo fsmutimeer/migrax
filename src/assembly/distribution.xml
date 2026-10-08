@@ -17,10 +17,26 @@
       <source>${project.basedir}/bin/migrax</source>
       <outputDirectory>bin</outputDirectory>
       <fileMode>0755</fileMode>
+      <lineEnding>unix</lineEnding>
     </file>
     <file>
       <source>${project.basedir}/bin/migrax.cmd</source>
       <outputDirectory>bin</outputDirectory>
+      <lineEnding>dos</lineEnding>
+    </file>
+    <file>
+      <source>${project.basedir}/install.ps1</source>
+      <outputDirectory>.</outputDirectory>
+    </file>
+    <file>
+      <source>${project.basedir}/install.sh</source>
+      <outputDirectory>.</outputDirectory>
+      <fileMode>0755</fileMode>
+      <lineEnding>unix</lineEnding>
+    </file>
+    <file>
+      <source>${project.basedir}/README.md</source>
+      <outputDirectory>.</outputDirectory>
     </file>
   </files>
 </assembly>

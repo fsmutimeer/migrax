@@ -1,8 +1,27 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>io.migrax</groupId><artifactId>migrax</artifactId><version>0.1.0</version>
-  <properties><maven.compiler.release>17</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
+  <groupId>io.migrax</groupId>
+  <artifactId>migrax</artifactId>
+  <version>0.1.0</version>
   <packaging>maven-plugin</packaging>
+
+  <properties>
+    <maven.compiler.release>17</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>testcontainers-bom</artifactId>
+        <version>1.21.4</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.maven</groupId>
@@ -27,6 +46,13 @@
       <artifactId>junit-jupiter</artifactId>
       <version>5.11.4</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-core</artifactId>
+      <version>6.6.13.Final</version>
+      <!-- Compile-only: the io.migrax.orm adapter runs against the application's own Hibernate. -->
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>com.h2database</groupId>
@@ -127,6 +153,7 @@
           <archive>
             <manifest>
               <mainClass>io.migrax.cli.Main</mainClass>
+              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
             </manifest>
           </archive>
         </configuration>
@@ -137,7 +164,6 @@
         <version>3.15.1</version>
         <configuration>
           <goalPrefix>migrax</goalPrefix>
-          <skipDescriptor>true</skipDescriptor>
         </configuration>
       </plugin>
       <plugin>
@@ -160,6 +186,36 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>4.8.6.6</version>
+        <configuration>
+          <effort>Max</effort>
+          <threshold>Medium</threshold>
+          <failOnError>true</failOnError>
+          <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotbugs-check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.6.0</version>
+        <configuration>
+          <configLocation>google_checks.xml</configLocation>
+          <consoleOutput>true</consoleOutput>
+          <failsOnError>false</failsOnError>
+        </configuration>
       </plugin>
     </plugins>
   </build>

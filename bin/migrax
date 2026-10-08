@@ -1,12 +1,58 @@
 #!/usr/bin/env sh
+# Migrax launcher for macOS, Linux and other POSIX shells.
 set -eu
-SELF_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-if [ -f "$SELF_DIR/../lib/migrax.jar" ]; then
-  JAR="$SELF_DIR/../lib/migrax.jar"
-elif [ -f "$SELF_DIR/../target/migrax-0.1.0.jar" ]; then
-  JAR="$SELF_DIR/../target/migrax-0.1.0.jar"
+
+# Follow symlinks so the launcher also works when linked into ~/.local/bin.
+SELF="$0"
+while [ -h "$SELF" ]; do
+  LINK=$(readlink "$SELF")
+  case "$LINK" in
+    /*) SELF="$LINK" ;;
+    *) SELF="$(dirname -- "$SELF")/$LINK" ;;
+  esac
+done
+MIGRAX_HOME=$(CDPATH= cd -- "$(dirname -- "$SELF")/.." && pwd)
+
+JAR=""
+if [ -f "$MIGRAX_HOME/lib/migrax.jar" ]; then
+  JAR="$MIGRAX_HOME/lib/migrax.jar"
 else
-  echo "Migrax CLI JAR not found. Extract the CLI distribution or build the project first." >&2
+  for candidate in "$MIGRAX_HOME"/target/migrax-*.jar; do
+    case "$candidate" in
+      *-sources.jar|*-javadoc.jar) ;;
+      *) [ -f "$candidate" ] && JAR="$candidate" ;;
+    esac
+  done
+fi
+if [ -z "$JAR" ]; then
+  echo "migrax: the Migrax jar was not found. Reinstall Migrax, or run 'mvn package' in the Migrax source folder." >&2
   exit 1
 fi
-exec java -jar "$JAR" "$@"
+
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+  JAVA="$JAVA_HOME/bin/java"
+elif command -v java >/dev/null 2>&1; then
+  JAVA=java
+else
+  echo "migrax: Java 17 or newer is required. Install it, or set JAVA_HOME." >&2
+  exit 1
+fi
+
+JAVA_VERSION=$("$JAVA" -version 2>&1 | sed -n 's/.*version "\([0-9][0-9]*\).*/\1/p' | head -n 1)
+if [ -n "$JAVA_VERSION" ] && [ "$JAVA_VERSION" -lt 17 ] 2>/dev/null; then
+  echo "migrax: Java 17 or newer is required, but $JAVA is Java $JAVA_VERSION. Set JAVA_HOME to a newer JDK." >&2
+  exit 1
+fi
+
+# Java 19+ keeps a class-data archive of Migrax's classes, which makes every later start faster.
+# The JVM recreates it automatically when Migrax or Java changes. Set MIGRAX_NO_CDS=1 to skip.
+CDS=""
+if [ -z "${MIGRAX_NO_CDS:-}" ] && [ -n "$JAVA_VERSION" ] && [ "$JAVA_VERSION" -ge 19 ] 2>/dev/null; then
+  CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/migrax"
+  if mkdir -p "$CACHE" 2>/dev/null; then
+    CDS="-XX:+AutoCreateSharedArchive -XX:SharedArchiveFile=$CACHE/migrax-java$JAVA_VERSION.jsa -Xlog:cds*=off"
+  fi
+fi
+
+# shellcheck disable=SC2086
+exec "$JAVA" $CDS ${MIGRAX_JAVA_OPTS:-} -jar "$JAR" "$@"
