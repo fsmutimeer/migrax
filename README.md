@@ -1,8 +1,8 @@
-# Migrax
+git # Migrax
 
 [![CI](https://github.com/fsmutimeer/migrax/actions/workflows/ci.yml/badge.svg)](https://github.com/fsmutimeer/migrax/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/fsmutimeer/migrax?sort=semver)](https://github.com/fsmutimeer/migrax/releases)
-[![Docs](https://img.shields.io/badge/docs-fsmutimeer.github.io%2Fmigrax-3f51b5)](https://fsmutimeer.github.io/migrax/)
+[![Docs](https://img.shields.io/badge/docs-docs--migrax.github.io-3f51b5)](https://docs-migrax.github.io/)
 ![Java 17+](https://img.shields.io/badge/java-17%2B-orange)
 
 **Your entities change. Migrax writes the migration.**
@@ -11,9 +11,9 @@ Migrax reads your JPA entities, compares them with what your database looks like
 SQL migration for you, with a rollback script, linted for locking and data loss, and verified by
 your own Hibernate version before it reaches production.
 
-**[Documentation](https://fsmutimeer.github.io/migrax/)** ·
-[Quick start](https://fsmutimeer.github.io/migrax/getting-started/quickstart/) ·
-[CLI reference](https://fsmutimeer.github.io/migrax/reference/cli/) ·
+**[Documentation](https://docs-migrax.github.io/)** ·
+[Quick start](https://docs-migrax.github.io/getting-started/quickstart/) ·
+[CLI reference](https://docs-migrax.github.io/reference/cli/) ·
 [Changelog](CHANGELOG.md)
 
 ```console
@@ -73,7 +73,7 @@ migrax migrate     # applies it
 ```
 
 Then, every time you change an entity: `migrax generate` and `migrax migrate`.
-Read the [full documentation](https://fsmutimeer.github.io/migrax/) for guides on every
+Read the [full documentation](https://docs-migrax.github.io/) for guides on every
 framework, CI and production safety.
 
 ## Contributing

@@ -1,9 +1,7 @@
 site_name: Migrax
 site_description: Database migrations generated from your JPA entities, checked before they reach production.
-site_url: https://fsmutimeer.github.io/migrax/
-repo_url: https://github.com/fsmutimeer/migrax
-repo_name: fsmutimeer/migrax
-edit_uri: edit/main/docs/
+site_url: https://docs-migrax.github.io/
+# The source repository is private, so the site has no repository or "edit this page" links.
 exclude_docs: |
   requirements.txt
 copyright: Copyright &copy; 2026 Migrax contributors
@@ -12,7 +10,6 @@ theme:
   name: material
   icon:
     logo: material/database-arrow-up
-    repo: fontawesome/brands/github
   favicon: assets/favicon.svg
   palette:
     - media: "(prefers-color-scheme: light)"
@@ -45,7 +42,6 @@ theme:
     - content.code.copy
     - content.code.annotate
     - content.tabs.link
-    - content.action.edit
     - toc.follow
 
 extra_css:
