@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0-rc.3] - 2026-10-09
+
+Third release candidate for 0.2.0, for testing. It contains everything in 0.2.0-rc.2 and
+these changes (also released for 0.1 as 0.1.2).
+
 ### Added
 
 - `migrax repair <migration>... --action forget --yes` removes applied migrations whose files
@@ -136,7 +141,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.2...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.3...HEAD
+[0.2.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.2...v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.1...v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.2.0-rc.1
 [0.1.2]: https://github.com/fsmutimeer/migrax/compare/v0.1.1...v0.1.2
