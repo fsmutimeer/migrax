@@ -29,6 +29,10 @@ class DatabaseEngineIT {
     return Stream.of(
         database("MySQL 8", () -> new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+        // How MySQL runs on Windows and macOS: table names are stored in lower case.
+        database("MySQL 8 (lower_case_table_names=1)", () -> new MySQLContainer<>("mysql:8.4")
+            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")
+            .withCommand("--lower-case-table-names=1")),
         database("MariaDB 11", () -> new MariaDBContainer<>("mariadb:11.4")
             .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
         database("PostgreSQL 17", () -> new PostgreSQLContainer<>("postgres:17")
@@ -96,6 +100,20 @@ class DatabaseEngineIT {
       var actual = io.migrax.plugin.DatabaseSchemaReader.read(connection);
       assertEquals(List.of(), io.migrax.verify.SchemaComparator.compare(expected, actual,
           dialect.id()).stream().map(Object::toString).toList(), dialect.id());
+      // The first generate of a project compares the entities with the database. The database
+      // already matches them, so it must find nothing to change.
+      var previous = io.migrax.diff.DatabaseBaseline.read(connection, null, expected);
+      var current = io.migrax.diff.DatabaseBaseline.align(expected, previous, dialect);
+      assertEquals(List.of(), io.migrax.diff.Renames.diff(previous, current, List.of(), List.of())
+          .stream().map(dialect::render).toList(), dialect.id() + ": first generate");
+      // Most projects are read through Hibernate's own mapping, not annotation scanning.
+      var hibernate = HibernateValidationTest.model(io.migrax.model.NamingStrategy.SPRING,
+          dialect, io.migrax.model.ModelExtractor.Mode.HIBERNATE);
+      var fromDatabase = io.migrax.diff.DatabaseBaseline.read(connection, null, hibernate);
+      assertEquals(List.of(), io.migrax.diff.Renames.diff(fromDatabase,
+              io.migrax.diff.DatabaseBaseline.align(hibernate, fromDatabase, dialect),
+              List.of(), List.of()).stream().map(dialect::render).toList(),
+          dialect.id() + ": first generate with Hibernate's mapping");
     }
     try (org.hibernate.SessionFactory factory = HibernateValidationTest.hibernate(
         container.getJdbcUrl(), container.getUsername(), container.getPassword(), true)) {

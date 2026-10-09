@@ -6,6 +6,21 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-09
+
+### Fixed
+
+- More changes that weren't real in the first `generate` against an existing database, found
+  by a new test that runs it on MySQL (also with Windows-style lower-case table names),
+  MariaDB, PostgreSQL, SQL Server and Oracle, reading entities both through Hibernate and by
+  annotation scanning:
+  - PostgreSQL: ids that take their value from a sequence were seen as identity columns, and
+    the identity was dropped;
+  - SQL Server: `varchar(max)` and `varbinary(max)` columns were altered to themselves;
+  - MySQL: UUID columns (`binary(16)`) were altered to themselves; UUID columns are now kept
+    as they are, whether stored natively or as binary;
+  - `numeric` and `decimal` are treated as the same type.
+
 ## [0.1.2] - 2026-10-09
 
 ### Added
@@ -78,7 +93,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/fsmutimeer/migrax/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/fsmutimeer/migrax/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fsmutimeer/migrax/releases/tag/v0.1.0

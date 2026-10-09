@@ -16,6 +16,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseSchemaReaderTest {
   @Test
+  void readsTheSequenceBehindAColumnDefault() {
+    assertEquals("customer_seq",
+        DatabaseSchemaReader.defaultSequence("nextval('customer_seq'::regclass)"));
+    assertEquals("Orders_SEQ",
+        DatabaseSchemaReader.defaultSequence("nextval('public.\"Orders_SEQ\"'::regclass)"));
+    assertEquals(null, DatabaseSchemaReader.defaultSequence("'draft'::character varying"));
+    assertEquals(null, DatabaseSchemaReader.defaultSequence(null));
+  }
+
+  @Test
   void readsSchemaMetadataForAnExistingDatabaseBaseline() throws Exception {
     try (var connection = DriverManager.getConnection("jdbc:h2:mem:baseline-reader")) {
       try (var statement = connection.createStatement()) {

@@ -1,6 +1,6 @@
 # Limitations
 
-Known limits in Migrax 0.1.2:
+Known limits in Migrax 0.1.3:
 
 - **Check constraints and comments** (`@Check`, `@Comment`, enum check constraints) are not
   generated. Add them with a hand-written migration (`migrax new`).

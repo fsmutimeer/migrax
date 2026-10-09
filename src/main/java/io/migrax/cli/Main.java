@@ -3,6 +3,7 @@ package io.migrax.cli;
 import io.migrax.dialect.Dialect;
 import io.migrax.dialect.Dialects;
 import io.migrax.dialect.PostgresDialect;
+import io.migrax.diff.DatabaseBaseline;
 import io.migrax.diff.Migrations;
 import io.migrax.diff.Renames;
 import io.migrax.diff.SnapshotStore;
@@ -589,18 +590,13 @@ public final class Main {
       previous = SnapshotStore.load(project.snapshot());
     } else if (useDatabaseBaseline) {
       try (Connection connection = project.connect()) {
-        previous = DatabaseSchemaReader.read(connection, args.option("--schema"))
-            .withSequencesFrom(current, DatabaseSchemaReader.sequenceNames(connection));
-        if (DatabaseSchemaReader.foldsNames(connection)) {
-          previous = previous.withNameCaseFrom(current);
-        }
+        previous = DatabaseBaseline.read(connection, args.option("--schema"), current);
       }
       Log.info("No snapshot yet: using the current database schema as the baseline.");
     } else {
       previous = SchemaModel.empty();
     }
-    current = current.withConstraintNamesFrom(previous)
-        .withCompatibleTypesFrom(previous, (existing, wanted) -> sameType(dialect, existing, wanted));
+    current = DatabaseBaseline.align(current, previous, dialect);
 
     List<Renames.TableRename> tables =
         new ArrayList<>(Renames.parseTables(args.option("--rename-table")));
@@ -1215,16 +1211,6 @@ public final class Main {
   private static boolean hasHistory(Project project) throws Exception {
     try (Connection connection = project.connect()) {
       return !new MigrationRunner().applied(connection).isEmpty();
-    }
-  }
-
-  /** True when the dialect writes the same SQL type for both columns. */
-  private static boolean sameType(Dialect dialect, SchemaModel.Column existing,
-                                  SchemaModel.Column wanted) {
-    try {
-      return dialect.columnType(existing).equalsIgnoreCase(dialect.columnType(wanted));
-    } catch (RuntimeException e) {
-      return false; // a type this dialect can't write: let the normal comparison decide
     }
   }
 
