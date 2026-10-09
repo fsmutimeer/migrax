@@ -2,7 +2,7 @@ git # Migrax
 
 [![CI](https://github.com/fsmutimeer/migrax/actions/workflows/ci.yml/badge.svg)](https://github.com/fsmutimeer/migrax/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/fsmutimeer/migrax?sort=semver)](https://github.com/fsmutimeer/migrax/releases)
-[![Docs](https://img.shields.io/badge/docs-docs--migrax.github.io-3f51b5)](https://docs-migrax.github.io/)
+[![Docs](https://img.shields.io/badge/docs-docs--migrax.github.io-e53935)](https://docs-migrax.github.io/)
 ![Java 17+](https://img.shields.io/badge/java-17%2B-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
