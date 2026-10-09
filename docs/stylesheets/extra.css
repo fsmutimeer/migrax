@@ -27,12 +27,26 @@
 }
 
 /* ---------------------------------------------------------------- header */
+/* The blur sits on a layer behind the header: backdrop-filter on the header itself would
+   make it the containing block of the fixed search panel and clip the search results. */
 .md-header,
 .md-tabs {
+  background: transparent;
+  color: #fff;
+}
+.md-header::before,
+.md-tabs::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: rgba(10, 10, 15, 0.94);
   backdrop-filter: saturate(180%) blur(14px);
   -webkit-backdrop-filter: saturate(180%) blur(14px);
-  color: #fff;
+}
+.md-tabs {
+  position: relative;
+  z-index: 0;
 }
 .md-header {
   box-shadow: none;
@@ -654,7 +668,15 @@
   .mx-hero { padding: 2.5rem 0 1.5rem; }
   .mx-hero__inner, .mx-stats { padding: 0 0.8rem; }
   .mx-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 2rem; }
-  .mx-steps { grid-template-columns: 1fr; }
+  .mx-steps { grid-template-columns: 1fr; gap: 0.8rem; }
+  .mx-step {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.9rem;
+    padding: 1rem 1.1rem;
+  }
+  .mx-step__num { grid-row: span 2; }
+  .md-typeset .mx-step h3 { margin: 0.15rem 0 0.25rem; }
   .mx-terminal__body, .md-typeset .mx-terminal__body { height: 18rem; font-size: 0.64rem; }
   .mx-stack__label { width: 100%; }
 }
@@ -703,4 +725,18 @@
     transition: none !important;
   }
   .mx-js .mx-reveal { opacity: 1; transform: none; }
+}
+
+/* Download page file tables (scripts/fetch-releases.py wraps them in .mx-files) */
+/* File names wrap only at their hyphens, never inside a word. */
+.md-typeset .mx-files code {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .mx-files th:nth-child(4),
+  .md-typeset .mx-files td:nth-child(4) {
+    display: none;
+  }
 }
