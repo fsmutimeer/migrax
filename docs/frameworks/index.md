@@ -22,7 +22,7 @@ Build tools: [Maven plugin](maven.md) and [Gradle plugin](gradle.md).
 
 !!! info "Getting the integration libraries"
 
-    Migrax 0.1.0 is not published to Maven Central yet. Install the libraries into your local
+    Migrax 0.1.1 is not published to Maven Central yet. Install the libraries into your local
     Maven repository from the source:
 
     ```bash
