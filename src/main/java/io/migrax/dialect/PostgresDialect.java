@@ -2,6 +2,10 @@ package io.migrax.dialect;
 
 import io.migrax.model.SchemaModel;
 import io.migrax.ops.AlterColumn;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -111,5 +115,32 @@ public final class PostgresDialect extends AbstractDialect {
       clauses.add(column + " TYPE " + renderType(after));
     }
     return "ALTER TABLE " + q(change.table()) + String.join(",", clauses);
+  }
+
+  /** A session-level advisory lock. */
+  @Override
+  public AutoCloseable acquireMigrationLock(Connection connection, String resource)
+      throws SQLException {
+    long key = lockKey(resource);
+    try (PreparedStatement statement =
+             connection.prepareStatement("SELECT pg_try_advisory_lock(?)")) {
+      statement.setLong(1, key);
+      try (ResultSet result = statement.executeQuery()) {
+        if (!result.next() || !result.getBoolean(1)) {
+          throw new SQLException("Another Migrax process is applying migrations.");
+        }
+      }
+    }
+    return () -> {
+      try (PreparedStatement statement =
+               connection.prepareStatement("SELECT pg_advisory_unlock(?)")) {
+        statement.setLong(1, key);
+        try (ResultSet result = statement.executeQuery()) {
+          if (!result.next() || !result.getBoolean(1)) {
+            throw new SQLException("Could not release the PostgreSQL migration lock.");
+          }
+        }
+      }
+    };
   }
 }

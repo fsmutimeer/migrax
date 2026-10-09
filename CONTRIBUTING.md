@@ -77,13 +77,17 @@ operations and lint findings) and `Errors`.
 
 ### Adding a database
 
-1. Create a dialect in `io.migrax.dialect` extending `AbstractDialect`: `id()` (also the JDBC
-   URL prefix, `jdbc:<id>:`, unless you override `acceptsUrl`), `logicalType()` for the column
-   types, and `aliases()` if the database has other common names.
+1. Create a dialect in `io.migrax.dialect` extending `AbstractDialect`:
+   - `id()`, which is also matched against the JDBC URL prefix (`jdbc:<id>:`) and the
+     database's product name; override `acceptsUrl` or `acceptsProduct` when they differ;
+   - `logicalType()` for the column types;
+   - `acquireMigrationLock()`, the database lock that keeps two Migrax processes from migrating
+     at once. It must fail at once instead of waiting. Without it, Migrax refuses to migrate;
+   - `aliases()` if the database has other common names.
 2. List the class in `src/main/resources/META-INF/services/io.migrax.dialect.Dialect`.
-   `--dialect`, detection from the JDBC URL and the help texts pick it up from there.
-3. Add migration locking for the database in `runner/DatabaseMigrationLock`.
-4. Add it to the real-database suite (`DatabaseEngineIT`) and to `DialectTest`.
+   `--dialect`, detection from the JDBC URL, locking, `migrax doctor` and the help texts pick
+   it up from there.
+3. Add it to the real-database suite (`DatabaseEngineIT`) and to `DialectTest`.
 
 ## Branches
 

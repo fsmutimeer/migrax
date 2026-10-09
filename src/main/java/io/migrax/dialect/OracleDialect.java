@@ -2,6 +2,10 @@ package io.migrax.dialect;
 
 import io.migrax.model.SchemaModel;
 import io.migrax.ops.AlterColumn;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Set;
 
 /**
@@ -101,5 +105,38 @@ public final class OracleDialect extends AbstractDialect {
   @Override
   protected String dropIndex(String table, String name) {
     return "DROP INDEX " + q(name);
+  }
+
+  /**
+   * An exclusive DBMS_LOCK lock held by the session; the migration account needs EXECUTE on
+   * DBMS_LOCK.
+   */
+  @Override
+  public AutoCloseable acquireMigrationLock(Connection connection, String resource)
+      throws SQLException {
+    int key = Math.floorMod(lockKey(resource), 1_073_741_823) + 1;
+    try (CallableStatement statement =
+             connection.prepareCall("{? = call DBMS_LOCK.REQUEST(?, 6, 0, FALSE)}")) {
+      statement.registerOutParameter(1, Types.INTEGER);
+      statement.setInt(2, key);
+      statement.execute();
+      int status = statement.getInt(1);
+      if (status != 0 && status != 4) {
+        throw new SQLException("Oracle migration lock request failed with status " + status
+            + ". The service account may need EXECUTE on DBMS_LOCK.");
+      }
+    }
+    return () -> {
+      try (CallableStatement statement =
+               connection.prepareCall("{? = call DBMS_LOCK.RELEASE(?)}")) {
+        statement.registerOutParameter(1, Types.INTEGER);
+        statement.setInt(2, key);
+        statement.execute();
+        int status = statement.getInt(1);
+        if (status != 0) {
+          throw new SQLException("Oracle migration lock release failed with status " + status);
+        }
+      }
+    };
   }
 }

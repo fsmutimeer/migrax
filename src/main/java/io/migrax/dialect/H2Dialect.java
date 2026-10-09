@@ -2,9 +2,13 @@ package io.migrax.dialect;
 
 import io.migrax.model.SchemaModel;
 import io.migrax.ops.AlterColumn;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * H2 database dialect (H2 2.x), for development and tests.
@@ -12,6 +16,9 @@ import java.util.Set;
  * @since 0.1.0
  */
 public final class H2Dialect extends AbstractDialect {
+  /** Migration locks per database URL; shared by every instance. */
+  private static final ConcurrentHashMap<String, ReentrantLock> LOCKS = new ConcurrentHashMap<>();
+
   private static final Set<String> RESERVED = Set.of(
       "_rowid_", "array", "asymmetric", "authorization", "both", "cast", "current_catalog",
       "current_path", "current_role", "current_schema", "day", "groups", "hour", "if", "ilike",
@@ -88,5 +95,17 @@ public final class H2Dialect extends AbstractDialect {
   @Override
   protected String dropIndex(String table, String name) {
     return "DROP INDEX " + q(name);
+  }
+
+  /** H2 has no lock across processes: this one only stops other Migrax runs in this JVM. */
+  @Override
+  public AutoCloseable acquireMigrationLock(Connection connection, String resource)
+      throws SQLException {
+    String url = connection.getMetaData().getURL();
+    ReentrantLock localLock = LOCKS.computeIfAbsent(url, ignored -> new ReentrantLock());
+    if (!localLock.tryLock()) {
+      throw new SQLException("Another Migrax invocation in this JVM is applying migrations.");
+    }
+    return localLock::unlock;
   }
 }

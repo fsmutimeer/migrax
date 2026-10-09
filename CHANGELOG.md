@@ -12,11 +12,13 @@ All notable changes to Migrax are listed here. The format follows
 - Download page on the documentation site, hosting every release's files with SHA-256
   checksums, updated automatically after each release.
 - Database dialects are found with `java.util.ServiceLoader`
-  (`META-INF/services/io.migrax.dialect.Dialect`), so a new database needs no change to
-  existing code.
+  (`META-INF/services/io.migrax.dialect.Dialect`), and each dialect brings its own migration
+  lock, so a new database needs no change to existing code.
 
 ### Changed
 
+- `migrax doctor` checks locking by taking and releasing the migration lock, so a missing
+  permission (for example EXECUTE on DBMS_LOCK on Oracle) shows up before `migrate`.
 - The CLI is split into one class per command; the commands and their output are unchanged.
   `CONTRIBUTING.md` explains how to add a command or a database.
 

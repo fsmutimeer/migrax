@@ -3,6 +3,7 @@ package io.migrax.dialect;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.ServiceLoader;
 
 /**
@@ -60,6 +61,24 @@ public final class Dialects {
     }
     throw new IllegalArgumentException(
         "Unknown dialect '" + name + "'. Supported: " + String.join(", ", NAMES) + ".");
+  }
+
+  /**
+   * Resolves the dialect for a connection's database product name, for example
+   * {@code PostgreSQL} or {@code Microsoft SQL Server}.
+   *
+   * @param productName {@link java.sql.DatabaseMetaData#getDatabaseProductName()}
+   * @return the matching dialect, or empty when no registered dialect handles the database
+   * @since 0.1.0
+   */
+  public static Optional<Dialect> forProduct(String productName) {
+    String product = productName == null ? "" : productName.toLowerCase(Locale.ROOT);
+    for (Dialect dialect : available()) {
+      if (dialect.acceptsProduct(product)) {
+        return Optional.of(dialect);
+      }
+    }
+    return Optional.empty();
   }
 
   /** New instances of every registered dialect. */

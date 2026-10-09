@@ -237,4 +237,15 @@ public abstract class AbstractDialect implements Dialect {
   protected String dropSequence(String name) {
     return "DROP SEQUENCE " + q(name);
   }
+
+  /** A numeric lock id derived from a lock name, for databases whose locks take numbers. */
+  protected static long lockKey(String resource) {
+    try {
+      byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
+          .digest(resource.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      return java.nio.ByteBuffer.wrap(hash).getLong();
+    } catch (java.security.NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 is unavailable.", e);
+    }
+  }
 }

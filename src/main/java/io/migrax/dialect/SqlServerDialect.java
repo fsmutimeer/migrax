@@ -1,6 +1,10 @@
 package io.migrax.dialect;
 
 import io.migrax.model.SchemaModel;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Set;
 
 /**
@@ -135,5 +139,42 @@ public final class SqlServerDialect extends AbstractDialect {
   protected String renameColumn(String table, String from, String to) {
     return "EXEC sp_rename '" + table.replace("'", "''") + "." + from.replace("'", "''")
         + "', '" + to.replace("'", "''") + "', 'COLUMN'";
+  }
+
+  @Override
+  public boolean acceptsProduct(String productName) {
+    return productName.contains("microsoft sql server");
+  }
+
+  /** An exclusive application lock (sp_getapplock) owned by the session. */
+  @Override
+  public AutoCloseable acquireMigrationLock(Connection connection, String resource)
+      throws SQLException {
+    String sql = "DECLARE @result int; "
+        + "EXEC @result = sp_getapplock @Resource=?, @LockMode='Exclusive', "
+        + "@LockOwner='Session', @LockTimeout=0; SELECT @result";
+    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setString(1, resource);
+      try (ResultSet result = statement.executeQuery()) {
+        if (!result.next() || result.getInt(1) < 0) {
+          throw new SQLException("Another Migrax process is applying migrations.");
+        }
+      }
+    }
+    return () -> releaseMigrationLock(connection, resource);
+  }
+
+  private static void releaseMigrationLock(Connection connection, String resource)
+      throws SQLException {
+    String sql = "DECLARE @result int; "
+        + "EXEC @result = sp_releaseapplock @Resource=?, @LockOwner='Session'; SELECT @result";
+    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setString(1, resource);
+      try (ResultSet result = statement.executeQuery()) {
+        if (!result.next() || result.getInt(1) < 0) {
+          throw new SQLException("Could not release the SQL Server migration lock.");
+        }
+      }
+    }
   }
 }
