@@ -192,9 +192,64 @@ public final class DatabaseSchemaReader {
     }
 
     SchemaModel.PrimaryKey primaryKey = readPrimaryKey(metadata, catalog, schema, table);
-    List<SchemaModel.Index> indexes = readIndexes(metadata, catalog, schema, table);
     List<SchemaModel.ForeignKey> foreignKeys = readForeignKeys(metadata, catalog, schema, table);
+    List<SchemaModel.Index> indexes = readIndexes(metadata, catalog, schema, table).stream()
+        .filter(index -> !backsForeignKey(index, foreignKeys))
+        .toList();
     return new SchemaModel.Table(table, columns, primaryKey, indexes, foreignKeys);
+  }
+
+  /**
+   * MySQL and MariaDB create an index for every foreign key that has none, named like the key.
+   * It belongs to the foreign key, not to the entity model, so it is not reported as an index
+   * (otherwise the first generate, which compares with the database, would drop it).
+   */
+  private static boolean backsForeignKey(SchemaModel.Index index,
+                                         List<SchemaModel.ForeignKey> foreignKeys) {
+    return !index.unique() && foreignKeys.stream().anyMatch(key ->
+        key.name().equalsIgnoreCase(index.name()) && key.columns().equals(index.columns()));
+  }
+
+  /**
+   * Names of the sequences in the database, in lower case; empty when the database has none or
+   * they can't be listed. Tries the standard view (PostgreSQL, H2, SQL Server), then MariaDB's and
+   * Oracle's own listings.
+   */
+  public static java.util.Set<String> sequenceNames(Connection connection) {
+    java.util.Set<String> names = new java.util.HashSet<>();
+    for (String sql : List.of(
+        "SELECT sequence_name FROM information_schema.sequences",
+        "SELECT table_name FROM information_schema.tables WHERE table_type = 'SEQUENCE' "
+            + "AND table_schema = DATABASE()",
+        "SELECT sequence_name FROM user_sequences")) {
+      try (java.sql.Statement statement = connection.createStatement();
+           ResultSet result = statement.executeQuery(sql)) {
+        while (result.next()) {
+          String name = result.getString(1);
+          if (name != null) {
+            names.add(name.toLowerCase(java.util.Locale.ROOT));
+          }
+        }
+      } catch (SQLException e) {
+        // This database doesn't have that listing; try the next one.
+        Log.debug("Sequence listing not available ({}): {}", sql, e.getMessage());
+      }
+    }
+    return names;
+  }
+
+  /**
+   * True when the database treats unquoted table names case-insensitively, by storing them in
+   * one case: MySQL with lower_case_table_names set (the Windows and macOS default), PostgreSQL,
+   * H2 and Oracle.
+   */
+  public static boolean foldsNames(Connection connection) {
+    try {
+      DatabaseMetaData metadata = connection.getMetaData();
+      return metadata.storesLowerCaseIdentifiers() || metadata.storesUpperCaseIdentifiers();
+    } catch (SQLException e) {
+      return false;
+    }
   }
 
   private static SchemaModel.PrimaryKey readPrimaryKey(
