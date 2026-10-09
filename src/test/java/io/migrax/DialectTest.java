@@ -38,6 +38,15 @@ class DialectTest {
     assertThrows(IllegalArgumentException.class, () -> Dialects.byName("sqlite"));
   }
 
+  @Test void registeredDialectsAreFoundByNameAndAlias() {
+    assertEquals(List.of("postgresql", "mysql", "mariadb", "sqlserver", "oracle", "h2"),
+        Dialects.NAMES);
+    assertEquals("postgresql", Dialects.byName("pg").id());
+    assertEquals("postgresql", Dialects.byName(" Postgres ").id());
+    assertEquals("sqlserver", Dialects.byName("mssql").id());
+    assertNotSame(Dialects.byName("h2"), Dialects.byName("h2"));
+  }
+
   @Test
   void unsupportedUrlErrorsDoNotLeakCredentials() {
     var error = assertThrows(IllegalArgumentException.class,

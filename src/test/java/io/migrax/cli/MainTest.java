@@ -109,7 +109,7 @@ class MainTest {
   void checkExitsWithTwoWhenEntitiesHaveNoMigration() throws Exception {
     setUpProject("migrax_cli_check");
     Result changed = inProject("check");
-    assertEquals(Main.CHANGES_DETECTED, changed.code(), changed.out() + changed.err());
+    assertEquals(ExitCode.CHANGES_DETECTED, changed.code(), changed.out() + changed.err());
     assertTrue(changed.err().contains("migrax generate"), changed.err());
 
     assertEquals(0, inProject("generate").code());

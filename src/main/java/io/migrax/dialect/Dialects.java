@@ -1,13 +1,20 @@
 package io.migrax.dialect;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
+import java.util.ServiceLoader;
 
 /**
- * Factory for creating dialect instances based on JDBC connection URLs.
+ * Finds the {@link Dialect} for a name or JDBC URL among the dialects registered in
+ * {@code META-INF/services/io.migrax.dialect.Dialect}. Adding a database needs no change here.
  *
  * @since 0.1.0
  */
 public final class Dialects {
+
+  /** Dialect names accepted by {@link #byName(String)}, in registration order. */
+  public static final List<String> NAMES = available().stream().map(Dialect::id).toList();
 
   private Dialects() {}
 
@@ -24,40 +31,41 @@ public final class Dialects {
       throw new IllegalArgumentException("JDBC URL is required");
     }
     String u = url.toLowerCase(Locale.ROOT);
-    if (u.startsWith("jdbc:postgresql:")) return new PostgresDialect();
-    if (u.startsWith("jdbc:mysql:")) return new MySqlDialect();
-    if (u.startsWith("jdbc:mariadb:")) return new MariaDbDialect();
-    if (u.startsWith("jdbc:sqlserver:")) return new SqlServerDialect();
-    if (u.startsWith("jdbc:oracle:")) return new OracleDialect();
-    if (u.startsWith("jdbc:h2:")) return new H2Dialect();
+    for (Dialect dialect : available()) {
+      if (dialect.acceptsUrl(u)) {
+        return dialect;
+      }
+    }
     int scheme = u.indexOf(':', "jdbc:".length());
     throw new IllegalArgumentException("Unsupported database in JDBC URL '"
         + (scheme > 0 ? url.substring(0, scheme + 1) : "jdbc:") + "...'. Supported: "
         + String.join(", ", NAMES) + ".");
   }
 
-  /** Dialect names accepted by {@link #byName(String)}. */
-  public static final java.util.List<String> NAMES =
-      java.util.List.of("postgresql", "mysql", "mariadb", "sqlserver", "oracle", "h2");
-
   /**
    * Resolves a dialect by name, for example {@code postgresql} or {@code mysql}.
    *
-   * @param name dialect name; {@code postgres} and {@code mssql} are accepted aliases
+   * @param name dialect name or one of its {@link Dialect#aliases() aliases}, such as
+   *     {@code postgres} or {@code mssql}
    * @return matching Dialect instance
    * @throws IllegalArgumentException if the name is unknown
    * @since 0.1.0
    */
   public static Dialect byName(String name) {
-    return switch (name == null ? "" : name.trim().toLowerCase(Locale.ROOT)) {
-      case "postgres", "postgresql", "pg" -> new PostgresDialect();
-      case "mysql" -> new MySqlDialect();
-      case "mariadb" -> new MariaDbDialect();
-      case "sqlserver", "mssql" -> new SqlServerDialect();
-      case "oracle" -> new OracleDialect();
-      case "h2" -> new H2Dialect();
-      default -> throw new IllegalArgumentException(
-          "Unknown dialect '" + name + "'. Supported: " + String.join(", ", NAMES) + ".");
-    };
+    String wanted = name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
+    for (Dialect dialect : available()) {
+      if (dialect.id().equals(wanted) || dialect.aliases().contains(wanted)) {
+        return dialect;
+      }
+    }
+    throw new IllegalArgumentException(
+        "Unknown dialect '" + name + "'. Supported: " + String.join(", ", NAMES) + ".");
+  }
+
+  /** New instances of every registered dialect. */
+  private static List<Dialect> available() {
+    List<Dialect> dialects = new ArrayList<>();
+    ServiceLoader.load(Dialect.class, Dialect.class.getClassLoader()).forEach(dialects::add);
+    return dialects;
   }
 }

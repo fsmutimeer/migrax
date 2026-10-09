@@ -21,7 +21,9 @@
       <Class name="io.migrax.runner.MigrationRunner"/>
       <Class name="io.migrax.diff.Migrations"/>
       <Class name="io.migrax.util.Json"/>
-      <Class name="io.migrax.cli.Main"/>
+      <Class name="~io\.migrax\.cli\.\w+Command"/>
+      <Class name="io.migrax.cli.DuplicateMigrations"/>
+      <Class name="io.migrax.cli.MigrationFiles"/>
       <Class name="io.migrax.importer.Importer"/>
       <Class name="io.migrax.runner.Migration"/>
       <Class name="io.migrax.runner.ClasspathMigrations"/>

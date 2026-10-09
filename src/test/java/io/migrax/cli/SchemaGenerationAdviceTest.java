@@ -13,15 +13,15 @@ class SchemaGenerationAdviceTest {
   @Test
   void suggestedFixKeepsTheLineFormat() {
     assertEquals("quarkus.hibernate-orm.schema-management.strategy=none",
-        Main.replaceValue("quarkus.hibernate-orm.schema-management.strategy=update",
+        DoctorCommand.replaceValue("quarkus.hibernate-orm.schema-management.strategy=update",
             setting("quarkus.hibernate-orm.schema-management.strategy"), "none"));
     assertEquals("spring.jpa.hibernate.ddl-auto = none",
-        Main.replaceValue("spring.jpa.hibernate.ddl-auto = update",
+        DoctorCommand.replaceValue("spring.jpa.hibernate.ddl-auto = update",
             setting("spring.jpa.hibernate.ddl-auto"), "none"));
     assertEquals("ddl-auto: none",
-        Main.replaceValue("ddl-auto: update", setting("spring.jpa.hibernate.ddl-auto"), "none"));
+        DoctorCommand.replaceValue("ddl-auto: update", setting("spring.jpa.hibernate.ddl-auto"), "none"));
     assertEquals("<property name=\"hibernate.hbm2ddl.auto\" value=\"none\"/>",
-        Main.replaceValue("<property name=\"hibernate.hbm2ddl.auto\" value=\"update\"/>",
+        DoctorCommand.replaceValue("<property name=\"hibernate.hbm2ddl.auto\" value=\"update\"/>",
             setting("hibernate.hbm2ddl.auto"), "none"));
   }
 }

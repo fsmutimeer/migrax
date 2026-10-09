@@ -11,6 +11,14 @@ All notable changes to Migrax are listed here. The format follows
 - MIT license.
 - Download page on the documentation site, hosting every release's files with SHA-256
   checksums, updated automatically after each release.
+- Database dialects are found with `java.util.ServiceLoader`
+  (`META-INF/services/io.migrax.dialect.Dialect`), so a new database needs no change to
+  existing code.
+
+### Changed
+
+- The CLI is split into one class per command; the commands and their output are unchanged.
+  `CONTRIBUTING.md` explains how to add a command or a database.
 
 ## [0.1.0] - 2026-10-08
 

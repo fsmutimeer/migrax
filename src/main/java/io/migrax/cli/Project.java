@@ -32,7 +32,7 @@ final class Project implements AutoCloseable {
   private static final Pattern H2_RELATIVE_FILE =
       Pattern.compile("(?i)^(jdbc:h2:(?:file:)?)(\\.{1,2}[/\\\\].*)$");
 
-  private final Main.Args args;
+  private final Args args;
   private final PrintStream err;
   private final Path root;
   private Map<String, String> config;
@@ -40,12 +40,12 @@ final class Project implements AutoCloseable {
   private URLClassLoader loader;
   private boolean compiled;
 
-  Project(Main.Args args, PrintStream err) throws Exception {
+  Project(Args args, PrintStream err) throws Exception {
     this.args = args;
     this.err = err;
     Path start = Path.of(args.option("--dir", "."));
     if (!Files.exists(start)) {
-      throw new Main.UsageException("Project folder does not exist: " + start, null);
+      throw new UsageException("Project folder does not exist: " + start, null);
     }
     this.root = ProjectContext.findRoot(start);
   }
@@ -92,7 +92,7 @@ final class Project implements AutoCloseable {
 
   ProjectDatabaseConfig.Credentials requireUrl() throws Exception {
     if (blank(credentials().url())) {
-      throw new Main.UsageException("No database URL found.",
+      throw new UsageException("No database URL found.",
           "Set " + urlSetting() + ", set MIGRAX_DATABASE_URL, or pass --url.");
     }
     return credentials();
@@ -119,7 +119,7 @@ final class Project implements AutoCloseable {
   String packageName() throws Exception {
     String name = ProjectContext.packageName(root, args.option("--package"));
     if (blank(name)) {
-      throw new Main.UsageException("Entity package is unknown.",
+      throw new UsageException("Entity package is unknown.",
           "Pass --package <name> or set MIGRAX_PACKAGE (for Maven projects the groupId is used).");
     }
     return name;
@@ -167,6 +167,29 @@ final class Project implements AutoCloseable {
     return schemas;
   }
 
+  /** The schemas a command runs for: {@link #schemas()}, or one null for the default schema. */
+  List<String> schemasOrDefault() throws Exception {
+    List<String> schemas = schemas();
+    List<String> result = new ArrayList<>();
+    if (schemas.isEmpty()) {
+      result.add(null);
+    } else {
+      result.addAll(schemas);
+    }
+    return result;
+  }
+
+  /** The naming id to record in the snapshot, or null for a custom combination. */
+  String recordedNaming() throws Exception {
+    String id = naming().id();
+    try {
+      NamingStrategy.parse(id);
+      return id;
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+  }
+
   MigrationRunner.Options runOptions() throws Exception {
     return new MigrationRunner.Options(args.flag("--resume"),
         ProjectDatabaseConfig.placeholders(config()));
@@ -193,7 +216,7 @@ final class Project implements AutoCloseable {
       out.println("No database URL configured: showing PostgreSQL SQL. Use --dialect to change.");
       return Dialects.byName("postgresql");
     }
-    throw new Main.UsageException("Cannot tell which database to write SQL for.",
+    throw new UsageException("Cannot tell which database to write SQL for.",
         "Configure the database URL, or pass --dialect (" + String.join(", ", Dialects.NAMES) + ").");
   }
 
@@ -252,7 +275,7 @@ final class Project implements AutoCloseable {
     if (product.contains("mysql") || product.contains("mariadb")) {
       connection.setCatalog(schema);
     } else if (product.contains("sql server")) {
-      throw new Main.UsageException("SQL Server cannot switch the default schema per connection.",
+      throw new UsageException("SQL Server cannot switch the default schema per connection.",
           "Run Migrax once per schema with a login whose default schema is that schema.");
     } else {
       connection.setSchema(schema);

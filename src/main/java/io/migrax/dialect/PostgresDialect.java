@@ -26,6 +26,11 @@ public final class PostgresDialect extends AbstractDialect {
   }
 
   @Override
+  public java.util.List<String> aliases() {
+    return java.util.List.of("postgres", "pg");
+  }
+
+  @Override
   protected Set<String> reservedWords() {
     return RESERVED;
   }
