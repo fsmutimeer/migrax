@@ -33,6 +33,11 @@ public final class SqlServerDialect extends AbstractDialect {
   }
 
   @Override
+  public java.util.List<String> aliases() {
+    return java.util.List.of("mssql");
+  }
+
+  @Override
   protected Set<String> reservedWords() {
     return RESERVED;
   }
