@@ -1,6 +1,10 @@
 package io.migrax.dialect;
 
 import io.migrax.model.SchemaModel;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Set;
 
 /**
@@ -124,5 +128,30 @@ public class MySqlDialect extends AbstractDialect {
   @Override
   protected String dropUnique(String table, String name) {
     return "ALTER TABLE " + q(table) + " DROP INDEX " + q(name);
+  }
+
+  /** A named user lock (GET_LOCK), held by the session. */
+  @Override
+  public AutoCloseable acquireMigrationLock(Connection connection, String resource)
+      throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement("SELECT GET_LOCK(?, 0)")) {
+      statement.setString(1, resource);
+      try (ResultSet result = statement.executeQuery()) {
+        if (!result.next() || result.getInt(1) != 1) {
+          throw new SQLException("Another Migrax process is applying migrations.");
+        }
+      }
+    }
+    return () -> {
+      try (PreparedStatement statement =
+               connection.prepareStatement("SELECT RELEASE_LOCK(?)")) {
+        statement.setString(1, resource);
+        try (ResultSet result = statement.executeQuery()) {
+          if (!result.next() || result.getInt(1) != 1) {
+            throw new SQLException("Could not release the MySQL migration lock.");
+          }
+        }
+      }
+    };
   }
 }

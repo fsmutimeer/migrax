@@ -8,6 +8,7 @@ import io.migrax.model.ModelExtractor;
 import io.migrax.model.NamingStrategy;
 import io.migrax.plugin.ProjectDatabaseConfig;
 import io.migrax.plugin.RuntimeJdbc;
+import io.migrax.runner.DatabaseMigrationLock;
 import io.migrax.runner.MigrationLoader;
 import io.migrax.runner.MigrationRunner;
 
@@ -161,16 +162,15 @@ final class DoctorCommand implements Command {
         String product = metadata.getDatabaseProductName();
         doctor.ok("Connected: " + product + " " + metadata.getDatabaseProductVersion()
             + " (driver " + metadata.getDriverVersion() + ")");
-        String lower = product.toLowerCase(Locale.ROOT);
-        if (lower.contains("h2")) {
-          doctor.warn("Locking: H2 locks only within one process; use it for development only");
-        } else if (lower.contains("oracle")) {
-          doctor.info("Locking: Oracle needs EXECUTE on DBMS_LOCK for the migration account");
-        } else if (lower.contains("postgres") || lower.contains("mysql")
-            || lower.contains("mariadb") || lower.contains("sql server")) {
-          doctor.ok("Locking: supported");
-        } else {
-          doctor.fail("Locking: " + product + " is not supported", null);
+        // Take and release the migration lock, as migrate does.
+        try (AutoCloseable lock = DatabaseMigrationLock.acquire(connection)) {
+          if (product.toLowerCase(Locale.ROOT).contains("h2")) {
+            doctor.warn("Locking: H2 locks only within one process; use it for development only");
+          } else {
+            doctor.ok("Locking: supported");
+          }
+        } catch (Exception e) {
+          doctor.fail("Locking: " + Errors.describe(e), null);
         }
         long pending = context.migrationRunner().statusOf(connection, project.migrationsToRun(true))
             .stream().filter(row -> row.state() == MigrationRunner.State.PENDING).count();

@@ -44,6 +44,37 @@ public interface Dialect {
   }
 
   /**
+   * Whether this dialect is the one for a connection, by the database product name its driver
+   * reports. The default accepts names that contain {@link #id()}.
+   *
+   * @param productName {@link java.sql.DatabaseMetaData#getDatabaseProductName()}, in lower case
+   * @return {@code true} if this dialect handles that database
+   * @since 0.1.0
+   */
+  default boolean acceptsProduct(String productName) {
+    return productName.contains(id());
+  }
+
+  /**
+   * Takes the database-wide lock that keeps two Migrax processes from migrating the same
+   * database at once. It must not wait: when another session holds it, fail at once.
+   * Databases without such a lock can't be migrated safely, so the default refuses.
+   *
+   * @param connection the connection that migrates; the lock belongs to its session
+   * @param resource a name for the lock that is unique to the database, such as
+   *     {@code io.migrax:3f2a...}
+   * @return releases the lock when closed
+   * @throws java.sql.SQLException when another process holds the lock, or locking failed
+   * @since 0.1.0
+   */
+  default AutoCloseable acquireMigrationLock(java.sql.Connection connection, String resource)
+      throws java.sql.SQLException {
+    throw new java.sql.SQLException("Concurrent migration locking is not implemented for "
+        + "database " + connection.getMetaData().getDatabaseProductName()
+        + "; refusing to proceed.");
+  }
+
+  /**
    * Quotes a SQL identifier according to the database rules.
    *
    * @param identifier the identifier to quote

@@ -47,6 +47,29 @@ class DialectTest {
     assertNotSame(Dialects.byName("h2"), Dialects.byName("h2"));
   }
 
+  @Test void findsTheDialectForADatabaseProductName() {
+    assertEquals("postgresql", Dialects.forProduct("PostgreSQL").orElseThrow().id());
+    assertEquals("mysql", Dialects.forProduct("MySQL").orElseThrow().id());
+    assertEquals("mariadb", Dialects.forProduct("MariaDB").orElseThrow().id());
+    assertEquals("sqlserver", Dialects.forProduct("Microsoft SQL Server").orElseThrow().id());
+    assertEquals("oracle", Dialects.forProduct("Oracle").orElseThrow().id());
+    assertEquals("h2", Dialects.forProduct("H2").orElseThrow().id());
+    assertTrue(Dialects.forProduct("SQLite").isEmpty());
+  }
+
+  @Test void dialectsWithoutMigrationLockingRefuseToMigrate() throws Exception {
+    Dialect withoutLocking = new Dialect() {
+      @Override public String id() { return "test"; }
+      @Override public String quote(String identifier) { return identifier; }
+      @Override public String render(Operation operation) { return ""; }
+    };
+    try (var connection = java.sql.DriverManager.getConnection("jdbc:h2:mem:nolock")) {
+      var error = assertThrows(java.sql.SQLException.class,
+          () -> withoutLocking.acquireMigrationLock(connection, "io.migrax:test"));
+      assertTrue(error.getMessage().contains("refusing to proceed"), error.getMessage());
+    }
+  }
+
   @Test
   void unsupportedUrlErrorsDoNotLeakCredentials() {
     var error = assertThrows(IllegalArgumentException.class,
