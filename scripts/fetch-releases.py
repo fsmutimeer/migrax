@@ -62,6 +62,19 @@ def download(url, target):
     return digest.hexdigest()
 
 
+def file_table(version, files):
+    """The table of a release's files, in a block the site's CSS can target: on phones it drops
+    the checksum column, and the checksums stay in the SHA256SUMS file linked below it."""
+    lines = ['<div class="mx-files" markdown>', "",
+             "| File | What it is | Size | SHA-256 |", "|---|---|---|---|"]
+    for name, n, checksum in files:
+        lines.append(f"| [`{name}`](downloads/{version}/{name}) | {describe(name)} | "
+                     f"{size(n)} | <small>`{checksum}`</small> |")
+    lines += ["", "</div>", "",
+              f"All checksums: [`SHA256SUMS`](downloads/{version}/SHA256SUMS)\n"]
+    return lines
+
+
 def version_key(release):
     """Sort key by version, so a 0.1.1 bug fix published after 0.2.0-rc.1 still sorts below it.
     A pre-release sorts below its release: 0.2.0-rc.1 < 0.2.0-rc.2 < 0.2.0."""
@@ -118,12 +131,7 @@ def main():
                 latest_dir.mkdir(exist_ok=True)
                 shutil.copyfile(folder / zip_name, latest_dir / "migrax.zip")
             lines.append("Then follow [Installation](getting-started/installation.md).\n")
-            lines.append("| File | What it is | Size | SHA-256 |")
-            lines.append("|---|---|---|---|")
-            for name, n, checksum in files:
-                lines.append(f"| [`{name}`](downloads/{version}/{name}) | {describe(name)} | "
-                             f"{size(n)} | <small>`{checksum}`</small> |")
-            lines.append(f"\nAll checksums: [`SHA256SUMS`](downloads/{version}/SHA256SUMS)\n")
+            lines.extend(file_table(version, files))
             notes = (release.get("body") or "").strip()
             if notes:
                 indented = "\n".join("    " + line if line else "" for line in notes.splitlines())
@@ -138,12 +146,7 @@ def main():
                              f"{zip_name}){{ .md-button }}\n")
             lines.append("It installs like a release, over the version you have; install the "
                          "latest release again to go back.\n")
-            lines.append("| File | What it is | Size | SHA-256 |")
-            lines.append("|---|---|---|---|")
-            for name, n, checksum in files:
-                lines.append(f"| [`{name}`](downloads/{version}/{name}) | {describe(name)} | "
-                             f"{size(n)} | <small>`{checksum}`</small> |")
-            lines.append(f"\nAll checksums: [`SHA256SUMS`](downloads/{version}/SHA256SUMS)\n")
+            lines.extend(file_table(version, files))
             notes = (release.get("body") or "").strip()
             if notes:
                 indented = "\n".join("    " + line if line else "" for line in notes.splitlines())
