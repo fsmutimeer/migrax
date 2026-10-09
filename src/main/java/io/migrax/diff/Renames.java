@@ -14,7 +14,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Turns "drop + add" into renames, so data is kept, like Django's "Did you rename ...?" prompt.
+ * Turns "drop + add" into renames, so data is kept: Migrax asks "Did you rename ...?" first.
  *
  * <p>Confirmed renames are applied to the previous model first; the remaining differences are
  * then diffed normally. The result is {@code RENAME} operations followed by any real changes.
