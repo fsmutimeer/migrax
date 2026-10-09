@@ -74,8 +74,12 @@ def main():
     lines = []
     if latest is None:
         lines.append('!!! info "No release yet"\n\n    The first release will appear here.\n')
-    # The latest stable release first (it opens the page), then the others newest first.
-    ordered = ([latest] if latest else []) + [r for r in releases if r is not latest]
+    # Pre-releases newer than the latest stable one, for people who want to test them.
+    testing = ([r for r in releases[:releases.index(latest)] if r["prerelease"]]
+               if latest else [])
+    older = [r for r in releases if r is not latest and r not in testing]
+    # The latest stable release first (it opens the page), then pre-releases, then the rest.
+    ordered = ([latest] if latest else []) + testing + older
     for release in ordered:
         version = release["tag_name"].lstrip("v")
         folder = OUT / version
@@ -110,11 +114,31 @@ def main():
             if notes:
                 indented = "\n".join("    " + line if line else "" for line in notes.splitlines())
                 lines.append(f'??? note "What\'s new in {version}"\n\n{indented}\n')
-            if len(releases) > 1:
+        elif release in testing:
+            lines.append(f"## Pre-release {version}\n")
+            lines.append(f"Published {date}, for testing the next version. It may still change "
+                         "before the release; please [report problems]"
+                         f"(https://github.com/{REPO}/issues).\n")
+            if zip_name:
+                lines.append(f"[:material-download: Download {zip_name}](downloads/{version}/"
+                             f"{zip_name}){{ .md-button }}\n")
+            lines.append("It installs like a release, over the version you have; install the "
+                         "latest release again to go back.\n")
+            lines.append("| File | What it is | Size | SHA-256 |")
+            lines.append("|---|---|---|---|")
+            for name, n, checksum in files:
+                lines.append(f"| [`{name}`](downloads/{version}/{name}) | {describe(name)} | "
+                             f"{size(n)} | <small>`{checksum}`</small> |")
+            lines.append(f"\nAll checksums: [`SHA256SUMS`](downloads/{version}/SHA256SUMS)\n")
+            notes = (release.get("body") or "").strip()
+            if notes:
+                indented = "\n".join("    " + line if line else "" for line in notes.splitlines())
+                lines.append(f'??? note "What\'s new in {version}"\n\n{indented}\n')
+        else:
+            if release is older[0]:
                 lines.append("## Older versions\n")
                 lines.append("| Version | Published | Command line tool | All files |")
                 lines.append("|---|---|---|---|")
-        else:
             tool = f"[`{zip_name}`](downloads/{version}/{zip_name})" if zip_name else ""
             label = version + (" (pre-release)" if release["prerelease"] else "")
             lines.append(f"| {label} | {date} | {tool} | "
