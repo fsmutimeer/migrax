@@ -6,6 +6,13 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Migrax crashed (a JVM crash, not an error message) when reading Hibernate 7.3 or newer entities
+  on Java 21. A Java 21 bug (JDK-8391430) breaks the class-data archive the launcher keeps to
+  start faster, so the launcher now keeps it only on Java 25 and newer, and removes archives
+  that earlier versions left behind.
+
 ## [0.2.0-rc.1] - 2026-10-09
 
 Release candidate for 0.2.0, for testing.
