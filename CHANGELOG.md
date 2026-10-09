@@ -64,6 +64,36 @@ Release candidate for 0.2.0, for testing.
   `CONTRIBUTING.md` explains how to add a command or a database.
 - The Download page lists pre-releases in their own section, for testing.
 
+## [0.1.2] - 2026-10-09
+
+### Added
+
+- MIT license.
+- Download page on the documentation site, hosting every release's files with SHA-256
+  checksums.
+- `migrax repair <migration>... --action forget --yes` removes applied migrations whose files
+  were deleted on purpose from the history; the database keeps their changes. The "files are
+  missing" error now shows the exact command.
+
+### Fixed
+
+- The first `generate` of a project, which compares the entities with the live database, no
+  longer writes changes that aren't real:
+  - tables whose names differ only in letter case (`categories_seq` in the database,
+    `categories_SEQ` in the entity) on databases that fold names, such as MySQL on Windows,
+    PostgreSQL, H2 and Oracle; this produced a `CREATE` and a `DROP` of the same table;
+  - the index MySQL and MariaDB create for each foreign key, which was dropped;
+  - sequences that already exist, which were created again: real sequences, and the
+    `next_val` tables MySQL uses instead (sequences the entities don't use, such as those of
+    identity columns, are never touched);
+  - columns whose types the database stores the same way, such as an `Instant` field on MySQL
+    (`datetime(6)` either way).
+- `migrate` with an empty migration folder now reports applied migrations whose files were
+  deleted, instead of saying there is nothing to migrate.
+- On Windows, every command printed the path of the old class-data archive
+  (`...\migrax\cache\migrax-java21.jsa`) and left the file in place: Java creates it read-only.
+  The launcher now removes it silently.
+
 ## [0.1.1] - 2026-10-09
 
 ### Fixed
@@ -109,5 +139,6 @@ First release.
 [Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.2...HEAD
 [0.2.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.1...v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.2.0-rc.1
+[0.1.2]: https://github.com/fsmutimeer/migrax/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fsmutimeer/migrax/releases/tag/v0.1.0
