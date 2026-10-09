@@ -15,7 +15,7 @@ public final class RepairMojo extends AbstractMigraxMojo {
   @Parameter(property = "migrax.version")
   private String version;
 
-  /** applied or retry. */
+  /** applied, retry or forget. */
   @Parameter(property = "migrax.action")
   private String action;
 

@@ -80,5 +80,37 @@ twice (for example `CREATE TABLE IF NOT EXISTS`, idempotent updates).
 
 ## A migration file went missing
 
-`status` reports applied migrations whose file is gone, and `migrate` stops. Restore the file
-from git (`git show <commit>:<path>`) instead of deleting history.
+`status` reports applied migrations whose file is gone, and `migrate` stops:
+
+```console
+$ migrax migrate
+error: Applied migration file(s) are missing from the configured migration location: 0001_initial.sql. Restore the files from version control; applied migrations must not be deleted. If you deleted them on purpose, remove them from the history with: migrax repair 0001_initial.sql --action forget --yes
+```
+
+**Deleted by accident?** Restore the file from git (`git show <commit>:<path>`), unchanged. This
+is the right fix in almost every project: other environments and new databases still need it.
+
+**Deleted on purpose**, for example to start a test database over? Remove the migrations from
+the history:
+
+```console
+$ migrax repair 0001_initial.sql 0002_add_email.sql --action forget --yes
+Removed 0001_initial.sql from the migration history.
+Removed 0002_add_email.sql from the migration history.
+The database keeps the changes these migrations made. Run 'migrax status' to check the history.
+```
+
+The tables and columns those migrations created stay in the database; only the record goes.
+Migrax refuses to forget a migration whose file still exists, because `migrate` would run it
+again.
+
+!!! tip "Starting over with the current database as the baseline"
+
+    To make the current database the starting point, forget the deleted migrations, delete
+    `.migrax/snapshot.json` and the `.migrax/history` folder, and run `migrax generate`: with no
+    snapshot, it compares the entities with the database and writes only what is really
+    different. Review that migration before running `migrax migrate`.
+
+    From then on the migrations start at the current database: an empty database can't be
+    built from them alone. That's fine for a test or development database; for shared
+    environments, restore the deleted files instead.

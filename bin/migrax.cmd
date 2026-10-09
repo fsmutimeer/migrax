@@ -36,7 +36,7 @@ rem (JDK-8391430), so archives left by earlier Migrax versions are removed.
 if not defined JAVA_VERSION goto run
 if not defined LOCALAPPDATA goto run
 if %JAVA_MAJOR% LSS 25 (
-  if exist "%LOCALAPPDATA%\migrax\cache\migrax-java%JAVA_MAJOR%.jsa" del /q "%LOCALAPPDATA%\migrax\cache\migrax-java%JAVA_MAJOR%.jsa" 2>nul
+  if exist "%LOCALAPPDATA%\migrax\cache\migrax-java%JAVA_MAJOR%.jsa" del /f /q "%LOCALAPPDATA%\migrax\cache\migrax-java%JAVA_MAJOR%.jsa" >nul 2>nul
   goto run
 )
 if defined MIGRAX_NO_CDS goto run

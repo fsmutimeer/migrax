@@ -130,6 +130,38 @@ class CommandsTest {
   }
 
   @Test
+  void forgetRemovesMigrationsDeletedOnPurpose() throws Exception {
+    setUp();
+    generateAndMigrate();
+
+    Result kept = cli("repair", "0001_initial.sql", "--action", "forget", "--yes");
+    assertEquals(1, kept.code(), "a file that still exists must not be forgotten");
+    assertTrue(kept.err().contains("still exists"), kept.all());
+
+    Files.delete(migrations().resolve("0001_initial.sql"));
+    Result missing = cli("migrate");
+    assertEquals(1, missing.code());
+    assertTrue(missing.err().contains(
+        "migrax repair 0001_initial.sql --action forget --yes"), missing.all());
+
+    Result unconfirmed = cli("repair", "0001_initial", "--action", "forget");
+    assertEquals(1, unconfirmed.code());
+
+    Result forgotten = cli("repair", "0001_initial", "--action", "forget", "--yes");
+    assertEquals(0, forgotten.code(), forgotten.all());
+    assertTrue(forgotten.out().contains("Removed 0001_initial.sql from the migration history"),
+        forgotten.out());
+    assertEquals("0", query("SELECT COUNT(*) FROM migrax_history"));
+    assertEquals("0", query("SELECT COUNT(*) FROM sample_entity"),
+        "the database keeps the table the forgotten migration created");
+
+    Result migrate = cli("migrate");
+    assertEquals(0, migrate.code(), migrate.all());
+    Result again = cli("repair", "0001_initial", "--action", "forget", "--yes");
+    assertTrue(again.out().contains("nothing to forget"), again.out());
+  }
+
+  @Test
   void rollbackUndoesTheLatestMigration() throws Exception {
     setUp();
     generateAndMigrate();

@@ -60,7 +60,7 @@ final class MigrateCommand implements Command {
     project.requireUrl();
     Path folder = project.migrations();
     List<Migration> migrations = project.migrationsToRun(true);
-    if (migrations.isEmpty()) {
+    if (migrations.isEmpty() && !hasHistory(context, project)) {
       out.println("No migrations in " + project.display(folder) + ". Run 'migrax generate' first.");
       return OK;
     }
@@ -101,6 +101,16 @@ final class MigrateCommand implements Command {
         }
       }
       return OK;
+    }
+  }
+
+  /**
+   * Whether the database recorded applied migrations. With an empty folder that means the files
+   * were deleted, and migrating must report them instead of saying there is nothing to do.
+   */
+  private static boolean hasHistory(CommandContext context, Project project) throws Exception {
+    try (Connection connection = project.connect()) {
+      return !context.migrationRunner().applied(connection).isEmpty();
     }
   }
 }
