@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0-rc.2] - 2026-10-09
+
+Second release candidate for 0.2.0, for testing. It contains everything in 0.2.0-rc.1 and
+this fix.
+
 ### Fixed
 
 - Migrax crashed (a JVM crash, not an error message) when reading Hibernate 7.3 or newer entities
@@ -66,6 +71,7 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.1...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.2...HEAD
+[0.2.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.1...v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.2.0-rc.1
 [0.1.0]: https://github.com/fsmutimeer/migrax/releases/tag/v0.1.0
