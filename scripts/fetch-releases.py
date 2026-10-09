@@ -62,9 +62,22 @@ def download(url, target):
     return digest.hexdigest()
 
 
+def version_key(release):
+    """Sort key by version, so a 0.1.1 bug fix published after 0.2.0-rc.1 still sorts below it.
+    A pre-release sorts below its release: 0.2.0-rc.1 < 0.2.0-rc.2 < 0.2.0."""
+    version = release["tag_name"].lstrip("v")
+    core, _, pre = version.partition("-")
+    numbers = tuple(int(part) if part.isdigit() else 0 for part in core.split("."))
+    if not pre:
+        return numbers + (1, ())
+    return numbers + (0, tuple((0, int(p)) if p.isdigit() else (1, p) for p in pre.split(".")))
+
+
 def main():
     with request(f"https://api.github.com/repos/{REPO}/releases?per_page=100") as response:
         releases = [r for r in json.load(response) if not r["draft"]]
+    # Newest version first.
+    releases.sort(key=version_key, reverse=True)
     if OUT.exists():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True)
