@@ -44,11 +44,15 @@ if [ -n "$JAVA_VERSION" ] && [ "$JAVA_VERSION" -lt 17 ] 2>/dev/null; then
   exit 1
 fi
 
-# Java 19+ keeps a class-data archive of Migrax's classes, which makes every later start faster.
+# Java 25+ keeps a class-data archive of Migrax's classes, which makes every later start faster.
 # The JVM recreates it automatically when Migrax or Java changes. Set MIGRAX_NO_CDS=1 to skip.
+# Not on older Java: Java 21 crashes reading Hibernate 7.3+ entities from such an archive
+# (JDK-8391430), so archives left by earlier Migrax versions are removed.
 CDS=""
-if [ -z "${MIGRAX_NO_CDS:-}" ] && [ -n "$JAVA_VERSION" ] && [ "$JAVA_VERSION" -ge 19 ] 2>/dev/null; then
-  CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/migrax"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/migrax"
+if [ -n "$JAVA_VERSION" ] && [ "$JAVA_VERSION" -lt 25 ] 2>/dev/null; then
+  rm -f "$CACHE/migrax-java$JAVA_VERSION.jsa" 2>/dev/null
+elif [ -z "${MIGRAX_NO_CDS:-}" ] && [ "$JAVA_VERSION" -ge 25 ] 2>/dev/null; then
   if mkdir -p "$CACHE" 2>/dev/null; then
     CDS="-XX:+AutoCreateSharedArchive -XX:SharedArchiveFile=$CACHE/migrax-java$JAVA_VERSION.jsa -Xlog:cds*=off"
   fi

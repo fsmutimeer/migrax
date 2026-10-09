@@ -60,7 +60,7 @@ Open a terminal **in the extracted folder** (or the source folder) and run the i
 
 ```console
 $ migrax version
-migrax 0.1.0
+migrax 0.1.1
 ```
 
 !!! tip "`migrax` is not recognized?"
