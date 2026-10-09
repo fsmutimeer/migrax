@@ -1,0 +1,96 @@
+{#- Landing page: used by docs/index.md through "template: home.html". -#}
+{% extends "main.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  {#- Before the first paint, so scroll-reveal elements don't flash. -#}
+  <script>
+    document.documentElement.classList.add("mx-js");
+    // If home.js never runs (blocked or failed), show the hidden sections anyway.
+    setTimeout(function () {
+      if (!window.mxReady) {
+        document.querySelectorAll(".mx-reveal").forEach(function (el) { el.classList.add("is-visible"); });
+      }
+    }, 2500);
+  </script>
+{% endblock %}
+
+{% block hero %}
+<section class="mx-hero" data-mx-spotlight>
+  <div class="mx-hero__glow mx-hero__glow--red" aria-hidden="true"></div>
+  <div class="mx-hero__glow mx-hero__glow--amber" aria-hidden="true"></div>
+  <div class="mx-hero__grid" aria-hidden="true"></div>
+
+  <div class="mx-hero__inner md-grid">
+    <div class="mx-hero__copy">
+      <a class="mx-pill" href="{{ 'download/' | url }}">
+        <span class="mx-pill__dot"></span> Free and open source &middot; MIT
+        <span class="mx-pill__arrow">&rarr;</span>
+      </a>
+      <h1 class="mx-hero__title">
+        Your entities change.<br>
+        <span class="mx-gradient-text">Migrax writes the migration.</span>
+      </h1>
+      <p class="mx-hero__lead">
+        Database migrations generated from your JPA entities: plain SQL with a rollback script,
+        linted for locking and data loss, and verified by your own Hibernate version before it
+        reaches production.
+      </p>
+      <div class="mx-hero__actions">
+        <a class="mx-btn mx-btn--primary" href="{{ 'getting-started/installation/' | url }}">
+          Get started <span aria-hidden="true">&rarr;</span>
+        </a>
+        <a class="mx-btn mx-btn--ghost" href="{{ 'download/' | url }}">Download</a>
+        <a class="mx-btn mx-btn--link" href="{{ 'getting-started/quickstart/' | url }}">
+          Quick start in 5 minutes
+        </a>
+      </div>
+      <p class="mx-hero__meta">Java 17+ &middot; Spring Boot &middot; Quarkus &middot; Micronaut
+        &middot; Helidon &middot; Jakarta EE</p>
+    </div>
+
+    <div class="mx-terminal" role="img"
+         aria-label="A terminal session: migrax generate adds a column, then asks whether a column was renamed and keeps the data">
+      <div class="mx-terminal__bar">
+        <span></span><span></span><span></span>
+        <em>~/shop &mdash; migrax</em>
+      </div>
+      <pre class="mx-terminal__body" data-mx-terminal><code><span class="mx-t-prompt">$</span> migrax generate
+Created src/main/resources/db/migration/0002_add_customers_phone.sql:
+  - add column customers.phone
+Rollback script written to src/main/resources/db/migration/rollback.
+Review the SQL, then run 'migrax migrate'.</code></pre>
+    </div>
+  </div>
+
+  <div class="mx-stats md-grid">
+    <div class="mx-stat"><strong data-mx-count="15">15</strong><span>Hibernate versions tested, 5.4 to 7.4</span></div>
+    <div class="mx-stat"><strong data-mx-count="6">6</strong><span>databases, from PostgreSQL to Oracle</span></div>
+    <div class="mx-stat"><strong data-mx-count="5">5</strong><span>frameworks, plus Maven and Gradle plugins</span></div>
+    <div class="mx-stat"><strong>0</strong><span>configuration files to write</span></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block content %}
+<div class="mx-home">
+  <section class="mx-steps">
+    <div class="mx-step mx-reveal">
+      <span class="mx-step__num">1</span>
+      <h3>Change an entity</h3>
+      <p>Add a field, rename a column, create a table. Write Java as usual.</p>
+    </div>
+    <div class="mx-step mx-reveal">
+      <span class="mx-step__num">2</span>
+      <h3>Run <code>migrax generate</code></h3>
+      <p>Get readable SQL and a rollback script, checked for risky statements.</p>
+    </div>
+    <div class="mx-step mx-reveal">
+      <span class="mx-step__num">3</span>
+      <h3>Run <code>migrax migrate</code></h3>
+      <p>Apply it from the command line, in CI, or when the application starts.</p>
+    </div>
+  </section>
+  {{ page.content }}
+</div>
+{% endblock %}
