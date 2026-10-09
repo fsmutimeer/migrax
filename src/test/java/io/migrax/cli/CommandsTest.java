@@ -200,7 +200,7 @@ class CommandsTest {
     assertEquals(0, cli("drift").code());
     execute("ALTER TABLE sample_entity ADD COLUMN hotfix VARCHAR(10)");
     Result drift = cli("drift");
-    assertEquals(Main.CHANGES_DETECTED, drift.code(), drift.all());
+    assertEquals(ExitCode.CHANGES_DETECTED, drift.code(), drift.all());
     assertTrue(drift.out().contains("sample_entity.hotfix"), drift.out());
     Result json = cli("drift", "--json");
     assertTrue(json.out().contains("extra_column"), json.out());
