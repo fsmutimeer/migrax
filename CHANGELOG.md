@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0-rc.1] - 2026-10-09
+
+Release candidate for 0.2.0, for testing.
+
 ### Added
 
 - MIT license.
@@ -21,6 +25,7 @@ All notable changes to Migrax are listed here. The format follows
   permission (for example EXECUTE on DBMS_LOCK on Oracle) shows up before `migrate`.
 - The CLI is split into one class per command; the commands and their output are unchanged.
   `CONTRIBUTING.md` explains how to add a command or a database.
+- The Download page lists pre-releases in their own section, for testing.
 
 ## [0.1.0] - 2026-10-08
 
@@ -54,5 +59,6 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.1...HEAD
+[0.2.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.2.0-rc.1
 [0.1.0]: https://github.com/fsmutimeer/migrax/releases/tag/v0.1.0
