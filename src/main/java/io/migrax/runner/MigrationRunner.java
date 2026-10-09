@@ -61,7 +61,7 @@ public final class MigrationRunner {
 
   /**
    * Orders by version: the leading number of {@code 0002_add_email.sql}, or the dotted version
-   * of Flyway-style {@code V1.10__name.sql} / {@code V1_10__name.sql}; then by name.
+   * of {@code V1.10__name.sql} / {@code V1_10__name.sql}; then by name.
    */
   public static int compareMigrationFilenames(String n1, String n2) {
     List<java.math.BigInteger> v1 = versionParts(n1);
@@ -482,7 +482,7 @@ public final class MigrationRunner {
 
   /**
    * Records migrations as applied without running them, for adopting an existing database
-   * (for example one managed by Flyway or Liquibase).
+   * (for example one managed by another migration tool).
    *
    * @return the number of migrations newly recorded
    */

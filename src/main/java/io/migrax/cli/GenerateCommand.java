@@ -218,7 +218,7 @@ final class GenerateCommand implements Command {
       throw new UsageException("Invalid migration name '" + name + "'.",
           "Use letters, digits, '_', '.' and '-', for example 0002_add_email.");
     }
-    // Like Django's makemigrations --name: a plain name gets the next number, so the file
+    // A plain --name gets the next number, so the file
     // is ordered and applied; 'migrate' skips SQL files without a version.
     if (MigrationRunner.versionParts(name + ".sql").isEmpty()) {
       name = String.format(Locale.ROOT, "%04d_%s", MigrationFiles.nextNumber(migrations), name);

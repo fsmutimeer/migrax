@@ -96,7 +96,7 @@ class ProjectDatabaseConfigTest {
   }
 
   @Test
-  void defaultsMigrationLocationToFlywayStyleClasspathDirectory() throws Exception {
+  void defaultsMigrationLocationToClasspathDirectory() throws Exception {
     var settings = ProjectDatabaseConfig.load(resources, Map.of());
 
     assertEquals("classpath:db/migration", settings.locations());
@@ -163,7 +163,7 @@ class ProjectDatabaseConfigTest {
   }
 
   @Test
-  void acceptsFlywayClasspathLocationsAndRejectsUnsupportedLocationLists() {
+  void acceptsClasspathLocationsAndRejectsUnsupportedLocationLists() {
     assertEquals(resources.resolve("custom/migrations"), ProjectDatabaseConfig
         .resolveMigrationDirectory(
             "classpath:custom/migrations", resources.getParent(), resources));

@@ -38,7 +38,7 @@ public record Migration(String version, Kind kind, String sql, String checksum,
   /** Migration kinds. */
   public enum Kind { VERSIONED, REPEATABLE, CALLBACK }
 
-  /** File names of callback scripts, compatible with Flyway's. */
+  /** File names of callback scripts. */
   public static final Set<String> CALLBACKS = Set.of(
       "beforeMigrate.sql", "afterMigrate.sql", "beforeEachMigrate.sql", "afterEachMigrate.sql");
 
