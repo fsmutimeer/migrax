@@ -29,12 +29,17 @@ if %JAVA_MAJOR% LSS 17 (
   exit /b 1
 )
 
-rem Java 19+ keeps a class-data archive of Migrax's classes, which makes later starts faster.
+rem Java 25+ keeps a class-data archive of Migrax's classes, which makes later starts faster.
 rem The JVM recreates it when Migrax or Java changes. Set MIGRAX_NO_CDS=1 to skip.
-if defined MIGRAX_NO_CDS goto run
+rem Not on older Java: Java 21 crashes reading Hibernate 7.3+ entities from such an archive
+rem (JDK-8391430), so archives left by earlier Migrax versions are removed.
 if not defined JAVA_VERSION goto run
-if %JAVA_MAJOR% LSS 19 goto run
 if not defined LOCALAPPDATA goto run
+if %JAVA_MAJOR% LSS 25 (
+  if exist "%LOCALAPPDATA%\migrax\cache\migrax-java%JAVA_MAJOR%.jsa" del /q "%LOCALAPPDATA%\migrax\cache\migrax-java%JAVA_MAJOR%.jsa" 2>nul
+  goto run
+)
+if defined MIGRAX_NO_CDS goto run
 if not exist "%LOCALAPPDATA%\migrax\cache" mkdir "%LOCALAPPDATA%\migrax\cache" 2>nul
 if not exist "%LOCALAPPDATA%\migrax\cache" goto run
 "%JAVA_EXE%" -XX:+AutoCreateSharedArchive -Xlog:cds*=off "-XX:SharedArchiveFile=%LOCALAPPDATA%\migrax\cache\migrax-java%JAVA_MAJOR%.jsa" %MIGRAX_JAVA_OPTS% -jar "%MIGRAX_JAR%" %*

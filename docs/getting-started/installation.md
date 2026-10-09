@@ -46,7 +46,7 @@ From the extracted folder (or the source folder):
 
 ```console
 $ migrax version
-migrax 0.1.0
+migrax 0.1.1
 ```
 
 !!! tip "`migrax` is not recognized?"

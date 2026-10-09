@@ -6,6 +6,16 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-09
+
+### Fixed
+
+- The `migrax` command crashed (a JVM crash, not an error message) when reading Hibernate 7.3 or
+  newer entities on Java 21. A Java 21 bug (JDK-8391430) breaks the class-data archive the
+  launcher keeps to start faster, so the launcher now keeps it only on Java 25 and newer, and
+  removes archives that 0.1.0 left behind. The Maven plugin and the framework integrations were
+  not affected.
+
 ## [0.1.0] - 2026-10-08
 
 First release.
@@ -38,5 +48,6 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/fsmutimeer/migrax/releases/tag/v0.1.0
