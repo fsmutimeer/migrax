@@ -7,14 +7,13 @@ and no administrator rights are needed.
 
 === "From a release"
 
-    1. Open the [GitHub releases page](https://github.com/fsmutimeer/migrax/releases).
-    2. Under **Assets** of the newest release, download **`migrax-<version>.zip`**.
-    3. Extract it (on Windows: right-click the file, **Extract All…**). You get a folder
+    1. Open the [Download](../download.md) page and click **Download migrax-&lt;version&gt;.zip**.
+    2. Extract it (on Windows: right-click the file, **Extract All…**). You get a folder
        `migrax-<version>` containing `install.ps1`, `install.sh`, `bin` and `lib`.
 
     !!! warning "Download the `.zip`, not a `.jar`"
 
-        The release also lists `.jar` files. Those are libraries for build tools and
+        The Download page also lists `.jar` files. Those are libraries for build tools and
         frameworks (the Maven plugin, the Gradle plugin, the startup integrations); they don't
         contain the command line tool or the installer. Only the ZIP does.
 

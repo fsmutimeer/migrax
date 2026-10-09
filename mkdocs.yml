@@ -4,6 +4,7 @@ site_url: https://docs-migrax.github.io/
 # The source repository is private, so the site has no repository or "edit this page" links.
 exclude_docs: |
   requirements.txt
+  downloads/releases.md
 copyright: Copyright &copy; 2026 Migrax contributors
 
 theme:
@@ -84,6 +85,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Download: download.md
   - Getting started:
       - Installation: getting-started/installation.md
       - Quick start: getting-started/quickstart.md
