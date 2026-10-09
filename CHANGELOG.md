@@ -6,6 +6,19 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- More changes that weren't real in the first `generate` against an existing database, found
+  by a new test that runs it on MySQL (also with Windows-style lower-case table names),
+  MariaDB, PostgreSQL, SQL Server and Oracle, reading entities both through Hibernate and by
+  annotation scanning:
+  - PostgreSQL: ids that take their value from a sequence were seen as identity columns, and
+    the identity was dropped;
+  - SQL Server: `varchar(max)` and `varbinary(max)` columns were altered to themselves;
+  - MySQL: UUID columns (`binary(16)`) were altered to themselves; UUID columns are now kept
+    as they are, whether stored natively or as binary;
+  - `numeric` and `decimal` are treated as the same type.
+
 ## [0.2.0-rc.3] - 2026-10-09
 
 Third release candidate for 0.2.0, for testing. It contains everything in 0.2.0-rc.2 and
