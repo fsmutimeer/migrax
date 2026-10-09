@@ -17,3 +17,6 @@ compat/hibernate/work/
 
 # MkDocs output
 site/
+
+# Release files copied into the docs site by scripts/fetch-releases.py
+docs/downloads/

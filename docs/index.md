@@ -13,6 +13,7 @@ and writes the SQL migration for you, with a rollback script, linted for locking
 and verified by your own Hibernate version before it reaches production.</p>
 
 [Get started](getting-started/installation.md){ .md-button .md-button--primary }
+[:material-download: Download](download.md){ .md-button }
 [Quick start in 5 minutes](getting-started/quickstart.md){ .md-button }
 
 </div>

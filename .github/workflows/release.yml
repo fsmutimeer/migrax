@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  actions: write   # to start the docs workflow
 
 jobs:
   release:
@@ -59,3 +60,10 @@ jobs:
             integrations/micronaut/target/migrax-micronaut-${{ env.VERSION }}.jar
             integrations/helidon/target/migrax-helidon-${{ env.VERSION }}.jar
             integrations/gradle-plugin/target/migrax-gradle-plugin-${{ env.VERSION }}.jar
+
+      # A release created with GITHUB_TOKEN does not trigger other workflows, so start the docs
+      # build explicitly: it copies the new release files to the Download page.
+      - name: Update the Download page
+        run: gh workflow run docs.yml --ref main --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

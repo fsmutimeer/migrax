@@ -9,6 +9,8 @@ All notable changes to Migrax are listed here. The format follows
 ### Added
 
 - MIT license.
+- Download page on the documentation site, hosting every release's files with SHA-256
+  checksums, updated automatically after each release.
 
 ## [0.1.0] - 2026-10-08
 

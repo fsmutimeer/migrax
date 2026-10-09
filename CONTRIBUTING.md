@@ -65,10 +65,14 @@ Add a line to the `Unreleased` section of `CHANGELOG.md` for every user-visible 
 The documentation site is built with MkDocs Material from `docs/`:
 
 ```bash
-pip install mkdocs-material
-mkdocs serve            # live preview at http://127.0.0.1:8000
-mkdocs build --strict   # what CI runs
+pip install -r docs/requirements.txt
+python scripts/fetch-releases.py   # copies the release files and writes the Download page
+mkdocs serve                       # live preview at http://127.0.0.1:8000
+mkdocs build --strict              # what CI runs
 ```
+
+`scripts/fetch-releases.py` must run before building: the Download page includes the file it
+generates (`docs/downloads/`, not committed).
 
 The CLI reference (`docs/reference/cli.md`) mirrors `migrax help <command>`: update it when you
 change a command or option.

@@ -11,10 +11,11 @@ on:
   push:
     branches: [main]
     paths: ['docs/**', 'mkdocs.yml', 'README.md', 'CONTRIBUTING.md', 'CHANGELOG.md',
-            '.github/workflows/docs.yml']
+            'scripts/fetch-releases.py', '.github/workflows/docs.yml']
   pull_request:
     paths: ['docs/**', 'mkdocs.yml', 'README.md', 'CONTRIBUTING.md', 'CHANGELOG.md',
-            '.github/workflows/docs.yml']
+            'scripts/fetch-releases.py', '.github/workflows/docs.yml']
+  # Run by release.yml after it publishes a release, so the Download page gets the new files.
   workflow_dispatch:
 
 permissions:
@@ -33,6 +34,10 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r docs/requirements.txt
+      # Copies the release files into the site and writes the Download page.
+      - run: python scripts/fetch-releases.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # --strict turns broken links and missing pages into errors.
       - run: mkdocs build --strict
 
