@@ -15,4 +15,4 @@ Known limits in Migrax 0.1.1:
 - **Rollback scripts** restore structure, not deleted data.
 - **Application servers:** data sources defined in the server's configuration are not read; set
   the connection with environment variables or options.
-- **Distribution:** 0.1.0 is not on Maven Central yet. Install the libraries from source.
+- **Distribution:** 0.1.1 is not on Maven Central yet. Install the libraries from source.
