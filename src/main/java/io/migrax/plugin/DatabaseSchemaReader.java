@@ -162,6 +162,18 @@ public final class DatabaseSchemaReader {
           logicalType = size == 1 ? "boolean" : size <= 10 ? "integer"
               : size <= 19 ? "bigint" : logicalType;
         }
+        String typeLower = databaseType == null ? "" : databaseType.toLowerCase(java.util.Locale.ROOT);
+        // SQL Server's varchar(max), nvarchar(max) and varbinary(max) report a length of about 2^30
+        // or 2^31: they are the large-object types, which entities map as @Lob or text.
+        if (size != null && size >= 1_073_741_823 && (typeLower.equals("varchar")
+            || typeLower.equals("nvarchar") || typeLower.equals("varbinary"))) {
+          logicalType = typeLower.equals("varbinary") ? "blob" : "text";
+          size = null;
+        }
+        // MySQL has no UUID type: Hibernate stores UUIDs as binary(16).
+        if (typeLower.equals("binary") && size != null && size == 16) {
+          logicalType = "uuid";
+        }
         boolean textual = "varchar".equals(logicalType) || "nvarchar".equals(logicalType)
             || "varbinary".equals(logicalType);
         Integer length = textual && size != null && size != 255 ? size : null;
@@ -186,7 +198,7 @@ public final class DatabaseSchemaReader {
             defaultValue,
             false,
             "YES".equalsIgnoreCase(autoIncrement),
-            null,
+            defaultSequence(optionalString(result, "COLUMN_DEF")),
             logicalType));
       }
     }
@@ -397,6 +409,25 @@ public final class DatabaseSchemaReader {
       case java.sql.Types.CLOB, java.sql.Types.NCLOB -> "clob";
       default -> "varchar";
     };
+  }
+
+  /**
+   * The sequence a column default takes values from, such as {@code customer_seq} in
+   * PostgreSQL's {@code nextval('customer_seq'::regclass)}; null for other defaults.
+   */
+  static String defaultSequence(String columnDefault) {
+    if (columnDefault == null) {
+      return null;
+    }
+    java.util.regex.Matcher matcher = java.util.regex.Pattern
+        .compile("(?i)^nextval\\('([^']+)'(?:::regclass)?\\)$")
+        .matcher(columnDefault.trim());
+    if (!matcher.matches()) {
+      return null;
+    }
+    // Possibly schema-qualified and quoted: public."Orders_SEQ"
+    String name = matcher.group(1);
+    return name.substring(name.lastIndexOf('.') + 1).replace("\"", "");
   }
 
   private static String optionalString(ResultSet result, String column) {

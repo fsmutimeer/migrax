@@ -1,12 +1,12 @@
 package io.migrax.cli;
 
 import io.migrax.dialect.Dialect;
+import io.migrax.diff.DatabaseBaseline;
 import io.migrax.diff.Renames;
 import io.migrax.diff.SnapshotStore;
 import io.migrax.model.ModelExtractor;
 import io.migrax.model.SchemaModel;
 import io.migrax.ops.Operation;
-import io.migrax.plugin.DatabaseSchemaReader;
 import io.migrax.util.Log;
 import java.nio.file.Files;
 import java.sql.Connection;
@@ -40,18 +40,13 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
       previous = SnapshotStore.load(project.snapshot());
     } else if (useDatabaseBaseline) {
       try (Connection connection = project.connect()) {
-        previous = DatabaseSchemaReader.read(connection, args.option("--schema"))
-            .withSequencesFrom(current, DatabaseSchemaReader.sequenceNames(connection));
-        if (DatabaseSchemaReader.foldsNames(connection)) {
-          previous = previous.withNameCaseFrom(current);
-        }
+        previous = DatabaseBaseline.read(connection, args.option("--schema"), current);
       }
       Log.info("No snapshot yet: using the current database schema as the baseline.");
     } else {
       previous = SchemaModel.empty();
     }
-    current = current.withConstraintNamesFrom(previous)
-        .withCompatibleTypesFrom(previous, (existing, wanted) -> sameType(dialect, existing, wanted));
+    current = DatabaseBaseline.align(current, previous, dialect);
 
     List<Renames.TableRename> tables =
         new ArrayList<>(Renames.parseTables(args.option("--rename-table")));
@@ -79,16 +74,6 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
     }
     List<Operation> operations = Renames.diff(previous, current, tables, columns);
     return new EntityChanges(previous, current, operations, tables, columns, extracted.source());
-  }
-
-  /** True when the dialect writes the same SQL type for both columns. */
-  private static boolean sameType(Dialect dialect, SchemaModel.Column existing,
-                                  SchemaModel.Column wanted) {
-    try {
-      return dialect.columnType(existing).equalsIgnoreCase(dialect.columnType(wanted));
-    } catch (RuntimeException e) {
-      return false; // a type this dialect can't write: let the normal comparison decide
-    }
   }
 
   /** Asks about a rename, or prints how to answer it with an option when Migrax can't ask. */
