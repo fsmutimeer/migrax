@@ -47,7 +47,7 @@ class RunnerFeaturesTest {
   }
 
   @Test
-  void ordersFlywayStyleVersionsNumerically() {
+  void ordersDottedVersionsNumerically() {
     List<String> names = new ArrayList<>(List.of("V1.10__c.sql", "V1.2__b.sql", "V1__a.sql",
         "0003_x.sql", "V2__d.sql"));
     names.sort(MigrationRunner::compareMigrationFilenames);

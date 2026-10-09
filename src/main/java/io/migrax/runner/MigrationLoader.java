@@ -17,7 +17,7 @@ import java.util.stream.Stream;
  * @since 0.1.0
  */
 public final class MigrationLoader {
-  /** Default package for Java migrations, as in Flyway. */
+  /** Default package for Java migrations. */
   public static final String DEFAULT_JAVA_PACKAGE = "db.migration";
 
   /** Sub-folder of the migration folder that holds rollback scripts. */

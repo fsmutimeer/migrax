@@ -3,8 +3,7 @@ package io.migrax.api;
 import java.sql.Connection;
 
 /**
- * A migration written in Java, for data changes that are awkward in SQL (Django's
- * {@code RunPython}). Implementations need a public no-argument constructor and live in the
+ * A migration written in Java, for data changes that are awkward in SQL. Implementations need a public no-argument constructor and live in the
  * Java migrations package ({@code db.migration} by default). The class name gives the version
  * and order, like a SQL file name: {@code V0005__BackfillFullNames} runs after
  * {@code 0004_add_full_name.sql}.

@@ -43,7 +43,7 @@ public final class Migrations {
   private Migrations() {}
 
   /**
-   * Next file name (without .sql) in the migration folder, Django style: {@code 0001_initial}
+   * Next file name (without .sql) in the migration folder: {@code 0001_initial}
    * for the first migration, then {@code 0002_add_customer_phone} and so on.
    */
   public static String nextName(Path migrations, boolean baselineIsEmpty,
@@ -57,7 +57,7 @@ public final class Migrations {
           if (matcher.matches()) {
             latest = Math.max(latest, Integer.parseInt(matcher.group(1)));
           } else {
-            // Flyway-style V12__name.sql files, e.g. after 'migrax import flyway'.
+            // V12__name.sql files, e.g. after 'migrax import'.
             List<java.math.BigInteger> version =
                 io.migrax.runner.MigrationRunner.versionParts(filename);
             if (!version.isEmpty()) {
