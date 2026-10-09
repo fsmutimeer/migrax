@@ -74,8 +74,9 @@ def main():
     lines = []
     if latest is None:
         lines.append('!!! info "No release yet"\n\n    The first release will appear here.\n')
-    # Pre-releases newer than the latest stable one, for people who want to test them.
-    testing = ([r for r in releases[:releases.index(latest)] if r["prerelease"]]
+    # The newest pre-release, when it is newer than the latest stable release, for people who
+    # want to test it. Earlier pre-releases are listed with the older versions.
+    testing = ([r for r in releases[:releases.index(latest)] if r["prerelease"]][:1]
                if latest else [])
     older = [r for r in releases if r is not latest and r not in testing]
     # The latest stable release first (it opens the page), then pre-releases, then the rest.
