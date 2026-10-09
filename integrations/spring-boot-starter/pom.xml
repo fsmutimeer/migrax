@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.migrax</groupId>
   <artifactId>migrax-spring-boot-starter</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.0-rc.3</version>
   <name>Migrax Spring Boot starter</name>
   <description>Applies Migrax migrations when a Spring Boot application starts, before JPA.</description>
 
@@ -30,7 +30,7 @@
     <dependency>
       <groupId>io.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.2.0-SNAPSHOT</version>
+      <version>0.2.0-rc.3</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
