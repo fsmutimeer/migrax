@@ -543,6 +543,36 @@ public final class MigrationRunner {
     });
   }
 
+  /**
+   * Removes a migration from the history, for a file that was deleted on purpose. Whatever the
+   * migration changed stays in the database; only the record goes.
+   *
+   * @return {@code true} when the history had a record (applied or failed) for it
+   */
+  public boolean forget(Connection connection, String version, boolean confirm) throws Exception {
+    if (!confirm) {
+      throw new IllegalArgumentException(
+          "Forgetting a migration changes migration history. Pass explicit confirmation.");
+    }
+    return withTransactionAndLock(connection, () -> {
+      ensureHistory(connection);
+      ensureFailureTable(connection);
+      int removed;
+      try (PreparedStatement delete =
+               connection.prepareStatement("DELETE FROM migrax_history WHERE version=?")) {
+        delete.setString(1, version);
+        removed = delete.executeUpdate();
+      }
+      try (PreparedStatement delete =
+               connection.prepareStatement("DELETE FROM migrax_failures WHERE version=?")) {
+        delete.setString(1, version);
+        removed += delete.executeUpdate();
+      }
+      connection.commit();
+      return removed > 0;
+    });
+  }
+
   // ------------------------------------------------------------------ verification
 
   private static void validateVersions(List<Migration> migrations) {
@@ -585,7 +615,9 @@ public final class MigrationRunner {
       throw new IllegalStateException(
           "Applied migration file(s) are missing from the configured migration location: "
               + String.join(", ", missing)
-              + ". Restore the files from version control; applied migrations must not be deleted.");
+              + ". Restore the files from version control; applied migrations must not be deleted."
+              + " If you deleted them on purpose, remove them from the history with: migrax repair "
+              + String.join(" ", missing) + " --action forget --yes");
     }
   }
 

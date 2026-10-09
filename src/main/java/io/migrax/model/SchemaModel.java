@@ -27,6 +27,106 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
     return new SchemaModel(namedTables, sequences);
   }
 
+  /**
+   * This model with table and column names spelled as in {@code reference} where they differ
+   * only in letter case. Used for a schema read from a database that folds unquoted names
+   * (MySQL with lower_case_table_names, PostgreSQL, H2, Oracle): there {@code categories_seq} is
+   * the table an entity maps as {@code categories_SEQ}. Names with more than one case-insensitive
+   * match are left alone.
+   */
+  public SchemaModel withNameCaseFrom(SchemaModel reference) {
+    Map<String, String> tableNames = new HashMap<>();
+    for (Table table : tables) {
+      String match = caseMatch(table.name(), tables.stream().map(Table::name).toList(),
+          reference.tables().stream().map(Table::name).toList());
+      if (match != null) {
+        tableNames.put(table.name(), match);
+      }
+    }
+    Map<String, Map<String, String>> columnNames = new HashMap<>();
+    for (Table table : tables) {
+      Table ref = reference.table(tableNames.getOrDefault(table.name(), table.name()));
+      Map<String, String> renamed = new HashMap<>();
+      if (ref != null) {
+        List<String> own = table.columns().stream().map(Column::name).toList();
+        List<String> theirs = ref.columns().stream().map(Column::name).toList();
+        for (String column : own) {
+          String match = caseMatch(column, own, theirs);
+          if (match != null) {
+            renamed.put(column, match);
+          }
+        }
+      }
+      columnNames.put(table.name(), renamed);
+    }
+    List<Table> result = new ArrayList<>();
+    for (Table table : tables) {
+      Map<String, String> cols = columnNames.get(table.name());
+      java.util.function.Function<List<String>, List<String>> map =
+          names -> names.stream().map(n -> cols.getOrDefault(n, n)).toList();
+      List<Column> columns = table.columns().stream()
+          .map(c -> !cols.containsKey(c.name()) ? c : new Column(cols.get(c.name()), c.sqlType(),
+              c.nullable(), c.length(), c.precision(), c.scale(), c.defaultValue(), c.unique(),
+              c.identity(), c.sequenceName(), c.logicalType()))
+          .toList();
+      PrimaryKey key = table.primaryKey() == null ? null
+          : new PrimaryKey(map.apply(table.primaryKey().columns()),
+              table.primaryKey().constraintName());
+      List<Index> indexes = table.indexes().stream()
+          .map(i -> new Index(i.name(), map.apply(i.columns()), i.unique())).toList();
+      List<ForeignKey> keys = table.foreignKeys().stream().map(k -> {
+        Map<String, String> target = columnNames.getOrDefault(k.referencedTable(), Map.of());
+        return new ForeignKey(k.name(), map.apply(k.columns()),
+            tableNames.getOrDefault(k.referencedTable(), k.referencedTable()),
+            k.referencedColumns().stream().map(n -> target.getOrDefault(n, n)).toList());
+      }).toList();
+      result.add(new Table(tableNames.getOrDefault(table.name(), table.name()), columns, key,
+          indexes, keys));
+    }
+    return new SchemaModel(result, sequences);
+  }
+
+  /**
+   * This model, read from a database, with the sequences of {@code entities} that already exist
+   * there: as a real sequence (named in {@code existingSequences}, lower case), or as the
+   * one-column {@code next_val} table that databases without sequences use (MySQL). Such a table
+   * becomes the sequence. Other database sequences are left out on purpose, because many belong
+   * to identity columns and must never be dropped.
+   */
+  public SchemaModel withSequencesFrom(SchemaModel entities, Set<String> existingSequences) {
+    List<Table> keptTables = new ArrayList<>(tables);
+    List<Sequence> found = new ArrayList<>(sequences);
+    for (Sequence sequence : entities.sequences()) {
+      if (found.stream().anyMatch(s -> s.name().equalsIgnoreCase(sequence.name()))) {
+        continue;
+      }
+      Table emulated = keptTables.stream()
+          .filter(t -> t.name().equalsIgnoreCase(sequence.name()) && t.columns().size() == 1
+              && t.columns().get(0).name().equalsIgnoreCase("next_val"))
+          .findFirst().orElse(null);
+      if (emulated != null) {
+        keptTables.remove(emulated);
+        found.add(sequence);
+      } else if (existingSequences.contains(sequence.name().toLowerCase(Locale.ROOT))) {
+        found.add(sequence);
+      }
+    }
+    return new SchemaModel(keptTables, found);
+  }
+
+  /**
+   * The one name in {@code theirs} equal to {@code name} ignoring case, when {@code theirs} has no
+   * exact match and both lists have exactly one such name; otherwise null.
+   */
+  private static String caseMatch(String name, List<String> own, List<String> theirs) {
+    if (theirs.contains(name)) {
+      return null;
+    }
+    List<String> matches = theirs.stream().filter(n -> n.equalsIgnoreCase(name)).toList();
+    long ownMatches = own.stream().filter(n -> n.equalsIgnoreCase(name)).count();
+    return matches.size() == 1 && ownMatches == 1 ? matches.get(0) : null;
+  }
+
   /** Length that matters for comparison: 255 when unset for sized types, null otherwise. */
   public static Integer effectiveLength(Column column) {
     String logical = column.logicalType() == null ? "" : column.logicalType();
@@ -46,6 +146,16 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
    * in an existing character column.
    */
   public SchemaModel withCompatibleTypesFrom(SchemaModel previous) {
+    return withCompatibleTypesFrom(previous, (existing, wanted) -> false);
+  }
+
+  /**
+   * Like {@link #withCompatibleTypesFrom(SchemaModel)}, and also keeps the existing type where
+   * {@code sameSqlType} says both columns get the same SQL type in the target database, for
+   * example {@code Instant} and {@code LocalDateTime} are both {@code datetime(6)} on MySQL.
+   */
+  public SchemaModel withCompatibleTypesFrom(
+      SchemaModel previous, java.util.function.BiPredicate<Column, Column> sameSqlType) {
     List<Table> result = new ArrayList<>();
     for (Table table : tables) {
       Table old = previous.table(table.name());
@@ -56,7 +166,8 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
       List<Column> columns = new ArrayList<>();
       for (Column column : table.columns()) {
         Column existing = old.column(column.name());
-        columns.add(existing != null && compatibleType(existing, column)
+        columns.add(existing != null
+            && (compatibleType(existing, column) || sameSqlType.test(existing, column))
             ? new Column(column.name(), existing.sqlType(), column.nullable(), existing.length(),
                 existing.precision(), existing.scale(), column.defaultValue(), column.unique(),
                 column.identity(), column.sequenceName(), existing.logicalType())

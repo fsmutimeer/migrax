@@ -206,12 +206,14 @@ public final class Main {
         Creates the next numbered SQL file for hand-written changes such as data migrations,
         with an empty rollback script. --java creates a JavaMigration class instead.""",
         "--java --java-package --locations");
-    command("repair", List.of(), "Fix migration history after a failed migration",
-        "migrax repair <migration> --action applied|retry --yes",
+    command("repair", List.of(), "Fix migration history after a failed or deleted migration",
+        "migrax repair <migration>... --action applied|retry|forget --yes",
         """
         Use only after inspecting the database.
           --action applied  every statement took effect: record the migration as applied
           --action retry    you restored the database: clear the failure so it runs again
+          --action forget   you deleted applied migration files on purpose: remove them from
+                            the history (the database keeps their changes); several at once
         --yes confirms the change to migration history.""",
         "--action --yes --url --user --password --locations --classpath --no-build");
     command("inspect", List.of(), "Print the schema read from your entities as JSON",
@@ -249,7 +251,7 @@ public final class Main {
     OPTION_HELP.put("--resume", "--resume                Re-run a failed resume-safe migration");
     OPTION_HELP.put("--steps", "--steps <n>             Number of migrations to roll back");
     OPTION_HELP.put("--to", "--to <migration>        Last migration to keep / squash up to");
-    OPTION_HELP.put("--action", "--action <action>       applied or retry");
+    OPTION_HELP.put("--action", "--action <action>       applied, retry or forget");
     OPTION_HELP.put("--yes", "--yes, -y               Confirm without asking");
     OPTION_HELP.put("--json", "--json                  Machine-readable output");
     OPTION_HELP.put("--impact", "--impact                Show affected table sizes (needs the database)");
@@ -587,13 +589,18 @@ public final class Main {
       previous = SnapshotStore.load(project.snapshot());
     } else if (useDatabaseBaseline) {
       try (Connection connection = project.connect()) {
-        previous = DatabaseSchemaReader.read(connection, args.option("--schema"));
+        previous = DatabaseSchemaReader.read(connection, args.option("--schema"))
+            .withSequencesFrom(current, DatabaseSchemaReader.sequenceNames(connection));
+        if (DatabaseSchemaReader.foldsNames(connection)) {
+          previous = previous.withNameCaseFrom(current);
+        }
       }
       Log.info("No snapshot yet: using the current database schema as the baseline.");
     } else {
       previous = SchemaModel.empty();
     }
-    current = current.withConstraintNamesFrom(previous).withCompatibleTypesFrom(previous);
+    current = current.withConstraintNamesFrom(previous)
+        .withCompatibleTypesFrom(previous, (existing, wanted) -> sameType(dialect, existing, wanted));
 
     List<Renames.TableRename> tables =
         new ArrayList<>(Renames.parseTables(args.option("--rename-table")));
@@ -982,7 +989,7 @@ public final class Main {
     project.requireUrl();
     Path folder = project.migrations();
     List<Migration> migrations = project.migrationsToRun(true);
-    if (migrations.isEmpty()) {
+    if (migrations.isEmpty() && !hasHistory(project)) {
       out.println("No migrations in " + project.display(folder) + ". Run 'migrax generate' first.");
       return OK;
     }
@@ -1201,23 +1208,51 @@ public final class Main {
         "Run 'migrax status' to see applied migrations.");
   }
 
+  /**
+   * Whether the database recorded applied migrations. With an empty folder that means the files
+   * were deleted, and migrating must report them instead of saying there is nothing to do.
+   */
+  private static boolean hasHistory(Project project) throws Exception {
+    try (Connection connection = project.connect()) {
+      return !new MigrationRunner().applied(connection).isEmpty();
+    }
+  }
+
+  /** True when the dialect writes the same SQL type for both columns. */
+  private static boolean sameType(Dialect dialect, SchemaModel.Column existing,
+                                  SchemaModel.Column wanted) {
+    try {
+      return dialect.columnType(existing).equalsIgnoreCase(dialect.columnType(wanted));
+    } catch (RuntimeException e) {
+      return false; // a type this dialect can't write: let the normal comparison decide
+    }
+  }
+
   private int repair(Project project) throws Exception {
     if (args.positionals.size() < 2) {
       throw new UsageException("Missing the migration to repair.",
-          "Usage: migrax repair <migration> --action applied|retry --yes");
+          "Usage: migrax repair <migration>... --action applied|retry|forget --yes");
     }
     String action = args.option("--action");
     if (Project.blank(action)) {
       throw new UsageException("Missing --action.",
-          "Use --action applied (all statements took effect) or --action retry "
-              + "(you restored the database).");
+          "Use --action applied (all statements took effect), --action retry (you restored "
+              + "the database) or --action forget (you deleted the file on purpose).");
     }
     if (!args.flag("--yes", "-y")) {
       throw new UsageException("Repair changes migration history and needs confirmation.",
           "Inspect and back up the database first, then rerun with --yes.");
     }
     project.requireUrl();
-    String wanted = args.positionals.get(1);
+    List<String> names = args.positionals.subList(1, args.positionals.size());
+    if (action.trim().equalsIgnoreCase("forget")) {
+      return forget(project, names);
+    }
+    if (names.size() > 1) {
+      throw new UsageException("Repair one failed migration at a time.",
+          "Only --action forget accepts several migrations.");
+    }
+    String wanted = names.get(0);
     Migration migration = null;
     for (Migration candidate : project.migrationsToRun(true)) {
       if (candidate.version().equals(wanted) || candidate.version().equals(wanted + ".sql")) {
@@ -1232,6 +1267,36 @@ public final class Main {
     }
     out.println("Repaired history for " + migration.version() + " (action: "
         + action.trim().toLowerCase(Locale.ROOT) + "). Keep a record of this repair.");
+    return OK;
+  }
+
+  /** Removes deleted migration files from the history; refuses files that still exist. */
+  private int forget(Project project, List<String> wanted) throws Exception {
+    List<String> versions = new ArrayList<>();
+    for (String name : wanted) {
+      String version = name.endsWith(".sql") || name.startsWith("V") ? name : name + ".sql";
+      for (Migration migration : project.migrationsToRun(true)) {
+        if (migration.version().equals(name) || migration.version().equals(version)) {
+          throw new UsageException(migration.version() + " still exists in "
+              + project.display(project.migrations()) + ".",
+              "Forget only migrations whose files you deleted: 'migrate' would run it again. "
+                  + "To undo it instead, use 'migrax rollback'.");
+        }
+      }
+      versions.add(version);
+    }
+    MigrationRunner runner = new MigrationRunner();
+    try (Connection connection = project.connect()) {
+      for (String version : versions) {
+        if (runner.forget(connection, version, true)) {
+          out.println("Removed " + version + " from the migration history.");
+        } else {
+          out.println(version + " is not in the migration history; nothing to forget.");
+        }
+      }
+    }
+    out.println("The database keeps the changes these migrations made. "
+        + "Run 'migrax status' to check the history.");
     return OK;
   }
 

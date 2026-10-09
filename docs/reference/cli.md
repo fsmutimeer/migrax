@@ -332,19 +332,21 @@ Renumbers migrations that share a number after a git merge (the one added later 
 ### repair
 
 ```
-migrax repair <migration> --action applied|retry --yes
+migrax repair <migration>... --action applied|retry|forget --yes
 ```
 
 Use only after inspecting the database.
 
 - `--action applied`: every statement took effect, so record the migration as applied.
 - `--action retry`: you restored the database, so clear the failure and let it run again.
+- `--action forget`: you deleted applied migration files on purpose, so remove them from the
+  history. The database keeps the changes they made. Accepts several migrations at once.
 
 `--yes` confirms the change to the migration history.
 
 | Option | Meaning |
 |---|---|
-| `--action <action>` | applied or retry |
+| `--action <action>` | applied, retry or forget |
 | `--yes, -y` | Confirm without asking |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
