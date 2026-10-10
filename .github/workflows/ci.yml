@@ -60,7 +60,7 @@ jobs:
           P="$RUNNER_TEMP/shop"
           mkdir -p "$P/src/main/java/demo" "$P/src/main/resources"
           printf 'pluginManagement { repositories { mavenLocal(); gradlePluginPortal() } }\nrootProject.name = "shop"\n' > "$P/settings.gradle.kts"
-          printf 'plugins { java; id("io.migrax") version "0.2.0-rc.5" }\ngroup = "demo"\nrepositories { mavenLocal(); mavenCentral() }\ndependencies { implementation("jakarta.persistence:jakarta.persistence-api:3.1.0"); runtimeOnly("com.h2database:h2:2.3.232") }\n' > "$P/build.gradle.kts"
+          printf 'plugins { java; id("io.migrax") version "0.2.0-SNAPSHOT" }\ngroup = "demo"\nrepositories { mavenLocal(); mavenCentral() }\ndependencies { implementation("jakarta.persistence:jakarta.persistence-api:3.1.0"); runtimeOnly("com.h2database:h2:2.3.232") }\n' > "$P/build.gradle.kts"
           printf 'package demo;\nimport jakarta.persistence.*;\n@Entity public class Item { @Id @GeneratedValue Long id; String name; }\n' > "$P/src/main/java/demo/Item.java"
           printf 'spring.datasource.url=jdbc:h2:file:./data/db\n' > "$P/src/main/resources/application.properties"
           cd "$P" && gradle -q migraxGenerate migraxMigrate migraxStatus migraxVerify
