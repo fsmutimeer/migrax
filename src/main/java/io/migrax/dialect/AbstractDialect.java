@@ -122,9 +122,11 @@ public abstract class AbstractDialect implements Dialect {
    */
   protected String column(SchemaModel.Column c) {
     String type = c.identity() ? identityType(c) : renderType(c);
+    // An identity column gets its values itself; the sequence a database reports behind it
+    // (CockroachDB reports nextval(...) as its default) must not become a second default.
     String d = c.defaultValue() != null
         ? " DEFAULT " + c.defaultValue()
-        : (c.sequenceName() != null && sequenceDefault(c.sequenceName()) != null
+        : (!c.identity() && c.sequenceName() != null && sequenceDefault(c.sequenceName()) != null
             ? " DEFAULT " + sequenceDefault(c.sequenceName()) : "");
     return q(c.name()) + " " + type + d + (c.nullable() ? "" : " NOT NULL");
   }

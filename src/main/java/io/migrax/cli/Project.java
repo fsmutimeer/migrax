@@ -2,6 +2,7 @@ package io.migrax.cli;
 
 import io.migrax.dialect.Dialect;
 import io.migrax.dialect.Dialects;
+import io.migrax.dialect.PostgresDialect;
 import io.migrax.diff.SnapshotStore;
 import io.migrax.model.ModelExtractor;
 import io.migrax.model.NamingStrategy;
@@ -196,7 +197,8 @@ final class Project implements AutoCloseable {
   }
 
   /**
-   * The dialect: --dialect, then the database URL, then the snapshot's recorded dialect.
+   * The dialect: --dialect, then the database URL (for PostgreSQL URLs, also whether the server
+   * is CockroachDB), then the snapshot's recorded dialect.
    *
    * @param allowDefault fall back to PostgreSQL with a note instead of failing
    */
@@ -206,7 +208,8 @@ final class Project implements AutoCloseable {
       return Dialects.byName(name);
     }
     if (hasUrl()) {
-      return Dialects.fromJdbcUrl(credentials().url());
+      Dialect fromUrl = Dialects.fromJdbcUrl(credentials().url());
+      return fromUrl instanceof PostgresDialect ? postgresOrCockroach(fromUrl) : fromUrl;
     }
     String recorded = SnapshotStore.dialect(snapshot());
     if (recorded != null) {
@@ -219,6 +222,33 @@ final class Project implements AutoCloseable {
     throw new UsageException("Cannot tell which database to write SQL for.",
         "Configure the database URL, or pass --dialect (" + String.join(", ", Dialects.NAMES) + ").");
   }
+
+  /**
+   * The PostgreSQL driver also reaches CockroachDB. The snapshot's recorded dialect tells which,
+   * then a CockroachDB Hibernate dialect setting, then the server itself.
+   */
+  private Dialect postgresOrCockroach(Dialect postgres) throws Exception {
+    String recorded = SnapshotStore.dialect(snapshot());
+    if (recorded != null) {
+      return Dialects.byName(recorded) instanceof PostgresDialect same ? same : postgres;
+    }
+    String hibernate = hibernateSettings().get("hibernate.dialect");
+    if (hibernate != null && hibernate.toLowerCase(Locale.ROOT).contains("cockroach")) {
+      return Dialects.byName("cockroachdb");
+    }
+    if (serverDialect == null) {
+      try (Connection connection = connect()) {
+        serverDialect = Dialects.forConnection(connection).orElse(postgres);
+      } catch (Exception e) {
+        Log.debug("Could not ask the database which one it is: {}", e.getMessage());
+        return postgres;
+      }
+    }
+    return serverDialect;
+  }
+
+  /** The dialect the server reported, asked once per command. */
+  private Dialect serverDialect;
 
   boolean noBuild() {
     return args.flag("--no-build")

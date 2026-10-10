@@ -75,6 +75,7 @@ public final class ScratchDatabase implements AutoCloseable {
       command.add(variable);
     }
     command.add(chosenImage);
+    command.addAll(engine.command());
     String id = run(command, 600).trim();
     id = id.lines().reduce((first, second) -> second).orElse(id).trim();
     try {
@@ -166,7 +167,9 @@ public final class ScratchDatabase implements AutoCloseable {
         "Migrax_Passw0rd!", 300, "ACCEPT_EULA=Y", "MSSQL_SA_PASSWORD=Migrax_Passw0rd!"),
     ORACLE("gvenzl/oracle-free:slim-faststart", 1521,
         "jdbc:oracle:thin:@localhost:{port}/FREEPDB1", "system", "migrax", 300,
-        "ORACLE_PASSWORD=migrax");
+        "ORACLE_PASSWORD=migrax"),
+    COCKROACHDB("cockroachdb/cockroach:v24.3.11", 26257,
+        "jdbc:postgresql://localhost:{port}/defaultdb?sslmode=disable", "root", "", 180);
 
     final String image;
     final int port;
@@ -187,6 +190,11 @@ public final class ScratchDatabase implements AutoCloseable {
       this.environment = environment;
     }
 
+    /** Arguments after the image name: CockroachDB's image needs a start command. */
+    List<String> command() {
+      return this == COCKROACHDB ? List.of("start-single-node", "--insecure") : List.of();
+    }
+
     static Engine of(String dialect) {
       return switch (dialect) {
         case "postgresql" -> POSTGRESQL;
@@ -194,6 +202,7 @@ public final class ScratchDatabase implements AutoCloseable {
         case "mariadb" -> MARIADB;
         case "sqlserver" -> SQLSERVER;
         case "oracle" -> ORACLE;
+        case "cockroachdb" -> COCKROACHDB;
         default -> throw new IllegalArgumentException("No scratch database for " + dialect);
       };
     }

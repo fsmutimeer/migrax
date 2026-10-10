@@ -33,6 +33,10 @@ public final class HibernateSchemaValidator {
       builder.applySetting("hibernate.connection.password", password);
     }
     builder.applySetting("hibernate.hbm2ddl.auto", "validate");
+    // Validation only reads the schema: no helper tables for bulk updates (Hibernate creates
+    // HTE_ tables at startup on CockroachDB).
+    builder.applySetting("hibernate.query.mutation_strategy.persistent.create_tables", "false");
+    builder.applySetting("hibernate.hql.bulk_id_strategy.persistent.create_tables", "false");
     builder.applySetting("hibernate.boot.allow_jdbc_metadata_access", "true");
     builder.applySetting("jakarta.persistence.validation.mode", "none");
     builder.applySetting("javax.persistence.validation.mode", "none");

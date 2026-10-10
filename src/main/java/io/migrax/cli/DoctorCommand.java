@@ -4,6 +4,7 @@ import static io.migrax.cli.ExitCode.ERROR;
 import static io.migrax.cli.ExitCode.OK;
 
 import io.migrax.dialect.Dialect;
+import io.migrax.dialect.Dialects;
 import io.migrax.model.ModelExtractor;
 import io.migrax.model.NamingStrategy;
 import io.migrax.plugin.ProjectDatabaseConfig;
@@ -160,7 +161,11 @@ final class DoctorCommand implements Command {
       try (Connection connection = project.connect()) {
         DatabaseMetaData metadata = connection.getMetaData();
         String product = metadata.getDatabaseProductName();
-        doctor.ok("Connected: " + product + " " + metadata.getDatabaseProductVersion()
+        // CockroachDB answers through the PostgreSQL driver, which reports "PostgreSQL 13".
+        boolean cockroach = Dialects.forConnection(connection)
+            .filter(d -> d.id().equals("cockroachdb")).isPresent();
+        doctor.ok("Connected: " + (cockroach ? "CockroachDB (PostgreSQL protocol)" : product
+            + " " + metadata.getDatabaseProductVersion())
             + " (driver " + metadata.getDriverVersion() + ")");
         // Take and release the migration lock, as migrate does.
         try (AutoCloseable lock = DatabaseMigrationLock.acquire(connection)) {

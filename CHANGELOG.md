@@ -6,6 +6,19 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- CockroachDB support (`cockroachdb`), through the PostgreSQL driver: Migrax recognizes the
+  server, writes CockroachDB's types, takes its migration lock as a row in `migrax_lock`, and
+  `verify` starts a throwaway CockroachDB in Docker. Tested with the real-database suite and
+  Hibernate's schema validation.
+
+### Fixed
+
+- Hibernate's mapping of a `@Lob String` as `varchar(255)` (CockroachDB) is read as text, so
+  long values aren't cut off.
+- Hibernate's bulk-update helper tables (`HTE_<table>`) are no longer seen as user tables.
+
 ## [0.2.0-rc.5] - 2026-10-10
 
 Fifth release candidate for 0.2.0, for testing. It contains everything in 0.2.0-rc.4 and

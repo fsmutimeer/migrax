@@ -29,6 +29,7 @@ public final class DatabaseSchemaReader {
     String schema = resolveSchema(connection, metadata, explicitSchema);
     Log.debug("Reading database schema metadata for catalog '{}', schema '{}'", catalog, schema);
     List<SchemaModel.Table> tables = new ArrayList<>();
+    List<String> names = new ArrayList<>();
     try (ResultSet result = metadata.getTables(catalog, schema, "%", new String[]{"TABLE"})) {
       while (result.next()) {
         String name = result.getString("TABLE_NAME");
@@ -39,6 +40,11 @@ public final class DatabaseSchemaReader {
             || lower.startsWith("spt_") || lower.equals("msreplication_options")) {
           continue;
         }
+        names.add(name);
+      }
+    }
+    for (String name : names) {
+      if (!isHibernateHelperTable(name, names)) {
         tables.add(readTable(metadata, catalog, schema, name));
       }
     }
@@ -190,6 +196,9 @@ public final class DatabaseSchemaReader {
         // 'x'::character varying), which would never match entity defaults; leave them out.
         String defaultValue = null;
         String autoIncrement = optionalString(result, "IS_AUTOINCREMENT");
+        if (isHiddenRowId(result.getString("COLUMN_NAME"), optionalString(result, "COLUMN_DEF"))) {
+          continue;
+        }
         columns.add(new SchemaModel.Column(
             result.getString("COLUMN_NAME"),
             logicalType,
@@ -205,12 +214,36 @@ public final class DatabaseSchemaReader {
       }
     }
 
-    SchemaModel.PrimaryKey primaryKey = readPrimaryKey(metadata, catalog, schema, table);
+    SchemaModel.PrimaryKey key = readPrimaryKey(metadata, catalog, schema, table);
+    // Without its columns (CockroachDB's hidden row id, left out above) there is no key.
+    SchemaModel.PrimaryKey primaryKey = key != null && key.columns().stream().allMatch(
+        name -> columns.stream().anyMatch(c -> c.name().equalsIgnoreCase(name))) ? key : null;
     List<SchemaModel.ForeignKey> foreignKeys = readForeignKeys(metadata, catalog, schema, table);
     List<SchemaModel.Index> indexes = readIndexes(metadata, catalog, schema, table).stream()
         .filter(index -> !backsForeignKey(index, foreignKeys))
         .toList();
     return new SchemaModel.Table(table, columns, primaryKey, indexes, foreignKeys);
+  }
+
+  /**
+   * Hibernate's own helper tables for bulk updates and deletes, {@code HTE_<table>} (Hibernate 6
+   * and 7) or {@code HT_<table>} (Hibernate 5), which it creates at startup on some databases
+   * such as CockroachDB. Only names whose table also exists count, so user tables stay.
+   */
+  private static boolean isHibernateHelperTable(String name, List<String> names) {
+    String lower = name.toLowerCase(Locale.ROOT);
+    String rest = lower.startsWith("hte_") ? lower.substring(4)
+        : lower.startsWith("ht_") ? lower.substring(3) : null;
+    return rest != null && names.stream().anyMatch(other -> other.equalsIgnoreCase(rest));
+  }
+
+  /**
+   * CockroachDB gives a table without a primary key a hidden {@code rowid} column, filled by
+   * {@code unique_rowid()}, as its primary key. Entities never declare it.
+   */
+  private static boolean isHiddenRowId(String column, String defaultValue) {
+    return "rowid".equalsIgnoreCase(column) && defaultValue != null
+        && defaultValue.toLowerCase(Locale.ROOT).contains("unique_rowid()");
   }
 
   /**

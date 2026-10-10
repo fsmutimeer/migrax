@@ -51,7 +51,8 @@ public final class HibernateSchemaReader {
       "mariadb", "org.hibernate.dialect.MariaDBDialect",
       "sqlserver", "org.hibernate.dialect.SQLServerDialect",
       "oracle", "org.hibernate.dialect.OracleDialect",
-      "h2", "org.hibernate.dialect.H2Dialect");
+      "h2", "org.hibernate.dialect.H2Dialect",
+      "cockroachdb", "org.hibernate.dialect.CockroachDialect");
 
   /**
    * Hibernate 5 dialects, as its resolver picks them for current database versions; its
@@ -63,7 +64,8 @@ public final class HibernateSchemaReader {
       "mariadb", "org.hibernate.dialect.MariaDB103Dialect",
       "sqlserver", "org.hibernate.dialect.SQLServer2012Dialect",
       "oracle", "org.hibernate.dialect.Oracle12cDialect",
-      "h2", "org.hibernate.dialect.H2Dialect");
+      "h2", "org.hibernate.dialect.H2Dialect",
+      "cockroachdb", "org.hibernate.dialect.CockroachDB201Dialect");
 
   private static final String CAMEL_CASE_TO_UNDERSCORES =
       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy";
@@ -256,6 +258,13 @@ public final class HibernateSchemaReader {
     String hibernateType = sqlType(column, metadata);
     int code = sqlTypeCode(column, metadata);
     String logical = logicalType(code);
+    // A @Lob mapped to varchar (Hibernate does this for @Lob String on CockroachDB, as
+    // varchar(255)) is text: a large object must not be cut to 255 characters.
+    if ("varchar".equals(logical) && column.getValue() != null
+        && Boolean.TRUE.equals(call(column.getValue(), "isLob"))) {
+      logical = "text";
+      hibernateType = "text";
+    }
     Integer length = null;
     Integer precision = null;
     Integer scale = null;

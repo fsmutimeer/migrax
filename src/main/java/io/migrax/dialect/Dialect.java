@@ -56,6 +56,21 @@ public interface Dialect {
   }
 
   /**
+   * Whether this dialect is the one for an open connection. The default checks the product
+   * name ({@link #acceptsProduct}); a database that reports another product's name, such as
+   * CockroachDB with the PostgreSQL driver, can look at the server itself.
+   *
+   * @param connection an open connection to the database
+   * @return {@code true} if this dialect handles that database
+   * @throws java.sql.SQLException when the connection's metadata can't be read
+   * @since 0.2.0
+   */
+  default boolean acceptsConnection(java.sql.Connection connection) throws java.sql.SQLException {
+    return acceptsProduct(connection.getMetaData().getDatabaseProductName()
+        .toLowerCase(java.util.Locale.ROOT));
+  }
+
+  /**
    * Takes the database-wide lock that keeps two Migrax processes from migrating the same
    * database at once. It must not wait: when another session holds it, fail at once.
    * Databases without such a lock can't be migrated safely, so the default refuses.

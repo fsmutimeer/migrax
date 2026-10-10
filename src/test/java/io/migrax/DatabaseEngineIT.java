@@ -4,6 +4,7 @@ import io.migrax.runner.MigrationRunner;
 import io.migrax.runner.DatabaseMigrationLock;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
+import org.testcontainers.containers.CockroachContainer;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.MariaDBContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
@@ -39,7 +40,9 @@ class DatabaseEngineIT {
             .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
         database("SQL Server 2022", () -> new MSSQLServerContainer<>(
             "mcr.microsoft.com/mssql/server:2022-latest").acceptLicense()),
-        database("Oracle XE 21", () -> new OracleContainer("gvenzl/oracle-xe:21-slim-faststart")));
+        database("Oracle XE 21", () -> new OracleContainer("gvenzl/oracle-xe:21-slim-faststart")),
+        database("CockroachDB 24.3", () -> new CockroachContainer(
+            "cockroachdb/cockroach:v24.3.11")));
   }
 
   private static DynamicTest database(
@@ -89,8 +92,9 @@ class DatabaseEngineIT {
           // Engines with transactional DDL rolled the failed probe back.
         }
       }
+      // From the server, not the URL: CockroachDB is reached with the PostgreSQL driver.
       io.migrax.dialect.Dialect dialect =
-          io.migrax.dialect.Dialects.fromJdbcUrl(container.getJdbcUrl());
+          io.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
       HibernateValidationTest.generateAndApply(connection, io.migrax.model.NamingStrategy.SPRING,
           dialect, migrations.resolve("0100_entities.sql"));
       // The schema reader (used by drift and the first generate) must see exactly the

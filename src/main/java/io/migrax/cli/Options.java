@@ -30,7 +30,8 @@ final class Options {
     HELP.put("--package", "--package <name>        Entity package (default: MIGRAX_PACKAGE or pom groupId)");
     HELP.put("--name", "--name <name>           Migration file name (default: next number + description)");
     HELP.put("--allow-destructive", "--allow-destructive     Allow drops and narrowing type changes");
-    HELP.put("--safe", "--safe                  Non-blocking indexes and constraints (PostgreSQL)");
+    HELP.put("--safe",
+        "--safe                  Non-blocking indexes and constraints (PostgreSQL, CockroachDB)");
     HELP.put("--rename", "--rename t.old=new      Treat a column change as a rename (comma-separated)");
     HELP.put("--rename-table", "--rename-table old=new  Treat a table change as a rename");
     HELP.put("--no-input", "--no-input              Never ask questions");
