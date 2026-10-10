@@ -6,6 +6,42 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-10
+
+The 0.2 release: two more databases, a command to start a development database over, and the
+fixes from 0.1.1 to 0.1.4. It contains everything in the release candidates 0.2.0-rc.1 to
+0.2.0-rc.6; the changelog lists each of their changes in detail.
+
+### Added
+
+- CockroachDB support (`cockroachdb`), through the PostgreSQL driver: Migrax recognizes the
+  server by itself, and `verify` starts a throwaway CockroachDB in Docker.
+- SQLite support (`sqlite`, SQLite 3.35 and newer): changes SQLite can't make in place
+  rebuild the table with its rows; `verify` runs on a temporary SQLite file.
+- `migrax clean` (and `mvn migrax:clean`) drops every table, view and sequence so `migrate`
+  can rebuild a development database; `MIGRAX_CLEAN_DISABLED=true` turns it off.
+- `migrax repair <migration>... --action forget --yes` removes applied migrations whose files
+  were deleted on purpose.
+- The first `generate` against a database that already has tables also writes those tables
+  to `0001_baseline.sql`, so an empty database can be built from the migrations.
+- Documentation for `migrax import flyway|liquibase` (Guides > Switching from Flyway or
+  Liquibase), and a Download page with every release's files and SHA-256 checksums.
+- MIT license.
+
+### Changed
+
+- `migrax doctor` checks locking by taking and releasing the migration lock.
+- Each database's support, including its migration lock, is one class found with
+  `java.util.ServiceLoader`; the CLI is one class per command. Commands and output are
+  unchanged.
+
+### Fixed
+
+- The first `generate` against an existing database no longer finds changes that aren't real,
+  on every supported database and with both ways of reading entities.
+- No JVM crash with Java 21 and Hibernate 7.3 or newer.
+- `migrax import liquibase` includes the entities' sequences in its baseline.
+
 ## [0.2.0-rc.6] - 2026-10-10
 
 Sixth release candidate for 0.2.0, for testing. It contains everything in 0.2.0-rc.5 and
@@ -232,7 +268,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.6...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.2.0
 [0.2.0-rc.6]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.5...v0.2.0-rc.6
 [0.2.0-rc.5]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.4...v0.2.0-rc.5
 [0.2.0-rc.4]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.3...v0.2.0-rc.4

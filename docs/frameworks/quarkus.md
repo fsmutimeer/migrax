@@ -34,7 +34,7 @@ quarkus.hibernate-orm.schema-management.strategy=none
 <dependency>
   <groupId>io.migrax</groupId>
   <artifactId>migrax-quarkus</artifactId>
-  <version>0.1.4</version>
+  <version>0.2.0</version>
 </dependency>
 ```
 
