@@ -65,6 +65,7 @@ it; see [Rollbacks and recovery](rollbacks-and-recovery.md).
 | Database | Lock |
 |---|---|
 | PostgreSQL | `pg_advisory_lock` |
+| CockroachDB | A row in `migrax_lock` (CockroachDB has no session locks) |
 | MySQL, MariaDB | `GET_LOCK` |
 | SQL Server | `sp_getapplock` |
 | Oracle | `DBMS_LOCK` (needs `EXECUTE` on `DBMS_LOCK`) |

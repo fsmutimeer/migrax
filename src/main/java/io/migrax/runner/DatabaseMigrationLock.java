@@ -22,7 +22,7 @@ public final class DatabaseMigrationLock {
     String product = connection.getMetaData().getDatabaseProductName();
     String resource = lockName(connection);
     Log.debug("Acquiring migration lock for {} on {}", resource, product);
-    Dialect dialect = Dialects.forProduct(product).orElseThrow(() -> new SQLException(
+    Dialect dialect = Dialects.forConnection(connection).orElseThrow(() -> new SQLException(
         "Concurrent migration locking is not implemented for database " + product
             + "; refusing to proceed."));
     return dialect.acquireMigrationLock(connection, resource);

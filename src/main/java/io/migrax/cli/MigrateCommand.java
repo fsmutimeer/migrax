@@ -2,7 +2,6 @@ package io.migrax.cli;
 
 import static io.migrax.cli.ExitCode.OK;
 
-import io.migrax.dialect.Dialects;
 import io.migrax.lint.SqlLinter;
 import io.migrax.runner.Migration;
 import io.migrax.runner.MigrationRunner;
@@ -82,7 +81,7 @@ final class MigrateCommand implements Command {
           }
           out.println(pending.size() + " migration(s) would be applied:");
           pending.forEach(row -> out.println("  " + row.version()));
-          String dialect = Dialects.fromJdbcUrl(project.credentials().url()).id();
+          String dialect = project.dialect(false, out).id();
           for (MigrationRunner.MigrationStatus row : pending) {
             Path file = folder.resolve(row.version());
             if (Files.isRegularFile(file)) {

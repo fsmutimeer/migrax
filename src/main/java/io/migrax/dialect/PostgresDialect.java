@@ -15,7 +15,7 @@ import java.util.Set;
  *
  * @since 0.1.0
  */
-public final class PostgresDialect extends AbstractDialect {
+public class PostgresDialect extends AbstractDialect {
   private static final Set<String> RESERVED = Set.of(
       "analyse", "analyze", "array", "asymmetric", "authorization", "binary", "both", "cast",
       "collate", "collation", "concurrently", "current_catalog", "current_role",
@@ -32,6 +32,12 @@ public final class PostgresDialect extends AbstractDialect {
   @Override
   public java.util.List<String> aliases() {
     return java.util.List.of("postgres", "pg");
+  }
+
+  /** PostgreSQL itself; CockroachDB reports the same product name. */
+  @Override
+  public boolean acceptsConnection(Connection connection) throws SQLException {
+    return super.acceptsConnection(connection) && !CockroachDialect.isCockroach(connection);
   }
 
   @Override

@@ -81,6 +81,25 @@ public final class Dialects {
     return Optional.empty();
   }
 
+  /**
+   * Resolves the dialect for an open connection. Unlike {@link #forProduct(String)} it tells
+   * apart databases that report the same product name, such as PostgreSQL and CockroachDB.
+   *
+   * @param connection an open connection
+   * @return the matching dialect, or empty when no registered dialect handles the database
+   * @throws java.sql.SQLException when the connection's metadata can't be read
+   * @since 0.2.0
+   */
+  public static Optional<Dialect> forConnection(java.sql.Connection connection)
+      throws java.sql.SQLException {
+    for (Dialect dialect : available()) {
+      if (dialect.acceptsConnection(connection)) {
+        return Optional.of(dialect);
+      }
+    }
+    return Optional.empty();
+  }
+
   /** New instances of every registered dialect. */
   private static List<Dialect> available() {
     List<Dialect> dialects = new ArrayList<>();

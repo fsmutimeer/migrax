@@ -68,17 +68,17 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 migrax generate [--name <name>] [--allow-destructive] [--safe]
 ```
 
-Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`. `--safe` (PostgreSQL) builds indexes and constraints on existing tables without blocking writes, in a second migration. Always review the generated SQL; Migrax lints it for you.
+Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`. `--safe` (PostgreSQL, CockroachDB) builds indexes and constraints on existing tables without blocking writes, in a second migration. Always review the generated SQL; Migrax lints it for you.
 
 | Option | Meaning |
 |---|---|
 | `--name <name>` | Migration file name (default: next number + description) |
 | `--allow-destructive` | Allow drops and narrowing type changes |
-| `--safe` | Non-blocking indexes and constraints (PostgreSQL) |
+| `--safe` | Non-blocking indexes and constraints (PostgreSQL, CockroachDB) |
 | `--rename t.old=new` | Treat a column change as a rename (comma-separated) |
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--no-input` | Never ask questions |
-| `--dialect <name>` | postgresql, mysql, mariadb, sqlserver, oracle, h2 |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2 |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
@@ -151,7 +151,7 @@ Shows the operations and SQL for current entity changes without writing files. `
 |---|---|
 | `--impact` | Show affected table sizes (needs the database) |
 | `--json` | Machine-readable output |
-| `--dialect <name>` | postgresql, mysql, mariadb, sqlserver, oracle, h2 |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2 |
 | `--rename t.old=new` | Treat a column change as a rename (comma-separated) |
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
@@ -235,7 +235,7 @@ Checks pending migrations (or the given files, or `--all`) for statements that b
 | `--all` | Lint every migration, not only pending ones |
 | `--strict` | Fail on warnings too |
 | `--json` | Machine-readable output |
-| `--dialect <name>` | postgresql, mysql, mariadb, sqlserver, oracle, h2 |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2 |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -256,7 +256,7 @@ Starts a throwaway database (H2 in memory, or Docker for other engines), applies
 | `--image <image>` | Docker image for the throwaway database |
 | `--skip-rollbacks` | Do not test rollback scripts |
 | `--json` | Machine-readable output |
-| `--dialect <name>` | postgresql, mysql, mariadb, sqlserver, oracle, h2 |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2 |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
@@ -305,7 +305,7 @@ Writes one migration that replaces all migrations up to `--to`. Databases that a
 | `--to <migration>` | Last migration to keep / squash up to |
 | `--name <name>` | Migration file name (default: next number + description) |
 | `--optimize` | Squash to the resulting schema only |
-| `--dialect <name>` | postgresql, mysql, mariadb, sqlserver, oracle, h2 |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2 |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
 | `--dir <path>` | Project folder (default: current folder) |
 
@@ -319,7 +319,7 @@ Renumbers migrations that share a number after a git merge (the one added later 
 
 | Option | Meaning |
 |---|---|
-| `--dialect <name>` | postgresql, mysql, mariadb, sqlserver, oracle, h2 |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2 |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
@@ -369,7 +369,7 @@ Prints the schema model Migrax builds from the entities.
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
-| `--dialect <name>` | postgresql, mysql, mariadb, sqlserver, oracle, h2 |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2 |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |

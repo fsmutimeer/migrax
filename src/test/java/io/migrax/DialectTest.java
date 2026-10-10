@@ -34,14 +34,17 @@ class DialectTest {
     assertEquals("sqlserver", Dialects.fromJdbcUrl("jdbc:sqlserver://localhost;databaseName=db").id());
     assertEquals("oracle", Dialects.fromJdbcUrl("jdbc:oracle:thin:@localhost:1521/XEPDB1").id());
     assertEquals("h2", Dialects.fromJdbcUrl("jdbc:h2:mem:test").id());
+    // CockroachDB uses the PostgreSQL driver: the server, not the URL, tells them apart.
+    assertEquals("postgresql", Dialects.fromJdbcUrl("jdbc:postgresql://localhost:26257/db").id());
     assertEquals("mysql", Dialects.byName("mysql").id());
     assertThrows(IllegalArgumentException.class, () -> Dialects.byName("sqlite"));
   }
 
   @Test void registeredDialectsAreFoundByNameAndAlias() {
-    assertEquals(List.of("postgresql", "mysql", "mariadb", "sqlserver", "oracle", "h2"),
-        Dialects.NAMES);
+    assertEquals(List.of("postgresql", "cockroachdb", "mysql", "mariadb", "sqlserver", "oracle",
+        "h2"), Dialects.NAMES);
     assertEquals("postgresql", Dialects.byName("pg").id());
+    assertEquals("cockroachdb", Dialects.byName("crdb").id());
     assertEquals("postgresql", Dialects.byName(" Postgres ").id());
     assertEquals("sqlserver", Dialects.byName("mssql").id());
     assertNotSame(Dialects.byName("h2"), Dialects.byName("h2"));
@@ -54,6 +57,7 @@ class DialectTest {
     assertEquals("sqlserver", Dialects.forProduct("Microsoft SQL Server").orElseThrow().id());
     assertEquals("oracle", Dialects.forProduct("Oracle").orElseThrow().id());
     assertEquals("h2", Dialects.forProduct("H2").orElseThrow().id());
+    assertEquals("cockroachdb", Dialects.forProduct("CockroachDB").orElseThrow().id());
     assertTrue(Dialects.forProduct("SQLite").isEmpty());
   }
 
