@@ -124,6 +124,7 @@ nav:
       - Databases: reference/databases.md
       - Hibernate versions: reference/hibernate.md
       - Lint rules: reference/lint-rules.md
+      - Errors and JSON output: reference/errors-and-json.md
       - Troubleshooting: reference/troubleshooting.md
       - Limitations: reference/limitations.md
   - Project:

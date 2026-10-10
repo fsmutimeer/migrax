@@ -54,4 +54,15 @@ class CommandRegistryTest {
     UsageException error = assertThrows(UsageException.class, () -> commands.resolve("generat"));
     assertTrue(error.hint.contains("Did you mean 'migrax generate'?"), error.hint);
   }
+
+  /** The docs list every error code with the meaning the code gives it. */
+  @org.junit.jupiter.api.Test
+  void everyErrorCodeIsDocumented() throws Exception {
+    String docs = java.nio.file.Files.readString(
+        java.nio.file.Path.of("docs/reference/errors-and-json.md"));
+    for (ErrorCode code : ErrorCode.values()) {
+      org.junit.jupiter.api.Assertions.assertTrue(
+          docs.contains("| " + code.code + " | " + code.title + " |"), code.code);
+    }
+  }
 }

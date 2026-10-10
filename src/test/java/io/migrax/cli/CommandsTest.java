@@ -356,6 +356,7 @@ class CommandsTest {
     Result refused = cli("migrate");
     assertEquals(1, refused.code(), refused.all());
     assertTrue(refused.err().contains("--lock-timeout 2m"), refused.all());
+    assertTrue(refused.err().startsWith("error[MXE101]:"), refused.err());
 
     Result waited = cli("migrate", "--lock-timeout", "10s");
     assertEquals(0, waited.code(), waited.all());
@@ -513,6 +514,61 @@ class CommandsTest {
         status.out());
     Result check = cli("check", "--json");
     assertTrue(new Json.Parser(check.out()).parse().toString().contains("ok=true"), check.out());
+  }
+
+  /** Parses a command's stdout, which must be exactly one JSON object. */
+  @SuppressWarnings("unchecked")
+  private static java.util.Map<String, Object> json(Result result) {
+    Object parsed = new Json.Parser(result.out().strip()).parse();
+    assertTrue(parsed instanceof java.util.Map, result.all());
+    return (java.util.Map<String, Object>) parsed;
+  }
+
+  @Test
+  void everyCommandHasJsonResults() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate").code());
+    var migrate = json(cli("migrate", "--json"));
+    assertEquals(true, migrate.get("ok"), migrate.toString());
+    assertTrue(migrate.get("schemas").toString().contains("applied=1"), migrate.toString());
+
+    var doctor = json(cli("doctor", "--json"));
+    assertTrue(doctor.get("checks").toString().contains("status=ok"), doctor.toString());
+
+    var created = json(cli("new", "seed", "--json"));
+    assertTrue(created.get("created").toString().contains("0002_seed.sql"), created.toString());
+    Files.writeString(migrations().resolve("rollback/0001_initial.sql"),
+        "DROP TABLE sample_entity;\n");
+    assertEquals(0, cli("migrate").code());
+
+    var rollback = json(cli("rollback", "--steps", "2", "--yes", "--json"));
+    assertTrue(rollback.get("schemas").toString().contains("0002_seed.sql"), rollback.toString());
+
+    var dryClean = json(cli("clean", "--dry-run", "--json"));
+    assertTrue(dryClean.get("schemas").toString().contains("wouldDrop"), dryClean.toString());
+    var clean = json(cli("clean", "--yes", "--json"));
+    assertTrue(clean.get("schemas").toString().contains("MIGRAX_HISTORY"), clean.toString());
+  }
+
+  @Test
+  void errorsHaveStableCodesInTextAndJson() throws Exception {
+    setUp();
+    Result unknown = cli("migrate", "--colour");
+    assertTrue(unknown.err().startsWith("error[MXE001]: Unknown option '--colour'."),
+        unknown.err());
+
+    generateAndMigrate();
+    Path initial = migrations().resolve("0001_initial.sql");
+    Files.writeString(initial, Files.readString(initial) + "\n-- edited\n");
+    Result changed = cli("migrate", "--json");
+    assertEquals(1, changed.code());
+    assertTrue(changed.err().startsWith("error[MXE104]:"), changed.err());
+    var error = json(changed);
+    assertEquals(false, error.get("ok"));
+    assertTrue(error.get("error").toString().contains("code=MXE104"), error.toString());
+
+    Files.delete(initial);
+    assertTrue(cli("migrate").err().startsWith("error[MXE105]:"));
   }
 
   @Test

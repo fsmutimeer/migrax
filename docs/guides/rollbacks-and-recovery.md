@@ -84,7 +84,7 @@ twice (for example `CREATE TABLE IF NOT EXISTS`, idempotent updates).
 
 ```console
 $ migrax migrate
-error: Applied migration file(s) are missing from the configured migration location: 0001_initial.sql. Restore the files from version control; applied migrations must not be deleted. If you deleted them on purpose, remove them from the history with: migrax repair 0001_initial.sql --action forget --yes
+error[MXE105]: Applied migration file(s) are missing from the configured migration location: 0001_initial.sql. Restore the files from version control; applied migrations must not be deleted. If you deleted them on purpose, remove them from the history with: migrax repair 0001_initial.sql --action forget --yes
 ```
 
 **Deleted by accident?** Restore the file from git (`git show <commit>:<path>`), unchanged. This

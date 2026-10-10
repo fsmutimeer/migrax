@@ -56,9 +56,14 @@ final class CleanCommand implements Command {
   }
 
   @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
   public List<String> options() {
-    return List.of("--dry-run", "--yes", "--lock-timeout", "--url", "--user", "--password",
-        "--password-file", "--schema", "--schemas", "--classpath", "--no-build");
+    return List.of("--json", "--dry-run", "--yes", "--lock-timeout", "--url", "--user",
+        "--password", "--password-file", "--schema", "--schemas", "--classpath", "--no-build");
   }
 
   @Override
@@ -67,7 +72,7 @@ final class CleanCommand implements Command {
     Args args = context.args();
     PrintStream out = context.out();
     if (disabled()) {
-      throw new UsageException("clean is disabled here (MIGRAX_CLEAN_DISABLED is true).",
+      throw new UsageException(ErrorCode.CLEAN_DISABLED, "clean is disabled here (MIGRAX_CLEAN_DISABLED is true).",
           "It drops everything in the database; unset MIGRAX_CLEAN_DISABLED only on a "
               + "development or test database.");
     }
@@ -83,11 +88,15 @@ final class CleanCommand implements Command {
         Objects objects = Objects.read(connection, schema);
         if (objects.isEmpty()) {
           out.println("Nothing to clean in " + where + ".");
+          context.resultList("schemas").add(JsonOut.object("schema", schema, "dropped",
+              objects.json()));
           continue;
         }
         if (args.flag("--dry-run")) {
           out.println("Would drop from " + where + ":");
           objects.print(out);
+          context.resultList("schemas").add(JsonOut.object("schema", schema, "wouldDrop",
+              objects.json()));
           continue;
         }
         String question = "Drop " + objects.count() + " from " + where
@@ -105,6 +114,8 @@ final class CleanCommand implements Command {
         }
         drop(connection, dialect, objects, schema, project.lockTimeout());
         out.println("Dropped " + objects.count() + " from " + where + ".");
+        context.resultList("schemas").add(JsonOut.object("schema", schema, "dropped",
+            objects.json()));
       }
     }
     if (!args.flag("--dry-run")) {
@@ -222,6 +233,10 @@ final class CleanCommand implements Command {
         parts.add(sequences.size() + " sequence(s)");
       }
       return String.join(", ", parts);
+    }
+
+    Object json() {
+      return JsonOut.object("tables", tables, "views", views, "sequences", sequences);
     }
 
     void print(PrintStream out) {

@@ -6,6 +6,17 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `--json` for `migrate`, `rollback`, `repair`, `clean`, `doctor`, `new`, `squash` and `merge`:
+  one result object with `ok` and `exitCode` on standard output, progress on standard error.
+  With `--json`, a failure is also a JSON object.
+- Stable error codes (`error[MXE104]: ...`), listed in Reference > Errors and JSON output.
+
+### Changed
+
+- Error lines start with `error[<code>]:` instead of `error:`.
+
 ## [0.3.0-rc.1] - 2026-10-10
 
 First release candidate for 0.3.0, for testing: running Migrax in containers and Kubernetes.

@@ -56,9 +56,14 @@ final class DoctorCommand implements Command {
   }
 
   @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
   public List<String> options() {
-    return List.of("--package", "--url", "--user", "--password", "--password-file", "--classpath",
-        "--no-build", "--extractor");
+    return List.of("--json", "--package", "--url", "--user", "--password", "--password-file",
+        "--classpath", "--no-build", "--extractor");
   }
 
   @Override
@@ -187,6 +192,9 @@ final class DoctorCommand implements Command {
     }
 
     out.println();
+    context.result("checks", doctor.checks);
+    context.result("failures", doctor.failures);
+    context.result("warnings", doctor.warnings);
     if (doctor.failures == 0) {
       out.println(doctor.warnings == 0 ? "All checks passed."
           : "All checks passed, with " + doctor.warnings + " warning(s) above.");
@@ -292,6 +300,12 @@ final class DoctorCommand implements Command {
     private final PrintStream out;
     int failures;
     int warnings;
+    /** Every check, for --json. */
+    final List<Object> checks = new java.util.ArrayList<>();
+
+    private void record(String status, String message, String fix) {
+      checks.add(JsonOut.object("status", status, "message", message, "fix", fix));
+    }
 
     Report(PrintStream out) {
       this.out = out;
@@ -300,6 +314,7 @@ final class DoctorCommand implements Command {
     /** A warning with a title and indented detail lines. */
     void advise(String title, List<String> details) {
       warnings++;
+      record("warn", title, String.join("\n", details).strip());
       out.println("  [warn]  " + title);
       details.forEach(line -> out.println(line.isEmpty() ? "" : "          " + line));
     }
@@ -313,19 +328,23 @@ final class DoctorCommand implements Command {
     }
 
     void ok(String message) {
+      record("ok", message, null);
       out.println("  [ok]    " + message);
     }
 
     void info(String message) {
+      record("info", message, null);
       out.println("  [info]  " + message);
     }
 
     void warn(String message) {
+      record("warn", message, null);
       out.println("  [warn]  " + message);
     }
 
     void fail(String message, String fix) {
       failures++;
+      record("fail", message, fix);
       out.println("  [FAIL]  " + message);
       if (fix != null) {
         out.println("          " + fix);

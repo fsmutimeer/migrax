@@ -49,6 +49,7 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 
 | Option | Meaning |
 |---|---|
+| `--json` | Machine-readable output |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
@@ -133,6 +134,7 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 | Option | Meaning |
 |---|---|
 | `--dry-run` | Show what would happen without doing it |
+| `--json` | Machine-readable output |
 | `--resume` | Re-run a failed resume-safe migration |
 | `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
@@ -206,6 +208,7 @@ Runs the rollback script of the newest applied migration (or several) and remove
 
 | Option | Meaning |
 |---|---|
+| `--json` | Machine-readable output |
 | `--steps <n>` | Number of migrations to roll back |
 | `--to <migration>` | Last migration to keep / squash up to |
 | `--dry-run` | Show what would happen without doing it |
@@ -231,6 +234,7 @@ Creates the next numbered SQL file for hand-written changes such as data migrati
 
 | Option | Meaning |
 |---|---|
+| `--json` | Machine-readable output |
 | `--java` | Create a Java migration |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
@@ -339,6 +343,7 @@ Writes one migration that replaces all migrations up to `--to`. Databases that a
 
 | Option | Meaning |
 |---|---|
+| `--json` | Machine-readable output |
 | `--to <migration>` | Last migration to keep / squash up to |
 | `--name <name>` | Migration file name (default: next number + description) |
 | `--optimize` | Squash to the resulting schema only |
@@ -356,6 +361,7 @@ Renumbers migrations that share a number after a git merge (the one added later 
 
 | Option | Meaning |
 |---|---|
+| `--json` | Machine-readable output |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
@@ -383,6 +389,7 @@ Use only after inspecting the database.
 
 | Option | Meaning |
 |---|---|
+| `--json` | Machine-readable output |
 | `--action <action>` | applied, retry or forget |
 | `--yes, -y` | Confirm without asking |
 | `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
@@ -409,6 +416,7 @@ can't be restored. Migration files and the snapshot are not touched. Asks before
 
 | Option | Meaning |
 |---|---|
+| `--json` | Machine-readable output |
 | `--dry-run` | Show what would happen without doing it |
 | `--yes, -y` | Confirm without asking |
 | `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
