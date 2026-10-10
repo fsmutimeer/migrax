@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.migrax</groupId>
   <artifactId>migrax-gradle-plugin</artifactId>
-  <version>0.3.0-rc.2</version>
+  <version>0.3.0-SNAPSHOT</version>
   <name>Migrax Gradle plugin</name>
   <description>Adds migraxGenerate, migraxMigrate and the other Migrax tasks to Gradle builds.</description>
 
