@@ -11,10 +11,12 @@ on:
   push:
     branches: [main]
     paths: ['docs/**', 'mkdocs.yml', 'README.md', 'CONTRIBUTING.md', 'CHANGELOG.md',
-            'scripts/fetch-releases.py', '.github/workflows/docs.yml']
+            'scripts/fetch-releases.py', 'scripts/build-llms-txt.py',
+            '.github/workflows/docs.yml']
   pull_request:
     paths: ['docs/**', 'mkdocs.yml', 'README.md', 'CONTRIBUTING.md', 'CHANGELOG.md',
-            'scripts/fetch-releases.py', '.github/workflows/docs.yml']
+            'scripts/fetch-releases.py', 'scripts/build-llms-txt.py',
+            '.github/workflows/docs.yml']
   # Run by release.yml after it publishes a release, so the Download page gets the new files.
   workflow_dispatch:
 
@@ -40,6 +42,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # --strict turns broken links and missing pages into errors.
       - run: mkdocs build --strict
+      # llms.txt and llms-full.txt: the docs for AI assistants, next to the site's pages.
+      - run: python scripts/build-llms-txt.py site
 
       - name: Publish to docs-migrax.github.io
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

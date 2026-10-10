@@ -21,6 +21,7 @@ final class CommandRegistry {
     CommandRegistry registry = new CommandRegistry();
     registry.add(new InitCommand());
     registry.add(new DoctorCommand());
+    registry.add(new McpCommand());
     registry.add(new GenerateCommand());
     registry.add(new MigrateCommand());
     registry.add(new StatusCommand());

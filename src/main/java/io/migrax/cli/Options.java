@@ -22,7 +22,7 @@ final class Options {
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
       "--refresh", "--yes", "-y", "--help", "-h", "--version", "-V", "--json", "--safe",
       "--impact", "--strict", "--no-input", "--optimize", "--java", "--entities",
-      "--skip-rollbacks", "--all");
+      "--skip-rollbacks", "--all", "--allow-generate");
 
   private static final Map<String, String> HELP = new LinkedHashMap<>();
 
@@ -52,6 +52,8 @@ final class Options {
     HELP.put("--no-build", "--no-build              Do not run Maven/Gradle; use compiled classes");
     HELP.put("--refresh", "--refresh               Re-resolve dependencies even if cached");
     HELP.put("--dry-run", "--dry-run               Show what would happen without doing it");
+    HELP.put("--allow-generate",
+        "--allow-generate        Also offer the generate tool (writes migration files)");
     HELP.put("--lock-timeout",
         "--lock-timeout <time>   Wait this long while another process migrates (e.g. 2m)");
     HELP.put("--resume", "--resume                Re-run a failed resume-safe migration");

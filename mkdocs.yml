@@ -108,6 +108,7 @@ nav:
       - Advanced migrations: guides/advanced-migrations.md
       - Switching from Flyway or Liquibase: guides/switching-tools.md
       - Containers and Kubernetes: guides/containers-and-kubernetes.md
+      - Using Migrax with AI assistants: guides/ai-assistants.md
   - Frameworks:
       - frameworks/index.md
       - Spring Boot: frameworks/spring-boot.md
