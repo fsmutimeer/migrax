@@ -147,6 +147,31 @@ class DatabaseEngineIT {
         container.url(), container.user(), container.password(), true, validate)) {
       HibernateValidationTest.persistAndQuery(factory, !validate);
     }
+    exerciseClean(container);
+  }
+
+  /** migrax clean leaves nothing behind: tables, foreign keys, views, sequences, history. */
+  private static void exerciseClean(Database database) throws Exception {
+    try (Connection connection = database.connect();
+         Statement statement = connection.createStatement()) {
+      statement.execute("CREATE VIEW customer_names AS SELECT full_name FROM customer");
+    }
+    Path project = Files.createTempDirectory("migrax-clean-it");
+    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+    java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
+    int code = io.migrax.cli.Main.run(new String[] {"clean", "--yes", "--url", database.url(),
+        "--user", database.user(), "--password", database.password(), "--dir",
+        project.toString(), "--no-build"}, new java.io.PrintStream(out, true),
+        new java.io.PrintStream(err, true));
+    assertEquals(0, code, out + "\n" + err);
+    try (Connection connection = database.connect()) {
+      assertEquals(List.of(), io.migrax.plugin.DatabaseSchemaReader.objectNames(connection, null,
+          "TABLE"), "tables after clean: " + out);
+      assertEquals(List.of(), io.migrax.plugin.DatabaseSchemaReader.objectNames(connection, null,
+          "VIEW"), "views after clean");
+      assertEquals(List.of(), io.migrax.plugin.DatabaseSchemaReader.sequencesIn(connection, null),
+          "sequences after clean");
+    }
   }
 
   private static void exerciseRunner(Database container) throws Exception {

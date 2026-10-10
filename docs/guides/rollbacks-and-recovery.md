@@ -115,3 +115,23 @@ again.
     From then on the migrations start at the current database. On other databases that still
     have the old history, the baseline would try to create tables that exist, so for shared
     environments restore the deleted files instead.
+
+## Starting a development database over
+
+`migrax clean` drops every table, view and sequence in the database, the migration history
+included, so `migrax migrate` can build it again from the migrations:
+
+```console
+$ migrax clean --dry-run
+Would drop from jdbc:postgresql://localhost:5432/shop:
+  table    customers
+  table    migrax_history
+  ...
+$ migrax clean --yes
+Dropped 5 table(s), 2 sequence(s) from jdbc:postgresql://localhost:5432/shop.
+Run 'migrax migrate' to rebuild the schema from the migrations.
+$ migrax migrate
+```
+
+All data is gone afterwards, so use it only on development and test databases. On servers
+where it must never run, set `MIGRAX_CLEAN_DISABLED=true`: `clean` then refuses.

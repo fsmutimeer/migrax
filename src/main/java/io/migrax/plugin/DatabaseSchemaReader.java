@@ -291,6 +291,72 @@ public final class DatabaseSchemaReader {
   }
 
   /**
+   * Every object of a type ({@code TABLE} or {@code VIEW}) in the schema, Migrax's own tables
+   * included, as the database spells the names. SQLite's internal tables and Oracle's recycle
+   * bin are left out.
+   *
+   * @param schema the schema, or null for the connection's default
+   * @since 0.2.0
+   */
+  public static List<String> objectNames(Connection connection, String schema, String type)
+      throws SQLException {
+    DatabaseMetaData metadata = connection.getMetaData();
+    List<String> names = new ArrayList<>();
+    try (ResultSet result = metadata.getTables(connection.getCatalog(),
+        resolveSchema(connection, metadata, schema), "%", new String[]{type})) {
+      while (result.next()) {
+        String name = result.getString("TABLE_NAME");
+        if (name != null && !name.toLowerCase(Locale.ROOT).startsWith("sqlite_")
+            && !name.startsWith("BIN$")) {
+          names.add(name);
+        }
+      }
+    }
+    return names;
+  }
+
+  /**
+   * The sequences of one schema, as the database spells the names; empty when the database has
+   * none. Tries the standard view (PostgreSQL, CockroachDB, H2, SQL Server), then MariaDB's
+   * and Oracle's.
+   *
+   * @param schema the schema, or null for the connection's default
+   * @since 0.2.0
+   */
+  public static List<String> sequencesIn(Connection connection, String schema)
+      throws SQLException {
+    String resolved = resolveSchema(connection, connection.getMetaData(), schema);
+    for (String sql : List.of(
+        "SELECT sequence_name FROM information_schema.sequences WHERE UPPER(sequence_schema) = "
+            + "UPPER(?)",
+        "SELECT table_name FROM information_schema.tables WHERE table_type = 'SEQUENCE' "
+            + "AND table_schema = DATABASE()",
+        "SELECT sequence_name FROM user_sequences WHERE sequence_name NOT LIKE 'ISEQ$$%'")) {
+      if (sql.contains("?") && resolved == null) {
+        continue;
+      }
+      List<String> names = new ArrayList<>();
+      try (java.sql.PreparedStatement statement = connection.prepareStatement(sql)) {
+        if (sql.contains("?")) {
+          statement.setString(1, resolved);
+        }
+        try (ResultSet result = statement.executeQuery()) {
+          while (result.next()) {
+            names.add(result.getString(1));
+          }
+        }
+        return names;
+      } catch (SQLException e) {
+        Log.debug("Sequence listing not available ({}): {}", sql, e.getMessage());
+        if (!connection.getAutoCommit()) {
+          connection.rollback();
+        }
+      }
+    }
+    return List.of();
+  }
+
+  /**
    * Names of the sequences in the database, in lower case; empty when the database has none or
    * they can't be listed. Tries the standard view (PostgreSQL, H2, SQL Server), then MariaDB's and
    * Oracle's own listings.
