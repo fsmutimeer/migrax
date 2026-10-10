@@ -295,6 +295,48 @@ class CommandsTest {
   }
 
   @Test
+  void cleanEmptiesTheDatabaseOnlyWhenConfirmed() throws Exception {
+    setUp();
+    generateAndMigrate();
+    execute("CREATE VIEW names AS SELECT name FROM sample_entity");
+    execute("CREATE SEQUENCE leftover_seq");
+
+    Result unconfirmed = cli("clean");
+    assertEquals(1, unconfirmed.code(), unconfirmed.all());
+    assertTrue(unconfirmed.err().contains("--yes"), unconfirmed.all());
+    assertEquals("1", query("SELECT COUNT(*) FROM migrax_history"), "nothing was dropped");
+
+    Result dryRun = cli("clean", "--dry-run");
+    assertEquals(0, dryRun.code(), dryRun.all());
+    assertTrue(dryRun.out().contains("table    SAMPLE_ENTITY"), dryRun.out());
+    assertTrue(dryRun.out().contains("view     NAMES"), dryRun.out());
+    assertTrue(dryRun.out().contains("sequence leftover_seq"), dryRun.out());
+
+    System.setProperty("migrax.cleanDisabled", "true");
+    try {
+      Result disabled = cli("clean", "--yes");
+      assertEquals(1, disabled.code(), disabled.all());
+      assertTrue(disabled.err().contains("MIGRAX_CLEAN_DISABLED"), disabled.all());
+    } finally {
+      System.clearProperty("migrax.cleanDisabled");
+    }
+
+    Result cleaned = cli("clean", "--yes");
+    assertEquals(0, cleaned.code(), cleaned.all());
+    assertTrue(cleaned.out().contains("Dropped 3 table(s), 1 view(s), 1 sequence(s)"),
+        cleaned.out());
+    assertEquals("0", query("SELECT COUNT(*) FROM information_schema.tables "
+        + "WHERE table_schema = 'PUBLIC'"));
+    assertEquals("0", query("SELECT COUNT(*) FROM information_schema.sequences "
+        + "WHERE sequence_schema = 'PUBLIC'"));
+    assertTrue(cli("clean", "--yes").out().contains("Nothing to clean"));
+
+    Result migrate = cli("migrate");
+    assertEquals(0, migrate.code(), migrate.all());
+    assertEquals("0", query("SELECT COUNT(*) FROM sample_entity"), "migrate rebuilt the schema");
+  }
+
+  @Test
   void driftReportsManualChanges() throws Exception {
     setUp();
     generateAndMigrate();

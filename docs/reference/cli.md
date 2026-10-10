@@ -356,6 +356,31 @@ Use only after inspecting the database.
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |
 
+### clean
+
+```
+migrax clean [--dry-run] [--yes]
+```
+
+Empties the database so `migrax migrate` can rebuild it from the migrations: drops every table
+(the migration history too), view and sequence in the configured schema. Data is deleted and
+can't be restored. Migration files and the snapshot are not touched. Asks before dropping;
+`--yes` confirms without asking. `--dry-run` lists what would be dropped. Set
+`MIGRAX_CLEAN_DISABLED=true` on servers where clean must never run.
+
+| Option | Meaning |
+|---|---|
+| `--dry-run` | Show what would happen without doing it |
+| `--yes, -y` | Confirm without asking |
+| `--url <jdbc-url>` | Database URL (default: application config) |
+| `--user <name>` | Database user |
+| `--password <secret>` | Database password (prefer env vars) |
+| `--schema <name>` | Database schema to read |
+| `--schemas <a,b>` | Run for each schema (multi-tenant) |
+| `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
+| `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--dir <path>` | Project folder (default: current folder) |
+
 ### inspect
 
 ```

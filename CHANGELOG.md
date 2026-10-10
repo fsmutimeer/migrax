@@ -15,6 +15,9 @@ All notable changes to Migrax are listed here. The format follows
 - SQLite support (`sqlite`, SQLite 3.35 and newer): changes SQLite can't make in place, such
   as a column's type or a new foreign key, rebuild the table with its rows, and a rebuild that
   breaks a foreign key fails before it commits. `verify` runs on a temporary SQLite file.
+- `migrax clean` (and `mvn migrax:clean`): drops every table, view and sequence, the migration
+  history included, so `migrate` can rebuild a development database. It asks first (or needs
+  `--yes`), `--dry-run` lists what it would drop, and `MIGRAX_CLEAN_DISABLED=true` turns it off.
 
 ### Fixed
 
