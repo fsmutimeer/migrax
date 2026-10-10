@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.migrax</groupId>
   <artifactId>migrax-integrations</artifactId>
-  <version>0.2.1-SNAPSHOT</version>
+  <version>0.3.0-rc.1</version>
   <packaging>pom</packaging>
   <name>Migrax integrations</name>
   <description>
