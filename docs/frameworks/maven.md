@@ -60,6 +60,7 @@ Options are `-Dmigrax.*` properties (or `<configuration>` elements of the same n
 | `migrax.safe=true` | `--safe` | generate |
 | `migrax.dryRun=true` | `--dry-run` | migrate, rollback, clean |
 | `migrax.resume=true` | `--resume` | migrate |
+| `migrax.lockTimeout=2m` | `--lock-timeout` | migrate, rollback, repair, clean, generate |
 | `migrax.steps=2`, `migrax.to=<migration>` | `--steps`, `--to` | rollback |
 | `migrax.confirm=true` | `--yes` | rollback, repair, clean |
 | `migrax.action=applied` | `--action` | repair |

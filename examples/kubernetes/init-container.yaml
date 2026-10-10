@@ -1,0 +1,37 @@
+# Migrates before each pod starts. Pods that start together wait for each other
+# (--lock-timeout); the first applies the migrations, the others find nothing to do.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shop
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: shop}
+  template:
+    metadata:
+      labels: {app: shop}
+    spec:
+      initContainers:
+        - name: migrate
+          image: registry.example.com/shop-migrations:1.0
+          args: ["migrate", "--lock-timeout", "5m"]
+          env:
+            - name: MIGRAX_DATABASE_URL
+              valueFrom: {secretKeyRef: {name: shop-db, key: url}}
+            - name: MIGRAX_DATABASE_USER
+              valueFrom: {secretKeyRef: {name: shop-db, key: user}}
+            - name: MIGRAX_DATABASE_PASSWORD_FILE
+              value: /run/secrets/shop-db/password
+          volumeMounts:
+            - name: db-secret
+              mountPath: /run/secrets/shop-db
+              readOnly: true
+      containers:
+        - name: shop
+          image: registry.example.com/shop:1.0
+      volumes:
+        - name: db-secret
+          secret:
+            secretName: shop-db
+            items: [{key: password, path: password}]

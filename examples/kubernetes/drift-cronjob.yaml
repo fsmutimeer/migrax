@@ -1,0 +1,34 @@
+# Every night, compares the database with the migrations. The job fails (exit code 2) when
+# someone changed the schema by hand, so your cluster's failed-job alert tells you.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: shop-drift
+spec:
+  schedule: "0 3 * * *"
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: drift
+              image: registry.example.com/shop-migrations:1.0
+              args: ["drift"]
+              env:
+                - name: MIGRAX_DATABASE_URL
+                  valueFrom: {secretKeyRef: {name: shop-db, key: url}}
+                - name: MIGRAX_DATABASE_USER
+                  valueFrom: {secretKeyRef: {name: shop-db, key: user}}
+                - name: MIGRAX_DATABASE_PASSWORD_FILE
+                  value: /run/secrets/shop-db/password
+              volumeMounts:
+                - name: db-secret
+                  mountPath: /run/secrets/shop-db
+                  readOnly: true
+          volumes:
+            - name: db-secret
+              secret:
+                secretName: shop-db
+                items: [{key: password, path: password}]

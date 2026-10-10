@@ -1,0 +1,32 @@
+# Runs the migrations once, before the new application version rolls out
+# (kubectl apply, then kubectl wait --for=condition=complete job/shop-migrate).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: shop-migrate
+spec:
+  backoffLimit: 0              # a failed migration needs a person, not a retry
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: registry.example.com/shop-migrations:1.0
+          args: ["migrate", "--lock-timeout", "2m"]
+          env:
+            - name: MIGRAX_DATABASE_URL
+              valueFrom: {secretKeyRef: {name: shop-db, key: url}}
+            - name: MIGRAX_DATABASE_USER
+              valueFrom: {secretKeyRef: {name: shop-db, key: user}}
+            - name: MIGRAX_DATABASE_PASSWORD_FILE
+              value: /run/secrets/shop-db/password
+          volumeMounts:
+            - name: db-secret
+              mountPath: /run/secrets/shop-db
+              readOnly: true
+      volumes:
+        - name: db-secret
+          secret:
+            secretName: shop-db
+            items: [{key: password, path: password}]

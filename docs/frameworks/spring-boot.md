@@ -56,6 +56,7 @@ Migrations are applied when the application starts, **before** JPA starts, so
 | `migrax.locations` | `classpath:db/migration` | Migration folder |
 | `migrax.java-package` | `db.migration` | Package of `JavaMigration` classes |
 | `migrax.resume` | `false` | Re-run a failed migration marked `-- migrax:resume-safe` |
+| `migrax.lock-timeout` | `0` | How long to wait while another instance migrates, for example `2m` when several start together |
 | `migrax.placeholders.<name>` | | Values for `${name}` placeholders |
 | `migrax.schemas` | | Schemas to migrate one after another |
 

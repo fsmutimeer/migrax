@@ -86,6 +86,12 @@ migrax 0.2.0
 
     The `D:\>` prompt is Command Prompt; `PS D:\>` is PowerShell. Their commands differ.
 
+## In a container
+
+To run migrations in Kubernetes or a CI job without installing anything, use the container
+image `ghcr.io/fsmutimeer/migrax` (from Migrax 0.3.0); see
+[Containers and Kubernetes](../guides/containers-and-kubernetes.md).
+
 ## Which Java does Migrax use?
 
 Migrax uses `JAVA_HOME` when it is set, otherwise the `java` on your `PATH`. To run it with a

@@ -41,13 +41,15 @@ if [[ $NEW != *-* ]]; then
   if [[ $RELEASED != "$NEW" ]]; then
     echo "Docs version: $RELEASED -> $NEW"
     old=${RELEASED//./\\.}
-    find docs README.md -name '*.md' -print0 | xargs -0 sed -i -E \
+    { find docs README.md -name '*.md' -print0; find examples -type f -print0; } \
+      | xargs -0 sed -i -E \
       -e "s/(<version>)$old(<\/version>)/\1$NEW\2/g" \
       -e "s/(io\.migrax:[a-z-]+:)$old/\1$NEW/g" \
       -e "s/(id\(\"io\.migrax\"\) version \")$old/\1$NEW/g" \
       -e "s/(fsmutimeer\/migrax@v)$old/\1$NEW/g" \
       -e "s/(migrax |Migrax )$old/\1$NEW/g" \
-      -e "s/(migrax-)$old/\1$NEW/g"
+      -e "s/(migrax-)$old/\1$NEW/g" \
+      -e "s/(ghcr\.io\/fsmutimeer\/migrax:)$old/\1$NEW/g"
   fi
 fi
 
