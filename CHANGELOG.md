@@ -103,6 +103,19 @@ Release candidate for 0.2.0, for testing.
   `CONTRIBUTING.md` explains how to add a command or a database.
 - The Download page lists pre-releases in their own section, for testing.
 
+## [0.1.4] - 2026-10-10
+
+### Fixed
+
+- The first `generate` against a database that already has tables wrote only the differences,
+  so an empty database couldn't be built from the migrations and `migrax verify` failed on the
+  first one ("table doesn't exist"). It now also writes those tables to `0001_baseline.sql`
+  and records it as applied in that database without running it; the changes follow as
+  `0002_...`. Projects that already have migrations are not changed.
+- H2: the first `generate` against an existing database wanted to drop the indexes H2 creates
+  for foreign keys (named like `fk_..._INDEX_8`) and refused as destructive. They are now
+  recognized as part of the foreign key, as on MySQL and MariaDB.
+
 ## [0.1.3] - 2026-10-09
 
 ### Fixed
@@ -196,6 +209,7 @@ First release.
 [0.2.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.2...v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.1...v0.2.0-rc.2
 [0.2.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.2.0-rc.1
+[0.1.4]: https://github.com/fsmutimeer/migrax/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/fsmutimeer/migrax/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/fsmutimeer/migrax/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/fsmutimeer/migrax/compare/v0.1.0...v0.1.1
