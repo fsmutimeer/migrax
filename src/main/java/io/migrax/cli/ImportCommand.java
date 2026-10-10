@@ -4,6 +4,7 @@ import static io.migrax.cli.ExitCode.OK;
 
 import io.migrax.dialect.Dialect;
 import io.migrax.importer.Importer;
+import io.migrax.model.SchemaModel;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -63,17 +64,20 @@ final class ImportCommand implements Command {
     project.requireUrl();
     Path folder = project.migrations();
     Importer.Report report;
+    // Before connecting: reading the entities may rebuild the class loader the driver is in.
+    Dialect dialect = source.equals("liquibase") ? project.dialect(false, out) : null;
+    SchemaModel entities = dialect == null ? null : project.extract(dialect).model();
     try (Connection connection = project.connect()) {
       switch (source) {
         case "flyway" -> report = Importer.flyway(connection, folder, args.option("--table"));
         case "liquibase" -> {
-          Dialect dialect = project.dialect(false, out);
           String name = args.option("--name");
           if (Project.blank(name)) {
             name = String.format(Locale.ROOT, "%04d_liquibase_baseline",
                 MigrationFiles.nextNumber(folder));
           }
-          report = Importer.liquibase(connection, dialect, folder, name, args.option("--schema"));
+          report = Importer.liquibase(connection, dialect, folder, name, args.option("--schema"),
+              entities.tables().isEmpty() ? null : entities);
         }
         default -> throw new UsageException("Unknown source '" + source + "'.",
             "Use 'migrax import flyway' or 'migrax import liquibase'.");

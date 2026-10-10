@@ -58,6 +58,32 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
 | `--dir <path>` | Project folder (default: current folder) |
 
+### import
+
+```
+migrax import flyway|liquibase
+```
+
+flyway: records every migration in flyway_schema_history as applied, so Migrax continues where
+Flyway stopped; `V*__` and `R__` files keep working. liquibase: writes a baseline migration with
+the current schema and records it. Afterwards run `migrax generate` to start managing changes,
+and remove Flyway or Liquibase from the project. See
+[Switching from Flyway or Liquibase](../guides/switching-tools.md).
+
+| Option | Meaning |
+|---|---|
+| `--table <name>` | Flyway history table (default: flyway_schema_history) |
+| `--name <name>` | Migration file name (default: next number + description) |
+| `--schema <name>` | Database schema to read |
+| `--url <jdbc-url>` | Database URL (default: application config) |
+| `--user <name>` | Database user |
+| `--password <secret>` | Database password (prefer env vars) |
+| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
+| `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--dir <path>` | Project folder (default: current folder) |
+
 ## Everyday
 
 ### generate

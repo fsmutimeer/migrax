@@ -370,6 +370,31 @@ class CommandsTest {
   }
 
   @Test
+  void importsALiquibaseDatabaseAsABaseline() throws Exception {
+    setUp();
+    existingDatabaseWithoutMigrations();
+    execute("CREATE TABLE DATABASECHANGELOG (ID VARCHAR(255), AUTHOR VARCHAR(255))");
+    execute("INSERT INTO DATABASECHANGELOG VALUES ('1', 'team'), ('2', 'team')");
+
+    Result imported = cli("import", "liquibase");
+    assertEquals(0, imported.code(), imported.all());
+    assertTrue(imported.out().contains("Wrote 0001_liquibase_baseline.sql with 1 table(s)"),
+        imported.out());
+    assertTrue(imported.out().contains("Recorded 1 migration(s) as applied"), imported.out());
+    assertTrue(Files.readString(migrations().resolve("0001_liquibase_baseline.sql"))
+        .contains("CREATE TABLE sample_entity"));
+    assertTrue(cli("status").out().contains("[X] 0001_liquibase_baseline.sql"));
+
+    Result generate = cli("generate");
+    assertEquals(0, generate.code(), generate.all());
+    assertTrue(generate.out().contains("No changes detected."), generate.out());
+    assertFalse(Files.exists(migrations().resolve("0001_baseline.sql")),
+        "the imported baseline already builds an empty database");
+    Result verify = cli("verify");
+    assertEquals(0, verify.code(), verify.all());
+  }
+
+  @Test
   void squashReplacesOldMigrations() throws Exception {
     setUp();
     assertEquals(0, cli("generate").code());

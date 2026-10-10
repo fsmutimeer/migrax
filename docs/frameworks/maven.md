@@ -45,6 +45,7 @@ mvn migrax:status
 | `migrax:new` | `migrax new` |
 | `migrax:squash` | `migrax squash` |
 | `migrax:merge` | `migrax merge` |
+| `migrax:import` | `migrax import` (`-Dmigrax.from=flyway` or `liquibase`) |
 
 ## Options
 

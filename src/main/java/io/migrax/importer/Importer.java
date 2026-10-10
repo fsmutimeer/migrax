@@ -96,12 +96,27 @@ public final class Importer {
    */
   public static Report liquibase(Connection connection, Dialect dialect, Path folder,
                                  String baselineName, String schema) throws Exception {
+    return liquibase(connection, dialect, folder, baselineName, schema, null);
+  }
+
+  /**
+   * Like {@link #liquibase(Connection, Dialect, Path, String, String)}, reading the database as
+   * the first {@code generate} does: with the entities, the baseline also has the sequences
+   * (and their sizes) that the entities use.
+   *
+   * @param entities the project's entity model, or null to read the tables only
+   * @since 0.2.0
+   */
+  public static Report liquibase(Connection connection, Dialect dialect, Path folder,
+                                 String baselineName, String schema, SchemaModel entities)
+      throws Exception {
     int changeSets = count(connection, "databasechangelog");
     if (changeSets < 0) {
       throw new IllegalStateException("No DATABASECHANGELOG table found; this database does "
           + "not look like it is managed by Liquibase.");
     }
-    SchemaModel current = DatabaseSchemaReader.read(connection, schema);
+    SchemaModel current = entities == null ? DatabaseSchemaReader.read(connection, schema)
+        : io.migrax.diff.DatabaseBaseline.read(connection, schema, entities);
     Path file = folder.resolve(baselineName.endsWith(".sql") ? baselineName : baselineName + ".sql");
     if (Files.exists(file)) {
       throw new IllegalStateException("Migration already exists: " + file);
