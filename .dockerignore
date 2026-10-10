@@ -1,16 +1,4 @@
-# Version control and local IDE metadata
-.git/
-.idea/
-.vscode/
-*.iml
-
-# Generated build output
-target/
-build/
-
-# OS and editor files
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*.log
+*
+!bin/migrax
+!target/migrax-*.jar
+!docker/drivers/pom.xml

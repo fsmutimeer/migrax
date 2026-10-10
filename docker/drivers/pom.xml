@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The JDBC drivers the Migrax container image includes (copied to /opt/migrax/drivers).
+     Only drivers whose licenses allow bundling them with MIT-licensed Migrax; the docs show how
+     to add others (MySQL Connector/J, Oracle) in a derived image. -->
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>io.migrax.docker</groupId>
+  <artifactId>migrax-image-drivers</artifactId>
+  <version>1</version>
+  <packaging>pom</packaging>
+
+  <dependencies>
+    <!-- PostgreSQL and CockroachDB (BSD-2-Clause) -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.5</version>
+    </dependency>
+    <!-- MariaDB, and MySQL servers too (LGPL-2.1) -->
+    <dependency>
+      <groupId>org.mariadb.jdbc</groupId>
+      <artifactId>mariadb-java-client</artifactId>
+      <version>3.5.1</version>
+      <exclusions>
+        <!-- Windows logins (GSSAPI through Waffle); not used in a Linux container. -->
+        <exclusion>
+          <groupId>com.github.waffle</groupId>
+          <artifactId>waffle-jna</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <!-- SQL Server (MIT) -->
+    <dependency>
+      <groupId>com.microsoft.sqlserver</groupId>
+      <artifactId>mssql-jdbc</artifactId>
+      <version>12.8.1.jre11</version>
+    </dependency>
+    <!-- SQLite (Apache-2.0) -->
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>3.47.1.0</version>
+    </dependency>
+    <!-- Silences the logging API the MariaDB driver brings (MIT) -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-nop</artifactId>
+      <version>2.0.7</version>
+    </dependency>
+    <!-- H2 (MPL-2.0 or EPL-1.0) -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>2.3.232</version>
+    </dependency>
+  </dependencies>
+</project>
