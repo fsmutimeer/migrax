@@ -55,7 +55,9 @@ Review the SQL, then run 'migrax migrate'.
 The first `generate` compares your entities with the **current database**:
 
 - an empty database gets `0001_initial.sql` with every table;
-- a database that already has tables gets only the differences.
+- a database that already has tables gets `0001_baseline.sql` with the tables it has, recorded
+  as applied there without running it, and a second migration with only the differences. An
+  empty database (a new environment, or `migrax verify`) is built from both.
 
 Open the file and read it. Migrations are plain SQL, and you can edit them before they run.
 

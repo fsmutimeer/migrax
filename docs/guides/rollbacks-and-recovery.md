@@ -108,9 +108,10 @@ again.
 
     To make the current database the starting point, forget the deleted migrations, delete
     `.migrax/snapshot.json` and the `.migrax/history` folder, and run `migrax generate`: with no
-    snapshot, it compares the entities with the database and writes only what is really
-    different. Review that migration before running `migrax migrate`.
+    snapshot, it compares the entities with the database. It writes the current tables to
+    `0001_baseline.sql` (recorded as applied, not run) and what is really different to a second
+    migration. Review that migration before running `migrax migrate`.
 
-    From then on the migrations start at the current database: an empty database can't be
-    built from them alone. That's fine for a test or development database; for shared
-    environments, restore the deleted files instead.
+    From then on the migrations start at the current database. On other databases that still
+    have the old history, the baseline would try to create tables that exist, so for shared
+    environments restore the deleted files instead.

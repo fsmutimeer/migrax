@@ -4,6 +4,7 @@ import static io.migrax.cli.ExitCode.OK;
 
 import io.migrax.dialect.Dialect;
 import io.migrax.dialect.PostgresDialect;
+import io.migrax.diff.DiffEngine;
 import io.migrax.diff.Migrations;
 import io.migrax.diff.Renames;
 import io.migrax.diff.SnapshotStore;
@@ -17,12 +18,14 @@ import io.migrax.ops.DropForeignKey;
 import io.migrax.ops.DropIndex;
 import io.migrax.ops.DropUnique;
 import io.migrax.ops.Operation;
+import io.migrax.runner.Migration;
 import io.migrax.runner.MigrationLoader;
 import io.migrax.runner.MigrationRunner;
 import io.migrax.util.Log;
 
 import java.io.PrintStream;
 import java.nio.file.Files;
+import java.sql.Connection;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -32,6 +35,8 @@ import java.util.Set;
 
 /** {@code migrax generate}: create a migration from entity changes. */
 final class GenerateCommand implements Command {
+  /** The migration the first generate writes with the tables the database already has. */
+  static final String BASELINE = "0001_baseline";
 
   @Override
   public String name() {
@@ -63,7 +68,8 @@ final class GenerateCommand implements Command {
     return """
         Compiles the project if needed, compares the entities with .migrax/snapshot.json and
         writes a numbered SQL file plus a rollback script (rollback/<file>). On the first run,
-        with no snapshot, the current database schema is the baseline.
+        with no snapshot, the current database schema is the baseline: its tables are written
+        to 0001_baseline.sql, which that database records as applied without running it.
         When a column or table seems renamed, Migrax asks (or pass --rename / --rename-table)
         so the data is kept. Drops need --allow-destructive. --safe (PostgreSQL) builds indexes
         and constraints on existing tables without blocking writes, in a second migration.
@@ -99,9 +105,20 @@ final class GenerateCommand implements Command {
     }
     Log.debug("Entities read from {}.", changes.source());
     List<Operation> operations = changes.operations();
+    // The first generate against a database that already has tables (and no migrations yet)
+    // also writes those tables as a baseline migration, so the migrations alone can build an
+    // empty database.
+    boolean baseline = !hasSnapshot && !changes.previous().tables().isEmpty()
+        && MigrationFiles.nextNumber(migrations) == 1;
     if (operations.isEmpty()) {
       out.println("No changes detected.");
       if (!hasSnapshot) {
+        if (baseline) {
+          Files.createDirectories(migrations);
+          Path file = writeBaseline(project, dialect, changes.previous());
+          recordBaseline(context, file);
+          printBaseline(out, project, file, changes.previous());
+        }
         SnapshotStore.save(project.snapshot(), changes.current(), dialect.id(),
             project.recordedNaming());
         out.println("Saved the entity schema as the baseline snapshot: "
@@ -143,12 +160,33 @@ final class GenerateCommand implements Command {
     }
 
     Files.createDirectories(migrations);
-    String name =
-        migrationName(args, migrations, changes.previous(), main.isEmpty() ? online : main);
-    Path file = migrations.resolve(name + ".sql");
-    if (Files.exists(file)) {
-      throw new UsageException("Migration already exists: " + project.display(file),
-          "Choose another --name.");
+    Path baselineFile = baseline ? writeBaseline(project, dialect, changes.previous()) : null;
+    String name;
+    Path file;
+    try {
+      name = migrationName(args, migrations, changes.previous(), main.isEmpty() ? online : main);
+      file = migrations.resolve(name + ".sql");
+      if (Files.exists(file)) {
+        throw new UsageException("Migration already exists: " + project.display(file),
+            "Choose another --name.");
+      }
+      if (baselineFile != null && MigrationRunner.versionParts(name + ".sql")
+          .equals(MigrationRunner.versionParts(baselineFile.getFileName().toString()))) {
+        throw new UsageException("Migration " + name + " has the same number as the baseline "
+            + "migration " + BASELINE + ".", "Choose another --name.");
+      }
+      if (baselineFile != null) {
+        recordBaseline(context, baselineFile);
+      }
+    } catch (Exception e) {
+      if (baselineFile != null) {
+        Files.deleteIfExists(baselineFile);
+        Files.deleteIfExists(SnapshotStore.historySnapshot(project.root(), BASELINE));
+      }
+      throw e;
+    }
+    if (baselineFile != null) {
+      printBaseline(out, project, baselineFile, changes.previous());
     }
     List<Path> written = new ArrayList<>();
     List<Operation> reverse = Renames.reverse(changes.previous(), changes.current(),
@@ -202,6 +240,43 @@ final class GenerateCommand implements Command {
     }
     out.println("Review the SQL, then run 'migrax migrate'.");
     return OK;
+  }
+
+  /**
+   * Writes {@link #BASELINE} with the schema the database already has, so an empty database can
+   * be built from the migrations. It has no rollback script: undoing it would drop every table.
+   */
+  private static Path writeBaseline(Project project, Dialect dialect, SchemaModel database)
+      throws Exception {
+    Path file = project.migrations().resolve(BASELINE + ".sql");
+    String header = "-- Baseline: the tables the database already had before its first migration."
+        + "\n-- That database records it as applied without running it; empty databases are "
+        + "created from it.\n";
+    Files.writeString(file, MigrationSql.render(dialect,
+        new DiffEngine().diff(SchemaModel.empty(), database), header));
+    SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), BASELINE), database,
+        dialect.id());
+    return file;
+  }
+
+  /** Records the baseline as applied in the database it was read from, without running it. */
+  private static void recordBaseline(CommandContext context, Path file) throws Exception {
+    Project project = context.project();
+    try (Connection connection = project.connect()) {
+      String schema = context.args().option("--schema");
+      if (!Project.blank(schema)) {
+        Project.useSchema(connection, schema);
+      }
+      context.migrationRunner().markApplied(connection, List.of(Migration.load(file)));
+    }
+  }
+
+  private static void printBaseline(PrintStream out, Project project, Path file,
+                                    SchemaModel database) {
+    out.println("Created " + project.display(file) + " with the " + database.tables().size()
+        + " table(s) the database already has.");
+    out.println("  It is recorded as applied in this database without running it; empty "
+        + "databases are created from it.");
   }
 
   private static String migrationName(Args args, Path migrations, SchemaModel previous,
