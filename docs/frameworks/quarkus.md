@@ -55,3 +55,13 @@ Migrations from `db/migration` are applied when the application starts (JVM mode
     Quarkus starts Hibernate before the integration runs. With `validate`, a pending migration
     would stop the application from starting, because Hibernate checks the schema first. Use
     `none`, and validate in CI with `migrax verify` instead.
+
+## Readiness check
+
+With `quarkus-smallrye-health` in the application, Migrax adds a `migrax` readiness check: UP
+when every migration is applied and none failed, was edited or is missing, DOWN otherwise,
+with the counts as data (`/q/health/ready`).
+
+Without the health extension, Quarkus prints a warning while building that it can't index
+`org.eclipse.microprofile.health.HealthCheck`; it is harmless, and the check is simply not
+used.

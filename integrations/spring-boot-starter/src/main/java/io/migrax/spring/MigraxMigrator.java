@@ -52,6 +52,18 @@ public class MigraxMigrator implements InitializingBean {
     this.basePackages = basePackages;
   }
 
+  /**
+   * Whether the database is up to date with the packaged migrations and JavaMigration beans,
+   * without changing anything; the health indicator reports it.
+   */
+  public io.migrax.runner.StartupMigrations.Status status() throws Exception {
+    Map<String, Migration> byVersion = new LinkedHashMap<>();
+    loadPackaged().forEach(m -> byVersion.put(m.version(), m));
+    javaMigrationBeans.forEach(bean -> byVersion.put(bean.version(), Migration.ofJava(bean)));
+    return io.migrax.runner.StartupMigrations.status(dataSource,
+        new ArrayList<>(byVersion.values()), properties.getSchemas());
+  }
+
   @Override
   public void afterPropertiesSet() throws Exception {
     Log.Sink previous = Log.setSink(new CommonsSink());

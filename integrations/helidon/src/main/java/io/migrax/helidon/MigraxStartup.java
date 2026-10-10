@@ -53,12 +53,7 @@ public class MigraxStartup {
     if (dataSource == null) {
       return;
     }
-    Map<String, String> settings = new LinkedHashMap<>();
-    for (String key : config.getPropertyNames()) {
-      if (key.startsWith("migrax.")) {
-        config.getOptionalValue(key, String.class).ifPresent(value -> settings.put(key, value));
-      }
-    }
+    Map<String, String> settings = settings(config);
     Log.Sink previous = Log.setSink(new JulSink());
     try {
       int applied = StartupMigrations.migrate(dataSource, settings, loader);
@@ -68,6 +63,32 @@ public class MigraxStartup {
     } finally {
       Log.setSink(previous);
     }
+  }
+
+  /**
+   * Whether the database is up to date, without changing anything; the readiness check reports
+   * it. Uses the same data source as the migrations.
+   */
+  StartupMigrations.Status status() throws Exception {
+    Config config = ConfigProvider.getConfig();
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    String name = config.getOptionalValue("migrax.datasource", String.class)
+        .orElseGet(() -> StartupMigrations.persistenceUnitDataSource(loader));
+    DataSource dataSource = dataSource(name);
+    if (dataSource == null) {
+      throw new IllegalStateException("no data source to check; set migrax.datasource");
+    }
+    return StartupMigrations.status(dataSource, settings(config), loader);
+  }
+
+  private static Map<String, String> settings(Config config) {
+    Map<String, String> settings = new LinkedHashMap<>();
+    for (String key : config.getPropertyNames()) {
+      if (key.startsWith("migrax.")) {
+        config.getOptionalValue(key, String.class).ifPresent(value -> settings.put(key, value));
+      }
+    }
+    return settings;
   }
 
   /** The named data source, or the only one; null (with a warning) when it is ambiguous. */

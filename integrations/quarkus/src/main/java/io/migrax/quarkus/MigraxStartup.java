@@ -68,12 +68,7 @@ public class MigraxStartup {
   /** Runs the migrations; separate from the event so it can be called directly. */
   public static int migrate(DataSource dataSource, Config config, ClassLoader loader)
       throws Exception {
-    Map<String, String> settings = new LinkedHashMap<>();
-    for (String name : config.getPropertyNames()) {
-      if (name.startsWith("migrax.")) {
-        config.getOptionalValue(name, String.class).ifPresent(value -> settings.put(name, value));
-      }
-    }
+    Map<String, String> settings = settings(config);
     Log.Sink previous = Log.setSink(new JbossSink());
     try {
       int applied = StartupMigrations.migrate(dataSource, settings, loader);
@@ -83,6 +78,17 @@ public class MigraxStartup {
     } finally {
       Log.setSink(previous);
     }
+  }
+
+  /** The {@code migrax.*} settings, with their full keys. */
+  static Map<String, String> settings(Config config) {
+    Map<String, String> settings = new LinkedHashMap<>();
+    for (String name : config.getPropertyNames()) {
+      if (name.startsWith("migrax.")) {
+        config.getOptionalValue(name, String.class).ifPresent(value -> settings.put(name, value));
+      }
+    }
+    return settings;
   }
 
   /** Sends Migrax core messages to JBoss Logging. */

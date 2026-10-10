@@ -54,6 +54,12 @@ so `hibernate.hbm2ddl.auto=validate` works. Settings go in `microprofile-config.
 | `migrax.placeholders.<name>` | | Values for `${name}` placeholders |
 | `migrax.schemas` | | Schemas to migrate one after another |
 
+### Readiness check
+
+With `helidon-microprofile-health` in the application, Migrax adds a `migrax` readiness check:
+UP when every migration is applied and none failed, was edited or is missing, DOWN otherwise,
+with the counts as data (`/health/ready`).
+
 ## Helidon SE
 
 Helidon SE uses its database client rather than JPA, so there are no entities to generate

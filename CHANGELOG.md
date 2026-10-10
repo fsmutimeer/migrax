@@ -12,6 +12,10 @@ All notable changes to Migrax are listed here. The format follows
   one result object with `ok` and `exitCode` on standard output, progress on standard error.
   With `--json`, a failure is also a JSON object.
 - Stable error codes (`error[MXE104]: ...`), listed in Reference > Errors and JSON output.
+- Health checks in the startup integrations: a `migrax` health indicator for Spring Boot
+  Actuator and Micronaut, and a readiness check for Quarkus and Helidon; UP when every
+  migration is applied and none failed, was edited or is missing. Each is active only when the
+  application has the framework's health module.
 
 ### Changed
 

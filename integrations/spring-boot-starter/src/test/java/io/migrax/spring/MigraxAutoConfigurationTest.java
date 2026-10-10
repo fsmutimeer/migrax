@@ -54,6 +54,34 @@ class MigraxAutoConfigurationTest {
   }
 
   @Test
+  void reportsHealthWhenActuatorIsPresent() throws Exception {
+    try (ConfigurableApplicationContext context = start("starter_health")) {
+      var health = context.getBean("migraxHealthIndicator",
+          org.springframework.boot.actuate.health.HealthIndicator.class).health();
+      assertEquals(org.springframework.boot.actuate.health.Status.UP, health.getStatus());
+      assertEquals(3, health.getDetails().get("applied"));
+      assertEquals(0, health.getDetails().get("pending"));
+
+      // A migration the database doesn't have yet (as when migrax.enabled=false).
+      new JdbcTemplate(context.getBean(javax.sql.DataSource.class))
+          .update("DELETE FROM migrax_history WHERE version = '0001_books.sql'");
+      var behind = context.getBean("migraxHealthIndicator",
+          org.springframework.boot.actuate.health.HealthIndicator.class).health();
+      assertEquals(org.springframework.boot.actuate.health.Status.DOWN, behind.getStatus());
+      assertEquals(1, behind.getDetails().get("pending"));
+    }
+  }
+
+  @Test
+  void healthIndicatorCanBeTurnedOff() {
+    try (ConfigurableApplicationContext context = start("starter_no_health",
+        "management.health.migrax.enabled=false")) {
+      org.junit.jupiter.api.Assertions.assertFalse(
+          context.containsBean("migraxHealthIndicator"));
+    }
+  }
+
+  @Test
   void canBeDisabled() {
     assertThrows(Exception.class, () -> start("starter_disabled", "migrax.enabled=false").close());
   }

@@ -37,4 +37,16 @@ class MigraxStartupTest {
       assertFalse(tables.next());
     }
   }
+
+  @Inject
+  @org.eclipse.microprofile.health.Readiness
+  MigraxReadinessCheck readiness;
+
+  @Test
+  void reportsReadiness() {
+    var response = readiness.call();
+    assertEquals(org.eclipse.microprofile.health.HealthCheckResponse.Status.UP,
+        response.getStatus(), String.valueOf(response.getData()));
+    assertEquals(0L, response.getData().orElseThrow().get("pending"));
+  }
 }

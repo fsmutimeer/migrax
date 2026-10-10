@@ -51,12 +51,7 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
       return dataSource;
     }
     warnAboutSchemaGeneration();
-    Map<String, String> settings = new LinkedHashMap<>();
-    environment.getProperties("migrax", StringConvention.RAW).forEach((key, value) -> {
-      if (value != null) {
-        settings.put("migrax." + key, String.valueOf(value));
-      }
-    });
+    Map<String, String> settings = settings(environment);
     Log.Sink previous = Log.setSink(new Slf4jSink());
     try {
       int applied = StartupMigrations.migrate(unwrap(dataSource), settings,
@@ -72,11 +67,22 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
     return dataSource;
   }
 
+  /** The {@code migrax.*} settings, with their full keys. */
+  static Map<String, String> settings(Environment environment) {
+    Map<String, String> settings = new LinkedHashMap<>();
+    environment.getProperties("migrax", StringConvention.RAW).forEach((key, value) -> {
+      if (value != null) {
+        settings.put("migrax." + key, String.valueOf(value));
+      }
+    });
+    return settings;
+  }
+
   /**
    * Micronaut Data can wrap the DataSource in a transaction-aware delegate whose connections
    * need an open transaction; migrations use the real pool underneath.
    */
-  private static DataSource unwrap(DataSource dataSource) {
+  static DataSource unwrap(DataSource dataSource) {
     for (String wrapper : DATA_SOURCE_WRAPPERS) {
       try {
         Class<?> type = Class.forName(wrapper, false, dataSource.getClass().getClassLoader());

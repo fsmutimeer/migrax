@@ -25,6 +25,38 @@ class MigraxDataSourceListenerTest {
   @Inject
   DataSource dataSource;
 
+  @Inject
+  MigraxHealthIndicator health;
+
+  @Test
+  void reportsHealth() throws Exception {
+    java.util.concurrent.CompletableFuture<io.micronaut.management.health.indicator.HealthResult>
+        result = new java.util.concurrent.CompletableFuture<>();
+    health.getResult().subscribe(new org.reactivestreams.Subscriber<>() {
+      @Override
+      public void onSubscribe(org.reactivestreams.Subscription subscription) {
+        subscription.request(1);
+      }
+
+      @Override
+      public void onNext(io.micronaut.management.health.indicator.HealthResult item) {
+        result.complete(item);
+      }
+
+      @Override
+      public void onError(Throwable error) {
+        result.completeExceptionally(error);
+      }
+
+      @Override
+      public void onComplete() {
+      }
+    });
+    var health = result.get(30, java.util.concurrent.TimeUnit.SECONDS);
+    assertEquals(io.micronaut.health.HealthStatus.UP, health.getStatus());
+    assertEquals("{applied=1, pending=0, problems=0}", String.valueOf(health.getDetails()));
+  }
+
   @Test
   void migratesBeforeHibernateValidatesTheSchema() throws Exception {
     EntityManager em = entityManagerFactory.createEntityManager();
