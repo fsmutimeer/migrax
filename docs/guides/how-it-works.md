@@ -23,7 +23,10 @@ compares the entities with the snapshot and writes only the difference. The snap
 the dialect and [naming strategy](../reference/naming.md), so the names stay stable even if
 your configuration changes later.
 
-The very first `generate` has no snapshot, so it compares with the live database instead.
+The very first `generate` has no snapshot, so it compares with the live database instead. When
+that database already has tables, it also writes them to `0001_baseline.sql` and records that
+migration as applied there without running it, so an empty database can still be built from
+the migrations alone. The baseline has no rollback script: undoing it would drop every table.
 
 **Migration files.** Migrations live in `src/main/resources/db/migration` and are numbered:
 `0001_initial.sql`, `0002_add_customers_phone.sql`, ... The name describes the change. Next to

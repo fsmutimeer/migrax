@@ -26,6 +26,26 @@ class DatabaseSchemaReaderTest {
   }
 
   @Test
+  void ignoresTheIndexH2CreatesForAForeignKey() throws Exception {
+    try (var connection = DriverManager.getConnection("jdbc:h2:mem:foreign-key-index")) {
+      try (var statement = connection.createStatement()) {
+        statement.execute("CREATE TABLE customer (id BIGINT PRIMARY KEY)");
+        statement.execute("CREATE TABLE orders (id BIGINT PRIMARY KEY, customer_id BIGINT, "
+            + "note VARCHAR(20), CONSTRAINT fk_orders_customer_id FOREIGN KEY (customer_id) "
+            + "REFERENCES customer (id))");
+        statement.execute("CREATE INDEX fk_orders_note_index_1 ON orders (note)");
+      }
+
+      SchemaModel.Table orders = DatabaseSchemaReader.read(connection).table("orders");
+
+      assertEquals(1, orders.foreignKeys().size());
+      assertEquals(List.of("fk_orders_note_index_1"),
+          orders.indexes().stream().map(SchemaModel.Index::name).toList(),
+          "only the index H2 created for the foreign key is left out");
+    }
+  }
+
+  @Test
   void readsSchemaMetadataForAnExistingDatabaseBaseline() throws Exception {
     try (var connection = DriverManager.getConnection("jdbc:h2:mem:baseline-reader")) {
       try (var statement = connection.createStatement()) {
