@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.migrax</groupId>
   <artifactId>migrax-helidon</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.2.0-rc.5</version>
   <name>Migrax for Helidon MP</name>
   <description>Applies Migrax migrations when a Helidon MP application starts.</description>
 
@@ -30,7 +30,7 @@
     <dependency>
       <groupId>io.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.2.0-SNAPSHOT</version>
+      <version>0.2.0-rc.5</version>
     </dependency>
     <dependency>
       <groupId>jakarta.enterprise</groupId>
