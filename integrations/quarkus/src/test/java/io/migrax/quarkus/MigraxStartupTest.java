@@ -15,6 +15,19 @@ class MigraxStartupTest {
   @Inject
   EntityManager entityManager;
 
+  @Inject
+  @org.eclipse.microprofile.health.Readiness
+  MigraxReadinessCheck readiness;
+
+  @Test
+  void reportsReadiness() {
+    var response = readiness.call();
+    assertEquals(org.eclipse.microprofile.health.HealthCheckResponse.Status.UP,
+        response.getStatus());
+    assertEquals(1L, response.getData().orElseThrow().get("applied"));
+    assertEquals(0L, response.getData().orElseThrow().get("pending"));
+  }
+
   @Test
   @Transactional
   void migrationsRunAtStartup() {

@@ -65,3 +65,9 @@ Migrations run as soon as Micronaut creates the data source, **before** Hibernat
 | `migrax.lock-timeout` | `0` | How long to wait while another instance migrates, for example `2m` when several start together |
 | `migrax.placeholders.<name>` | | Values for `${name}` placeholders |
 | `migrax.schemas` | | Schemas to migrate one after another |
+
+## Health check
+
+With `micronaut-management` in the application, Migrax adds a `migrax` health indicator: UP
+when every migration is applied and none failed, was edited or is missing, DOWN otherwise, with
+the counts as details (`/health`).

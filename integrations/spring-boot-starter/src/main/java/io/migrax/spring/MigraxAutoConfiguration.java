@@ -48,6 +48,19 @@ public class MigraxAutoConfiguration {
         javaMigrations.orderedStream().toList(), environment, packages);
   }
 
+  /** The migrax health indicator, only when the application has Actuator. */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnClass(name = "org.springframework.boot.actuate.health.HealthIndicator")
+  static class MigraxHealth {
+    @Bean
+    @ConditionalOnMissingBean(name = "migraxHealthIndicator")
+    @org.springframework.boot.actuate.autoconfigure.health.ConditionalOnEnabledHealthIndicator(
+        "migrax")
+    MigraxHealthIndicator migraxHealthIndicator(MigraxMigrator migrator) {
+      return new MigraxHealthIndicator(migrator);
+    }
+  }
+
   /** Makes JPA wait for migrations, so Hibernate validation sees the migrated schema. */
   @Configuration(proxyBeanMethods = false)
   @ConditionalOnClass(name = "org.springframework.orm.jpa.AbstractEntityManagerFactoryBean")

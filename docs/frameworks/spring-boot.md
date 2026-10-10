@@ -69,3 +69,15 @@ migrax.dev.generate=true
 With `migrax.dev.generate=true`, the application generates a migration for changed entities on
 every restart, then applies it. Drops still need `migrax.dev.allow-destructive=true`. Use it
 only in development, and review what it wrote before you commit.
+
+## Health check
+
+With Spring Boot Actuator in the application, Migrax adds a `migrax` health component: UP when
+every migration is applied and none failed, was edited or is missing, DOWN otherwise, with the
+counts as details:
+
+```json
+"migrax": {"status": "UP", "details": {"applied": 3, "pending": 0, "problems": 0}}
+```
+
+Turn it off with `management.health.migrax.enabled=false`.

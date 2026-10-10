@@ -37,12 +37,7 @@ public final class StartupMigrations {
     String javaPackage = setting(settings, "migrax.java-package",
         MigrationLoader.DEFAULT_JAVA_PACKAGE);
     boolean resume = Boolean.parseBoolean(setting(settings, "migrax.resume", "false"));
-    List<String> schemas = new ArrayList<>();
-    for (String schema : setting(settings, "migrax.schemas", "").split(",")) {
-      if (!schema.isBlank()) {
-        schemas.add(schema.trim());
-      }
-    }
+    List<String> schemas = schemas(settings);
     Map<String, String> placeholders = new LinkedHashMap<>();
     settings.forEach((key, value) -> {
       if (key.startsWith("migrax.placeholders.") && value != null) {
@@ -50,8 +45,7 @@ public final class StartupMigrations {
       }
     });
 
-    List<Migration> migrations = new ArrayList<>(ClasspathMigrations.load(loader, location));
-    migrations.addAll(MigrationLoader.javaMigrations(loader, javaPackage));
+    List<Migration> migrations = migrations(location, javaPackage, loader);
     if (migrations.isEmpty()) {
       Log.info("No migrations found in {}.", location);
       return 0;
@@ -66,17 +60,96 @@ public final class StartupMigrations {
         return runner.migrateAll(connection, migrations, options);
       }
       int applied = 0;
-      String product = connection.getMetaData().getDatabaseProductName()
-          .toLowerCase(Locale.ROOT);
       for (String schema : schemas) {
-        if (product.contains("mysql") || product.contains("mariadb")) {
-          connection.setCatalog(schema);
-        } else {
-          connection.setSchema(schema);
-        }
+        useSchema(connection, schema);
         applied += runner.migrateAll(connection, migrations, options);
       }
       return applied;
+    }
+  }
+
+  /**
+   * Whether the database is up to date with the application's migrations, for health checks.
+   *
+   * @param applied migrations applied (in every schema)
+   * @param pending migrations not applied yet, including repeatable ones whose content changed
+   * @param problems failed, edited after being applied, or applied but missing from the
+   *     application; each needs a person
+   * @since 0.3.0
+   */
+  public record Status(int applied, int pending, int problems) {
+    /** Nothing pending and nothing wrong. */
+    public boolean upToDate() {
+      return pending == 0 && problems == 0;
+    }
+  }
+
+  /**
+   * Reads the migration status without changing anything, with the same settings as
+   * {@link #migrate}.
+   *
+   * @since 0.3.0
+   */
+  public static Status status(DataSource dataSource, Map<String, String> settings,
+                              ClassLoader loader) throws Exception {
+    List<Migration> migrations = migrations(setting(settings, "migrax.locations", "db/migration"),
+        setting(settings, "migrax.java-package", MigrationLoader.DEFAULT_JAVA_PACKAGE), loader);
+    return status(dataSource, migrations, schemas(settings));
+  }
+
+  /**
+   * The status of given migrations, for integrations that find the migrations themselves.
+   *
+   * @param schemas schemas to check one after another; empty for the default schema
+   * @since 0.3.0
+   */
+  public static Status status(DataSource dataSource, List<Migration> migrations,
+                              List<String> schemas) throws Exception {
+    int applied = 0;
+    int pending = 0;
+    int problems = 0;
+    try (Connection connection = dataSource.getConnection()) {
+      for (String schema : schemas.isEmpty() ? java.util.Collections.<String>singletonList(null)
+          : schemas) {
+        if (schema != null) {
+          useSchema(connection, schema);
+        }
+        for (MigrationRunner.MigrationStatus row
+            : new MigrationRunner().statusOf(connection, migrations)) {
+          switch (row.state()) {
+            case APPLIED -> applied++;
+            case PENDING, OUTDATED -> pending++;
+            default -> problems++;
+          }
+        }
+      }
+    }
+    return new Status(applied, pending, problems);
+  }
+
+  private static List<Migration> migrations(String location, String javaPackage,
+                                            ClassLoader loader) throws Exception {
+    List<Migration> migrations = new ArrayList<>(ClasspathMigrations.load(loader, location));
+    migrations.addAll(MigrationLoader.javaMigrations(loader, javaPackage));
+    return migrations;
+  }
+
+  private static List<String> schemas(Map<String, String> settings) {
+    List<String> schemas = new ArrayList<>();
+    for (String schema : setting(settings, "migrax.schemas", "").split(",")) {
+      if (!schema.isBlank()) {
+        schemas.add(schema.trim());
+      }
+    }
+    return schemas;
+  }
+
+  private static void useSchema(Connection connection, String schema) throws Exception {
+    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
+    if (product.contains("mysql") || product.contains("mariadb")) {
+      connection.setCatalog(schema);
+    } else {
+      connection.setSchema(schema);
     }
   }
 

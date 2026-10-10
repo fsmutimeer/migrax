@@ -41,6 +41,12 @@
       <artifactId>micronaut-inject</artifactId>
       <scope>provided</scope>
     </dependency>
+    <!-- Only when the application has micronaut-management: the migrax health indicator. -->
+    <dependency>
+      <groupId>io.micronaut</groupId>
+      <artifactId>micronaut-management</artifactId>
+      <scope>provided</scope>
+    </dependency>
 
     <dependency>
       <groupId>io.micronaut.test</groupId>
