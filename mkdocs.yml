@@ -106,6 +106,7 @@ nav:
       - Continuous integration: guides/ci.md
       - Production safety: guides/production-safety.md
       - Advanced migrations: guides/advanced-migrations.md
+      - Switching from Flyway or Liquibase: guides/switching-tools.md
   - Frameworks:
       - frameworks/index.md
       - Spring Boot: frameworks/spring-boot.md

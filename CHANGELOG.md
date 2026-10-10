@@ -19,8 +19,14 @@ All notable changes to Migrax are listed here. The format follows
   history included, so `migrate` can rebuild a development database. It asks first (or needs
   `--yes`), `--dry-run` lists what it would drop, and `MIGRAX_CLEAN_DISABLED=true` turns it off.
 
+- Documentation for `migrax import flyway|liquibase`, with a guide for switching an existing
+  project (Guides > Switching from Flyway or Liquibase).
+
 ### Fixed
 
+- `migrax import liquibase` left the entities' sequences out of the baseline, so a database
+  built from it failed Hibernate's validation; it now reads the database as the first
+  `generate` does.
 - Hibernate's mapping of a `@Lob String` as `varchar(255)` (CockroachDB) is read as text, so
   long values aren't cut off.
 - Hibernate's bulk-update helper tables (`HTE_<table>`) are no longer seen as user tables.
