@@ -22,6 +22,12 @@ public class MigraxProperties {
   /** Re-run a failed migration marked '-- migrax:resume-safe'. */
   private boolean resume;
 
+  /**
+   * How long to wait while another instance holds the migration lock, for example {@code 2m}
+   * when several instances start together; zero fails at once.
+   */
+  private java.time.Duration lockTimeout = java.time.Duration.ZERO;
+
   /** Values for ${name} placeholders in migrations. */
   private Map<String, String> placeholders = new LinkedHashMap<>();
 
@@ -53,6 +59,14 @@ public class MigraxProperties {
 
   public void setJavaPackage(String javaPackage) {
     this.javaPackage = javaPackage;
+  }
+
+  public java.time.Duration getLockTimeout() {
+    return lockTimeout;
+  }
+
+  public void setLockTimeout(java.time.Duration lockTimeout) {
+    this.lockTimeout = lockTimeout;
   }
 
   public boolean isResume() {

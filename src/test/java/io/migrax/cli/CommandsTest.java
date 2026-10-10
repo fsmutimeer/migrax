@@ -337,6 +337,37 @@ class CommandsTest {
   }
 
   @Test
+  void migrateWaitsForTheLockWithLockTimeout() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate").code());
+    java.util.concurrent.CountDownLatch held = new java.util.concurrent.CountDownLatch(1);
+    Thread holder = new Thread(() -> {
+      try (Connection connection = DriverManager.getConnection(url);
+           AutoCloseable lock = io.migrax.runner.DatabaseMigrationLock.acquire(connection)) {
+        held.countDown();
+        Thread.sleep(1500);
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+    });
+    holder.start();
+    held.await();
+
+    Result refused = cli("migrate");
+    assertEquals(1, refused.code(), refused.all());
+    assertTrue(refused.err().contains("--lock-timeout 2m"), refused.all());
+
+    Result waited = cli("migrate", "--lock-timeout", "10s");
+    assertEquals(0, waited.code(), waited.all());
+    assertTrue(waited.out().contains("Applied 1 migration(s)"), waited.out());
+    holder.join();
+
+    Result invalid = cli("migrate", "--lock-timeout", "soon");
+    assertEquals(1, invalid.code());
+    assertTrue(invalid.err().contains("Invalid lock timeout 'soon'"), invalid.all());
+  }
+
+  @Test
   void driftReportsManualChanges() throws Exception {
     setUp();
     generateAndMigrate();

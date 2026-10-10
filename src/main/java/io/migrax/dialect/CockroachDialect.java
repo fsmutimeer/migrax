@@ -151,7 +151,7 @@ public final class CockroachDialect extends PostgresDialect {
         }
       }
       commitIfManual(connection, autoCommit);
-      throw new SQLException("Another Migrax process is applying migrations" + holder + ". If "
+      throw new MigrationLockHeldException("Another Migrax process is applying migrations" + holder + ". If "
           + "none is running, a killed process left its lock: remove it with DELETE FROM "
           + "migrax_lock WHERE lock_name = '" + resource + "'.");
     }

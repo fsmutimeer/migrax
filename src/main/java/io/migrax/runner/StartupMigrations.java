@@ -16,8 +16,9 @@ import javax.sql.DataSource;
  * configuration and call {@link #migrate}.
  *
  * <p>Settings: {@code migrax.locations} (default {@code db/migration}),
- * {@code migrax.java-package}, {@code migrax.resume}, {@code migrax.schemas} (comma-separated)
- * and {@code migrax.placeholders.<name>}.
+ * {@code migrax.java-package}, {@code migrax.resume}, {@code migrax.schemas} (comma-separated),
+ * {@code migrax.lock-timeout} (for example {@code 2m}: how long to wait while another instance
+ * migrates) and {@code migrax.placeholders.<name>}.
  *
  * @since 0.1.0
  */
@@ -55,10 +56,14 @@ public final class StartupMigrations {
       Log.info("No migrations found in {}.", location);
       return 0;
     }
+    String lockTimeout = setting(settings, "migrax.lock-timeout", "");
+    MigrationRunner runner = new MigrationRunner().withLockTimeout(lockTimeout.isBlank()
+        ? DatabaseMigrationLock.configuredTimeout()
+        : DatabaseMigrationLock.parseTimeout(lockTimeout));
     try (Connection connection = dataSource.getConnection()) {
       MigrationRunner.Options options = new MigrationRunner.Options(resume, placeholders);
       if (schemas.isEmpty()) {
-        return new MigrationRunner().migrateAll(connection, migrations, options);
+        return runner.migrateAll(connection, migrations, options);
       }
       int applied = 0;
       String product = connection.getMetaData().getDatabaseProductName()
@@ -69,7 +74,7 @@ public final class StartupMigrations {
         } else {
           connection.setSchema(schema);
         }
-        applied += new MigrationRunner().migrateAll(connection, migrations, options);
+        applied += runner.migrateAll(connection, migrations, options);
       }
       return applied;
     }

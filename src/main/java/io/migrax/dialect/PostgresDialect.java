@@ -133,7 +133,7 @@ public class PostgresDialect extends AbstractDialect {
       statement.setLong(1, key);
       try (ResultSet result = statement.executeQuery()) {
         if (!result.next() || !result.getBoolean(1)) {
-          throw new SQLException("Another Migrax process is applying migrations.");
+          throw new MigrationLockHeldException("Another Migrax process is applying migrations.");
         }
       }
     }

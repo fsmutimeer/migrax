@@ -73,11 +73,13 @@ public class MigraxMigrator implements InitializingBean {
       try (Connection connection = dataSource.getConnection()) {
         List<String> schemas = properties.getSchemas();
         if (schemas.isEmpty()) {
-          report(new MigrationRunner().migrateAll(connection, all, options), null);
+          report(new MigrationRunner().withLockTimeout(properties.getLockTimeout())
+              .migrateAll(connection, all, options), null);
         } else {
           for (String schema : schemas) {
             useSchema(connection, schema);
-            report(new MigrationRunner().migrateAll(connection, all, options), schema);
+            report(new MigrationRunner().withLockTimeout(properties.getLockTimeout())
+                .migrateAll(connection, all, options), schema);
           }
         }
       }

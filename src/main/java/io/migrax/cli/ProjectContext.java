@@ -88,6 +88,43 @@ final class ProjectContext {
     return runtimeLoader(root, explicitClasspath(args), List.of());
   }
 
+  /**
+   * JDBC driver jars that Migrax brings itself, for running without a project (the container
+   * image ships some): every jar in MIGRAX_DRIVERS (or -Dmigrax.drivers), otherwise in the
+   * {@code drivers} folder of the Migrax installation, when it exists.
+   */
+  static List<Path> driverJars() throws IOException {
+    String configured = firstNonBlank(System.getProperty("migrax.drivers"),
+        System.getenv("MIGRAX_DRIVERS"));
+    Path folder = configured != null ? Path.of(configured) : installedDriversFolder();
+    if (folder == null || !Files.isDirectory(folder)) {
+      return List.of();
+    }
+    try (var children = Files.list(folder)) {
+      return children.filter(Files::isRegularFile)
+          .filter(child -> child.getFileName().toString().endsWith(".jar"))
+          .map(child -> child.toAbsolutePath().normalize())
+          .sorted()
+          .toList();
+    }
+  }
+
+  /** {@code <installation>/drivers}, next to the {@code lib} folder holding migrax.jar. */
+  private static Path installedDriversFolder() {
+    try {
+      java.security.CodeSource source = ProjectContext.class.getProtectionDomain().getCodeSource();
+      if (source == null || source.getLocation() == null) {
+        return null;
+      }
+      Path jar = Path.of(source.getLocation().toURI());
+      Path lib = jar.getParent();
+      Path home = lib == null ? null : lib.getParent();
+      return home == null ? null : home.resolve("drivers");
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
   /** Returns the user-supplied classpath from --classpath, -Dmigrax.classpath or MIGRAX_CLASSPATH. */
   static String explicitClasspath(String[] args) {
     return firstNonBlank(
@@ -138,6 +175,8 @@ final class ProjectContext {
         entries.add(entry.toAbsolutePath().normalize());
       }
     }
+    // Last, so the project's own driver versions win.
+    entries.addAll(driverJars());
 
     List<URL> urls = new ArrayList<>();
     for (Path entry : entries) {

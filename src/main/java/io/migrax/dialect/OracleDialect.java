@@ -121,6 +121,9 @@ public final class OracleDialect extends AbstractDialect {
       statement.setInt(2, key);
       statement.execute();
       int status = statement.getInt(1);
+      if (status == 1) {
+        throw new MigrationLockHeldException("Another Migrax process is applying migrations.");
+      }
       if (status != 0 && status != 4) {
         throw new SQLException("Oracle migration lock request failed with status " + status
             + ". The service account may need EXECUTE on DBMS_LOCK.");

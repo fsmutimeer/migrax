@@ -80,8 +80,9 @@ final class GenerateCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--name", "--allow-destructive", "--safe", "--rename", "--rename-table",
-        "--no-input", "--dialect", "--package", "--naming", "--extractor", "--url", "--user",
-        "--password", "--schema", "--locations", "--classpath", "--no-build", "--refresh");
+        "--no-input", "--lock-timeout", "--dialect", "--package", "--naming", "--extractor",
+        "--url", "--user", "--password", "--password-file", "--schema", "--locations",
+        "--classpath", "--no-build", "--refresh");
   }
 
   @Override

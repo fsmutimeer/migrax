@@ -15,7 +15,8 @@ final class Options {
   static final Set<String> VALUES = Set.of(
       "--package", "--dir", "--locations", "--dialect", "--url", "--user", "--password",
       "--classpath", "--name", "--schema", "--action", "--naming", "--extractor", "--rename",
-      "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table");
+      "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table",
+      "--lock-timeout", "--password-file");
   /** Options without a value. */
   static final Set<String> FLAGS = Set.of(
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
@@ -41,6 +42,8 @@ final class Options {
     HELP.put("--url", "--url <jdbc-url>        Database URL (default: application config)");
     HELP.put("--user", "--user <name>           Database user");
     HELP.put("--password", "--password <secret>     Database password (prefer env vars)");
+    HELP.put("--password-file",
+        "--password-file <path>  Read the database password from a file (mounted secret)");
     HELP.put("--schema", "--schema <name>         Database schema to read");
     HELP.put("--schemas", "--schemas <a,b>         Run for each schema (multi-tenant)");
     HELP.put("--locations", "--locations <path>      Migration folder, e.g. filesystem:db/sql");
@@ -49,6 +52,8 @@ final class Options {
     HELP.put("--no-build", "--no-build              Do not run Maven/Gradle; use compiled classes");
     HELP.put("--refresh", "--refresh               Re-resolve dependencies even if cached");
     HELP.put("--dry-run", "--dry-run               Show what would happen without doing it");
+    HELP.put("--lock-timeout",
+        "--lock-timeout <time>   Wait this long while another process migrates (e.g. 2m)");
     HELP.put("--resume", "--resume                Re-run a failed resume-safe migration");
     HELP.put("--steps", "--steps <n>             Number of migrations to roll back");
     HELP.put("--to", "--to <migration>        Last migration to keep / squash up to");

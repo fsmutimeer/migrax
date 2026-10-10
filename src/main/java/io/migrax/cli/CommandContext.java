@@ -56,8 +56,10 @@ final class CommandContext {
     return project;
   }
 
+  /** The migration runner, waiting for the lock as long as --lock-timeout says. */
   MigrationRunner migrationRunner() {
-    return services.migrationRunner();
+    return project == null ? services.migrationRunner()
+        : services.migrationRunner().withLockTimeout(project.lockTimeout());
   }
 
   DiffEngine diffEngine() {

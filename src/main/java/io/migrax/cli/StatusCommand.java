@@ -53,8 +53,8 @@ final class StatusCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--json", "--schemas", "--url", "--user", "--password", "--locations",
-        "--java-package", "--classpath", "--no-build");
+    return List.of("--json", "--schemas", "--url", "--user", "--password", "--password-file",
+        "--locations", "--java-package", "--classpath", "--no-build");
   }
 
   @Override

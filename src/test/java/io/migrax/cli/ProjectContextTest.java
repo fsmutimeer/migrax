@@ -64,4 +64,23 @@ class ProjectContextTest {
     org.junit.jupiter.api.Assertions.assertEquals("com.example.domain",
         ProjectContext.packageName(gradle, null));
   }
+
+  @Test
+  void addsTheJarsOfTheDriversFolderAfterTheProjectsOwn(@TempDir Path drivers) throws Exception {
+    Files.writeString(drivers.resolve("postgresql.jar"), "");
+    Files.writeString(drivers.resolve("readme.txt"), "");
+    System.setProperty("migrax.drivers", drivers.toString());
+    try {
+      assertEquals(java.util.List.of(drivers.resolve("postgresql.jar").toAbsolutePath()),
+          ProjectContext.driverJars());
+      Path own = Files.createFile(drivers.resolve("own-driver.jar.copy"));
+      try (var loader = ProjectContext.runtimeLoader(drivers, own.toString(), java.util.List.of())) {
+        var urls = java.util.Arrays.asList(loader.getURLs());
+        assertEquals(own.toUri().toURL(), urls.get(0), "the project's classpath comes first");
+        assertEquals(drivers.resolve("postgresql.jar").toUri().toURL(), urls.get(urls.size() - 1));
+      }
+    } finally {
+      System.clearProperty("migrax.drivers");
+    }
+  }
 }

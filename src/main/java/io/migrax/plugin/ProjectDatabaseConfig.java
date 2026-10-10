@@ -617,6 +617,23 @@ public final class ProjectDatabaseConfig {
     return (path.isAbsolute() ? path : projectDirectory.resolve(path)).normalize();
   }
 
+  /**
+   * The content of a secret file without its trailing line break, or null when no file is
+   * named. The error names the setting and the path, never the content.
+   */
+  private static String fromFile(String path, String setting) {
+    if (path == null || path.isBlank()) {
+      return null;
+    }
+    try {
+      String content = java.nio.file.Files.readString(Path.of(path.trim()));
+      return content.replaceAll("\\R+$", "");
+    } catch (IOException | java.nio.file.InvalidPathException e) {
+      throw new IllegalStateException("Could not read the file that " + setting + " names ("
+          + path.trim() + "): " + e.getMessage(), e);
+    }
+  }
+
   private static String setting(
       Map<String, String> overrides,
       String overrideKey,
@@ -628,6 +645,15 @@ public final class ProjectDatabaseConfig {
         System.getProperty("migrax." + overrideKey), System.getenv(migraxEnvironment));
     if (value != null) {
       return resolve(value);
+    }
+    // Secrets mounted as files (Kubernetes and Docker secrets): --password-file or
+    // MIGRAX_DATABASE_PASSWORD_FILE, and the same for the user and URL.
+    String fromFile = fromFile(overrides.get(overrideKey + "-file"), "--" + overrideKey + "-file");
+    if (fromFile == null) {
+      fromFile = fromFile(System.getenv(migraxEnvironment + "_FILE"), migraxEnvironment + "_FILE");
+    }
+    if (fromFile != null) {
+      return fromFile;
     }
     for (String key : environmentKeys) {
       value = System.getenv(key);

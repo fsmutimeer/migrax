@@ -83,6 +83,7 @@ final class Project implements AutoCloseable {
           "url", args.option("--url", ""),
           "user", args.option("--user", ""),
           "password", args.option("--password", ""),
+          "password-file", args.option("--password-file", ""),
           "locations", args.option("--locations", "")));
       credentials = new ProjectDatabaseConfig.Credentials(
           resolveRelativeDatabasePath(loaded.url(), root),
@@ -188,6 +189,17 @@ final class Project implements AutoCloseable {
       return id;
     } catch (IllegalArgumentException e) {
       return null;
+    }
+  }
+
+  /** How long to wait for the migration lock: --lock-timeout, then MIGRAX_LOCK_TIMEOUT. */
+  java.time.Duration lockTimeout() {
+    String value = args.option("--lock-timeout");
+    try {
+      return blank(value) ? io.migrax.runner.DatabaseMigrationLock.configuredTimeout()
+          : io.migrax.runner.DatabaseMigrationLock.parseTimeout(value);
+    } catch (IllegalArgumentException e) {
+      throw new UsageException(e.getMessage(), "For example --lock-timeout 2m.");
     }
   }
 

@@ -361,7 +361,7 @@ public final class SqliteDialect extends AbstractDialect {
   private static AutoCloseable memoryLock(String url) throws SQLException {
     ReentrantLock lock = MEMORY_LOCKS.computeIfAbsent(url, ignored -> new ReentrantLock());
     if (!lock.tryLock()) {
-      throw new SQLException("Another Migrax invocation in this JVM is applying migrations.");
+      throw new MigrationLockHeldException("Another Migrax invocation in this JVM is applying migrations.");
     }
     return lock::unlock;
   }
@@ -387,7 +387,7 @@ public final class SqliteDialect extends AbstractDialect {
       } catch (IOException ignored) {
         // The lock is held by someone else either way.
       }
-      throw new SQLException("Another Migrax process is applying migrations to " + database
+      throw new MigrationLockHeldException("Another Migrax process is applying migrations to " + database
           + ".");
     }
     FileLock held = lock;
