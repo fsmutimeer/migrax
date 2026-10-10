@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0-rc.6] - 2026-10-10
+
+Sixth release candidate for 0.2.0, for testing. It contains everything in 0.2.0-rc.5 and
+these changes.
+
 ### Added
 
 - CockroachDB support (`cockroachdb`), through the PostgreSQL driver: Migrax recognizes the
@@ -18,7 +23,6 @@ All notable changes to Migrax are listed here. The format follows
 - `migrax clean` (and `mvn migrax:clean`): drops every table, view and sequence, the migration
   history included, so `migrate` can rebuild a development database. It asks first (or needs
   `--yes`), `--dry-run` lists what it would drop, and `MIGRAX_CLEAN_DISABLED=true` turns it off.
-
 - Documentation for `migrax import flyway|liquibase`, with a guide for switching an existing
   project (Guides > Switching from Flyway or Liquibase).
 
@@ -228,7 +232,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.5...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.6...HEAD
+[0.2.0-rc.6]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.5...v0.2.0-rc.6
 [0.2.0-rc.5]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.4...v0.2.0-rc.5
 [0.2.0-rc.4]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.3...v0.2.0-rc.4
 [0.2.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.2...v0.2.0-rc.3
