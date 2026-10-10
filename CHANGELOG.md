@@ -6,6 +6,17 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The first `generate` against a database that already has tables wrote only the differences,
+  so an empty database couldn't be built from the migrations and `migrax verify` failed on the
+  first one ("table doesn't exist"). It now also writes those tables to `0001_baseline.sql`
+  and records it as applied in that database without running it; the changes follow as
+  `0002_...`. Projects that already have migrations are not changed.
+- H2: the first `generate` against an existing database wanted to drop the indexes H2 creates
+  for foreign keys (named like `fk_..._INDEX_8`) and refused as destructive. They are now
+  recognized as part of the foreign key, as on MySQL and MariaDB.
+
 ## [0.2.0-rc.4] - 2026-10-09
 
 Fourth release candidate for 0.2.0, for testing. It contains everything in 0.2.0-rc.3 and

@@ -10,7 +10,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import io.migrax.util.Log;
 
 public final class DatabaseSchemaReader {
@@ -212,14 +214,17 @@ public final class DatabaseSchemaReader {
   }
 
   /**
-   * MySQL and MariaDB create an index for every foreign key that has none, named like the key.
-   * It belongs to the foreign key, not to the entity model, so it is not reported as an index
-   * (otherwise the first generate, which compares with the database, would drop it).
+   * MySQL and MariaDB create an index for every foreign key that has none, named like the key;
+   * H2 does the same, naming it like the key plus {@code _INDEX_} and a number. It belongs to
+   * the foreign key, not to the entity model, so it is not reported as an index (otherwise the
+   * first generate, which compares with the database, would drop it).
    */
   private static boolean backsForeignKey(SchemaModel.Index index,
                                          List<SchemaModel.ForeignKey> foreignKeys) {
     return !index.unique() && foreignKeys.stream().anyMatch(key ->
-        key.name().equalsIgnoreCase(index.name()) && key.columns().equals(index.columns()));
+        key.columns().equals(index.columns()) && (key.name().equalsIgnoreCase(index.name())
+            || index.name().toLowerCase(Locale.ROOT).matches(
+                Pattern.quote(key.name().toLowerCase(Locale.ROOT)) + "_index_[0-9a-f]+")));
   }
 
   /**

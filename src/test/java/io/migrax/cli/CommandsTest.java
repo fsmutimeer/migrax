@@ -225,6 +225,75 @@ class CommandsTest {
     assertTrue(broken.out().contains("sample_entity"), broken.out());
   }
 
+  /** A database with the entity's table that Migrax has never managed. */
+  private void existingDatabaseWithoutMigrations() throws Exception {
+    generateAndMigrate();
+    try (Stream<Path> files = Files.walk(migrations())) {
+      files.sorted(java.util.Comparator.reverseOrder()).map(Path::toFile)
+          .forEach(java.io.File::delete);
+    }
+    try (Stream<Path> files = Files.walk(project.resolve(".migrax"))) {
+      files.sorted(java.util.Comparator.reverseOrder()).map(Path::toFile)
+          .forEach(java.io.File::delete);
+    }
+    execute("DROP TABLE migrax_history");
+    execute("DROP TABLE migrax_failures");
+  }
+
+  @Test
+  void firstGenerateWritesTheExistingTablesAsABaseline() throws Exception {
+    setUp();
+    existingDatabaseWithoutMigrations();
+
+    Result generate = cli("generate");
+    assertEquals(0, generate.code(), generate.all());
+    assertTrue(generate.out().contains("No changes detected."), generate.out());
+    assertTrue(generate.out().contains("0001_baseline.sql with the 1 table(s)"), generate.out());
+    assertTrue(Files.readString(migrations().resolve("0001_baseline.sql"))
+        .contains("CREATE TABLE sample_entity"));
+    assertFalse(Files.exists(migrations().resolve("rollback/0001_baseline.sql")),
+        "undoing the baseline would drop every table");
+    assertTrue(cli("status").out().contains("[X] 0001_baseline.sql"),
+        "the baseline is recorded as applied without running it");
+    assertEquals(0, cli("migrate").code());
+
+    Result verify = cli("verify");
+    assertEquals(0, verify.code(), verify.all());
+    assertTrue(verify.out().contains("Applied 1 migration(s) to a fresh h2 database"),
+        verify.out());
+  }
+
+  @Test
+  void firstGenerateWritesTheBaselineBeforeTheChanges() throws Exception {
+    setUp();
+    existingDatabaseWithoutMigrations();
+    execute("ALTER TABLE sample_entity RENAME COLUMN name TO old_name");
+
+    Result refused = cli("generate");
+    assertEquals(1, refused.code(), refused.all());
+    assertFalse(Files.exists(migrations().resolve("0001_baseline.sql")),
+        "a refused generate writes nothing");
+    Result clash = cli("generate", "--rename", "sample_entity.old_name=name", "--name", "0001_x");
+    assertEquals(1, clash.code(), clash.all());
+    assertFalse(Files.exists(migrations().resolve("0001_baseline.sql")), clash.all());
+
+    Result generate = cli("generate", "--rename", "sample_entity.old_name=name");
+    assertEquals(0, generate.code(), generate.all());
+    assertTrue(generate.out().indexOf("0001_baseline.sql")
+        < generate.out().indexOf("0002_rename_sample_entity_old_name.sql"), generate.out());
+    String status = cli("status").out();
+    assertTrue(status.contains("[X] 0001_baseline.sql"), status);
+    assertTrue(status.contains("[ ] 0002_rename_sample_entity_old_name.sql"), status);
+    assertEquals(0, cli("migrate").code());
+
+    Result verify = cli("verify");
+    assertEquals(0, verify.code(), verify.all());
+    assertTrue(verify.out().contains("Applied 2 migration(s) to a fresh h2 database"),
+        verify.out());
+    assertTrue(verify.out().contains("Rollback scripts: ok (1 rolled back and re-applied; "
+        + "older ones from 0001_baseline.sql down have no rollback script)"), verify.out());
+  }
+
   @Test
   void driftReportsManualChanges() throws Exception {
     setUp();

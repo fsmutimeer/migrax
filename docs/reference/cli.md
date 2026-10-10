@@ -68,7 +68,7 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 migrax generate [--name <name>] [--allow-destructive] [--safe]
 ```
 
-Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`. `--safe` (PostgreSQL) builds indexes and constraints on existing tables without blocking writes, in a second migration. Always review the generated SQL; Migrax lints it for you.
+Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`. `--safe` (PostgreSQL) builds indexes and constraints on existing tables without blocking writes, in a second migration. Always review the generated SQL; Migrax lints it for you.
 
 | Option | Meaning |
 |---|---|
