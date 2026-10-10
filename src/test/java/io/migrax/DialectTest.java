@@ -37,12 +37,13 @@ class DialectTest {
     // CockroachDB uses the PostgreSQL driver: the server, not the URL, tells them apart.
     assertEquals("postgresql", Dialects.fromJdbcUrl("jdbc:postgresql://localhost:26257/db").id());
     assertEquals("mysql", Dialects.byName("mysql").id());
-    assertThrows(IllegalArgumentException.class, () -> Dialects.byName("sqlite"));
+    assertEquals("sqlite", Dialects.fromJdbcUrl("jdbc:sqlite:data/shop.db").id());
+    assertThrows(IllegalArgumentException.class, () -> Dialects.byName("db2"));
   }
 
   @Test void registeredDialectsAreFoundByNameAndAlias() {
     assertEquals(List.of("postgresql", "cockroachdb", "mysql", "mariadb", "sqlserver", "oracle",
-        "h2"), Dialects.NAMES);
+        "h2", "sqlite"), Dialects.NAMES);
     assertEquals("postgresql", Dialects.byName("pg").id());
     assertEquals("cockroachdb", Dialects.byName("crdb").id());
     assertEquals("postgresql", Dialects.byName(" Postgres ").id());
@@ -58,7 +59,8 @@ class DialectTest {
     assertEquals("oracle", Dialects.forProduct("Oracle").orElseThrow().id());
     assertEquals("h2", Dialects.forProduct("H2").orElseThrow().id());
     assertEquals("cockroachdb", Dialects.forProduct("CockroachDB").orElseThrow().id());
-    assertTrue(Dialects.forProduct("SQLite").isEmpty());
+    assertEquals("sqlite", Dialects.forProduct("SQLite").orElseThrow().id());
+    assertTrue(Dialects.forProduct("DB2/LINUXX8664").isEmpty());
   }
 
   @Test void dialectsWithoutMigrationLockingRefuseToMigrate() throws Exception {
@@ -77,7 +79,7 @@ class DialectTest {
   @Test
   void unsupportedUrlErrorsDoNotLeakCredentials() {
     var error = assertThrows(IllegalArgumentException.class,
-        () -> Dialects.fromJdbcUrl("jdbc:sqlite:secret-password@/db"));
+        () -> Dialects.fromJdbcUrl("jdbc:db2:secret-password@/db"));
     assertFalse(error.getMessage().contains("secret-password"), error.getMessage());
   }
 

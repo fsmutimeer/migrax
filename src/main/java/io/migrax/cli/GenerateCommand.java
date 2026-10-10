@@ -194,14 +194,16 @@ final class GenerateCommand implements Command {
     List<Operation> reverse = Renames.reverse(changes.previous(), changes.current(),
         changes.tableRenames(), changes.columnRenames());
     if (!main.isEmpty()) {
-      Files.writeString(file, MigrationSql.render(dialect, main, null));
+      SchemaModel afterMain = withoutOnline(changes.current(), online);
+      Files.writeString(file,
+          MigrationSql.render(dialect, main, null, changes.previous(), afterMain));
       written.add(file);
       List<Operation> mainReverse = new ArrayList<>(reverse);
       mainReverse.removeIf(o -> undoesAny(o, online));
       MigrationSql.writeRollback(migrations, file.getFileName().toString(), dialect, mainReverse,
-          main);
-      SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), name),
-          withoutOnline(changes.current(), online), dialect.id());
+          main, afterMain, changes.previous());
+      SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), name), afterMain,
+          dialect.id());
     }
     Path onlineFile = null;
     if (!online.isEmpty()) {
@@ -220,7 +222,7 @@ final class GenerateCommand implements Command {
       written.add(onlineFile);
       List<Operation> onlineReverse = reverse.stream().filter(o -> undoesAny(o, online)).toList();
       MigrationSql.writeRollback(migrations, onlineFile.getFileName().toString(), dialect,
-          onlineReverse, online);
+          onlineReverse, online, changes.current(), withoutOnline(changes.current(), online));
       SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), onlineName),
           changes.current(), dialect.id());
     }
@@ -255,7 +257,8 @@ final class GenerateCommand implements Command {
         + "\n-- That database records it as applied without running it; empty databases are "
         + "created from it.\n";
     Files.writeString(file, MigrationSql.render(dialect,
-        new DiffEngine().diff(SchemaModel.empty(), database), header));
+        new DiffEngine().diff(SchemaModel.empty(), database), header, SchemaModel.empty(),
+        database));
     SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), BASELINE), database,
         dialect.id());
     return file;

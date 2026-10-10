@@ -41,7 +41,7 @@ public record TableStats(long rows, long bytes) {
             + "WHERE s.segment_name = t.table_name) FROM user_tables t WHERE t.table_name = ?",
             table.toUpperCase(Locale.ROOT));
       }
-      if (product.contains("h2")) {
+      if (product.contains("h2") || product.contains("sqlite")) {
         try (PreparedStatement statement = connection.prepareStatement(
             "SELECT COUNT(*) FROM " + table.replaceAll("[^A-Za-z0-9_]", ""))) {
           try (ResultSet result = statement.executeQuery()) {

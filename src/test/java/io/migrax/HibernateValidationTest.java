@@ -169,9 +169,15 @@ class HibernateValidationTest {
 
   /** Starts Hibernate with schema validation; fails if the schema does not match. */
   static SessionFactory hibernate(String url, String user, String password, boolean spring) {
+    return hibernate(url, user, password, spring, true);
+  }
+
+  /** Starts Hibernate, with or without its schema validation. */
+  static SessionFactory hibernate(String url, String user, String password, boolean spring,
+                                  boolean validate) {
     StandardServiceRegistryBuilder builder = new StandardServiceRegistryBuilder()
         .applySetting("hibernate.connection.url", url)
-        .applySetting("hibernate.hbm2ddl.auto", "validate")
+        .applySetting("hibernate.hbm2ddl.auto", validate ? "validate" : "none")
         .applySetting("hibernate.show_sql", "false");
     if (user != null) {
       builder.applySetting("hibernate.connection.username", user)
@@ -195,7 +201,19 @@ class HibernateValidationTest {
   }
 
   static void persistAndQuery(SessionFactory factory) {
-    factory.inTransaction(session -> {
+    persistAndQuery(factory, false);
+  }
+
+  /**
+   * Saves one of each entity and reads them back.
+   *
+   * @param oneTransactionEach save each entity in its own transaction. SQLite needs it: it has one
+   *     writer, and Hibernate takes table-based ids on a second connection, which waits for the
+   *     transaction that already inserted an identity row.
+   */
+  static void persistAndQuery(SessionFactory factory, boolean oneTransactionEach) {
+    List<Object> entities = new java.util.ArrayList<>();
+    {
       Customer customer = new Customer();
       customer.fullName = "Ada Lovelace";
       customer.email = "ada@example.com";
@@ -210,37 +228,43 @@ class HibernateValidationTest {
       customer.billingAddress = new Address();
       customer.billingAddress.street = "2 Side St";
       customer.billingAddress.city = "Paris";
-      session.persist(customer);
+      entities.add(customer);
 
       Tag tag = new Tag();
       tag.label = "vip";
-      session.persist(tag);
+      entities.add(tag);
 
       PurchaseOrder order = new PurchaseOrder();
       order.customer = customer;
       order.placedAt = LocalDateTime.now();
       order.notes = "Leave at the door";
       order.tags.add(tag);
-      session.persist(order);
+      entities.add(order);
 
       CardPayment card = new CardPayment();
       card.amount = new BigDecimal("12.50");
       card.cardLastDigits = "4242";
-      session.persist(card);
+      entities.add(card);
       CashPayment cash = new CashPayment();
       cash.amount = BigDecimal.ONE;
       cash.receivedBy = "Bob";
-      session.persist(cash);
-    });
+      entities.add(cash);
+    }
+    if (oneTransactionEach) {
+      entities.forEach(entity -> factory.inTransaction(session -> session.persist(entity)));
+    } else {
+      factory.inTransaction(session -> entities.forEach(session::persist));
+    }
 
     factory.inSession(session -> {
       assertEquals(1L, session.createQuery("select count(c) from Customer c", Long.class)
           .getSingleResult());
-      assertEquals("Paris", session.createQuery("from Customer", Customer.class)
-          .getSingleResult().billingAddress.city);
-      assertEquals(1, session.createQuery(
-          "select o from PurchaseOrder o join o.tags t where t.label = 'vip'", PurchaseOrder.class)
-          .getResultList().size());
+      // A query for the value, not the entity: SQLite's driver can't read @Lob columns.
+      assertEquals("Paris", session.createQuery("select c.billingAddress.city from Customer c",
+          String.class).getSingleResult());
+      assertEquals(1L, session.createQuery(
+          "select count(o) from PurchaseOrder o join o.tags t where t.label = 'vip'", Long.class)
+          .getSingleResult());
       assertEquals(1L, session.createQuery("select count(p) from CardPayment p", Long.class)
           .getSingleResult());
       assertEquals(2L, session.createQuery("select count(p) from Payment p", Long.class)

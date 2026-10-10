@@ -6,6 +6,8 @@ import io.migrax.util.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,8 +15,8 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A throwaway database for {@code migrax verify}: in-memory H2, or a Docker container of the
- * project's database engine, removed again on {@link #close()}.
+ * A throwaway database for {@code migrax verify}: in-memory H2, a temporary SQLite file, or a
+ * Docker container of the project's database engine, removed again on {@link #close()}.
  *
  * @since 0.1.0
  */
@@ -23,6 +25,8 @@ public final class ScratchDatabase implements AutoCloseable {
   private final String user;
   private final String password;
   private final String containerId;
+  /** SQLite's database file, deleted on close; null for other databases. */
+  private Path file;
 
   private ScratchDatabase(String url, String user, String password, String containerId) {
     this.url = url;
@@ -57,6 +61,12 @@ public final class ScratchDatabase implements AutoCloseable {
    */
   public static ScratchDatabase start(String dialect, String image, ClassLoader loader)
       throws Exception {
+    if ("sqlite".equals(dialect)) {
+      Path file = Files.createTempFile("migrax-verify-", ".db");
+      ScratchDatabase database = new ScratchDatabase("jdbc:sqlite:" + file, "", "", null);
+      database.file = file;
+      return database;
+    }
     if ("h2".equals(dialect)) {
       return new ScratchDatabase("jdbc:h2:mem:migrax_verify_" + UUID.randomUUID()
           .toString().replace("-", "") + ";DB_CLOSE_DELAY=-1", "sa", "", null);
@@ -114,6 +124,15 @@ public final class ScratchDatabase implements AutoCloseable {
   public void close() {
     if (containerId != null) {
       remove(containerId);
+    }
+    if (file != null) {
+      for (String suffix : List.of("", "-journal", "-wal", "-shm", ".migrax-lock")) {
+        try {
+          Files.deleteIfExists(file.resolveSibling(file.getFileName() + suffix));
+        } catch (IOException e) {
+          Log.warn("Could not delete {}{}: {}", file, suffix, e.getMessage());
+        }
+      }
     }
   }
 

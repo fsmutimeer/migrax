@@ -109,6 +109,23 @@ public interface Dialect {
   String render(Operation operation);
 
   /**
+   * Rewrites a list of operations into what this database can run, before they are written to
+   * a migration file. The default returns them unchanged; SQLite replaces changes it can't make
+   * in place with table rebuilds.
+   *
+   * @param operations the operations, in order
+   * @param before the schema before them (renames in {@code operations} not yet applied)
+   * @param after the schema after them
+   * @return the operations to render
+   * @since 0.2.0
+   */
+  default java.util.List<Operation> prepare(java.util.List<Operation> operations,
+                                            io.migrax.model.SchemaModel before,
+                                            io.migrax.model.SchemaModel after) {
+    return operations;
+  }
+
+  /**
    * The SQL type this dialect writes for a column, without identity or constraints.
    *
    * @param column the column

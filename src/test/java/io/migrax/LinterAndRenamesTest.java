@@ -51,6 +51,15 @@ class LinterAndRenamesTest {
   }
 
   @Test
+  void aSqliteTableRebuildIsNotADropOrRename() {
+    assertEquals(Set.of(), codes("CREATE TABLE migrax_new_orders (id int, c int NOT NULL);\n"
+        + "INSERT INTO migrax_new_orders (id, c) SELECT id, c FROM orders;\n"
+        + "DROP TABLE orders;\n"
+        + "ALTER TABLE migrax_new_orders RENAME TO orders;", "sqlite"));
+    assertEquals(Set.of("MX007"), codes("DROP TABLE orders;", "sqlite"));
+  }
+
+  @Test
   void ignoresTablesCreatedInTheSameMigration() {
     assertEquals(Set.of(), codes("CREATE TABLE orders (id int, c int NOT NULL);\n"
         + "CREATE INDEX i ON orders (c);\n"

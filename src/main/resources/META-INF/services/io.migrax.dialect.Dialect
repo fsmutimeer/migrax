@@ -6,3 +6,4 @@ io.migrax.dialect.MariaDbDialect
 io.migrax.dialect.SqlServerDialect
 io.migrax.dialect.OracleDialect
 io.migrax.dialect.H2Dialect
+io.migrax.dialect.SqliteDialect

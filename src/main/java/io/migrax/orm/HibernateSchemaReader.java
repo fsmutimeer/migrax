@@ -52,7 +52,9 @@ public final class HibernateSchemaReader {
       "sqlserver", "org.hibernate.dialect.SQLServerDialect",
       "oracle", "org.hibernate.dialect.OracleDialect",
       "h2", "org.hibernate.dialect.H2Dialect",
-      "cockroachdb", "org.hibernate.dialect.CockroachDialect");
+      "cockroachdb", "org.hibernate.dialect.CockroachDialect",
+      // In hibernate-community-dialects, which SQLite projects add.
+      "sqlite", "org.hibernate.community.dialect.SQLiteDialect");
 
   /**
    * Hibernate 5 dialects, as its resolver picks them for current database versions; its
@@ -113,8 +115,11 @@ public final class HibernateSchemaReader {
     StandardServiceRegistryBuilder builder = new StandardServiceRegistryBuilder(bootstrap);
     Map<String, Object> config = new LinkedHashMap<>();
     boolean hibernate5 = org.hibernate.Version.getVersionString().startsWith("5.");
-    config.put("hibernate.dialect",
-        (hibernate5 ? HIBERNATE5_DIALECTS : DIALECTS).get(dialect.id()));
+    // Hibernate 5 has no SQLite dialect: the project's own hibernate.dialect setting applies.
+    String hibernateDialect = (hibernate5 ? HIBERNATE5_DIALECTS : DIALECTS).get(dialect.id());
+    if (hibernateDialect != null) {
+      config.put("hibernate.dialect", hibernateDialect);
+    }
     if (naming.micronaut()) {
       config.put("hibernate.physical_naming_strategy", micronautPhysicalStrategy(loader));
       // Micronaut Data switches Hibernate to legacy id names (one hibernate_sequence).
@@ -174,14 +179,14 @@ public final class HibernateSchemaReader {
     }
     List<SchemaModel.Table> tables = new ArrayList<>();
     List<SchemaModel.Sequence> sequences = new ArrayList<>();
-    boolean tableSequences = "mysql".equals(dialect.id());
+    boolean tableSequences = "mysql".equals(dialect.id()) || "sqlite".equals(dialect.id());
     for (Namespace namespace : metadata.getDatabase().getNamespaces()) {
       for (Table table : namespace.getTables()) {
         if (!table.isPhysicalTable() || isView(table) || table.getSubselect() != null
             || table.isAbstractUnionTable()) {
           continue;
         }
-        // MySQL has no sequences: Hibernate maps them to one-column next_val tables.
+        // MySQL and SQLite have no sequences: Hibernate maps them to one-column next_val tables.
         if (tableSequences && columns(table).size() == 1
             && "next_val".equalsIgnoreCase(columns(table).get(0).getName())) {
           sequences.add(new SchemaModel.Sequence(table.getName(), 1L, 50L));
