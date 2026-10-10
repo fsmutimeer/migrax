@@ -54,9 +54,14 @@ final class MergeCommand implements Command {
   }
 
   @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
   public List<String> options() {
-    return List.of("--dialect", "--package", "--naming", "--extractor", "--url", "--locations",
-        "--classpath", "--no-build");
+    return List.of("--json", "--dialect", "--package", "--naming", "--extractor", "--url",
+        "--locations", "--classpath", "--no-build");
   }
 
   @Override
@@ -121,6 +126,7 @@ final class MergeCommand implements Command {
           Files.move(history, SnapshotStore.historySnapshot(project.root(), newName));
         }
         out.println("Renamed " + name + " to " + newName + ".");
+        context.resultList("renamed").add(JsonOut.object("from", name, "to", newName));
         renamed++;
       }
     }
@@ -135,6 +141,7 @@ final class MergeCommand implements Command {
         out.println("Rebuilt " + project.display(project.snapshot())
             + " from the merged entities (it had merge conflicts).");
         rebuilt = true;
+        context.result("snapshotRebuilt", true);
       }
     }
     if (renamed == 0 && !rebuilt) {

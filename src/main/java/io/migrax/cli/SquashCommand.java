@@ -59,8 +59,13 @@ final class SquashCommand implements Command {
   }
 
   @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
   public List<String> options() {
-    return List.of("--to", "--name", "--optimize", "--dialect", "--locations");
+    return List.of("--json", "--to", "--name", "--optimize", "--dialect", "--locations");
   }
 
   @Override
@@ -150,6 +155,8 @@ final class SquashCommand implements Command {
       Path rollback = folder.resolve(MigrationLoader.ROLLBACK_FOLDER).resolve(file.getFileName());
       Files.writeString(rollback, String.join("\n", rollbackParts));
     }
+    context.result("created", project.display(file));
+    context.result("replaces", range.stream().map(p -> p.getFileName().toString()).toList());
     out.println("Created " + project.display(file) + " replacing " + range.size()
         + " migration(s), " + range.get(0).getFileName() + " to " + target + ".");
     out.println("Databases that applied them record it without running it; new databases run "

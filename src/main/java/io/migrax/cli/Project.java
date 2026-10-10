@@ -94,7 +94,7 @@ final class Project implements AutoCloseable {
 
   ProjectDatabaseConfig.Credentials requireUrl() throws Exception {
     if (blank(credentials().url())) {
-      throw new UsageException("No database URL found.",
+      throw new UsageException(ErrorCode.NO_DATABASE_URL, "No database URL found.",
           "Set " + urlSetting() + ", set MIGRAX_DATABASE_URL, or pass --url.");
     }
     return credentials();

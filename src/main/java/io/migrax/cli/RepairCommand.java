@@ -45,8 +45,13 @@ final class RepairCommand implements Command {
   }
 
   @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
   public List<String> options() {
-    return List.of("--action", "--yes", "--lock-timeout", "--url", "--user", "--password",
+    return List.of("--json", "--action", "--yes", "--lock-timeout", "--url", "--user", "--password",
         "--password-file", "--locations", "--classpath", "--no-build");
   }
 
@@ -93,6 +98,8 @@ final class RepairCommand implements Command {
     }
     out.println("Repaired history for " + migration.version() + " (action: "
         + action.trim().toLowerCase(Locale.ROOT) + "). Keep a record of this repair.");
+    context.result("action", action.trim().toLowerCase(Locale.ROOT));
+    context.result("repaired", List.of(migration.version()));
     return OK;
   }
 
@@ -116,11 +123,14 @@ final class RepairCommand implements Command {
       for (String version : versions) {
         if (context.migrationRunner().forget(connection, version, true)) {
           context.out().println("Removed " + version + " from the migration history.");
+          context.resultList("forgotten").add(version);
         } else {
           context.out().println(version + " is not in the migration history; nothing to forget.");
         }
       }
     }
+    context.result("action", "forget");
+    context.resultList("forgotten");
     context.out().println("The database keeps the changes these migrations made. "
         + "Run 'migrax status' to check the history.");
     return OK;

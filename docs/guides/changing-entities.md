@@ -67,7 +67,7 @@ $ migrax generate
   ...
   3. drop column test_table.number_of_items  [DESTRUCTIVE]
      ALTER TABLE test_table DROP COLUMN number_of_items;
-error: 1 destructive change(s) detected (marked [DESTRUCTIVE] above).
+error[MXE108]: 1 destructive change(s) detected (marked [DESTRUCTIVE] above).
 Review them, then run 'migrax generate --allow-destructive'. If a column or table
 was renamed, pass --rename table.old=new or --rename-table old=new instead.
 ```

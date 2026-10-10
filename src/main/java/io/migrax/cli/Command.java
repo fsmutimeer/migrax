@@ -47,6 +47,15 @@ interface Command {
     return List.of();
   }
 
+  /**
+   * True when {@code --json} makes the command print one result object built from
+   * {@link CommandContext#result}: its text output goes to stderr instead. Commands that write
+   * their own JSON leave this false.
+   */
+  default boolean jsonResult() {
+    return false;
+  }
+
   /** False for commands that don't look at the project, such as {@code version}. */
   default boolean needsProject() {
     return true;

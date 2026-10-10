@@ -57,15 +57,20 @@ public final class Main {
       BufferedReader input = args.flag("--no-input") ? null : in;
       return dispatch(CommandRegistry.standard(), args, out, err, input, services);
     } catch (UsageException e) {
-      err.println("error: " + e.getMessage());
-      err.println(e.hint != null ? e.hint : "Run 'migrax help' to see the available commands.");
+      String hint = e.hint != null ? e.hint : "Run 'migrax help' to see the available commands.";
+      err.println("error[" + e.code.code + "]: " + e.getMessage());
+      err.println(hint);
+      printJsonError(json, out, e.code, e.getMessage(), hint);
       return ExitCode.ERROR;
     } catch (Throwable e) {
-      err.println("error: " + Errors.describe(e));
+      ErrorCode code = ErrorCode.of(e);
+      String message = Errors.describe(e);
+      err.println("error[" + code.code + "]: " + message);
       String hint = Errors.hint(e);
       if (hint != null) {
         err.println(hint);
       }
+      printJsonError(json, out, code, message, hint);
       if (verbose) {
         e.printStackTrace(err);
       } else {
@@ -74,6 +79,15 @@ public final class Main {
       return ExitCode.ERROR;
     } finally {
       Log.setSink(previous);
+    }
+  }
+
+  /** In --json mode a failure is also one JSON object on stdout. */
+  private static void printJsonError(boolean json, PrintStream out, ErrorCode code,
+                                     String message, String hint) {
+    if (json) {
+      out.println(JsonOut.write(JsonOut.object("ok", false, "exitCode", ExitCode.ERROR,
+          "error", JsonOut.object("code", code.code, "message", message, "hint", hint))));
     }
   }
 
@@ -96,8 +110,18 @@ public final class Main {
     if (!command.needsProject()) {
       return command.run(withoutProject);
     }
+    boolean collect = args.flag("--json") && command.jsonResult();
     try (Project project = new Project(args, err)) {
-      return command.run(new CommandContext(args, out, err, in, project, services));
+      CommandContext context = new CommandContext(args, out, err, in, project, services)
+          .forCommand(command);
+      int code = command.run(context);
+      if (collect) {
+        java.util.Map<String, Object> result = JsonOut.object("ok", code == ExitCode.OK,
+            "exitCode", code);
+        result.putAll(context.results());
+        out.println(JsonOut.write(result));
+      }
+      return code;
     }
   }
 

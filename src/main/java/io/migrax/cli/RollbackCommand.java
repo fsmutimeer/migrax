@@ -47,9 +47,15 @@ final class RollbackCommand implements Command {
   }
 
   @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
   public List<String> options() {
-    return List.of("--steps", "--to", "--dry-run", "--yes", "--schemas", "--lock-timeout", "--url",
-        "--user", "--password", "--password-file", "--locations", "--classpath", "--no-build");
+    return List.of("--json", "--steps", "--to", "--dry-run", "--yes", "--schemas", "--lock-timeout",
+        "--url", "--user", "--password", "--password-file", "--locations", "--classpath",
+        "--no-build");
   }
 
   @Override
@@ -94,6 +100,8 @@ final class RollbackCommand implements Command {
         }
         if (targets.isEmpty()) {
           out.println("Nothing to roll back.");
+          context.resultList("schemas").add(JsonOut.object("schema", schema, "rolledBack",
+              List.of()));
           continue;
         }
         List<Migration> scripts = new ArrayList<>();
@@ -118,7 +126,11 @@ final class RollbackCommand implements Command {
         out.println((args.flag("--dry-run") ? "Would roll back " : "Rolling back ")
             + targets.size() + " migration(s), newest first:");
         targets.forEach(t -> out.println("  " + t.version()));
+        List<String> versions = targets.stream()
+            .map(MigrationRunner.AppliedMigration::version).toList();
         if (args.flag("--dry-run")) {
+          context.resultList("schemas").add(JsonOut.object("schema", schema, "wouldRollBack",
+              versions));
           continue;
         }
         if (!args.flag("--yes", "-y")
@@ -131,6 +143,8 @@ final class RollbackCommand implements Command {
               project.runOptions());
         }
         out.println("Rolled back " + targets.size() + " migration(s).");
+        context.resultList("schemas").add(JsonOut.object("schema", schema, "rolledBack",
+            versions));
       }
     }
     return OK;

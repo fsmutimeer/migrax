@@ -34,9 +34,38 @@ final class CommandContext {
     return args;
   }
 
-  /** Command output. */
+  /** Command output; stderr while a --json result is collected, so stdout stays JSON. */
   PrintStream out() {
-    return out;
+    return collectsResult() ? err : out;
+  }
+
+  private final java.util.Map<String, Object> results = new java.util.LinkedHashMap<>();
+  private Command command;
+
+  /** The command this context runs; it decides whether --json collects a result. */
+  CommandContext forCommand(Command running) {
+    this.command = running;
+    return this;
+  }
+
+  private boolean collectsResult() {
+    return args.flag("--json") && command != null && command.jsonResult();
+  }
+
+  /** Adds a field to the --json result object. */
+  void result(String key, Object value) {
+    results.put(key, value);
+  }
+
+  /** The list field {@code key} of the --json result, created on first use. */
+  @SuppressWarnings("unchecked")
+  java.util.List<Object> resultList(String key) {
+    return (java.util.List<Object>) results.computeIfAbsent(key,
+        ignored -> new java.util.ArrayList<>());
+  }
+
+  java.util.Map<String, Object> results() {
+    return results;
   }
 
   /** Errors, and progress messages in {@code --json} mode. */

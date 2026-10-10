@@ -46,9 +46,14 @@ final class MigrateCommand implements Command {
   }
 
   @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
   public List<String> options() {
-    return List.of("--dry-run", "--resume", "--lock-timeout", "--schemas", "--url", "--user",
-        "--password", "--password-file", "--locations", "--java-package", "--classpath",
+    return List.of("--dry-run", "--json", "--resume", "--lock-timeout", "--schemas", "--url",
+        "--user", "--password", "--password-file", "--locations", "--java-package", "--classpath",
         "--no-build");
   }
 
@@ -62,6 +67,7 @@ final class MigrateCommand implements Command {
     List<Migration> migrations = project.migrationsToRun(true);
     if (migrations.isEmpty() && !hasHistory(context, project)) {
       out.println("No migrations in " + project.display(folder) + ". Run 'migrax generate' first.");
+      context.result("applied", 0);
       return OK;
     }
     long versioned = migrations.stream().filter(m -> m.kind() == Migration.Kind.VERSIONED).count();
@@ -76,6 +82,8 @@ final class MigrateCommand implements Command {
           List<MigrationRunner.MigrationStatus> pending = runner.statusOf(connection, migrations)
               .stream().filter(row -> row.state() == MigrationRunner.State.PENDING
                   || row.state() == MigrationRunner.State.OUTDATED).toList();
+          context.resultList("schemas").add(JsonOut.object("schema", schema, "wouldApply",
+              pending.stream().map(MigrationRunner.MigrationStatus::version).toList()));
           if (pending.isEmpty()) {
             out.println("Nothing to migrate: all " + versioned + " migration(s) are applied.");
             continue;
@@ -93,6 +101,8 @@ final class MigrateCommand implements Command {
           continue;
         }
         int applied = runner.migrateAll(connection, migrations, project.runOptions());
+        context.resultList("schemas").add(JsonOut.object("schema", schema, "applied", applied,
+            "total", versioned));
         if (applied == 0) {
           out.println("Nothing to migrate: all " + versioned + " migration(s) are applied.");
         } else {

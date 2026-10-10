@@ -43,8 +43,13 @@ final class NewCommand implements Command {
   }
 
   @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
   public List<String> options() {
-    return List.of("--java", "--java-package", "--locations");
+    return List.of("--json", "--java", "--java-package", "--locations");
   }
 
   @Override
@@ -111,6 +116,7 @@ final class NewCommand implements Command {
           """.replace("PACKAGE_NAME", javaPackage).replace("MIGRATION_NUMBER", number)
           .replace("CLASS_NAME", className));
       out.println("Created " + project.display(file) + ".");
+      context.result("created", List.of(project.display(file)));
       out.println("Add io.migrax:migrax as a provided dependency so the class compiles; it runs "
           + "in version order with the SQL migrations.");
       return OK;
@@ -123,6 +129,7 @@ final class NewCommand implements Command {
     Files.createDirectories(rollback.getParent());
     Files.writeString(rollback, "-- Rollback for " + name + ". 'migrax rollback' runs it.\n\n");
     out.println("Created " + project.display(file) + " and " + project.display(rollback) + ".");
+    context.result("created", List.of(project.display(file), project.display(rollback)));
     return OK;
   }
 }

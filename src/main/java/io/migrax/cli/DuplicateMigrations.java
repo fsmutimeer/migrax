@@ -61,7 +61,7 @@ final class DuplicateMigrations {
   static void requireNone(Project project, MigrationRunner runner) throws Exception {
     Map<String, List<String>> duplicates = unresolved(project, runner);
     if (!duplicates.isEmpty()) {
-      throw new UsageException("Migrations share numbers: " + duplicates.values() + ".",
+      throw new UsageException(ErrorCode.DUPLICATE_NUMBERS, "Migrations share numbers: " + duplicates.values() + ".",
           "This usually follows a git merge of two branches. Run 'migrax merge'.");
     }
   }

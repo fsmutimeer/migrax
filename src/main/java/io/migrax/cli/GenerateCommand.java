@@ -94,14 +94,15 @@ final class GenerateCommand implements Command {
     DuplicateMigrations.requireNone(project, context.migrationRunner());
     boolean hasSnapshot = Files.exists(project.snapshot());
     if (!hasSnapshot && !project.hasUrl()) {
-      throw new UsageException("No database URL found, and there is no snapshot yet.",
+      throw new UsageException(ErrorCode.NO_DATABASE_URL,
+          "No database URL found, and there is no snapshot yet.",
           "The first generate reads the current database as its baseline. Set "
               + project.urlSetting() + ", MIGRAX_DATABASE_URL, or --url.");
     }
     Dialect dialect = project.dialect(false, out);
     EntityChanges changes = EntityChanges.read(context, dialect, true, true);
     if (changes.current().tables().isEmpty()) {
-      throw new UsageException(
+      throw new UsageException(ErrorCode.NO_ENTITIES,
           "No JPA entities found under package '" + project.packageName() + "'.",
           "Pass --package <name> or set MIGRAX_PACKAGE. Run 'migrax doctor' to diagnose.");
     }
@@ -131,7 +132,7 @@ final class GenerateCommand implements Command {
     List<Operation> destructive = operations.stream().filter(Operation::destructive).toList();
     if (!destructive.isEmpty() && !args.flag("--allow-destructive")) {
       Reports.printOperations(out, operations, dialect, null);
-      throw new UsageException(destructive.size()
+      throw new UsageException(ErrorCode.DESTRUCTIVE_CHANGES, destructive.size()
           + " destructive change(s) detected (marked [DESTRUCTIVE] above).",
           "Review them, then run 'migrax generate --allow-destructive'. If a column or table "
               + "was renamed, pass --rename table.old=new or --rename-table old=new instead.");
