@@ -6,6 +6,20 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Container image `ghcr.io/fsmutimeer/migrax:<version>` (amd64 and arm64) with Migrax and the
+  PostgreSQL, MariaDB, SQL Server, SQLite and H2 drivers, for running migrations without a
+  Java project. Guide: Guides > Containers and Kubernetes, with example manifests (Job, init
+  container, Helm hook, nightly drift CronJob) tested on a local Kubernetes cluster.
+- `--lock-timeout <time>` (`MIGRAX_LOCK_TIMEOUT`, `migrax.lock-timeout` in the startup
+  integrations): wait while another process holds the migration lock instead of failing, for
+  instances that start together.
+- Database secrets from files: `MIGRAX_DATABASE_PASSWORD_FILE` (and `_USER_FILE`, `_URL_FILE`)
+  and `--password-file`, for Kubernetes and Docker secrets.
+- JDBC drivers without a project: every jar in `MIGRAX_DRIVERS` or the installation's
+  `drivers` folder is available, after the project's own dependencies.
+
 ## [0.2.0] - 2026-10-10
 
 The 0.2 release: two more databases, a command to start a development database over, and the

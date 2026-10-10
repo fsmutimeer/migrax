@@ -197,4 +197,20 @@ class ProjectDatabaseConfigTest {
             "%dev.spring.jpa.hibernate.ddl-auto=create-drop"),
         ProjectDatabaseConfig.schemaGeneration(config));
   }
+
+  @Test
+  void readsThePasswordFromAMountedSecretFile() throws Exception {
+    Path secret = Files.writeString(resources.resolve("db-password"), "s3cr3t\n");
+    var fromFile = ProjectDatabaseConfig.load(resources, Map.of("password-file", secret.toString()));
+    assertEquals("s3cr3t", fromFile.password(), "the trailing line break is not part of it");
+
+    var direct = ProjectDatabaseConfig.load(resources,
+        Map.of("password", "given", "password-file", secret.toString()));
+    assertEquals("given", direct.password(), "a password given directly wins");
+
+    var missing = assertThrows(IllegalStateException.class, () -> ProjectDatabaseConfig.load(
+        resources, Map.of("password-file", resources.resolve("absent").toString())));
+    org.junit.jupiter.api.Assertions.assertTrue(
+        missing.getMessage().contains("--password-file"), missing.getMessage());
+  }
 }

@@ -104,7 +104,7 @@ public final class H2Dialect extends AbstractDialect {
     String url = connection.getMetaData().getURL();
     ReentrantLock localLock = LOCKS.computeIfAbsent(url, ignored -> new ReentrantLock());
     if (!localLock.tryLock()) {
-      throw new SQLException("Another Migrax invocation in this JVM is applying migrations.");
+      throw new MigrationLockHeldException("Another Migrax invocation in this JVM is applying migrations.");
     }
     return localLock::unlock;
   }

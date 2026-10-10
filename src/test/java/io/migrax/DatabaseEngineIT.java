@@ -174,6 +174,38 @@ class DatabaseEngineIT {
     }
   }
 
+  /**
+   * --lock-timeout: while another connection holds the lock for about a second, a second
+   * process waits for it instead of failing, and a too short wait fails with a clear message.
+   */
+  private static void waitsForTheLock(Database database) throws Exception {
+    try (Connection holder = database.connect(); Connection waiter = database.connect()) {
+      AutoCloseable held = DatabaseMigrationLock.acquire(holder);
+      Thread releaser = new Thread(() -> {
+        try {
+          Thread.sleep(1200);
+          held.close();
+        } catch (Exception e) {
+          throw new IllegalStateException(e);
+        }
+      });
+      long start = System.nanoTime();
+      releaser.start();
+      try (AutoCloseable lock = DatabaseMigrationLock.acquire(waiter,
+          java.time.Duration.ofSeconds(30))) {
+        org.junit.jupiter.api.Assertions.assertTrue(System.nanoTime() - start > 500_000_000L);
+      }
+      releaser.join();
+
+      try (AutoCloseable again = DatabaseMigrationLock.acquire(holder)) {
+        var error = assertThrows(io.migrax.dialect.MigrationLockHeldException.class,
+            () -> DatabaseMigrationLock.acquire(waiter, java.time.Duration.ofMillis(800)));
+        org.junit.jupiter.api.Assertions.assertTrue(
+            error.getMessage().contains("Waited 800ms"), error.getMessage());
+      }
+    }
+  }
+
   private static void exerciseRunner(Database container) throws Exception {
     Path migrations = Files.createTempDirectory("migrax-db-it");
     Path initial = migrations.resolve("0001_initial.sql");
@@ -193,6 +225,7 @@ class DatabaseEngineIT {
         assertThrows(SQLException.class,
             () -> DatabaseMigrationLock.acquire(competingConnection));
       }
+      waitsForTheLock(container);
       MigrationRunner runner = new MigrationRunner();
       runner.migrate(connection, List.of(initial));
       runner.migrate(connection, List.of(initial));

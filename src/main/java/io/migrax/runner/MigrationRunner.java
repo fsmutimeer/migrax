@@ -45,6 +45,27 @@ public final class MigrationRunner {
   public static final Comparator<Migration> ORDER =
       (a, b) -> compareMigrationFilenames(a.version(), b.version());
 
+  /** How long to wait for the migration lock when another process holds it. */
+  private final java.time.Duration lockTimeout;
+
+  /** A runner that fails at once when another process holds the migration lock. */
+  public MigrationRunner() {
+    this(java.time.Duration.ZERO);
+  }
+
+  private MigrationRunner(java.time.Duration lockTimeout) {
+    this.lockTimeout = lockTimeout;
+  }
+
+  /**
+   * A runner that waits up to {@code timeout} for the migration lock.
+   *
+   * @since 0.3.0
+   */
+  public MigrationRunner withLockTimeout(java.time.Duration timeout) {
+    return new MigrationRunner(timeout == null ? java.time.Duration.ZERO : timeout);
+  }
+
   /** Run options. */
   public record Options(boolean resume, Map<String, String> placeholders) {
     public Options {
@@ -827,13 +848,13 @@ public final class MigrationRunner {
   }
 
   /** Runs work with auto-commit off and the migration lock held, restoring state afterwards. */
-  private static <T> T withTransactionAndLock(Connection connection, Work<T> work)
+  private <T> T withTransactionAndLock(Connection connection, Work<T> work)
       throws Exception {
     boolean oldAutoCommit = connection.getAutoCommit();
     Exception failure = null;
     try {
       connection.setAutoCommit(false);
-      try (AutoCloseable ignored = DatabaseMigrationLock.acquire(connection)) {
+      try (AutoCloseable ignored = DatabaseMigrationLock.acquire(connection, lockTimeout)) {
         return work.run();
       }
     } catch (Exception e) {

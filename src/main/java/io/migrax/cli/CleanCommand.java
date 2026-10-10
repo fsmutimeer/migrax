@@ -57,8 +57,8 @@ final class CleanCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--dry-run", "--yes", "--url", "--user", "--password", "--schema",
-        "--schemas", "--classpath", "--no-build");
+    return List.of("--dry-run", "--yes", "--lock-timeout", "--url", "--user", "--password",
+        "--password-file", "--schema", "--schemas", "--classpath", "--no-build");
   }
 
   @Override
@@ -103,7 +103,7 @@ final class CleanCommand implements Command {
             return OK;
           }
         }
-        drop(connection, dialect, objects, schema);
+        drop(connection, dialect, objects, schema, project.lockTimeout());
         out.println("Dropped " + objects.count() + " from " + where + ".");
       }
     }
@@ -133,11 +133,11 @@ final class CleanCommand implements Command {
    * that are left, with the migration lock held so no migration runs meanwhile.
    */
   private static void drop(Connection connection, Dialect dialect, Objects objects,
-                           String schema) throws Exception {
+                           String schema, java.time.Duration lockTimeout) throws Exception {
     boolean autoCommit = connection.getAutoCommit();
     connection.setAutoCommit(true);
     try {
-      try (AutoCloseable lock = DatabaseMigrationLock.acquire(connection)) {
+      try (AutoCloseable lock = DatabaseMigrationLock.acquire(connection, lockTimeout)) {
         // The lock may have switched auto-commit off for its own work.
         connection.setAutoCommit(true);
         dropViews(connection, dialect, objects.views);

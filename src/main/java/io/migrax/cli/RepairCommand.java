@@ -46,8 +46,8 @@ final class RepairCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--action", "--yes", "--url", "--user", "--password", "--locations",
-        "--classpath", "--no-build");
+    return List.of("--action", "--yes", "--lock-timeout", "--url", "--user", "--password",
+        "--password-file", "--locations", "--classpath", "--no-build");
   }
 
   @Override

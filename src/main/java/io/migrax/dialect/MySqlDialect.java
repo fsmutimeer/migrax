@@ -138,7 +138,7 @@ public class MySqlDialect extends AbstractDialect {
       statement.setString(1, resource);
       try (ResultSet result = statement.executeQuery()) {
         if (!result.next() || result.getInt(1) != 1) {
-          throw new SQLException("Another Migrax process is applying migrations.");
+          throw new MigrationLockHeldException("Another Migrax process is applying migrations.");
         }
       }
     }

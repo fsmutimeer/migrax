@@ -49,8 +49,8 @@ final class DriftCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--entities", "--json", "--schema", "--url", "--user", "--password", "--package",
-        "--naming", "--extractor", "--classpath", "--no-build");
+    return List.of("--entities", "--json", "--schema", "--url", "--user", "--password",
+        "--password-file", "--package", "--naming", "--extractor", "--classpath", "--no-build");
   }
 
   @Override

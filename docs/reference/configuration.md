@@ -32,6 +32,10 @@ in values are resolved from the environment.
 | Database URL | `--url`, `MIGRAX_DATABASE_URL`, `migrax.url` | from the framework settings below |
 | Database user | `--user`, `MIGRAX_DATABASE_USER`, `migrax.user` | from the framework settings |
 | Database password | `--password`, `MIGRAX_DATABASE_PASSWORD`, `migrax.password` | from the framework settings |
+| Secrets in files | `--password-file`, `MIGRAX_DATABASE_PASSWORD_FILE`, `MIGRAX_DATABASE_USER_FILE`, `MIGRAX_DATABASE_URL_FILE` | the file's content without its last line break; a value set directly wins |
+| Lock timeout | `--lock-timeout`, `MIGRAX_LOCK_TIMEOUT`, `-Dmigrax.lockTimeout`; `migrax.lock-timeout` in the startup integrations | `0` (fail at once); for example `30s`, `2m` |
+| JDBC drivers without a project | `--classpath`, `MIGRAX_DRIVERS` (a folder of jars) | the `drivers` folder of the installation, if present |
+| Never allow `clean` | `MIGRAX_CLEAN_DISABLED=true` | allowed |
 | Entity package | `--package`, `MIGRAX_PACKAGE`, `migrax.package` | Maven `groupId` or Gradle `group` |
 | Migration folder | `--locations`, `MIGRAX_LOCATIONS`, `migrax.locations` | `classpath:db/migration` |
 | Naming strategy | `--naming`, `MIGRAX_NAMING`, `migrax.naming` | recorded in the snapshot, else detected ([details](naming.md)) |

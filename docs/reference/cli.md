@@ -53,6 +53,7 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
@@ -78,6 +79,7 @@ and remove Flyway or Liquibase from the project. See
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
@@ -104,6 +106,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--rename t.old=new` | Treat a column change as a rename (comma-separated) |
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--no-input` | Never ask questions |
+| `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
@@ -111,6 +114,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--schema <name>` | Database schema to read |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
@@ -130,10 +134,12 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 |---|---|
 | `--dry-run` | Show what would happen without doing it |
 | `--resume` | Re-run a failed resume-safe migration |
+| `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
@@ -157,6 +163,7 @@ Lists migrations as applied [X], pending [ ] or a problem [!], without changing 
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
@@ -204,9 +211,11 @@ Runs the rollback script of the newest applied migration (or several) and remove
 | `--dry-run` | Show what would happen without doing it |
 | `--yes, -y` | Confirm without asking |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
+| `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -279,6 +288,7 @@ Starts a throwaway database (H2 in memory, or Docker for other engines), applies
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--image <image>` | Docker image for the throwaway database |
 | `--skip-rollbacks` | Do not test rollback scripts |
 | `--json` | Machine-readable output |
@@ -307,6 +317,7 @@ Reads the database schema and reports manual changes: missing or extra tables, c
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
@@ -374,9 +385,11 @@ Use only after inspecting the database.
 |---|---|
 | `--action <action>` | applied, retry or forget |
 | `--yes, -y` | Confirm without asking |
+| `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -398,9 +411,11 @@ can't be restored. Migration files and the snapshot are not touched. Asks before
 |---|---|
 | `--dry-run` | Show what would happen without doing it |
 | `--yes, -y` | Confirm without asking |
+| `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--schema <name>` | Database schema to read |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |

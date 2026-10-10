@@ -46,6 +46,7 @@ Migrations from `db/migration` are applied when the application starts (JVM mode
 | `migrax.locations` | `db/migration` | Migration folder on the classpath |
 | `migrax.java-package` | `db.migration` | Package of `JavaMigration` classes |
 | `migrax.resume` | `false` | Re-run a failed migration marked `-- migrax:resume-safe` |
+| `migrax.lock-timeout` | `0` | How long to wait while another instance migrates, for example `2m` when several start together |
 | `migrax.placeholders.<name>` | | Values for `${name}` placeholders |
 | `migrax.schemas` | | Schemas to migrate one after another |
 

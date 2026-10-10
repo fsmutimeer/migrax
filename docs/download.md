@@ -10,6 +10,17 @@ as described in [Installation](getting-started/installation.md).
 
 --8<-- "docs/downloads/releases.md"
 
+## Container image
+
+From Migrax 0.3.0 on, every release is also a container image with the common JDBC drivers,
+for running migrations in Kubernetes or CI without a Java project:
+
+```
+docker pull ghcr.io/fsmutimeer/migrax:0.3.0
+```
+
+See [Containers and Kubernetes](guides/containers-and-kubernetes.md).
+
 ## Check your download
 
 Each file's SHA-256 checksum is listed above and in `SHA256SUMS`. To check a file:

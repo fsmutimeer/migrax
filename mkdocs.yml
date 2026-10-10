@@ -107,6 +107,7 @@ nav:
       - Production safety: guides/production-safety.md
       - Advanced migrations: guides/advanced-migrations.md
       - Switching from Flyway or Liquibase: guides/switching-tools.md
+      - Containers and Kubernetes: guides/containers-and-kubernetes.md
   - Frameworks:
       - frameworks/index.md
       - Spring Boot: frameworks/spring-boot.md
