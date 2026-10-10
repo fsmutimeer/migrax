@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0-rc.5] - 2026-10-10
+
+Fifth release candidate for 0.2.0, for testing. It contains everything in 0.2.0-rc.4 and
+these fixes (also released for 0.1 as 0.1.4).
+
 ### Fixed
 
 - The first `generate` against a database that already has tables wrote only the differences,
@@ -185,7 +190,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.4...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.5...HEAD
+[0.2.0-rc.5]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.4...v0.2.0-rc.5
 [0.2.0-rc.4]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.3...v0.2.0-rc.4
 [0.2.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.2...v0.2.0-rc.3
 [0.2.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.2.0-rc.1...v0.2.0-rc.2
