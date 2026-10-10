@@ -15,4 +15,10 @@ Known limits in Migrax 0.2.0:
 - **Rollback scripts** restore structure, not deleted data.
 - **Application servers:** data sources defined in the server's configuration are not read; set
   the connection with environment variables or options.
-- **Distribution:** 0.1.3 is not on Maven Central yet. Install the libraries from source.
+- **SQLite:** Hibernate can't load `@Lob` fields through the SQLite driver, and `verify` uses
+  Migrax's structural check instead of Hibernate's validation. See
+  [Databases](databases.md#sqlite).
+- **CockroachDB:** some column type changes need CockroachDB's experimental settings; review
+  migrations that change types. See [Databases](databases.md#cockroachdb).
+- **Distribution:** Migrax is not on Maven Central yet. Install the libraries from source, or
+  use the [container image](../guides/containers-and-kubernetes.md).

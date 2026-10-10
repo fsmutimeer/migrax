@@ -60,6 +60,24 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
 | `--dir <path>` | Project folder (default: current folder) |
 
+### mcp
+
+```
+migrax mcp [--allow-generate]
+```
+
+Runs a Model Context Protocol server on stdin/stdout, so AI assistants such as Claude Code can
+call status, check, plan, lint, drift, doctor, verify and show_migration as tools and read their
+JSON results. It never changes a database: migrate, rollback, repair and clean are not offered.
+`--allow-generate` also offers generate, which writes migration files for the person to review.
+Claude Code: `claude mcp add migrax -- migrax mcp`. See
+[Using Migrax with AI assistants](../guides/ai-assistants.md).
+
+| Option | Meaning |
+|---|---|
+| `--allow-generate` | Also offer the generate tool (writes migration files) |
+| `--dir <path>` | Project folder (default: current folder) |
+
 ### import
 
 ```

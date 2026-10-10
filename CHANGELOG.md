@@ -6,6 +6,16 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `migrax mcp`: a Model Context Protocol server, so AI assistants such as Claude Code can call
+  status, check, plan, lint, drift, doctor, verify and show_migration as tools. It never
+  changes a database; `--allow-generate` also lets it write migration files. Guide: Guides >
+  Using Migrax with AI assistants, with instructions to copy into a project's `AGENTS.md` or
+  `CLAUDE.md`.
+- The documentation as plain text for AI assistants: `llms.txt` and `llms-full.txt` on the
+  docs site.
+
 ## [0.3.0-rc.2] - 2026-10-10
 
 Second release candidate for 0.3.0, for testing. It contains everything in 0.3.0-rc.1 and
