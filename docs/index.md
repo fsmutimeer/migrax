@@ -93,7 +93,7 @@ Nothing is hidden: you can edit every statement before it runs.
 
 <div class="mx-stack__row"><span class="mx-stack__label">Frameworks</span><span class="mx-chip">Spring Boot</span><span class="mx-chip">Quarkus</span><span class="mx-chip">Micronaut 4 and 5</span><span class="mx-chip">Helidon 4</span><span class="mx-chip">Jakarta EE</span><span class="mx-chip">Plain Hibernate</span></div>
 <div class="mx-stack__row"><span class="mx-stack__label">Hibernate</span><span class="mx-chip">5.4 to 7.4, each version reading its own mapping</span></div>
-<div class="mx-stack__row"><span class="mx-stack__label">Databases</span><span class="mx-chip">PostgreSQL</span><span class="mx-chip">MySQL 8</span><span class="mx-chip">MariaDB</span><span class="mx-chip">SQL Server</span><span class="mx-chip">Oracle 12c+</span><span class="mx-chip">H2</span></div>
+<div class="mx-stack__row"><span class="mx-stack__label">Databases</span><span class="mx-chip">PostgreSQL</span><span class="mx-chip">CockroachDB</span><span class="mx-chip">MySQL 8</span><span class="mx-chip">MariaDB</span><span class="mx-chip">SQL Server</span><span class="mx-chip">Oracle 12c+</span><span class="mx-chip">H2</span><span class="mx-chip">SQLite</span></div>
 <div class="mx-stack__row"><span class="mx-stack__label">Run it from</span><span class="mx-chip">Command line</span><span class="mx-chip">Maven plugin</span><span class="mx-chip">Gradle plugin</span><span class="mx-chip">Application startup</span></div>
 
 </div>

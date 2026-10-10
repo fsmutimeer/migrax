@@ -81,7 +81,8 @@ final class PlanCommand implements Command {
         }
       }
     }
-    String sql = MigrationSql.render(dialect, changes.operations(), null);
+    String sql = MigrationSql.render(dialect, changes.operations(), null, changes.previous(),
+        changes.current());
     List<SqlLinter.Finding> findings = SqlLinter.lint("plan", sql, dialect.id());
     if (args.flag("--json")) {
       List<Object> operations = new ArrayList<>();

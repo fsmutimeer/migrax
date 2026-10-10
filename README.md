@@ -47,7 +47,7 @@ Successfully applied migration '0002_add_customers_phone.sql'.
 |---|---|
 | Frameworks | Spring Boot, Quarkus, Micronaut 4 and 5, Helidon 4, Jakarta EE and plain Hibernate |
 | Hibernate | 5.4 to 7.4, each version reading and validating its own mapping |
-| Databases | PostgreSQL, MySQL 8, MariaDB, SQL Server, Oracle 12c+, H2 |
+| Databases | PostgreSQL, CockroachDB, MySQL 8, MariaDB, SQL Server, Oracle 12c+, H2, SQLite |
 | Ways to run | Command line, Maven plugin, Gradle plugin, at application startup, GitHub Action |
 
 ## Install

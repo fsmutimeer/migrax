@@ -304,6 +304,9 @@ final class Project implements AutoCloseable {
     String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
     if (product.contains("mysql") || product.contains("mariadb")) {
       connection.setCatalog(schema);
+    } else if (product.contains("sqlite")) {
+      throw new UsageException("SQLite has no schemas.",
+          "Remove --schema/--schemas: each SQLite database is its own file.");
     } else if (product.contains("sql server")) {
       throw new UsageException("SQL Server cannot switch the default schema per connection.",
           "Run Migrax once per schema with a login whose default schema is that schema.");

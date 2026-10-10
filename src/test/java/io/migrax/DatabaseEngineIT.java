@@ -42,7 +42,30 @@ class DatabaseEngineIT {
             "mcr.microsoft.com/mssql/server:2022-latest").acceptLicense()),
         database("Oracle XE 21", () -> new OracleContainer("gvenzl/oracle-xe:21-slim-faststart")),
         database("CockroachDB 24.3", () -> new CockroachContainer(
-            "cockroachdb/cockroach:v24.3.11")));
+            "cockroachdb/cockroach:v24.3.11")),
+        DynamicTest.dynamicTest("SQLite", () -> {
+          Path file = Files.createTempFile("migrax-it-", ".db");
+          try {
+            Database sqlite = new Database("jdbc:sqlite:" + file, "", "");
+            exerciseRunner(sqlite);
+            exerciseGeneratedSchema(sqlite);
+          } finally {
+            Files.deleteIfExists(file);
+            Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
+          }
+        }));
+  }
+
+  /** Where a test database is reached. */
+  private record Database(String url, String user, String password) {
+    static Database of(JdbcDatabaseContainer<?> container) {
+      return new Database(container.getJdbcUrl(), container.getUsername(),
+          container.getPassword());
+    }
+
+    Connection connect() throws SQLException {
+      return DriverManager.getConnection(url, user, password);
+    }
   }
 
   private static DynamicTest database(
@@ -53,8 +76,8 @@ class DatabaseEngineIT {
         if (container instanceof OracleContainer oracle) {
           grantOracleLockPermission(oracle);
         }
-        exerciseRunner(container);
-        exerciseGeneratedSchema(container);
+        exerciseRunner(Database.of(container));
+        exerciseGeneratedSchema(Database.of(container));
       }
     });
   }
@@ -75,11 +98,9 @@ class DatabaseEngineIT {
    * The end-to-end proof for each engine: apply the migration Migrax generates for the fixture
    * entities, then start Hibernate with schema validation and save and load rows.
    */
-  private static void exerciseGeneratedSchema(JdbcDatabaseContainer<?> container)
-      throws Exception {
+  private static void exerciseGeneratedSchema(Database container) throws Exception {
     Path migrations = Files.createTempDirectory("migrax-generated-it");
-    try (Connection connection = DriverManager.getConnection(
-        container.getJdbcUrl(), container.getUsername(), container.getPassword())) {
+    try (Connection connection = container.connect()) {
       // Start from a clean history; the runner checks above recorded their own files.
       try (Statement statement = connection.createStatement()) {
         statement.executeUpdate("DELETE FROM migrax_history");
@@ -119,13 +140,16 @@ class DatabaseEngineIT {
               List.of(), List.of()).stream().map(dialect::render).toList(),
           dialect.id() + ": first generate with Hibernate's mapping");
     }
+    // Hibernate's validator rejects the integer row-id columns its own SQLite dialect creates
+    // for Long ids; on SQLite, saving and loading rows is the proof.
+    boolean validate = !container.url().startsWith("jdbc:sqlite:");
     try (org.hibernate.SessionFactory factory = HibernateValidationTest.hibernate(
-        container.getJdbcUrl(), container.getUsername(), container.getPassword(), true)) {
-      HibernateValidationTest.persistAndQuery(factory);
+        container.url(), container.user(), container.password(), true, validate)) {
+      HibernateValidationTest.persistAndQuery(factory, !validate);
     }
   }
 
-  private static void exerciseRunner(JdbcDatabaseContainer<?> container) throws Exception {
+  private static void exerciseRunner(Database container) throws Exception {
     Path migrations = Files.createTempDirectory("migrax-db-it");
     Path initial = migrations.resolve("0001_initial.sql");
     Files.writeString(initial, """
@@ -138,10 +162,8 @@ class DatabaseEngineIT {
         INSERT INTO migrax_missing_table VALUES (1);
         """);
 
-    try (Connection connection = DriverManager.getConnection(
-        container.getJdbcUrl(), container.getUsername(), container.getPassword())) {
-      try (Connection competingConnection = DriverManager.getConnection(
-          container.getJdbcUrl(), container.getUsername(), container.getPassword());
+    try (Connection connection = container.connect()) {
+      try (Connection competingConnection = container.connect();
            AutoCloseable lock = DatabaseMigrationLock.acquire(connection)) {
         assertThrows(SQLException.class,
             () -> DatabaseMigrationLock.acquire(competingConnection));

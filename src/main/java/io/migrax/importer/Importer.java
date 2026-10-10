@@ -111,7 +111,8 @@ public final class Importer {
         .append(" (").append(changeSets).append(" change sets).\n")
         .append("-- Existing databases record this migration as applied without running it;\n")
         .append("-- new databases create the schema from it. Review the types before use.\n\n");
-    for (var operation : new DiffEngine().diff(SchemaModel.empty(), current)) {
+    for (var operation : dialect.prepare(new DiffEngine().diff(SchemaModel.empty(), current),
+        SchemaModel.empty(), current)) {
       sql.append(dialect.render(operation)).append(";\n");
     }
     Files.createDirectories(folder);

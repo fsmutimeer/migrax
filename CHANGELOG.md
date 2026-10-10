@@ -12,6 +12,9 @@ All notable changes to Migrax are listed here. The format follows
   server, writes CockroachDB's types, takes its migration lock as a row in `migrax_lock`, and
   `verify` starts a throwaway CockroachDB in Docker. Tested with the real-database suite and
   Hibernate's schema validation.
+- SQLite support (`sqlite`, SQLite 3.35 and newer): changes SQLite can't make in place, such
+  as a column's type or a new foreign key, rebuild the table with its rows, and a rebuild that
+  breaks a foreign key fails before it commits. `verify` runs on a temporary SQLite file.
 
 ### Fixed
 

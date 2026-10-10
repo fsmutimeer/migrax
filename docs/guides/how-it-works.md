@@ -70,3 +70,4 @@ it; see [Rollbacks and recovery](rollbacks-and-recovery.md).
 | SQL Server | `sp_getapplock` |
 | Oracle | `DBMS_LOCK` (needs `EXECUTE` on `DBMS_LOCK`) |
 | H2 | Single-process database, no lock needed |
+| SQLite | An operating-system lock on `<database>.migrax-lock` next to the database file |

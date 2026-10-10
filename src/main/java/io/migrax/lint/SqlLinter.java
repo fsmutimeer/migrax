@@ -49,6 +49,10 @@ public final class SqlLinter {
 
   private SqlLinter() {}
 
+  /** {@code ALTER TABLE migrax_new_x RENAME TO x}: the last step of a SQLite table rebuild. */
+  private static final Pattern REBUILD_RENAME = Pattern.compile(
+      "(?i)^ALTER TABLE \"?migrax_new_\\w+\"? RENAME TO \"?(\\w+)\"?\\s*$");
+
   /**
    * Lints a migration script.
    *
@@ -69,6 +73,16 @@ public final class SqlLinter {
       findings.add(new Finding("MX000", Severity.ERROR, file, 0, "", e.getMessage(),
           "Close the quote or comment."));
       return findings;
+    }
+
+    // Tables a SQLite rebuild replaces with a copy of themselves: dropping the original and
+    // renaming the copy back keeps the rows and the name.
+    Set<String> rebuilt = new HashSet<>();
+    for (String statement : statements) {
+      Matcher copy = REBUILD_RENAME.matcher(SqlScript.stripComments(statement).trim());
+      if (copy.find()) {
+        rebuilt.add(normalize(copy.group(1)));
+      }
     }
 
     for (int i = 0; i < statements.size(); i++) {
@@ -172,15 +186,18 @@ public final class SqlLinter {
             "Adding a primary key builds an index while blocking writes to " + table + ".",
             "CREATE UNIQUE INDEX CONCURRENTLY, then ADD CONSTRAINT ... PRIMARY KEY USING INDEX."));
       }
-      if (upper.matches("^DROP TABLE .*") || upper.matches(".* DROP (COLUMN )?(?!CONSTRAINT|INDEX|PRIMARY|FOREIGN|DEFAULT|NOT|IDENTITY|UNIQUE)\\S+.*")
+      boolean rebuildDrop = upper.matches("^DROP TABLE .*")
+          && rebuilt.contains(normalize(text.substring("DROP TABLE ".length()).trim()));
+      if (!rebuildDrop && upper.matches("^DROP TABLE .*") || upper.matches(".* DROP (COLUMN )?(?!CONSTRAINT|INDEX|PRIMARY|FOREIGN|DEFAULT|NOT|IDENTITY|UNIQUE)\\S+.*")
           && upper.startsWith("ALTER TABLE")) {
         found.add(finding("MX007", Severity.WARNING, file, number, text,
             "This deletes data, and running application instances that still use it will fail.",
             "Deploy code that no longer uses it first, then drop it in a later release "
                 + "(expand/contract)."));
       }
-      if (upper.matches("^(RENAME TABLE|EXEC SP_RENAME).*")
-          || upper.startsWith("ALTER TABLE") && upper.matches(".* RENAME (COLUMN |TO ).*")) {
+      boolean rebuildCopy = REBUILD_RENAME.matcher(text).find();
+      if (!rebuildCopy && (upper.matches("^(RENAME TABLE|EXEC SP_RENAME).*")
+          || upper.startsWith("ALTER TABLE") && upper.matches(".* RENAME (COLUMN |TO ).*"))) {
         found.add(finding("MX008", Severity.WARNING, file, number, text,
             "Application instances still running the old code use the old name and will fail.",
             "Rename in steps: add the new name, write to both, switch reads, then remove the "

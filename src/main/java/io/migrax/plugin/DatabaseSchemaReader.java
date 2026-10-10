@@ -37,7 +37,9 @@ public final class DatabaseSchemaReader {
         if (name == null || lower.startsWith("migrax_") || lower.equals("flyway_schema_history")
             || lower.equals("databasechangelog") || lower.equals("databasechangeloglock")
             // SQL Server's master database reports these system tables as user tables.
-            || lower.startsWith("spt_") || lower.equals("msreplication_options")) {
+            || lower.startsWith("spt_") || lower.equals("msreplication_options")
+            // SQLite's own tables (row id counters, statistics).
+            || lower.startsWith("sqlite_")) {
           continue;
         }
         names.add(name);
@@ -154,6 +156,9 @@ public final class DatabaseSchemaReader {
   private static SchemaModel.Table readTable(
       DatabaseMetaData metadata, String catalog, String schema, String table) throws SQLException {
     List<SchemaModel.Column> columns = new ArrayList<>();
+    boolean sqlite = String.valueOf(metadata.getDatabaseProductName())
+        .toLowerCase(Locale.ROOT).contains("sqlite");
+    List<String> declaredInteger = new ArrayList<>();
     try (ResultSet result = metadata.getColumns(catalog, schema, table, "%")) {
       while (result.next()) {
         String databaseType = result.getString("TYPE_NAME");
@@ -187,6 +192,13 @@ public final class DatabaseSchemaReader {
         Integer length = textual && size != null && size != 255 ? size : null;
         Integer precision = "decimal".equals(logicalType) ? size : null;
         Integer scale = "decimal".equals(logicalType) && !result.wasNull() ? scaleValue : null;
+        // SQLite's driver reports numeric(10,2) with a size of 12: precision plus scale.
+        if (sqlite && precision != null && scale != null) {
+          precision = precision - scale;
+        }
+        if (sqlite && "integer".equalsIgnoreCase(databaseType)) {
+          declaredInteger.add(result.getString("COLUMN_NAME"));
+        }
         // Hibernate's default BigDecimal column is numeric(38,2), which entities leave unsized.
         if (precision != null && precision == 38 && scale != null && scale == 2) {
           precision = null;
@@ -218,11 +230,29 @@ public final class DatabaseSchemaReader {
     // Without its columns (CockroachDB's hidden row id, left out above) there is no key.
     SchemaModel.PrimaryKey primaryKey = key != null && key.columns().stream().allMatch(
         name -> columns.stream().anyMatch(c -> c.name().equalsIgnoreCase(name))) ? key : null;
+    if (sqlite && primaryKey != null && primaryKey.columns().size() == 1
+        && declaredInteger.stream().anyMatch(c -> c.equalsIgnoreCase(primaryKey.columns().get(0)))) {
+      List<SchemaModel.Column> withRowId = rowIdAsIdentity(columns, primaryKey.columns().get(0));
+      columns.clear();
+      columns.addAll(withRowId);
+    }
     List<SchemaModel.ForeignKey> foreignKeys = readForeignKeys(metadata, catalog, schema, table);
     List<SchemaModel.Index> indexes = readIndexes(metadata, catalog, schema, table).stream()
         .filter(index -> !backsForeignKey(index, foreignKeys))
         .toList();
     return new SchemaModel.Table(table, columns, primaryKey, indexes, foreignKeys);
+  }
+
+  /**
+   * In SQLite a primary key declared exactly {@code integer} is the row id: it fills itself like
+   * an identity column, although the driver doesn't report it as auto-increment.
+   */
+  private static List<SchemaModel.Column> rowIdAsIdentity(List<SchemaModel.Column> columns,
+                                                          String key) {
+    return columns.stream().map(c -> !c.name().equalsIgnoreCase(key) ? c
+        : new SchemaModel.Column(c.name(), c.sqlType(), c.nullable(), c.length(), c.precision(),
+            c.scale(), c.defaultValue(), c.unique(), true, c.sequenceName(), c.logicalType()))
+        .toList();
   }
 
   /**

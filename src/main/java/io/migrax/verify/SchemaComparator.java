@@ -37,7 +37,8 @@ public final class SchemaComparator {
                                          String dialect) {
     List<Difference> differences = new ArrayList<>();
     Set<String> sequenceTables = new HashSet<>();
-    if ("mysql".equals(dialect)) {
+    // Databases without sequences, where Hibernate keeps the next value in a table.
+    if ("mysql".equals(dialect) || "sqlite".equals(dialect)) {
       expected.sequences().forEach(s -> sequenceTables.add(key(s.name())));
     }
     for (SchemaModel.Table table : expected.tables()) {
@@ -131,6 +132,10 @@ public final class SchemaComparator {
     String want = family(expected, dialect);
     String have = family(actual, dialect);
     if (want.equals("unknown") || have.equals("unknown")) {
+      return null;
+    }
+    // SQLite stores every integer in up to 8 bytes, whatever the declared type.
+    if (want.equals("integer") && have.equals("integer") && "sqlite".equals(dialect)) {
       return null;
     }
     if (want.equals("integer") && have.equals("integer")) {
