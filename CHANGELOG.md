@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The documentation moved to https://migrax.org/; the old address
+  https://docs-migrax.github.io/ redirects there.
+
 ## [0.4.0] - 2026-10-11
 
 The 0.4 release: Migrax moves to `org.migrax`. Nothing else changes in how it works; see

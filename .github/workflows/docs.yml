@@ -1,8 +1,9 @@
 name: Docs
 
 # Builds the documentation site on every change, and publishes it from main to the public
-# repository docs-migrax/docs-migrax.github.io (https://docs-migrax.github.io/). This repository
-# stays private; only the built HTML is published.
+# repository docs-migrax/docs-migrax.github.io, served at https://migrax.org/ (the old
+# https://docs-migrax.github.io/ redirects there). This repository stays private; only the
+# built HTML is published.
 #
 # Needs the secret DOCS_DEPLOY_KEY: the private half of an SSH deploy key whose public half is
 # added, with write access, to docs-migrax/docs-migrax.github.io.
@@ -53,5 +54,7 @@ jobs:
           external_repository: docs-migrax/docs-migrax.github.io
           publish_branch: main
           publish_dir: ./site
+          # Writes the CNAME file that keeps the custom domain; force_orphan would delete it.
+          cname: migrax.org
           force_orphan: true
           commit_message: 'docs: publish ${{ github.sha }}'

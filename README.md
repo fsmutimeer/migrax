@@ -2,7 +2,7 @@ git # Migrax
 
 [![CI](https://github.com/fsmutimeer/migrax/actions/workflows/ci.yml/badge.svg)](https://github.com/fsmutimeer/migrax/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/fsmutimeer/migrax?sort=semver)](https://github.com/fsmutimeer/migrax/releases)
-[![Docs](https://img.shields.io/badge/docs-docs--migrax.github.io-e53935)](https://docs-migrax.github.io/)
+[![Docs](https://img.shields.io/badge/docs-migrax.org-e53935)](https://migrax.org/)
 ![Java 17+](https://img.shields.io/badge/java-17%2B-orange)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
@@ -12,9 +12,9 @@ Migrax reads your JPA entities, compares them with what your database looks like
 SQL migration for you, with a rollback script, linted for locking and data loss, and verified by
 your own Hibernate version before it reaches production.
 
-**[Documentation](https://docs-migrax.github.io/)** ·
-[Quick start](https://docs-migrax.github.io/getting-started/quickstart/) ·
-[CLI reference](https://docs-migrax.github.io/reference/cli/) ·
+**[Documentation](https://migrax.org/)** ·
+[Quick start](https://migrax.org/getting-started/quickstart/) ·
+[CLI reference](https://migrax.org/reference/cli/) ·
 [Changelog](CHANGELOG.md)
 
 ```console
@@ -54,7 +54,7 @@ Successfully applied migration '0002_add_customers_phone.sql'.
 ## Install
 
 Java 17 or newer is required. Download the ZIP from the
-[Download page](https://docs-migrax.github.io/download/) (or build with `mvn install`), extract
+[Download page](https://migrax.org/download/) (or build with `mvn install`), extract
 it, then run the installer from that folder:
 
 ```bash
@@ -75,7 +75,7 @@ migrax migrate     # applies it
 ```
 
 Then, every time you change an entity: `migrax generate` and `migrax migrate`.
-Read the [full documentation](https://docs-migrax.github.io/) for guides on every
+Read the [full documentation](https://migrax.org/) for guides on every
 framework, CI and production safety.
 
 ## Contributing
