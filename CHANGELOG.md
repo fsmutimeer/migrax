@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-11
+
+The 0.4 release: Migrax moves to `org.migrax`. Nothing else changes in how it works; see
+below for the one-line upgrade.
+
 ### Changed
 
 - Migrax now lives under `org.migrax` (the project's domain is migrax.org): the Maven
@@ -366,7 +371,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/fsmutimeer/migrax/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/fsmutimeer/migrax/compare/v0.2.0...v0.3.0
 [0.3.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.3.0-rc.2...v0.3.0-rc.3
 [0.3.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.3.0-rc.1...v0.3.0-rc.2
