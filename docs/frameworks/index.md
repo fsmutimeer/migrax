@@ -30,3 +30,12 @@ Build tools: [Maven plugin](maven.md) and [Gradle plugin](gradle.md).
     mvn install                          # core library and Maven plugin
     mvn install -f integrations/pom.xml  # framework integrations and Gradle plugin
     ```
+
+!!! note "Upgrading from 0.3 or older"
+
+    Since 0.4.0, Migrax is published as `org.migrax` instead of `io.migrax`: the groupId, the
+    Gradle plugin ID (`id("org.migrax")`), the Java packages (`org.migrax.api.JavaMigration`)
+    and the logger name. Replace `io.migrax` with `org.migrax` in your build files, Java
+    migrations and logging configuration. During the upgrade, let only one instance run
+    migrations against a database at a time: 0.3 and 0.4 use differently named migration
+    locks.

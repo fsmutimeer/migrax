@@ -1,0 +1,9 @@
+# Dialects found by org.migrax.dialect.Dialects, in the order 'migrax help' lists them.
+org.migrax.dialect.PostgresDialect
+org.migrax.dialect.CockroachDialect
+org.migrax.dialect.MySqlDialect
+org.migrax.dialect.MariaDbDialect
+org.migrax.dialect.SqlServerDialect
+org.migrax.dialect.OracleDialect
+org.migrax.dialect.H2Dialect
+org.migrax.dialect.SqliteDialect

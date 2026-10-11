@@ -32,7 +32,7 @@ quarkus.hibernate-orm.schema-management.strategy=none
 
 ```xml
 <dependency>
-  <groupId>io.migrax</groupId>
+  <groupId>org.migrax</groupId>
   <artifactId>migrax-quarkus</artifactId>
   <version>0.3.0</version>
 </dependency>
