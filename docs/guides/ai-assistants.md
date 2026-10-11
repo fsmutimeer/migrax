@@ -6,8 +6,9 @@ risks, and explain it to you, while you stay the one who changes the database.
 ## The MCP server
 
 `migrax mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server. Assistants
-that support MCP, such as Claude Code, start it and call Migrax's commands as tools, getting
-their [JSON results](../reference/errors-and-json.md).
+that support MCP, such as Claude Code, Codex CLI, Gemini CLI, GitHub Copilot in VS Code and
+Cursor, start it and call Migrax's commands as tools, getting their
+[JSON results](../reference/errors-and-json.md).
 
 | Tool | What it does |
 |---|---|
@@ -44,14 +45,48 @@ To share it with your team, add `--scope project`: Claude Code then writes the s
 `.mcp.json` in the project, which you commit. To let the assistant write migrations, end the
 command with `migrax mcp --allow-generate`.
 
-### Other MCP clients
+### Codex CLI
 
-Clients configured with JSON take the same command:
+Run this in your service folder:
+
+```console
+$ codex mcp add migrax -- migrax mcp
+```
+
+Codex writes the server to `~/.codex/config.toml`, so it is available in every folder you start
+Codex in. To set it up for one project only, put the same lines in `.codex/config.toml` in the
+project (Codex reads it in projects you trust):
+
+```toml
+[mcp_servers.migrax]
+command = "migrax"
+args = ["mcp"]
+```
+
+Codex finds `migrax.cmd` on Windows by itself, so the command is the same there.
+
+### Gemini CLI
+
+Run this in your service folder:
+
+```console
+$ gemini mcp add migrax migrax mcp
+```
+
+Gemini writes the server to `.gemini/settings.json` in the project; add `--scope user` to
+use it in every folder. `gemini mcp list` shows whether it connects. Gemini starts MCP servers
+only in folders you trust, so trust the folder when it asks. Like Codex, it finds `migrax.cmd`
+on Windows by itself.
+
+### GitHub Copilot in VS Code
+
+Create `.vscode/mcp.json` in your project:
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "migrax": {
+      "type": "stdio",
       "command": "migrax",
       "args": ["mcp"]
     }
@@ -59,9 +94,66 @@ Clients configured with JSON take the same command:
 }
 ```
 
-The server runs in the folder the client starts it in; pass `"args": ["mcp", "--dir",
-"/path/to/service"]` to point it elsewhere. It uses the same database settings as the command
-line (application config, `MIGRAX_DATABASE_URL`, ...).
+VS Code starts the server in the workspace folder. Note that the top-level key is `servers`
+here, not `mcpServers` as in the other clients.
+
+### Cursor
+
+Create `.cursor/mcp.json` in your project, or `~/.cursor/mcp.json` to use Migrax in every
+project:
+
+```json
+{
+  "mcpServers": {
+    "migrax": {
+      "type": "stdio",
+      "command": "migrax",
+      "args": ["mcp", "--dir", "${workspaceFolder}"]
+    }
+  }
+}
+```
+
+`${workspaceFolder}` is the folder you opened in Cursor, so the server always reads that
+service.
+
+### Other MCP clients
+
+Most other clients (Claude Desktop, Windsurf, Cline, ...) read the same JSON as Cursor:
+
+```json
+{
+  "mcpServers": {
+    "migrax": {
+      "command": "migrax",
+      "args": ["mcp", "--dir", "/path/to/service"]
+    }
+  }
+}
+```
+
+The server runs in the folder the client starts it in; `--dir` points it at your service
+instead. It uses the same database settings as the command line (application config,
+`MIGRAX_DATABASE_URL`, ...).
+
+### Windows: start Migrax through `cmd`
+
+On Windows, `migrax` is a `.cmd` script. Some clients start programs directly and can't run
+scripts, so they report that `migrax` was not found even though it works in a terminal. In
+JSON files, start it through `cmd` instead:
+
+```json
+"command": "cmd",
+"args": ["/c", "migrax", "mcp"]
+```
+
+This works in every client. Codex CLI and Gemini CLI don't need it.
+
+### ChatGPT
+
+The ChatGPT app connects only to MCP servers on the internet, and `migrax mcp` runs on your
+own machine next to your code and database. To use Migrax with OpenAI's models, use Codex CLI
+(above).
 
 ## Instructions for your project's assistant
 

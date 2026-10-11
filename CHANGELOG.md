@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Guides > Using Migrax with AI assistants: setup for Codex CLI, Gemini CLI, GitHub Copilot in
+  VS Code and Cursor, how to start `migrax mcp` through `cmd` on Windows for clients that can't
+  run `.cmd` scripts, and why the ChatGPT app can't use a local MCP server.
+
 ## [0.3.0-rc.3] - 2026-10-10
 
 Third release candidate for 0.3.0, for testing. It contains everything in 0.3.0-rc.2 and
