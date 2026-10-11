@@ -7,8 +7,7 @@ or build is needed.
 
 !!! note "Available from Migrax 0.3.0"
 
-    The image is published with Migrax 0.3.0 and newer. Until 0.3.0 is out, test it with the
-    pre-release tag `0.3.0-rc.1`.
+    The image is published with Migrax 0.3.0 and newer.
 
 ## The container image
 

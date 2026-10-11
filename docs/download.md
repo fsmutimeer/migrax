@@ -28,19 +28,19 @@ Each file's SHA-256 checksum is listed above and in `SHA256SUMS`. To check a fil
 === "Windows"
 
     ```bat
-    certutil -hashfile migrax-0.2.0.zip SHA256
+    certutil -hashfile migrax-0.3.0.zip SHA256
     ```
 
 === "macOS"
 
     ```bash
-    shasum -a 256 migrax-0.2.0.zip
+    shasum -a 256 migrax-0.3.0.zip
     ```
 
 === "Linux"
 
     ```bash
-    sha256sum migrax-0.2.0.zip
+    sha256sum migrax-0.3.0.zip
     ```
 
 The result must match the checksum on this page.

@@ -6,8 +6,31 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-11
+
+The 0.3 release: Migrax in containers and Kubernetes, machine-readable output, and AI
+assistants. It contains everything in the release candidates 0.3.0-rc.1 to 0.3.0-rc.3; the
+changelog lists each of their changes in detail.
+
+### Added
+
+- `migrax mcp`: a Model Context Protocol server for AI assistants (Claude Code, Codex CLI,
+  Gemini CLI, GitHub Copilot in VS Code, Cursor, ...). Its tools only read; `--allow-generate`
+  also lets it write migration files. It never changes a database.
+- The documentation as plain text for AI assistants: `llms.txt` and `llms-full.txt`.
+- Container image `ghcr.io/fsmutimeer/migrax` (amd64 and arm64) with the common JDBC drivers,
+  and Guides > Containers and Kubernetes with tested example manifests.
+- `--lock-timeout <time>`: wait for the migration lock instead of failing, for instances that
+  start together.
+- Database secrets from files (`MIGRAX_DATABASE_PASSWORD_FILE`, `--password-file`, ...) and
+  JDBC drivers without a project (`MIGRAX_DRIVERS` or the installation's `drivers` folder).
+- `--json` on every command, with failures as JSON too, and stable error codes (`MXE...`)
+  listed in Reference > Errors and JSON output.
+- Health checks in the Spring Boot, Quarkus, Micronaut and Helidon integrations.
+
 ### Changed
 
+- Error lines start with `error[<code>]:` instead of `error:`.
 - Guides > Using Migrax with AI assistants: setup for Codex CLI, Gemini CLI, GitHub Copilot in
   VS Code and Cursor, how to start `migrax mcp` through `cmd` on Windows for clients that can't
   run `.cmd` scripts, and why the ChatGPT app can't use a local MCP server.
@@ -327,7 +350,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.3.0-rc.3...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/fsmutimeer/migrax/compare/v0.2.0...v0.3.0
 [0.3.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.3.0-rc.2...v0.3.0-rc.3
 [0.3.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.3.0-rc.1...v0.3.0-rc.2
 [0.3.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.2.0...v0.3.0-rc.1
