@@ -7,7 +7,7 @@
   <!-- Executing SQL read from reviewed migration files is the runner's job. Dynamic parts of
        the history-table statements are dialect keywords chosen by Migrax, never user input. -->
   <Match>
-    <Class name="io.migrax.runner.MigrationRunner"/>
+    <Class name="org.migrax.runner.MigrationRunner"/>
     <Or>
       <Bug pattern="SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE"/>
       <Bug pattern="SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"/>
@@ -18,15 +18,15 @@
   <Match>
     <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
     <Or>
-      <Class name="io.migrax.runner.MigrationRunner"/>
-      <Class name="io.migrax.diff.Migrations"/>
-      <Class name="io.migrax.util.Json"/>
-      <Class name="~io\.migrax\.cli\.\w+Command"/>
-      <Class name="io.migrax.cli.DuplicateMigrations"/>
-      <Class name="io.migrax.cli.MigrationFiles"/>
-      <Class name="io.migrax.importer.Importer"/>
-      <Class name="io.migrax.runner.Migration"/>
-      <Class name="io.migrax.runner.ClasspathMigrations"/>
+      <Class name="org.migrax.runner.MigrationRunner"/>
+      <Class name="org.migrax.diff.Migrations"/>
+      <Class name="org.migrax.util.Json"/>
+      <Class name="~org\.migrax\.cli\.\w+Command"/>
+      <Class name="org.migrax.cli.DuplicateMigrations"/>
+      <Class name="org.migrax.cli.MigrationFiles"/>
+      <Class name="org.migrax.importer.Importer"/>
+      <Class name="org.migrax.runner.Migration"/>
+      <Class name="org.migrax.runner.ClasspathMigrations"/>
     </Or>
   </Match>
   <!-- doPrivileged belongs to the SecurityManager, which is deprecated for removal. -->

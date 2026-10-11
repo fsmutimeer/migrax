@@ -2,9 +2,9 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>io.migrax</groupId>
+  <groupId>org.migrax</groupId>
   <artifactId>migrax-spring-boot-starter</artifactId>
-  <version>0.3.1-SNAPSHOT</version>
+  <version>0.4.0-SNAPSHOT</version>
   <name>Migrax Spring Boot starter</name>
   <description>Applies Migrax migrations when a Spring Boot application starts, before JPA.</description>
 
@@ -28,9 +28,9 @@
 
   <dependencies>
     <dependency>
-      <groupId>io.migrax</groupId>
+      <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.3.1-SNAPSHOT</version>
+      <version>0.4.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>

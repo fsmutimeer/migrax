@@ -34,12 +34,12 @@ CI runs all of them on every pull request.
 
 - Changes to how entities are read must keep the annotation scanner and Hibernate's mapping in
   agreement (`HibernateValidationTest`) and pass the Hibernate version matrix.
-- Changes to the CLI need a test in `src/test/java/io/migrax/cli`.
+- Changes to the CLI need a test in `src/test/java/org/migrax/cli`.
 - A bug fix comes with a test that fails without the fix.
 
 ## How the code is organized
 
-Everything lives under `src/main/java/io/migrax`:
+Everything lives under `src/main/java/org/migrax`:
 
 | Package | Contents |
 |---|---|
@@ -55,7 +55,7 @@ Everything lives under `src/main/java/io/migrax`:
 
 ### Adding a command
 
-1. Create `src/main/java/io/migrax/cli/<Name>Command.java` implementing `Command`. Copy a small
+1. Create `src/main/java/org/migrax/cli/<Name>Command.java` implementing `Command`. Copy a small
    one such as `SqlCommand` as a starting point. The interface asks for the name, help texts,
    the options the command accepts, and `run(CommandContext)`.
 2. Add it to `CommandRegistry.standard()`. `migrax help`, `migrax help <name>`, aliases and
@@ -77,14 +77,14 @@ operations and lint findings) and `Errors`.
 
 ### Adding a database
 
-1. Create a dialect in `io.migrax.dialect` extending `AbstractDialect`:
+1. Create a dialect in `org.migrax.dialect` extending `AbstractDialect`:
    - `id()`, which is also matched against the JDBC URL prefix (`jdbc:<id>:`) and the
      database's product name; override `acceptsUrl` or `acceptsProduct` when they differ;
    - `logicalType()` for the column types;
    - `acquireMigrationLock()`, the database lock that keeps two Migrax processes from migrating
      at once. It must fail at once instead of waiting. Without it, Migrax refuses to migrate;
    - `aliases()` if the database has other common names.
-2. List the class in `src/main/resources/META-INF/services/io.migrax.dialect.Dialect`.
+2. List the class in `src/main/resources/META-INF/services/org.migrax.dialect.Dialect`.
    `--dialect`, detection from the JDBC URL, locking, `migrax doctor` and the help texts pick
    it up from there.
 3. Add it to the real-database suite (`DatabaseEngineIT`) and to `DialectTest`.

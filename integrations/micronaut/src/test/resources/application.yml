@@ -7,7 +7,7 @@ datasources:
 jpa:
   default:
     entity-scan:
-      packages: 'io.migrax.micronaut.app'
+      packages: 'org.migrax.micronaut.app'
     properties:
       hibernate:
         hbm2ddl:

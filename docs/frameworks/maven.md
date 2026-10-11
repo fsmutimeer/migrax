@@ -9,7 +9,7 @@ you prefer not to install the CLI.
 <build>
   <plugins>
     <plugin>
-      <groupId>io.migrax</groupId>
+      <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
       <version>0.3.0</version>
     </plugin>

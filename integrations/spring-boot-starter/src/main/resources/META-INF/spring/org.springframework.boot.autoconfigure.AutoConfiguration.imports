@@ -1,1 +1,1 @@
-io.migrax.spring.MigraxAutoConfiguration
+org.migrax.spring.MigraxAutoConfiguration

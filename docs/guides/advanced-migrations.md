@@ -11,7 +11,7 @@ $ migrax new backfill_full_names --java
 ```java title="src/main/java/db/migration/V0006__BackfillFullNames.java"
 package db.migration;
 
-import io.migrax.api.JavaMigration;
+import org.migrax.api.JavaMigration;
 import java.sql.Connection;
 
 public class V0006__BackfillFullNames implements JavaMigration {
@@ -35,7 +35,7 @@ public class V0006__BackfillFullNames implements JavaMigration {
 - Classes live in the `db.migration` package (change it with `migrax.java-package`).
 - The migration runs in the same transaction as its history record. Don't commit or close the
   connection.
-- Add `io.migrax:migrax` as a `provided` (Maven) or `compileOnly` (Gradle) dependency so the
+- Add `org.migrax:migrax` as a `provided` (Maven) or `compileOnly` (Gradle) dependency so the
   class compiles. With the Spring Boot starter, `JavaMigration` beans are picked up too.
 
 ## Repeatable migrations
