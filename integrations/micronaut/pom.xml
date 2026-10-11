@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-micronaut</artifactId>
-  <version>0.4.0</version>
+  <version>0.4.1-SNAPSHOT</version>
   <name>Migrax for Micronaut</name>
   <description>
     Applies Migrax migrations when a Micronaut DataSource is created, before Hibernate starts.
@@ -34,7 +34,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.4.0</version>
+      <version>0.4.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>io.micronaut</groupId>
