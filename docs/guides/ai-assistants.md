@@ -180,8 +180,8 @@ tells them how to work with Migrax; copy it into yours:
 
 The documentation is also published as plain text for AI assistants:
 
-- [llms.txt](https://docs-migrax.github.io/llms.txt): an index of every page, with a one-line
+- [llms.txt](https://migrax.org/llms.txt): an index of every page, with a one-line
   summary each;
-- [llms-full.txt](https://docs-migrax.github.io/llms-full.txt): every page in one file.
+- [llms-full.txt](https://migrax.org/llms-full.txt): every page in one file.
 
 Point an assistant at `llms-full.txt` when it needs to answer questions about Migrax.

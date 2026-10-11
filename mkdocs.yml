@@ -1,6 +1,6 @@
 site_name: Migrax
 site_description: Database migrations generated from your JPA entities, checked before they reach production.
-site_url: https://docs-migrax.github.io/
+site_url: https://migrax.org/
 repo_url: https://github.com/fsmutimeer/migrax
 repo_name: fsmutimeer/migrax
 # mkdocs serve also reloads when the page templates change.
