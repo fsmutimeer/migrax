@@ -37,14 +37,14 @@ Add the starter:
     <dependency>
       <groupId>io.migrax</groupId>
       <artifactId>migrax-spring-boot-starter</artifactId>
-      <version>0.2.0</version>
+      <version>0.3.0</version>
     </dependency>
     ```
 
 === "Gradle"
 
     ```kotlin
-    implementation("io.migrax:migrax-spring-boot-starter:0.2.0")
+    implementation("io.migrax:migrax-spring-boot-starter:0.3.0")
     ```
 
 Migrations are applied when the application starts, **before** JPA starts, so
