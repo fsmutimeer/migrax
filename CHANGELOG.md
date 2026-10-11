@@ -11,8 +11,9 @@ All notable changes to Migrax are listed here. The format follows
 - Migrax now lives under `org.migrax` (the project's domain is migrax.org): the Maven
   groupId, the Gradle plugin ID and the Java packages all change from `io.migrax` to
   `org.migrax`. Commands, options, configuration keys, environment variables, migration files,
-  the snapshot and the database tables are unchanged, and 0.3 and 0.4 instances still share
-  the same migration lock.
+  the snapshot and the database tables are unchanged. The migration lock has a new name too,
+  so a 0.3 and a 0.4 instance don't wait for each other: during the upgrade, make sure only
+  one of them runs migrations against a database at a time.
 
   To upgrade, replace `io.migrax` with `org.migrax` in your build:
 

@@ -125,9 +125,7 @@ public final class DatabaseMigrationLock {
     if (database == null || database.isBlank()) {
       database = connection.getMetaData().getURL();
     }
-    // Keeps the name from before the package became org.migrax: every version must take the
-    // same lock, or an old and a new instance could migrate the same database at once.
-    return "io.migrax:" + HexFormat.of().formatHex(sha256(database), 0, 16);
+    return "org.migrax:" + HexFormat.of().formatHex(sha256(database), 0, 16);
   }
 
   private static byte[] sha256(String value) {
