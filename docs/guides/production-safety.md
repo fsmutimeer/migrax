@@ -82,6 +82,22 @@ shows the exact line to change:
                   (or validate: Hibernate then checks the schema at startup without changing it)
 ```
 
+## When a DBA runs the migrations
+
+Where developers may not change production themselves, hand the DBA one script:
+
+```console
+$ migrax migrate --sql > release-2026-10.sql
+```
+
+It is exactly what `migrate` would do now against that database: the pending migrations in
+order, each with the row Migrax records in `migrax_history` (so `migrax status` shows them as
+applied afterwards), transactions where the database supports them, and the end markers its
+tool expects (`GO` for `sqlcmd`, `/` after PL/SQL for `sqlplus`, `DELIMITER` for `mysql`). The
+first lines say how to run it so it stops at the first error, for example
+`psql -v ON_ERROR_STOP=1 -f release-2026-10.sql`. Writing the script reads the database but
+changes nothing; Java migrations can't be written as SQL and are refused.
+
 ## Applying a release in steps
 
 To roll out several migrations one at a time (for example, run the slow index first and check

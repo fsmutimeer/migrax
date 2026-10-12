@@ -199,114 +199,183 @@ public final class MigrationRunner {
     return withTransactionAndLock(connection, () -> {
       ensureHistory(connection);
       ensureFailureTable(connection);
-      boolean backslashEscapes = backslashEscapes(connection);
-
-      List<Migration> versioned = migrations.stream()
-          .filter(m -> m.kind() == Migration.Kind.VERSIONED).sorted(ORDER).toList();
-      List<Migration> repeatable = migrations.stream()
-          .filter(m -> m.kind() == Migration.Kind.REPEATABLE)
-          .sorted(Comparator.comparing(Migration::version)).toList();
-      Map<String, Migration> callbacks = new HashMap<>();
-      migrations.stream().filter(m -> m.kind() == Migration.Kind.CALLBACK)
-          .filter(this::appliesHere).forEach(m -> callbacks.put(m.version(), m));
-
+      Map<String, Migration> callbacks = callbacks(migrations);
       // Parse every script before running anything, so a broken file changes nothing.
-      Map<String, List<String>> statements = new HashMap<>();
-      for (Migration migration : migrations) {
-        if (!migration.isJava()) {
-          statements.put(migration.version(), SqlScript.split(
-              SqlScript.substitute(migration.sql(), options.placeholders()), backslashEscapes));
-        }
-      }
+      Map<String, List<String>> statements =
+          parse(migrations, options, backslashEscapes(connection));
 
       Map<String, AppliedMigration> history = readHistory(connection);
-      verifyAppliedExist(connection, history, migrations);
-      verifyAppliedChecksums(history, versioned);
+      verifyAppliedExist(connection, history, migrations, true);
+      verifyAppliedChecksums(history, versioned(migrations));
       verifyFailedAttempts(connection, migrations, options.resume());
 
       int applied = 0;
       runCallback(connection, callbacks.get("beforeMigrate.sql"), statements);
-      // Squashed migrations: a database that applied none of the replaced migrations runs the
-      // squashed file; one that applied some keeps applying the originals. Either way all of
-      // them end up recorded.
-      Map<String, Migration> squashOf = new HashMap<>();
-      Map<String, Migration> byVersion = new HashMap<>();
-      for (Migration migration : versioned) {
-        byVersion.put(migration.version(), migration);
-        migration.replaces().forEach(replaced -> squashOf.put(replaced, migration));
-      }
-      Set<String> done = new HashSet<>(history.keySet());
-      for (Migration migration : versioned) {
-        if (done.contains(migration.version())) {
-          Log.debug("Migration '{}' is already applied; skipping.", migration.version());
-          continue;
-        }
-        if (options.beyondTarget(migration) || !appliesHere(migration)) {
-          continue;
-        }
-        Migration squash = migration.replaces().isEmpty() ? squashOf.get(migration.version())
-            : migration;
-        if (squash == null) {
-          applyMigration(connection, migration, statements, callbacks, options.resume(), false);
-          done.add(migration.version());
+      for (Step step : plan(migrations, history, options)) {
+        if (step instanceof Apply apply) {
+          applyMigration(connection, apply.migration(), statements, callbacks, options.resume(),
+              apply.replaceHistory());
           applied++;
-          continue;
-        }
-        List<String> replaces = squash.replaces();
-        boolean noneApplied = replaces.stream().noneMatch(done::contains);
-        if (done.contains(squash.version())) {
-          // The squash already ran here; the original file only needs recording.
-          recordApplied(connection, migration.version(), migration.checksum(), false);
+        } else if (step instanceof Record record) {
+          recordApplied(connection, record.version(), record.checksum(), false);
           connection.commit();
-          done.add(migration.version());
-        } else if (noneApplied) {
-          applyMigration(connection, squash, statements, callbacks, options.resume(), false);
-          done.add(squash.version());
-          applied++;
-          for (String replaced : replaces) {
-            Migration original = byVersion.get(replaced);
-            recordApplied(connection, replaced,
-                original == null ? squash.checksum() : original.checksum(), false);
-            done.add(replaced);
+          if (record.note() != null) {
+            Log.info(record.note());
           }
-          connection.commit();
-        } else if (migration != squash) {
-          applyMigration(connection, migration, statements, callbacks, options.resume(), false);
-          done.add(migration.version());
-          applied++;
         }
-      }
-      for (Migration migration : versioned) {
-        List<String> replaces = migration.replaces();
-        if (!replaces.isEmpty() && !done.contains(migration.version())
-            && !options.beyondTarget(migration) && appliesHere(migration)) {
-          if (!done.containsAll(replaces)) {
-            List<String> missing = replaces.stream().filter(r -> !done.contains(r)).toList();
-            throw new IllegalStateException("Squashed migration '" + migration.version()
-                + "' replaces migrations that are only partly applied here and the files "
-                + missing + " are gone. Restore them until every environment has applied "
-                + "the squashed range.");
-          }
-          recordApplied(connection, migration.version(), migration.checksum(), false);
-          connection.commit();
-          done.add(migration.version());
-          Log.info("Recorded '{}' as applied: it replaces migrations already applied here.",
-              migration.version());
-        }
-      }
-      for (Migration migration : repeatable) {
-        AppliedMigration previous = history.get(migration.version());
-        if ((previous != null && previous.checksum().equals(migration.checksum()))
-            || options.beyondTarget(migration) || !appliesHere(migration)) {
-          continue;
-        }
-        applyMigration(connection, migration, statements, callbacks, options.resume(),
-            previous != null);
-        applied++;
       }
       runCallback(connection, callbacks.get("afterMigrate.sql"), statements);
       return applied;
     });
+  }
+
+  /**
+   * The SQL script that does what {@link #migrateAll} would do now, for a DBA to review and
+   * run with the database's own tool. It reads the history and changes nothing. Java
+   * migrations cannot be written as SQL and are refused.
+   *
+   * @since 0.5.0
+   */
+  public String script(Connection connection, List<Migration> migrations, Options options)
+      throws Exception {
+    validateVersions(migrations);
+    boolean historyTable = historyTableExists(connection, "migrax_history");
+    boolean failureTable = historyTableExists(connection, "migrax_failures");
+    Map<String, AppliedMigration> history = historyTable ? readHistory(connection) : Map.of();
+    verifyAppliedExist(connection, history, migrations, failureTable);
+    verifyAppliedChecksums(history, versioned(migrations));
+    if (failureTable) {
+      verifyFailedAttempts(connection, migrations, false);
+    }
+    List<Step> plan = plan(migrations, history, options);
+    for (Step step : plan) {
+      if (step instanceof Apply apply && apply.migration().isJava()) {
+        throw new IllegalStateException("Java migration '" + apply.migration().version()
+            + "' cannot be written as SQL. Apply it with 'migrax migrate', or write it as a "
+            + "SQL migration.");
+      }
+    }
+    return new MigrationScript(connection.getMetaData().getDatabaseProductName(),
+        currentTimestamp(connection)).write(plan,
+        parse(migrations, options, backslashEscapes(connection)), callbacks(migrations),
+        historyTable ? null : historyTableDdl(connection),
+        failureTable ? null : failureTableDdl(connection));
+  }
+
+  /** One step of a migration run. */
+  sealed interface Step permits Apply, Record {}
+
+  /** Run a migration and record it; {@code replaceHistory} for a changed repeatable one. */
+  record Apply(Migration migration, boolean replaceHistory) implements Step {}
+
+  /** Record a migration as applied without running it (squashed migrations). */
+  record Record(String version, String checksum, String note) implements Step {}
+
+  /**
+   * What a migration run does, in order. It depends only on the history and the migrations,
+   * so 'migrate' runs it and 'migrate --sql' writes it out.
+   */
+  List<Step> plan(List<Migration> migrations, Map<String, AppliedMigration> history,
+                  Options options) {
+    List<Migration> versioned = versioned(migrations);
+    List<Migration> repeatable = migrations.stream()
+        .filter(m -> m.kind() == Migration.Kind.REPEATABLE)
+        .sorted(Comparator.comparing(Migration::version)).toList();
+    List<Step> plan = new ArrayList<>();
+    // Squashed migrations: a database that applied none of the replaced migrations runs the
+    // squashed file; one that applied some keeps applying the originals. Either way all of
+    // them end up recorded.
+    Map<String, Migration> squashOf = new HashMap<>();
+    Map<String, Migration> byVersion = new HashMap<>();
+    for (Migration migration : versioned) {
+      byVersion.put(migration.version(), migration);
+      migration.replaces().forEach(replaced -> squashOf.put(replaced, migration));
+    }
+    Set<String> done = new HashSet<>(history.keySet());
+    for (Migration migration : versioned) {
+      if (done.contains(migration.version())) {
+        Log.debug("Migration '{}' is already applied; skipping.", migration.version());
+        continue;
+      }
+      if (options.beyondTarget(migration) || !appliesHere(migration)) {
+        continue;
+      }
+      Migration squash = migration.replaces().isEmpty() ? squashOf.get(migration.version())
+          : migration;
+      if (squash == null) {
+        plan.add(new Apply(migration, false));
+        done.add(migration.version());
+        continue;
+      }
+      List<String> replaces = squash.replaces();
+      boolean noneApplied = replaces.stream().noneMatch(done::contains);
+      if (done.contains(squash.version())) {
+        // The squash already ran here; the original file only needs recording.
+        plan.add(new Record(migration.version(), migration.checksum(), null));
+        done.add(migration.version());
+      } else if (noneApplied) {
+        plan.add(new Apply(squash, false));
+        done.add(squash.version());
+        for (String replaced : replaces) {
+          Migration original = byVersion.get(replaced);
+          plan.add(new Record(replaced,
+              original == null ? squash.checksum() : original.checksum(), null));
+          done.add(replaced);
+        }
+      } else if (migration != squash) {
+        plan.add(new Apply(migration, false));
+        done.add(migration.version());
+      }
+    }
+    for (Migration migration : versioned) {
+      List<String> replaces = migration.replaces();
+      if (!replaces.isEmpty() && !done.contains(migration.version())
+          && !options.beyondTarget(migration) && appliesHere(migration)) {
+        if (!done.containsAll(replaces)) {
+          List<String> missing = replaces.stream().filter(r -> !done.contains(r)).toList();
+          throw new IllegalStateException("Squashed migration '" + migration.version()
+              + "' replaces migrations that are only partly applied here and the files "
+              + missing + " are gone. Restore them until every environment has applied "
+              + "the squashed range.");
+        }
+        plan.add(new Record(migration.version(), migration.checksum(), "Recorded '"
+            + migration.version() + "' as applied: it replaces migrations already applied here."));
+        done.add(migration.version());
+      }
+    }
+    for (Migration migration : repeatable) {
+      AppliedMigration previous = history.get(migration.version());
+      if ((previous != null && previous.checksum().equals(migration.checksum()))
+          || options.beyondTarget(migration) || !appliesHere(migration)) {
+        continue;
+      }
+      plan.add(new Apply(migration, previous != null));
+    }
+    return plan;
+  }
+
+  private static List<Migration> versioned(List<Migration> migrations) {
+    return migrations.stream().filter(m -> m.kind() == Migration.Kind.VERSIONED)
+        .sorted(ORDER).toList();
+  }
+
+  private Map<String, Migration> callbacks(List<Migration> migrations) {
+    Map<String, Migration> callbacks = new HashMap<>();
+    migrations.stream().filter(m -> m.kind() == Migration.Kind.CALLBACK)
+        .filter(this::appliesHere).forEach(m -> callbacks.put(m.version(), m));
+    return callbacks;
+  }
+
+  private static Map<String, List<String>> parse(List<Migration> migrations, Options options,
+                                                 boolean backslashEscapes) {
+    Map<String, List<String>> statements = new HashMap<>();
+    for (Migration migration : migrations) {
+      if (!migration.isJava()) {
+        statements.put(migration.version(), SqlScript.split(
+            SqlScript.substitute(migration.sql(), options.placeholders()), backslashEscapes));
+      }
+    }
+    return statements;
   }
 
   private void applyMigration(Connection connection, Migration migration,
@@ -683,17 +752,20 @@ public final class MigrationRunner {
 
   private static void verifyAppliedExist(Connection connection,
                                          Map<String, AppliedMigration> history,
-                                         List<Migration> migrations) throws SQLException {
+                                         List<Migration> migrations, boolean failureTable)
+      throws SQLException {
     Set<String> available = new HashSet<>();
     for (Migration migration : migrations) {
       available.add(migration.version());
       available.addAll(migration.replaces());
     }
     Set<String> recorded = new LinkedHashSet<>(history.keySet());
-    try (Statement statement = connection.createStatement();
-         ResultSet result = statement.executeQuery("SELECT version FROM migrax_failures")) {
-      while (result.next()) {
-        recorded.add(result.getString(1));
+    if (failureTable) {
+      try (Statement statement = connection.createStatement();
+           ResultSet result = statement.executeQuery("SELECT version FROM migrax_failures")) {
+        while (result.next()) {
+          recorded.add(result.getString(1));
+        }
       }
     }
     List<String> missing = new ArrayList<>();
@@ -781,10 +853,7 @@ public final class MigrationRunner {
   private void ensureHistory(Connection connection) throws SQLException {
     if (!historyTableExists(connection, "migrax_history")) {
       try (Statement statement = connection.createStatement()) {
-        statement.executeUpdate(
-            "CREATE TABLE migrax_history (version VARCHAR(255) PRIMARY KEY, "
-                + "checksum VARCHAR(64) NOT NULL, "
-                + "applied_at " + timestampType(connection) + " NOT NULL)");
+        statement.executeUpdate(historyTableDdl(connection));
       }
     }
   }
@@ -792,13 +861,22 @@ public final class MigrationRunner {
   private void ensureFailureTable(Connection connection) throws SQLException {
     if (!historyTableExists(connection, "migrax_failures")) {
       try (Statement statement = connection.createStatement()) {
-        statement.executeUpdate(
-            "CREATE TABLE migrax_failures (version VARCHAR(255) PRIMARY KEY, "
-                + "checksum VARCHAR(64) NOT NULL, failure_state VARCHAR(16) NOT NULL, "
-                + "attempt_count INTEGER NOT NULL, failure_message VARCHAR(2000), "
-                + "updated_at " + timestampType(connection) + " NOT NULL)");
+        statement.executeUpdate(failureTableDdl(connection));
       }
     }
+  }
+
+  private static String historyTableDdl(Connection connection) throws SQLException {
+    return "CREATE TABLE migrax_history (version VARCHAR(255) PRIMARY KEY, "
+        + "checksum VARCHAR(64) NOT NULL, "
+        + "applied_at " + timestampType(connection) + " NOT NULL)";
+  }
+
+  private static String failureTableDdl(Connection connection) throws SQLException {
+    return "CREATE TABLE migrax_failures (version VARCHAR(255) PRIMARY KEY, "
+        + "checksum VARCHAR(64) NOT NULL, failure_state VARCHAR(16) NOT NULL, "
+        + "attempt_count INTEGER NOT NULL, failure_message VARCHAR(2000), "
+        + "updated_at " + timestampType(connection) + " NOT NULL)";
   }
 
   /**

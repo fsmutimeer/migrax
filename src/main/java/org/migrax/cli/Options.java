@@ -22,7 +22,7 @@ final class Options {
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
       "--refresh", "--yes", "-y", "--help", "-h", "--version", "-V", "--json", "--safe",
       "--impact", "--strict", "--no-input", "--optimize", "--java", "--entities",
-      "--skip-rollbacks", "--all", "--allow-generate");
+      "--skip-rollbacks", "--all", "--allow-generate", "--sql");
 
   private static final Map<String, String> HELP = new LinkedHashMap<>();
 
@@ -51,6 +51,7 @@ final class Options {
     HELP.put("--classpath", "--classpath <paths>     Extra classpath; skips Maven/Gradle resolution");
     HELP.put("--no-build", "--no-build              Do not run Maven/Gradle; use compiled classes");
     HELP.put("--refresh", "--refresh               Re-resolve dependencies even if cached");
+    HELP.put("--sql", "--sql                   Print the SQL script instead of applying it (for a DBA)");
     HELP.put("--dry-run", "--dry-run               Show what would happen without doing it");
     HELP.put("--allow-generate",
         "--allow-generate        Also offer the generate tool (writes migration files)");

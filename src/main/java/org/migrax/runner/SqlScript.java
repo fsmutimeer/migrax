@@ -218,6 +218,11 @@ public final class SqlScript {
     return statements;
   }
 
+  /** Whether a statement is a PL/SQL block, which Oracle's tools end with a / line. */
+  static boolean isPlsqlBlock(String statement) {
+    return PLSQL_BLOCK.matcher(stripComments(statement).strip()).lookingAt();
+  }
+
   private static void addStatement(List<String> statements, StringBuilder current) {
     String statement = current.toString().trim();
     if (!statement.isEmpty() && !stripComments(statement).isBlank()) {

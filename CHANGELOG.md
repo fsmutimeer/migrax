@@ -8,6 +8,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- `migrate --sql` (Maven: `-Dmigrax.sql=true`) prints one SQL script with everything `migrate`
+  would do, for a DBA to review and run with `psql`, `mysql`, `sqlcmd` or `sqlplus`: the
+  pending migrations, the history rows Migrax records, transactions where the database has
+  them, and each tool's end markers. Nothing changes until the script runs.
 - Migrations for some environments only: a `-- migrax:env dev,test` line makes a migration
   run only where `--env`, `MIGRAX_ENV` or `migrax.env` names one of them. Elsewhere `status`
   shows it as skipped (`[-]`, state `SKIPPED` in `--json`), and health checks don't count it

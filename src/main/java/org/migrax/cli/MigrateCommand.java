@@ -34,7 +34,7 @@ final class MigrateCommand implements Command {
 
   @Override
   public String usage() {
-    return "migrax migrate [--to <migration>] [--dry-run] [--resume] [--schemas a,b]";
+    return "migrax migrate [--to <migration>] [--sql | --dry-run] [--resume] [--schemas a,b]";
   }
 
   @Override
@@ -44,6 +44,8 @@ final class MigrateCommand implements Command {
         R__*.sql migrations, with beforeMigrate/afterMigrate callbacks and ${placeholders}.
         --to applies versioned migrations only up to and including the given one;
         repeatable migrations then wait for the next migrate without --to.
+        --sql prints the SQL script of what migrate would do, for a DBA to review and run
+        with the database's own tool; nothing changes.
         --dry-run lists and lints pending migrations without changing the database.
         --schemas runs the migrations once per schema (multi-tenant).
         --resume re-runs a failed migration only if it is marked '-- migrax:resume-safe'.""";
@@ -56,7 +58,7 @@ final class MigrateCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--to", "--env", "--dry-run", "--json", "--resume", "--lock-timeout", "--schemas", "--url",
+    return List.of("--to", "--env", "--sql", "--dry-run", "--json", "--resume", "--lock-timeout", "--schemas", "--url",
         "--user", "--password", "--password-file", "--locations", "--java-package", "--classpath",
         "--no-build");
   }
@@ -80,6 +82,21 @@ final class MigrateCommand implements Command {
     Map<String, Migration> byVersion = new HashMap<>();
     migrations.forEach(m -> byVersion.put(m.version(), m));
     MigrationRunner runner = context.migrationRunner();
+    if (args.flag("--sql")) {
+      if (!project.schemas().isEmpty()) {
+        throw new UsageException("--sql writes the script for one schema.",
+            "Leave out --schemas and point --url at each schema in turn.");
+      }
+      try (Connection connection = project.connect()) {
+        String script = runner.script(connection, migrations, options);
+        if (args.flag("--json")) {
+          context.result("script", script);
+        } else {
+          out.print(script);
+        }
+      }
+      return OK;
+    }
     try (Connection connection = project.connect()) {
       for (String schema : project.schemasOrDefault()) {
         if (schema != null) {
