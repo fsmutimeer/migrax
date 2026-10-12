@@ -144,13 +144,14 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 ### migrate
 
 ```
-migrax migrate [--dry-run] [--resume] [--schemas a,b]
+migrax migrate [--to <migration>] [--dry-run] [--resume] [--schemas a,b]
 ```
 
-Applies pending SQL and Java migrations in order, then new or changed repeatable `R__*.sql` migrations, with beforeMigrate/afterMigrate callbacks and `${placeholders}`. `--dry-run` lists and lints pending migrations without changing the database. `--schemas` runs the migrations once per schema (multi-tenant). `--resume` re-runs a failed migration only if it is marked `-- migrax:resume-safe`.
+Applies pending SQL and Java migrations in order, then new or changed repeatable `R__*.sql` migrations, with beforeMigrate/afterMigrate callbacks and `${placeholders}`. `--to` applies versioned migrations only up to and including the given one; repeatable migrations then wait for the next migrate without `--to`. `--dry-run` lists and lints pending migrations without changing the database. `--schemas` runs the migrations once per schema (multi-tenant). `--resume` re-runs a failed migration only if it is marked `-- migrax:resume-safe`.
 
 | Option | Meaning |
 |---|---|
+| `--to <migration>` | Last migration to apply, keep or squash up to |
 | `--dry-run` | Show what would happen without doing it |
 | `--json` | Machine-readable output |
 | `--resume` | Re-run a failed resume-safe migration |
@@ -228,7 +229,7 @@ Runs the rollback script of the newest applied migration (or several) and remove
 |---|---|
 | `--json` | Machine-readable output |
 | `--steps <n>` | Number of migrations to roll back |
-| `--to <migration>` | Last migration to keep / squash up to |
+| `--to <migration>` | Last migration to apply, keep or squash up to |
 | `--dry-run` | Show what would happen without doing it |
 | `--yes, -y` | Confirm without asking |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
@@ -362,7 +363,7 @@ Writes one migration that replaces all migrations up to `--to`. Databases that a
 | Option | Meaning |
 |---|---|
 | `--json` | Machine-readable output |
-| `--to <migration>` | Last migration to keep / squash up to |
+| `--to <migration>` | Last migration to apply, keep or squash up to |
 | `--name <name>` | Migration file name (default: next number + description) |
 | `--optimize` | Squash to the resulting schema only |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |

@@ -616,6 +616,40 @@ class CommandsTest {
   }
 
   @Test
+  void migrateToStopsAtTheNamedMigration() throws Exception {
+    setUp();
+    Files.createDirectories(migrations());
+    Files.writeString(migrations().resolve("0001_a.sql"), "CREATE TABLE a (id INT);\n");
+    Files.writeString(migrations().resolve("0002_b.sql"), "CREATE TABLE b (id INT);\n");
+    Files.writeString(migrations().resolve("0003_c.sql"), "CREATE TABLE c (id INT);\n");
+    Files.writeString(migrations().resolve("R__v.sql"),
+        "CREATE OR REPLACE VIEW v AS SELECT id FROM c;\n");
+
+    Result dry = cli("migrate", "--to", "2", "--dry-run");
+    assertEquals(0, dry.code(), dry.all());
+    assertTrue(dry.out().replace("\r\n", "\n")
+        .contains("2 migration(s) would be applied:\n  0001_a.sql\n  0002_b.sql\n"), dry.all());
+
+    Result first = cli("migrate", "--to", "0002");
+    assertEquals(0, first.code(), first.all());
+    assertTrue(first.out().contains("Applied 2 migration(s) up to 0002_b.sql."), first.all());
+    assertTrue(first.out().contains("2 migration(s) after it stay pending."), first.all());
+    assertEquals("0", query("SELECT COUNT(*) FROM migrax_history WHERE version IN "
+        + "('0003_c.sql', 'R__v.sql')"));
+
+    Result again = cli("migrate", "--to", "0002_b.sql");
+    assertTrue(again.out().contains("Nothing to migrate up to 0002_b.sql."), again.all());
+
+    Result unknown = cli("migrate", "--to", "0009");
+    assertEquals(1, unknown.code(), unknown.all());
+    assertTrue(unknown.all().contains("No migration '0009' in src/main/resources/db/migration."),
+        unknown.all());
+
+    Result rest = cli("migrate");
+    assertTrue(rest.out().contains("Applied 2 migration(s); 3 total"), rest.all());
+  }
+
+  @Test
   void errorsHaveStableCodesInTextAndJson() throws Exception {
     setUp();
     Result unknown = cli("migrate", "--colour");

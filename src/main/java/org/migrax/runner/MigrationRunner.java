@@ -66,14 +66,40 @@ public final class MigrationRunner {
     return new MigrationRunner(timeout == null ? java.time.Duration.ZERO : timeout);
   }
 
-  /** Run options. */
-  public record Options(boolean resume, Map<String, String> placeholders) {
+  /**
+   * Run options.
+   *
+   * @param resume re-run a failed migration marked resume-safe
+   * @param placeholders values for {@code ${name}} in SQL
+   * @param target last versioned migration to apply, or null for all; repeatable migrations
+   *     are skipped when a target is set (since 0.5.0)
+   */
+  public record Options(boolean resume, Map<String, String> placeholders, String target) {
     public Options {
       placeholders = placeholders == null ? Map.of() : Map.copyOf(placeholders);
     }
 
+    public Options(boolean resume, Map<String, String> placeholders) {
+      this(resume, placeholders, null);
+    }
+
     public static Options defaults() {
       return new Options(false, Map.of());
+    }
+
+    /**
+     * The same options, applying versioned migrations only up to and including {@code target}.
+     *
+     * @since 0.5.0
+     */
+    public Options withTarget(String target) {
+      return new Options(resume, placeholders, target);
+    }
+
+    /** Whether a target is set and the migration comes after it (or is repeatable). */
+    public boolean beyondTarget(Migration migration) {
+      return target != null && (migration.kind() == Migration.Kind.REPEATABLE
+          || compareMigrationFilenames(migration.version(), target) > 0);
     }
   }
 
@@ -184,6 +210,9 @@ public final class MigrationRunner {
           Log.debug("Migration '{}' is already applied; skipping.", migration.version());
           continue;
         }
+        if (options.beyondTarget(migration)) {
+          continue;
+        }
         Migration squash = migration.replaces().isEmpty() ? squashOf.get(migration.version())
             : migration;
         if (squash == null) {
@@ -218,7 +247,8 @@ public final class MigrationRunner {
       }
       for (Migration migration : versioned) {
         List<String> replaces = migration.replaces();
-        if (!replaces.isEmpty() && !done.contains(migration.version())) {
+        if (!replaces.isEmpty() && !done.contains(migration.version())
+            && !options.beyondTarget(migration)) {
           if (!done.containsAll(replaces)) {
             List<String> missing = replaces.stream().filter(r -> !done.contains(r)).toList();
             throw new IllegalStateException("Squashed migration '" + migration.version()
@@ -235,7 +265,8 @@ public final class MigrationRunner {
       }
       for (Migration migration : repeatable) {
         AppliedMigration previous = history.get(migration.version());
-        if (previous != null && previous.checksum().equals(migration.checksum())) {
+        if ((previous != null && previous.checksum().equals(migration.checksum()))
+            || options.beyondTarget(migration)) {
           continue;
         }
         applyMigration(connection, migration, statements, callbacks, options.resume(),
