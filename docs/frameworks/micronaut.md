@@ -59,7 +59,7 @@ Migrations run as soon as Micronaut creates the data source, **before** Hibernat
 |---|---|---|
 | `migrax.enabled` | `true` | Apply migrations at startup |
 | `migrax.datasource` | `default` | Data source to migrate |
-| `migrax.locations` | `db/migration` | Migration folder on the classpath |
+| `migrax.locations` | `db/migration` | Migration folders on the classpath, comma-separated |
 | `migrax.java-package` | `db.migration` | Package of `JavaMigration` classes |
 | `migrax.resume` | `false` | Re-run a failed migration marked `-- migrax:resume-safe` |
 | `migrax.lock-timeout` | `0` | How long to wait while another instance migrates, for example `2m` when several start together |

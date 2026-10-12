@@ -56,7 +56,7 @@ gradle migraxRollback -Pmigrax.args="--steps 2 --yes"
 |---|---|
 | `packageName` | Entity package |
 | `url`, `user`, `password` | Database connection (default: application config) |
-| `locations` | Migration folder, e.g. `classpath:db/migration` |
+| `locations` | Migration folders, comma-separated, e.g. `classpath:db/migration` |
 | `naming` | `spring`, `jpa`, `jpa-snake` or `micronaut` |
 | `dialect` | `postgresql`, `mysql`, `mariadb`, `sqlserver`, `oracle` or `h2` |
 | `args` | Extra arguments for every task, e.g. `--verbose` |

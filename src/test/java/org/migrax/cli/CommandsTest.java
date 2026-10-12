@@ -686,6 +686,43 @@ class CommandsTest {
   }
 
   @Test
+  void migrationsAreReadFromSeveralFolders() throws Exception {
+    setUp();
+    Path dev = project.resolve("db/dev-data");
+    Files.createDirectories(migrations());
+    Files.createDirectories(dev.resolve("rollback"));
+    Files.writeString(migrations().resolve("0001_a.sql"), "CREATE TABLE a (id INT);\n");
+    Files.writeString(dev.resolve("0002_seed.sql"), "INSERT INTO a VALUES (1);\n");
+    Files.writeString(dev.resolve("rollback/0002_seed.sql"), "DELETE FROM a;\n");
+    String locations = "classpath:db/migration,filesystem:db/dev-data";
+
+    Result migrate = cli("migrate", "--locations", locations);
+    assertEquals(0, migrate.code(), migrate.all());
+    assertTrue(migrate.out().contains(
+        "Applied 2 migration(s); 2 total in src/main/resources/db/migration, db/dev-data."),
+        migrate.all());
+    assertEquals("1", query("SELECT COUNT(*) FROM a"));
+
+    Result status = cli("status", "--locations", locations);
+    assertTrue(status.out().startsWith(
+        "Migrations in src/main/resources/db/migration, db/dev-data for "), status.all());
+
+    Result rollback = cli("rollback", "--yes", "--locations", locations);
+    assertEquals(0, rollback.code(), rollback.all());
+    assertEquals("0", query("SELECT COUNT(*) FROM a"));
+
+    Result created = cli("new", "next", "--locations", locations);
+    assertTrue(created.out().contains("src/main/resources/db/migration/0003_next.sql"),
+        created.all());
+
+    Files.writeString(dev.resolve("0001_a.sql"), "CREATE TABLE a2 (id INT);\n");
+    Result duplicate = cli("status", "--locations", locations);
+    assertEquals(1, duplicate.code(), duplicate.all());
+    assertTrue(duplicate.all().contains("Two migration folders contain 0001_a.sql"),
+        duplicate.all());
+  }
+
+  @Test
   void errorsHaveStableCodesInTextAndJson() throws Exception {
     setUp();
     Result unknown = cli("migrate", "--colour");

@@ -203,4 +203,22 @@ class RunnerFeaturesTest {
           history(connection));
     }
   }
+
+  @Test
+  void classpathMigrationsComeFromSeveralLocations() throws Exception {
+    java.nio.file.Path root = java.nio.file.Files.createTempDirectory("migrax-locations");
+    java.nio.file.Files.createDirectories(root.resolve("db/migration"));
+    java.nio.file.Files.createDirectories(root.resolve("db/seed"));
+    java.nio.file.Files.writeString(root.resolve("db/migration/0001_a.sql"), "CREATE TABLE a;");
+    java.nio.file.Files.writeString(root.resolve("db/seed/0002_b.sql"), "INSERT INTO a;");
+    try (var loader = new java.net.URLClassLoader(new java.net.URL[] {root.toUri().toURL()},
+        null)) {
+      List<String> names = org.migrax.runner.ClasspathMigrations.load(loader,
+          List.of("db/migration", " classpath:db/seed")).stream().map(Migration::version).toList();
+      assertEquals(List.of("0001_a.sql", "0002_b.sql"), names);
+      java.nio.file.Files.writeString(root.resolve("db/seed/0001_a.sql"), "CREATE TABLE a;");
+      assertThrows(IllegalStateException.class, () -> org.migrax.runner.ClasspathMigrations.load(
+          loader, List.of("db/migration", "db/seed")));
+    }
+  }
 }

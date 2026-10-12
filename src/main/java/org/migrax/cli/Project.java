@@ -113,9 +113,69 @@ final class Project implements AutoCloseable {
     return !blank(credentials().url());
   }
 
+  /** The first migration folder: new migrations are written there. */
   Path migrations() throws Exception {
-    return ProjectDatabaseConfig.resolveMigrationDirectory(
+    return migrationFolders().get(0);
+  }
+
+  /** Every migration folder ({@code --locations a,b}); migrations are read from all of them. */
+  List<Path> migrationFolders() throws Exception {
+    return ProjectDatabaseConfig.resolveMigrationDirectories(
         credentials().locations(), root, resources());
+  }
+
+  /** The migration folders for messages, separated by commas. */
+  String displayMigrations() throws Exception {
+    return String.join(", ", migrationFolders().stream().map(this::display).toList());
+  }
+
+  /**
+   * SQL files of every migration folder in version order. Two folders holding a file with the
+   * same name is an error: both would be recorded under that name.
+   */
+  List<Path> migrationFiles() throws Exception {
+    List<Path> files = MigrationLoader.sqlFiles(migrationFolders());
+    Map<String, Path> seen = new java.util.HashMap<>();
+    for (Path file : files) {
+      String name = String.valueOf(file.getFileName());
+      Path other = seen.putIfAbsent(name, file);
+      if (other != null) {
+        throw new UsageException("Two migration folders contain " + name + ": "
+            + display(other) + " and " + display(file) + ".",
+            "Migration file names must be unique across all folders. Rename one of them.");
+      }
+    }
+    return files;
+  }
+
+  /** The migration file with this name, from whichever folder holds it, or null. */
+  Path migrationFile(String name) throws Exception {
+    for (Path folder : migrationFolders()) {
+      if (Files.isRegularFile(folder.resolve(name))) {
+        return folder.resolve(name);
+      }
+    }
+    return null;
+  }
+
+  /** The folder that holds a migration, or the first folder when none does. */
+  Path folderOf(String version) throws Exception {
+    Path file = migrationFile(version);
+    return file == null ? migrations() : file.getParent();
+  }
+
+  /** The rollback script of a migration, next to the migration file; null when missing. */
+  Path rollbackScript(String version) throws Exception {
+    return MigrationLoader.rollbackScript(folderOf(version), version);
+  }
+
+  /** The next migration number after the highest one in any migration folder. */
+  int nextNumber() throws Exception {
+    int next = 1;
+    for (Path folder : migrationFolders()) {
+      next = Math.max(next, MigrationFiles.nextNumber(folder));
+    }
+    return next;
   }
 
   String packageName() throws Exception {
@@ -303,7 +363,9 @@ final class Project implements AutoCloseable {
 
   /** SQL files, repeatable migrations, callbacks and Java migrations. */
   List<Migration> migrationsToRun(boolean withJava) throws Exception {
-    return MigrationLoader.load(migrations(), withJava ? loader(false) : null, javaPackage());
+    migrationFiles();
+    return MigrationLoader.load(migrationFolders(), withJava ? loader(false) : null,
+        javaPackage());
   }
 
   Connection connect() throws Exception {

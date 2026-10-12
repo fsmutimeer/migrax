@@ -35,7 +35,7 @@ Creates the .migrax folder and the migration folder, then shows the entity packa
 | Option | Meaning |
 |---|---|
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--dir <path>` | Project folder (default: current folder) |
 
@@ -99,7 +99,7 @@ and remove Flyway or Liquibase from the project. See
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -126,7 +126,7 @@ For a database whose tables already exist (created by hand, by a script or by an
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -160,7 +160,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--schema <name>` | Database schema to read |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |
@@ -186,7 +186,7 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -210,7 +210,7 @@ Lists migrations as applied [X], pending [ ] or a problem [!], without changing 
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -263,7 +263,7 @@ Runs the rollback script of the newest applied migration (or several) and remove
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -281,7 +281,7 @@ Creates the next numbered SQL file for hand-written changes such as data migrati
 | `--json` | Machine-readable output |
 | `--java` | Create a Java migration |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ## Safety and CI
@@ -320,7 +320,7 @@ Checks pending migrations (or the given files, or `--all`) for statements that b
 | `--json` | Machine-readable output |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--url <jdbc-url>` | Database URL (default: application config) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### verify
@@ -344,7 +344,7 @@ Starts a throwaway database (H2 in memory, or Docker for other engines), applies
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -392,7 +392,7 @@ Writes one migration that replaces all migrations up to `--to`. Databases that a
 | `--name <name>` | Migration file name (default: next number + description) |
 | `--optimize` | Squash to the resulting schema only |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### merge
@@ -411,7 +411,7 @@ Renumbers migrations that share a number after a git merge (the one added later 
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate or annotations (default: auto) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -441,7 +441,7 @@ Use only after inspecting the database.
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -503,7 +503,7 @@ Prints a migration file from the migration folder.
 
 | Option | Meaning |
 |---|---|
-| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### version

@@ -80,8 +80,7 @@ final class DoctorCommand implements Command {
         "Migrax needs Java 17 or newer.");
     ProjectBuild.Tool tool = ProjectBuild.detect(project.root());
     String packageName = project.packageNameOrNull();
-    Path migrations = project.migrations();
-    List<Path> files = MigrationLoader.sqlFiles(migrations);
+    List<Path> files = project.migrationFiles();
     // Migrations but no build file and no entity package: a project that writes its migrations
     // by hand (another language, or the container image), so the Java checks don't apply. A Java
     // project opened in the wrong folder has no migrations there and still fails them.
@@ -157,7 +156,7 @@ final class DoctorCommand implements Command {
       }
     }
 
-    doctor.ok("Migrations: " + files.size() + " file(s) in " + project.display(migrations));
+    doctor.ok("Migrations: " + files.size() + " file(s) in " + project.displayMigrations());
     for (ProjectDatabaseConfig.SchemaGeneration setting
         : ProjectDatabaseConfig.schemaGenerationSettings(project.resources(), project.config())) {
       adviseSchemaGeneration(doctor, project, setting);

@@ -66,7 +66,7 @@ final class BaselineCommand implements Command {
     project.requireUrl();
     List<Migration> migrations = project.migrationsToRun(true);
     String target = MigrateCommand.target(args.positionals.get(1), migrations,
-        project.display(project.migrations()));
+        project.displayMigrations());
     List<Migration> existing = migrations.stream()
         .filter(m -> m.kind() == Migration.Kind.VERSIONED)
         .filter(m -> MigrationRunner.compareMigrationFilenames(m.version(), target) <= 0)

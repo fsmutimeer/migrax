@@ -112,7 +112,7 @@ final class RepairCommand implements Command {
       for (Migration migration : project.migrationsToRun(true)) {
         if (migration.version().equals(name) || migration.version().equals(version)) {
           throw new UsageException(migration.version() + " still exists in "
-              + project.display(project.migrations()) + ".",
+              + project.displayMigrations() + ".",
               "Forget only migrations whose files you deleted: 'migrate' would run it again. "
                   + "To undo it instead, use 'migrax rollback'.");
         }

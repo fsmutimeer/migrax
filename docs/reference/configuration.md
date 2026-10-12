@@ -37,7 +37,7 @@ in values are resolved from the environment.
 | JDBC drivers without a project | `--classpath`, `MIGRAX_DRIVERS` (a folder of jars) | the `drivers` folder of the installation, if present |
 | Never allow `clean` | `MIGRAX_CLEAN_DISABLED=true` | allowed |
 | Entity package | `--package`, `MIGRAX_PACKAGE`, `migrax.package` | Maven `groupId` or Gradle `group` |
-| Migration folder | `--locations`, `MIGRAX_LOCATIONS`, `migrax.locations` | `classpath:db/migration` |
+| Migration folders | `--locations`, `MIGRAX_LOCATIONS`, `migrax.locations` (comma-separated) | `classpath:db/migration` |
 | Naming strategy | `--naming`, `MIGRAX_NAMING`, `migrax.naming` | recorded in the snapshot, else detected ([details](naming.md)) |
 | Entity reader | `--extractor`, `MIGRAX_EXTRACTOR`, `migrax.extractor` | `auto` |
 | SQL dialect | `--dialect` | from the database URL |
@@ -45,8 +45,9 @@ in values are resolved from the environment.
 | Schemas (multi-tenant) | `--schemas`, `MIGRAX_SCHEMAS`, `migrax.schemas` | the connection's default schema |
 | Placeholders | `migrax.placeholders.<name>`, `-Dmigrax.placeholders.<name>`, `MIGRAX_PLACEHOLDERS_<NAME>` | |
 
-The migration folder is `classpath:<path>` (under `src/main/resources`) or
-`filesystem:<path>` (relative to the project folder).
+Each migration folder is `classpath:<path>` (under `src/main/resources`) or
+`filesystem:<path>` (relative to the project folder). Several folders are separated by commas;
+see [Several migration folders](../guides/advanced-migrations.md#several-migration-folders).
 
 ### Database connection from framework settings
 

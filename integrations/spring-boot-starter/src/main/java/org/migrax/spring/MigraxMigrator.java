@@ -111,18 +111,31 @@ public class MigraxMigrator implements InitializingBean {
   }
 
   private List<Migration> loadPackaged() throws Exception {
-    String location = properties.getLocations().trim();
-    if (location.startsWith("filesystem:")) {
-      location = "file:" + location.substring("filesystem:".length());
-    } else if (!location.startsWith("classpath:") && !location.startsWith("file:")) {
-      location = "classpath:" + location;
-    }
     List<Migration> migrations = new ArrayList<>();
-    for (Resource resource : resources.getResources(location.replaceAll("/+$", "") + "/*.sql")) {
-      String name = resource.getFilename();
-      if (name != null && resource.isReadable()) {
-        migrations.add(Migration.ofSql(name,
-            resource.getContentAsString(StandardCharsets.UTF_8)));
+    java.util.Map<String, String> locationOf = new java.util.HashMap<>();
+    for (String configured : properties.getLocations().split(",")) {
+      String location = configured.trim();
+      if (location.isEmpty()) {
+        continue;
+      }
+      if (location.startsWith("filesystem:")) {
+        location = "file:" + location.substring("filesystem:".length());
+      } else if (!location.startsWith("classpath:") && !location.startsWith("file:")) {
+        location = "classpath:" + location;
+      }
+      for (Resource resource
+          : resources.getResources(location.replaceAll("/+$", "") + "/*.sql")) {
+        String name = resource.getFilename();
+        if (name != null && resource.isReadable()) {
+          String other = locationOf.putIfAbsent(name, configured.trim());
+          if (other != null) {
+            throw new IllegalStateException("Two migration locations contain " + name + ": "
+                + other + " and " + configured.trim()
+                + ". Migration file names must be unique across all locations.");
+          }
+          migrations.add(Migration.ofSql(name,
+              resource.getContentAsString(StandardCharsets.UTF_8)));
+        }
       }
     }
     migrations.addAll(MigrationLoader.javaMigrations(classLoader(), properties.getJavaPackage()));
@@ -150,14 +163,16 @@ public class MigraxMigrator implements InitializingBean {
     add(args, "--url", environment.getProperty("spring.datasource.url"));
     add(args, "--user", environment.getProperty("spring.datasource.username"));
     add(args, "--password", environment.getProperty("spring.datasource.password"));
-    if (!properties.getLocations().startsWith("classpath:")) {
+    if (!properties.getLocations().startsWith("classpath:")
+        || properties.getLocations().contains(",")) {
       add(args, "--locations", properties.getLocations());
     }
     int code = Main.run(args.toArray(String[]::new), lines(false), lines(true));
     if (code != 0) {
       LOG.warn("Migrax: development generation did not write a migration (see above).");
     }
-    String location = properties.getLocations();
+    // New migrations are written to the first location.
+    String location = properties.getLocations().split(",")[0].trim();
     return location.startsWith("classpath:")
         ? root.resolve("src/main/resources").resolve(location.substring("classpath:".length())
             .replaceAll("^/+", ""))

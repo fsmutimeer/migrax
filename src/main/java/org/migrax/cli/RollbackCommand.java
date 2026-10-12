@@ -64,7 +64,6 @@ final class RollbackCommand implements Command {
     Args args = context.args();
     PrintStream out = context.out();
     project.requireUrl();
-    Path folder = project.migrations();
     List<Migration> migrations = project.migrationsToRun(true);
     Map<String, Migration> java = new HashMap<>();
     migrations.stream().filter(Migration::isJava).forEach(m -> java.put(m.version(), m));
@@ -111,7 +110,7 @@ final class RollbackCommand implements Command {
             scripts.add(java.get(target.version()));
             continue;
           }
-          Path script = MigrationLoader.rollbackScript(folder, target.version());
+          Path script = project.rollbackScript(target.version());
           if (script == null) {
             missing.add(target.version());
           } else {
@@ -120,7 +119,8 @@ final class RollbackCommand implements Command {
         }
         if (!missing.isEmpty()) {
           throw new UsageException("No rollback script for " + String.join(", ", missing) + ".",
-              "Write one in " + project.display(folder.resolve(MigrationLoader.ROLLBACK_FOLDER))
+              "Write one in " + project.display(project.folderOf(missing.get(0))
+                  .resolve(MigrationLoader.ROLLBACK_FOLDER))
                   + "/<same file name>, then run rollback again.");
         }
         out.println((args.flag("--dry-run") ? "Would roll back " : "Rolling back ")

@@ -53,7 +53,7 @@ Migrations are applied when the application starts, **before** JPA starts, so
 | Setting | Default | Meaning |
 |---|---|---|
 | `migrax.enabled` | `true` | Apply migrations at startup |
-| `migrax.locations` | `classpath:db/migration` | Migration folder |
+| `migrax.locations` | `classpath:db/migration` | Migration folders, comma-separated |
 | `migrax.java-package` | `db.migration` | Package of `JavaMigration` classes |
 | `migrax.resume` | `false` | Re-run a failed migration marked `-- migrax:resume-safe` |
 | `migrax.lock-timeout` | `0` | How long to wait while another instance migrates, for example `2m` when several start together |

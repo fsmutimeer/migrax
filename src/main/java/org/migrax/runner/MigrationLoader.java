@@ -39,6 +39,35 @@ public final class MigrationLoader {
   }
 
   /**
+   * SQL files directly in each folder, in version order across all of them.
+   *
+   * @since 0.5.0
+   */
+  public static List<Path> sqlFiles(List<Path> folders) throws Exception {
+    List<Path> files = new ArrayList<>();
+    for (Path folder : folders) {
+      files.addAll(sqlFiles(folder));
+    }
+    files.sort(MigrationRunner.MIGRATION_PATH_COMPARATOR);
+    return files;
+  }
+
+  /**
+   * SQL migrations from every folder plus Java migrations found on {@code loader}.
+   *
+   * @since 0.5.0
+   */
+  public static List<Migration> load(List<Path> folders, ClassLoader loader, String javaPackage)
+      throws Exception {
+    List<Migration> migrations = new ArrayList<>(Migration.load(sqlFiles(folders)));
+    if (loader != null) {
+      migrations.addAll(javaMigrations(loader,
+          javaPackage == null || javaPackage.isBlank() ? DEFAULT_JAVA_PACKAGE : javaPackage));
+    }
+    return migrations;
+  }
+
+  /**
    * SQL migrations from {@code folder} plus Java migrations found on {@code loader}.
    *
    * @param loader class loader with the application classes, or null to skip Java migrations

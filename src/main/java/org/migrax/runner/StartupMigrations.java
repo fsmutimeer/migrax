@@ -15,7 +15,8 @@ import javax.sql.DataSource;
  * (Quarkus, Micronaut, Helidon) collect the {@code migrax.*} settings from their own
  * configuration and call {@link #migrate}.
  *
- * <p>Settings: {@code migrax.locations} (default {@code db/migration}),
+ * <p>Settings: {@code migrax.locations} (default {@code db/migration}; several folders
+ * separated by commas),
  * {@code migrax.java-package}, {@code migrax.resume}, {@code migrax.schemas} (comma-separated),
  * {@code migrax.lock-timeout} (for example {@code 2m}: how long to wait while another instance
  * migrates) and {@code migrax.placeholders.<name>}.
@@ -127,9 +128,10 @@ public final class StartupMigrations {
     return new Status(applied, pending, problems);
   }
 
-  private static List<Migration> migrations(String location, String javaPackage,
+  private static List<Migration> migrations(String locations, String javaPackage,
                                             ClassLoader loader) throws Exception {
-    List<Migration> migrations = new ArrayList<>(ClasspathMigrations.load(loader, location));
+    List<Migration> migrations = new ArrayList<>(ClasspathMigrations.load(loader,
+        List.of(locations.split(","))));
     migrations.addAll(MigrationLoader.javaMigrations(loader, javaPackage));
     return migrations;
   }
