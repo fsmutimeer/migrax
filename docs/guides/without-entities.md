@@ -134,6 +134,27 @@ $ docker run --rm -v "$PWD/db/migrations:/migrations:ro" \
     ghcr.io/fsmutimeer/migrax:0.4.0 migrate
 ```
 
+## A database that already has tables
+
+If the database was built before you started using Migrax, write migrations that describe
+what it already has (or one migration for all of it), then tell Migrax they are applied:
+
+```console
+$ migrax baseline 0002 --yes
+Recording 2 migration(s) as applied without running them:
+  0001_create_customer.sql
+  0002_add_email.sql
+Recorded. Run 'migrax migrate' to apply the migrations after 0002_add_email.sql.
+
+$ migrax migrate
+Applying migration '0003_add_phone.sql'...
+Successfully applied migration '0003_add_phone.sql'.
+Applied 1 migration(s); 3 total in db/migrations.
+```
+
+`baseline` only works on a database without migration history, and `--dry-run` shows what it
+would record. Run it once per database (each environment), then use `migrate` as usual.
+
 ## Rolling back
 
 `migrax rollback --yes` runs the rollback script of the newest applied migration

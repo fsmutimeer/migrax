@@ -650,6 +650,42 @@ class CommandsTest {
   }
 
   @Test
+  void baselineRecordsExistingMigrationsWithoutRunningThem() throws Exception {
+    setUp();
+    Files.createDirectories(migrations());
+    Files.writeString(migrations().resolve("0001_a.sql"), "CREATE TABLE a (id INT);\n");
+    Files.writeString(migrations().resolve("0002_b.sql"), "CREATE TABLE b (id INT);\n");
+    Files.writeString(migrations().resolve("0003_c.sql"), "CREATE TABLE c (id INT);\n");
+    // The database was built before Migrax: it already has a and b.
+    execute("CREATE TABLE a (id INT)");
+    execute("CREATE TABLE b (id INT)");
+
+    Result unconfirmed = cli("baseline", "0002");
+    assertEquals(1, unconfirmed.code(), unconfirmed.all());
+    assertTrue(unconfirmed.all().contains("needs confirmation"), unconfirmed.all());
+
+    Result dry = cli("baseline", "0002", "--dry-run");
+    assertEquals(0, dry.code(), dry.all());
+    assertTrue(dry.out().contains("Would record 2 migration(s)"), dry.all());
+
+    Result baseline = cli("baseline", "0002", "--yes");
+    assertEquals(0, baseline.code(), baseline.all());
+    assertTrue(baseline.out().contains("  0001_a.sql\n") || baseline.out().contains(
+        "  0001_a.sql\r\n"), baseline.all());
+    assertTrue(baseline.out().contains("Run 'migrax migrate' to apply the migrations after "
+        + "0002_b.sql."), baseline.all());
+
+    Result migrate = cli("migrate");
+    assertEquals(0, migrate.code(), migrate.all());
+    assertTrue(migrate.out().contains("Applied 1 migration(s)"), migrate.all());
+    assertEquals("3", query("SELECT COUNT(*) FROM migrax_history"));
+
+    Result again = cli("baseline", "0002", "--yes");
+    assertEquals(1, again.code(), again.all());
+    assertTrue(again.all().contains("already has migration history"), again.all());
+  }
+
+  @Test
   void errorsHaveStableCodesInTextAndJson() throws Exception {
     setUp();
     Result unknown = cli("migrate", "--colour");
