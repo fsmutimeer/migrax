@@ -550,6 +550,71 @@ class CommandsTest {
     assertTrue(clean.get("schemas").toString().contains("MIGRAX_HISTORY"), clean.toString());
   }
 
+  /** Hand-written migrations in a project without Java, as in the container image. */
+  private Result doctorWithoutBuildFile(boolean withMigrations, String... extra) throws Exception {
+    Path folder = project.resolve("db/migrations");
+    Files.createDirectories(folder);
+    if (withMigrations) {
+      Files.writeString(folder.resolve("0001_create_customer.sql"),
+          "CREATE TABLE customer (id INT PRIMARY KEY);\n");
+    }
+    String[] args = Stream.concat(Stream.of("doctor", "--locations", "filesystem:db/migrations",
+            "--url", "jdbc:h2:mem:commands_" + (++databases) + ";DB_CLOSE_DELAY=-1"),
+        Stream.of(extra)).toArray(String[]::new);
+    return cli(args);
+  }
+
+  @Test
+  void doctorChecksOnlyMigrationsAndDatabaseWithoutJava() throws Exception {
+    Result doctor = doctorWithoutBuildFile(true);
+    assertEquals(0, doctor.code(), doctor.all());
+    assertTrue(doctor.out().contains(
+        "[info]  No pom.xml, build.gradle or entity package: checking migrations and the "
+            + "database only"), doctor.all());
+    assertTrue(doctor.out().contains("[ok]    Migrations: 1 file(s) in db/migrations"),
+        doctor.all());
+    assertTrue(doctor.out().contains("[ok]    Connected: H2"), doctor.all());
+    assertTrue(doctor.out().contains("All checks passed"), doctor.all());
+    for (String skipped : new String[] {"Build tool", "Entity package", "Framework", "Naming",
+        "Project compiled", "JPA", "Hibernate", "Snapshot"}) {
+      assertFalse(doctor.out().contains(skipped), skipped + " in " + doctor.all());
+    }
+  }
+
+  @Test
+  void doctorInTheWrongFolderStillFailsTheJavaChecks() throws Exception {
+    // A Java project opened one folder too high: no build file and no migrations here.
+    Result doctor = doctorWithoutBuildFile(false);
+    assertEquals(1, doctor.code(), doctor.all());
+    assertTrue(doctor.out().contains("[FAIL]  Build tool: none - not found"), doctor.all());
+    assertTrue(doctor.out().contains("Run inside the service folder"), doctor.all());
+    assertFalse(doctor.out().contains("checking migrations and the database only"),
+        doctor.all());
+  }
+
+  @Test
+  void doctorKeepsTheJavaChecksWhenAnEntityPackageIsSet() throws Exception {
+    Result doctor = doctorWithoutBuildFile(true, "--package", "com.example");
+    assertTrue(doctor.out().contains("[ok]    Entity package: com.example"), doctor.all());
+    assertTrue(doctor.out().contains("Build tool: none - not found"), doctor.all());
+    assertFalse(doctor.out().contains("checking migrations and the database only"),
+        doctor.all());
+  }
+
+  @Test
+  void doctorKeepsTheJavaChecksInAJavaProject() throws Exception {
+    setUp();
+    Files.createDirectories(migrations());
+    Files.writeString(migrations().resolve("0001_create_customer.sql"),
+        "CREATE TABLE customer (id INT PRIMARY KEY);\n");
+    Result doctor = cli("doctor");
+    assertTrue(doctor.out().contains("[ok]    Build tool: maven"), doctor.all());
+    assertTrue(doctor.out().contains("[ok]    Entity package: org.migrax.cli.fixture"),
+        doctor.all());
+    assertFalse(doctor.out().contains("checking migrations and the database only"),
+        doctor.all());
+  }
+
   @Test
   void errorsHaveStableCodesInTextAndJson() throws Exception {
     setUp();

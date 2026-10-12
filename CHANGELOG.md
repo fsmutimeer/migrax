@@ -11,6 +11,14 @@ All notable changes to Migrax are listed here. The format follows
 - The documentation moved to https://migrax.org/; the old address
   https://docs-migrax.github.io/ redirects there.
 
+### Fixed
+
+- `migrax doctor` no longer fails in projects without Java, such as the container image or a
+  Python or Node.js project with hand-written migrations: when there is no `pom.xml`,
+  `build.gradle` or entity package but there are migrations, it checks only the migrations
+  and the database. Without migrations it still reports the missing build file, so a Java
+  project opened in the wrong folder is still caught.
+
 ## [0.4.0] - 2026-10-11
 
 The 0.4 release: Migrax moves to `org.migrax`. Nothing else changes in how it works; see
