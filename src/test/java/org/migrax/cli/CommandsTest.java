@@ -723,6 +723,28 @@ class CommandsTest {
   }
 
   @Test
+  void environmentMigrationsRunOnlyInTheirEnvironment() throws Exception {
+    setUp();
+    Files.createDirectories(migrations());
+    Files.writeString(migrations().resolve("0001_a.sql"), "CREATE TABLE a (id INT);\n");
+    Files.writeString(migrations().resolve("0002_seed.sql"),
+        "-- migrax:env dev\nINSERT INTO a VALUES (1);\n");
+
+    Result migrate = cli("migrate");
+    assertEquals(0, migrate.code(), migrate.all());
+    assertEquals("0", query("SELECT COUNT(*) FROM a"));
+    Result status = cli("status");
+    assertEquals(0, status.code(), status.all());
+    assertTrue(status.out().contains("[-] 0002_seed.sql  only for dev"), status.all());
+    assertTrue(status.out().contains("1 applied, 1 skipped."), status.all());
+
+    Result dev = cli("migrate", "--env", "dev");
+    assertEquals(0, dev.code(), dev.all());
+    assertTrue(dev.out().contains("Applied 1 migration(s)"), dev.all());
+    assertEquals("1", query("SELECT COUNT(*) FROM a"));
+  }
+
+  @Test
   void errorsHaveStableCodesInTextAndJson() throws Exception {
     setUp();
     Result unknown = cli("migrate", "--colour");

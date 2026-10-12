@@ -8,6 +8,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- Migrations for some environments only: a `-- migrax:env dev,test` line makes a migration
+  run only where `--env`, `MIGRAX_ENV` or `migrax.env` names one of them. Elsewhere `status`
+  shows it as skipped (`[-]`, state `SKIPPED` in `--json`), and health checks don't count it
+  as pending.
 - Several migration folders: `--locations`, `MIGRAX_LOCATIONS` and `migrax.locations` take a
   comma-separated list (CLI, Maven, Gradle and the startup integrations). Files run in version
   order across all folders; new files go into the first one.

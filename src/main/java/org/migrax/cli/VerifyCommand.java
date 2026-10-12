@@ -60,7 +60,7 @@ final class VerifyCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--url", "--user", "--password", "--password-file", "--image",
-        "--skip-rollbacks", "--json", "--dialect", "--package", "--naming", "--extractor",
+        "--skip-rollbacks", "--json", "--env", "--dialect", "--package", "--naming", "--extractor",
         "--locations", "--classpath", "--no-build");
   }
 

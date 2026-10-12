@@ -42,6 +42,7 @@ in values are resolved from the environment.
 | Entity reader | `--extractor`, `MIGRAX_EXTRACTOR`, `migrax.extractor` | `auto` |
 | SQL dialect | `--dialect` | from the database URL |
 | Java migration package | `--java-package`, `migrax.java-package` | `db.migration` |
+| Environment (`-- migrax:env` migrations) | `--env`, `MIGRAX_ENV`, `migrax.env` | none: marked migrations are skipped |
 | Schemas (multi-tenant) | `--schemas`, `MIGRAX_SCHEMAS`, `migrax.schemas` | the connection's default schema |
 | Placeholders | `migrax.placeholders.<name>`, `-Dmigrax.placeholders.<name>`, `MIGRAX_PLACEHOLDERS_<NAME>` | |
 

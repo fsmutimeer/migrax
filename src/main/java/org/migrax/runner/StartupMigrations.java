@@ -19,7 +19,8 @@ import javax.sql.DataSource;
  * separated by commas),
  * {@code migrax.java-package}, {@code migrax.resume}, {@code migrax.schemas} (comma-separated),
  * {@code migrax.lock-timeout} (for example {@code 2m}: how long to wait while another instance
- * migrates) and {@code migrax.placeholders.<name>}.
+ * migrates), {@code migrax.env} (runs migrations marked {@code -- migrax:env <name>}) and
+ * {@code migrax.placeholders.<name>}.
  *
  * @since 0.1.0
  */
@@ -54,7 +55,8 @@ public final class StartupMigrations {
     String lockTimeout = setting(settings, "migrax.lock-timeout", "");
     MigrationRunner runner = new MigrationRunner().withLockTimeout(lockTimeout.isBlank()
         ? DatabaseMigrationLock.configuredTimeout()
-        : DatabaseMigrationLock.parseTimeout(lockTimeout));
+        : DatabaseMigrationLock.parseTimeout(lockTimeout))
+        .withEnvironment(setting(settings, "migrax.env", ""));
     try (Connection connection = dataSource.getConnection()) {
       MigrationRunner.Options options = new MigrationRunner.Options(resume, placeholders);
       if (schemas.isEmpty()) {
@@ -95,7 +97,7 @@ public final class StartupMigrations {
                               ClassLoader loader) throws Exception {
     List<Migration> migrations = migrations(setting(settings, "migrax.locations", "db/migration"),
         setting(settings, "migrax.java-package", MigrationLoader.DEFAULT_JAVA_PACKAGE), loader);
-    return status(dataSource, migrations, schemas(settings));
+    return status(dataSource, migrations, schemas(settings), setting(settings, "migrax.env", ""));
   }
 
   /**
@@ -106,6 +108,18 @@ public final class StartupMigrations {
    */
   public static Status status(DataSource dataSource, List<Migration> migrations,
                               List<String> schemas) throws Exception {
+    return status(dataSource, migrations, schemas, null);
+  }
+
+  /**
+   * The status of given migrations in an environment ({@code migrax.env}): migrations marked
+   * for other environments count as neither pending nor a problem.
+   *
+   * @param environment the environment name, or null for none
+   * @since 0.5.0
+   */
+  public static Status status(DataSource dataSource, List<Migration> migrations,
+                              List<String> schemas, String environment) throws Exception {
     int applied = 0;
     int pending = 0;
     int problems = 0;
@@ -116,10 +130,12 @@ public final class StartupMigrations {
           useSchema(connection, schema);
         }
         for (MigrationRunner.MigrationStatus row
-            : new MigrationRunner().statusOf(connection, migrations)) {
+            : new MigrationRunner().withEnvironment(environment)
+                .statusOf(connection, migrations)) {
           switch (row.state()) {
             case APPLIED -> applied++;
             case PENDING, OUTDATED -> pending++;
+            case SKIPPED -> { }
             default -> problems++;
           }
         }

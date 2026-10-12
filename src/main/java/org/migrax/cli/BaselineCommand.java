@@ -49,7 +49,7 @@ final class BaselineCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--dry-run", "--yes", "--json", "--schemas", "--lock-timeout", "--url",
+    return List.of("--dry-run", "--yes", "--json", "--env", "--schemas", "--lock-timeout", "--url",
         "--user", "--password", "--password-file", "--locations", "--java-package",
         "--classpath", "--no-build");
   }
@@ -70,6 +70,7 @@ final class BaselineCommand implements Command {
     List<Migration> existing = migrations.stream()
         .filter(m -> m.kind() == Migration.Kind.VERSIONED)
         .filter(m -> MigrationRunner.compareMigrationFilenames(m.version(), target) <= 0)
+        .filter(context.migrationRunner()::appliesHere)
         .sorted(MigrationRunner.ORDER).toList();
     boolean dryRun = args.flag("--dry-run");
     if (!dryRun && !args.flag("--yes", "-y")) {
@@ -85,7 +86,8 @@ final class BaselineCommand implements Command {
           out.println("Schema " + schema + ":");
         }
         List<String> recorded = runner.statusOf(connection, migrations).stream()
-            .filter(row -> row.state() != MigrationRunner.State.PENDING)
+            .filter(row -> row.state() != MigrationRunner.State.PENDING
+                && row.state() != MigrationRunner.State.SKIPPED)
             .map(MigrationRunner.MigrationStatus::version).toList();
         if (!recorded.isEmpty()) {
           throw new UsageException("The database already has migration history ("

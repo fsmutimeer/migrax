@@ -178,6 +178,37 @@ folders: two folders with the same file name is an error. A rollback script live
 `new`, `generate`, `squash`, `merge` and `import` write to the first folder; new files are
 numbered after the highest number in any folder.
 
+## Migrations for some environments only
+
+Test data, demo accounts or development helpers can live in migrations that run only in some
+environments. Mark them with an `env` line:
+
+```sql title="0002_demo_customers.sql"
+-- migrax:env dev, test
+INSERT INTO customer (id, name) VALUES (1, 'Demo customer');
+```
+
+and name the environment where Migrax runs: `--env dev`, `MIGRAX_ENV=dev`, or `migrax.env=dev`
+in the application configuration (also for the startup integrations). Migrations without an
+`env` line run everywhere. A marked migration runs only where its environment is set, and
+elsewhere `status` shows it as skipped:
+
+```console
+$ migrax status
+Migrations in src/main/resources/db/migration for jdbc:postgresql://localhost:5432/shop
+  [X] 0001_create_customer.sql  applied 2026-10-12 13:53:55
+  [-] 0002_demo_customers.sql   only for dev, test
+1 applied, 1 skipped.
+
+$ migrax migrate --env dev
+Applying migration '0002_demo_customers.sql'...
+Successfully applied migration '0002_demo_customers.sql'.
+Applied 1 migration(s); 2 total in src/main/resources/db/migration.
+```
+
+Skipped migrations are not pending: health checks stay up. A folder per environment
+([several migration folders](#several-migration-folders)) works too.
+
 ## Several schemas (multi-tenant)
 
 Run the same migrations once per schema:

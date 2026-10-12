@@ -48,13 +48,17 @@ public final class MigrationRunner {
   /** How long to wait for the migration lock when another process holds it. */
   private final java.time.Duration lockTimeout;
 
+  /** The environment migrations run in, or null; see {@link #appliesHere}. */
+  private final String environment;
+
   /** A runner that fails at once when another process holds the migration lock. */
   public MigrationRunner() {
-    this(java.time.Duration.ZERO);
+    this(java.time.Duration.ZERO, null);
   }
 
-  private MigrationRunner(java.time.Duration lockTimeout) {
+  private MigrationRunner(java.time.Duration lockTimeout, String environment) {
     this.lockTimeout = lockTimeout;
+    this.environment = environment == null || environment.isBlank() ? null : environment.trim();
   }
 
   /**
@@ -63,7 +67,34 @@ public final class MigrationRunner {
    * @since 0.3.0
    */
   public MigrationRunner withLockTimeout(java.time.Duration timeout) {
-    return new MigrationRunner(timeout == null ? java.time.Duration.ZERO : timeout);
+    return new MigrationRunner(timeout == null ? java.time.Duration.ZERO : timeout, environment);
+  }
+
+  /**
+   * A runner for an environment such as {@code dev}: migrations marked
+   * {@code -- migrax:env dev,test} run only there; unmarked migrations run everywhere.
+   *
+   * @param environment the environment name, or null or blank for none
+   * @since 0.5.0
+   */
+  public MigrationRunner withEnvironment(String environment) {
+    return new MigrationRunner(lockTimeout, environment);
+  }
+
+  /**
+   * Whether a migration runs in this runner's environment: it has no {@code -- migrax:env}
+   * line, or the line names the environment (ignoring case).
+   *
+   * @since 0.5.0
+   */
+  public boolean appliesHere(Migration migration) {
+    List<String> environments = environments(migration);
+    return environments.isEmpty() || (environment != null
+        && environments.stream().anyMatch(environment::equalsIgnoreCase));
+  }
+
+  private static List<String> environments(Migration migration) {
+    return migration.sql() == null ? List.of() : SqlScript.directiveValues(migration.sql(), "env");
   }
 
   /**
@@ -177,7 +208,7 @@ public final class MigrationRunner {
           .sorted(Comparator.comparing(Migration::version)).toList();
       Map<String, Migration> callbacks = new HashMap<>();
       migrations.stream().filter(m -> m.kind() == Migration.Kind.CALLBACK)
-          .forEach(m -> callbacks.put(m.version(), m));
+          .filter(this::appliesHere).forEach(m -> callbacks.put(m.version(), m));
 
       // Parse every script before running anything, so a broken file changes nothing.
       Map<String, List<String>> statements = new HashMap<>();
@@ -210,7 +241,7 @@ public final class MigrationRunner {
           Log.debug("Migration '{}' is already applied; skipping.", migration.version());
           continue;
         }
-        if (options.beyondTarget(migration)) {
+        if (options.beyondTarget(migration) || !appliesHere(migration)) {
           continue;
         }
         Migration squash = migration.replaces().isEmpty() ? squashOf.get(migration.version())
@@ -248,7 +279,7 @@ public final class MigrationRunner {
       for (Migration migration : versioned) {
         List<String> replaces = migration.replaces();
         if (!replaces.isEmpty() && !done.contains(migration.version())
-            && !options.beyondTarget(migration)) {
+            && !options.beyondTarget(migration) && appliesHere(migration)) {
           if (!done.containsAll(replaces)) {
             List<String> missing = replaces.stream().filter(r -> !done.contains(r)).toList();
             throw new IllegalStateException("Squashed migration '" + migration.version()
@@ -266,7 +297,7 @@ public final class MigrationRunner {
       for (Migration migration : repeatable) {
         AppliedMigration previous = history.get(migration.version());
         if ((previous != null && previous.checksum().equals(migration.checksum()))
-            || options.beyondTarget(migration)) {
+            || options.beyondTarget(migration) || !appliesHere(migration)) {
           continue;
         }
         applyMigration(connection, migration, statements, callbacks, options.resume(),
@@ -450,7 +481,14 @@ public final class MigrationRunner {
     /** A repeatable migration whose content changed; it runs again on the next migrate. */
     OUTDATED,
     /** Recorded in the database, but the file is missing from the migration folder. */
-    MISSING
+    MISSING,
+    /**
+     * Not applied, and marked for other environments ({@code -- migrax:env}); it does not run
+     * here and is not pending.
+     *
+     * @since 0.5.0
+     */
+    SKIPPED
   }
 
   /** One row of migration status. */
@@ -495,6 +533,9 @@ public final class MigrationRunner {
       if (failure != null) {
         rows.add(new MigrationStatus(version, State.FAILED,
             failure[0].toLowerCase(Locale.ROOT) + (failure[1] == null ? "" : ": " + failure[1])));
+      } else if (applied == null && !appliesHere(migration)) {
+        rows.add(new MigrationStatus(version, State.SKIPPED,
+            "only for " + String.join(", ", environments(migration))));
       } else if (applied == null) {
         List<String> replaces = migration.replaces();
         boolean replaced = !replaces.isEmpty() && history.keySet().containsAll(replaces);
