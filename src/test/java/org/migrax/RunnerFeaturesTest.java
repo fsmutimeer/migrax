@@ -221,4 +221,44 @@ class RunnerFeaturesTest {
           loader, List.of("db/migration", "db/seed")));
     }
   }
+
+  @Test
+  void theSqlScriptDoesWhatMigrateWouldDo() throws Exception {
+    try (Connection connection = database()) {
+      Migration a = sql("0001_a.sql", "CREATE TABLE a (id INT);\nINSERT INTO a VALUES (1);");
+      Migration b = sql("0002_b.sql", "-- migrax:no-transaction\nCREATE TABLE b (id INT);");
+      Migration view = sql("R__v.sql", "CREATE OR REPLACE VIEW v AS SELECT id FROM a;");
+      Migration each = sql("afterEachMigrate.sql", "INSERT INTO a VALUES (2);");
+      List<Migration> all = List.of(a, b, view, each);
+      MigrationRunner runner = new MigrationRunner();
+      String script = runner.script(connection, all, MigrationRunner.Options.defaults());
+      assertTrue(script.contains("-- 0002_b.sql (runs without a transaction)"), script);
+      org.h2.tools.RunScript.execute(connection, new java.io.StringReader(script));
+      assertEquals(List.of("0001_a.sql", "0002_b.sql", "R__v.sql"), history(connection));
+      assertEquals(4, count(connection, "SELECT COUNT(*) FROM a"));
+      assertTrue(runner.statusOf(connection, all).stream()
+          .allMatch(row -> row.state() == MigrationRunner.State.APPLIED));
+      assertEquals(0, migrate(connection, all));
+      assertEquals("-- Nothing to migrate: every migration is applied.\n",
+          runner.script(connection, all, MigrationRunner.Options.defaults()));
+
+      Migration changed = sql("R__v.sql",
+          "CREATE OR REPLACE VIEW v AS SELECT id, 1 AS one FROM a;");
+      String again = runner.script(connection, List.of(a, b, changed, each),
+          MigrationRunner.Options.defaults());
+      assertTrue(again.contains("DELETE FROM migrax_history WHERE version='R__v.sql';"), again);
+      org.h2.tools.RunScript.execute(connection, new java.io.StringReader(again));
+      assertEquals(0, migrate(connection, List.of(a, b, changed, each)));
+    }
+  }
+
+  @Test
+  void theSqlScriptRefusesJavaMigrations() throws Exception {
+    try (Connection connection = database()) {
+      var error = assertThrows(IllegalStateException.class, () -> new MigrationRunner().script(
+          connection, List.of(Migration.ofJava(new V0002__InsertRow())),
+          MigrationRunner.Options.defaults()));
+      assertTrue(error.getMessage().contains("cannot be written as SQL"), error.getMessage());
+    }
+  }
 }

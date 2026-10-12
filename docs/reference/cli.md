@@ -171,15 +171,16 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 ### migrate
 
 ```
-migrax migrate [--to <migration>] [--dry-run] [--resume] [--schemas a,b]
+migrax migrate [--to <migration>] [--sql | --dry-run] [--resume] [--schemas a,b]
 ```
 
-Applies pending SQL and Java migrations in order, then new or changed repeatable `R__*.sql` migrations, with beforeMigrate/afterMigrate callbacks and `${placeholders}`. `--to` applies versioned migrations only up to and including the given one; repeatable migrations then wait for the next migrate without `--to`. `--dry-run` lists and lints pending migrations without changing the database. `--schemas` runs the migrations once per schema (multi-tenant). `--resume` re-runs a failed migration only if it is marked `-- migrax:resume-safe`.
+Applies pending SQL and Java migrations in order, then new or changed repeatable `R__*.sql` migrations, with beforeMigrate/afterMigrate callbacks and `${placeholders}`. `--to` applies versioned migrations only up to and including the given one; repeatable migrations then wait for the next migrate without `--to`. `--sql` prints the SQL script of what migrate would do, for a DBA to review and run with the database's own tool; nothing changes. `--dry-run` lists and lints pending migrations without changing the database. `--schemas` runs the migrations once per schema (multi-tenant). `--resume` re-runs a failed migration only if it is marked `-- migrax:resume-safe`.
 
 | Option | Meaning |
 |---|---|
 | `--to <migration>` | Last migration to apply, keep or squash up to |
 | `--env <name>` | Environment for migrations marked '-- migrax:env' |
+| `--sql` | Print the SQL script instead of applying it (for a DBA) |
 | `--dry-run` | Show what would happen without doing it |
 | `--json` | Machine-readable output |
 | `--resume` | Re-run a failed resume-safe migration |
