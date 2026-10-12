@@ -107,6 +107,31 @@ and remove Flyway or Liquibase from the project. See
 
 ## Everyday
 
+### baseline
+
+```
+migrax baseline <migration> [--dry-run] --yes
+```
+
+For a database whose tables already exist (created by hand, by a script or by another tool): records every versioned migration up to and including `<migration>` as applied without running it. `migrax migrate` then runs only the later ones. Refused when the database already has migration history. `--yes` confirms the change to migration history.
+
+| Option | Meaning |
+|---|---|
+| `--dry-run` | Show what would happen without doing it |
+| `--yes, -y` | Confirm without asking |
+| `--json` | Machine-readable output |
+| `--schemas <a,b>` | Run for each schema (multi-tenant) |
+| `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
+| `--url <jdbc-url>` | Database URL (default: application config) |
+| `--user <name>` | Database user |
+| `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
+| `--locations <path>` | Migration folder, e.g. filesystem:db/sql |
+| `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
+| `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
+| `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--dir <path>` | Project folder (default: current folder) |
+
 ### generate
 
 *Alias:* `makemigrations`

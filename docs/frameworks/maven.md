@@ -41,6 +41,7 @@ mvn migrax:status
 | `migrax:drift` | `migrax drift` |
 | `migrax:rollback` | `migrax rollback` |
 | `migrax:repair` | `migrax repair` |
+| `migrax:baseline` | `migrax baseline` (`-Dmigrax.version=<migration>`) |
 | `migrax:clean` | `migrax clean` |
 | `migrax:new` | `migrax new` |
 | `migrax:squash` | `migrax squash` |
@@ -58,11 +59,11 @@ Options are `-Dmigrax.*` properties (or `<configuration>` elements of the same n
 | `migrax.renameTables=client=customer` | `--rename-table` | generate |
 | `migrax.name=split_name` | `--name` | generate, new |
 | `migrax.safe=true` | `--safe` | generate |
-| `migrax.dryRun=true` | `--dry-run` | migrate, rollback, clean |
+| `migrax.dryRun=true` | `--dry-run` | migrate, rollback, clean, baseline |
 | `migrax.resume=true` | `--resume` | migrate |
 | `migrax.lockTimeout=2m` | `--lock-timeout` | migrate, rollback, repair, clean, generate |
 | `migrax.steps=2`, `migrax.to=<migration>` | `--steps`, `--to` | rollback (`to` also migrate) |
-| `migrax.confirm=true` | `--yes` | rollback, repair, clean |
+| `migrax.confirm=true` | `--yes` | rollback, repair, clean, baseline |
 | `migrax.action=applied` | `--action` | repair |
 | `migrax.impact=true` | `--impact` | plan |
 | `migrax.all=true`, `migrax.strict=true` | `--all`, `--strict` | lint |

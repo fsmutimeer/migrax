@@ -8,6 +8,9 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- `migrax baseline <migration> --yes` (Maven: `migrax:baseline`) adopts a database whose
+  tables already exist: it records the migrations up to the named one as applied without
+  running them, so `migrate` only runs the later ones.
 - `migrate --to <migration>` (Maven: `-Dmigrax.to=...`) applies versioned migrations only up
   to and including the named one, for staged rollouts. The name can be the file name, its
   start, or the version number (`--to 5`). Repeatable migrations wait for the next migrate

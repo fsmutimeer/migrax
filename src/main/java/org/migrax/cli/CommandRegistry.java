@@ -32,6 +32,7 @@ final class CommandRegistry {
     registry.add(new VerifyCommand());
     registry.add(new DriftCommand());
     registry.add(new ImportCommand());
+    registry.add(new BaselineCommand());
     registry.add(new SquashCommand());
     registry.add(new MergeCommand());
     registry.add(new NewCommand());
