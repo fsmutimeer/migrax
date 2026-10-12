@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Guides > Without Java entities: how to apply hand-written SQL migrations with Migrax in
+  projects without JPA entities (Python, Node.js, other languages): drivers, connection
+  settings, the container image and rollback scripts.
+
 ### Changed
 
 - The documentation moved to https://migrax.org/; the old address
