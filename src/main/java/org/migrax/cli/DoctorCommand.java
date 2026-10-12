@@ -62,8 +62,8 @@ final class DoctorCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--json", "--package", "--url", "--user", "--password", "--password-file",
-        "--classpath", "--no-build", "--extractor");
+    return List.of("--json", "--env", "--package", "--url", "--user", "--password",
+        "--password-file", "--classpath", "--no-build", "--extractor");
   }
 
   @Override

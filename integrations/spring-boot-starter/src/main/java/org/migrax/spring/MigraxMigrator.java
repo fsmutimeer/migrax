@@ -61,7 +61,7 @@ public class MigraxMigrator implements InitializingBean {
     loadPackaged().forEach(m -> byVersion.put(m.version(), m));
     javaMigrationBeans.forEach(bean -> byVersion.put(bean.version(), Migration.ofJava(bean)));
     return org.migrax.runner.StartupMigrations.status(dataSource,
-        new ArrayList<>(byVersion.values()), properties.getSchemas());
+        new ArrayList<>(byVersion.values()), properties.getSchemas(), properties.getEnv());
   }
 
   @Override
@@ -69,9 +69,17 @@ public class MigraxMigrator implements InitializingBean {
     Log.Sink previous = Log.setSink(new CommonsSink());
     try {
       Path devFolder = properties.getDev().isGenerate() ? generateForDevelopment() : null;
-      List<Migration> migrations = devFolder != null && Files.isDirectory(devFolder)
-          ? MigrationLoader.load(devFolder, classLoader(), properties.getJavaPackage())
-          : loadPackaged();
+      List<Migration> migrations = new ArrayList<>();
+      if (devFolder == null || !Files.isDirectory(devFolder)) {
+        migrations.addAll(loadPackaged());
+      } else {
+        // The source folder replaces its packaged copy; other locations come as packaged.
+        if (properties.getLocations().contains(",")) {
+          migrations.addAll(loadPackaged());
+        }
+        migrations.addAll(MigrationLoader.load(devFolder, classLoader(),
+            properties.getJavaPackage()));
+      }
       Map<String, Migration> byVersion = new LinkedHashMap<>();
       migrations.forEach(m -> byVersion.put(m.version(), m));
       javaMigrationBeans.forEach(bean -> byVersion.put(bean.version(), Migration.ofJava(bean)));
@@ -86,12 +94,13 @@ public class MigraxMigrator implements InitializingBean {
         List<String> schemas = properties.getSchemas();
         if (schemas.isEmpty()) {
           report(new MigrationRunner().withLockTimeout(properties.getLockTimeout())
-              .migrateAll(connection, all, options), null);
+              .withEnvironment(properties.getEnv()).migrateAll(connection, all, options), null);
         } else {
           for (String schema : schemas) {
             useSchema(connection, schema);
             report(new MigrationRunner().withLockTimeout(properties.getLockTimeout())
-                .migrateAll(connection, all, options), schema);
+                .withEnvironment(properties.getEnv()).migrateAll(connection, all, options),
+                schema);
           }
         }
       }

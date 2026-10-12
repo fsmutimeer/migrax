@@ -50,6 +50,7 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 | Option | Meaning |
 |---|---|
 | `--json` | Machine-readable output |
+| `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
@@ -120,6 +121,7 @@ For a database whose tables already exist (created by hand, by a script or by an
 | `--dry-run` | Show what would happen without doing it |
 | `--yes, -y` | Confirm without asking |
 | `--json` | Machine-readable output |
+| `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
@@ -177,6 +179,7 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 | Option | Meaning |
 |---|---|
 | `--to <migration>` | Last migration to apply, keep or squash up to |
+| `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--dry-run` | Show what would happen without doing it |
 | `--json` | Machine-readable output |
 | `--resume` | Re-run a failed resume-safe migration |
@@ -205,6 +208,7 @@ Lists migrations as applied [X], pending [ ] or a problem [!], without changing 
 | Option | Meaning |
 |---|---|
 | `--json` | Machine-readable output |
+| `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
@@ -340,6 +344,7 @@ Starts a throwaway database (H2 in memory, or Docker for other engines), applies
 | `--image <image>` | Docker image for the throwaway database |
 | `--skip-rollbacks` | Do not test rollback scripts |
 | `--json` | Machine-readable output |
+| `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
@@ -361,6 +366,7 @@ Reads the database schema and reports manual changes: missing or extra tables, c
 |---|---|
 | `--entities` | Compare with the entities instead of the snapshot |
 | `--json` | Machine-readable output |
+| `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--schema <name>` | Database schema to read |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |

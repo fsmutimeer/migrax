@@ -87,8 +87,18 @@ final class CommandContext {
 
   /** The migration runner, waiting for the lock as long as --lock-timeout says. */
   MigrationRunner migrationRunner() {
-    return project == null ? services.migrationRunner()
-        : services.migrationRunner().withLockTimeout(project.lockTimeout());
+    if (project == null) {
+      return services.migrationRunner();
+    }
+    try {
+      return services.migrationRunner().withLockTimeout(project.lockTimeout())
+          .withEnvironment(project.environment());
+    } catch (UsageException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new IllegalStateException("Could not read the Migrax configuration: "
+          + e.getMessage(), e);
+    }
   }
 
   DiffEngine diffEngine() {

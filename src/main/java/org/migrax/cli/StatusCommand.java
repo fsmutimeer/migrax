@@ -53,8 +53,8 @@ final class StatusCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--json", "--schemas", "--url", "--user", "--password", "--password-file",
-        "--locations", "--java-package", "--classpath", "--no-build");
+    return List.of("--json", "--env", "--schemas", "--url", "--user", "--password",
+        "--password-file", "--locations", "--java-package", "--classpath", "--no-build");
   }
 
   @Override
@@ -98,10 +98,11 @@ final class StatusCommand implements Command {
             case APPLIED -> "[X]";
             case PENDING -> "[ ]";
             case OUTDATED -> "[~]";
+            case SKIPPED -> "[-]";
             default -> "[!]";
           };
           String detail = switch (row.state()) {
-            case APPLIED, OUTDATED -> row.detail();
+            case APPLIED, OUTDATED, SKIPPED -> row.detail();
             case PENDING -> row.detail().isEmpty() ? "pending" : "pending: " + row.detail();
             default -> row.state().name() + ": " + row.detail();
           };

@@ -13,8 +13,11 @@ public class MigraxProperties {
   /** Apply migrations when the application starts. */
   private boolean enabled = true;
 
-  /** Migration folder. */
+  /** Migration folders, separated by commas. */
   private String locations = "classpath:db/migration";
+
+  /** Environment name: migrations marked '-- migrax:env <name>' run only there. */
+  private String env;
 
   /** Package scanned for JavaMigration classes, in addition to JavaMigration beans. */
   private String javaPackage = "db.migration";
@@ -51,6 +54,14 @@ public class MigraxProperties {
 
   public void setLocations(String locations) {
     this.locations = locations;
+  }
+
+  public String getEnv() {
+    return env;
+  }
+
+  public void setEnv(String env) {
+    this.env = env;
   }
 
   public String getJavaPackage() {

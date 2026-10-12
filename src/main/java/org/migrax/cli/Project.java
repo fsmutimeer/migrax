@@ -252,6 +252,11 @@ final class Project implements AutoCloseable {
     }
   }
 
+  /** The environment for {@code -- migrax:env} migrations: --env, MIGRAX_ENV or migrax.env. */
+  String environment() throws Exception {
+    return setting("--env", "env");
+  }
+
   /** How long to wait for the migration lock: --lock-timeout, then MIGRAX_LOCK_TIMEOUT. */
   java.time.Duration lockTimeout() {
     String value = args.option("--lock-timeout");

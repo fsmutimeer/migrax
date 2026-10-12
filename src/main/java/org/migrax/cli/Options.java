@@ -16,7 +16,7 @@ final class Options {
       "--package", "--dir", "--locations", "--dialect", "--url", "--user", "--password",
       "--classpath", "--name", "--schema", "--action", "--naming", "--extractor", "--rename",
       "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table",
-      "--lock-timeout", "--password-file");
+      "--lock-timeout", "--password-file", "--env");
   /** Options without a value. */
   static final Set<String> FLAGS = Set.of(
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
@@ -56,6 +56,7 @@ final class Options {
         "--allow-generate        Also offer the generate tool (writes migration files)");
     HELP.put("--lock-timeout",
         "--lock-timeout <time>   Wait this long while another process migrates (e.g. 2m)");
+    HELP.put("--env", "--env <name>            Environment for migrations marked '-- migrax:env'");
     HELP.put("--resume", "--resume                Re-run a failed resume-safe migration");
     HELP.put("--steps", "--steps <n>             Number of migrations to roll back");
     HELP.put("--to", "--to <migration>        Last migration to apply, keep or squash up to");
