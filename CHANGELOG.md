@@ -8,6 +8,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- Migrations can contain stored procedures, functions and triggers: a line with only `GO` ends
+  a SQL Server batch, `DELIMITER` lines change the MySQL/MariaDB delimiter, and a line with only
+  `/` ends an Oracle PL/SQL block (also usable for SQLite triggers). `-- migrax:no-split` sends
+  a whole file as one statement. `migrate`, `rollback`, `lint` and `verify` all split this way.
 - Guides > Without Java entities: how to apply hand-written SQL migrations with Migrax in
   projects without JPA entities (Python, Node.js, other languages): drivers, connection
   settings, the container image and rollback scripts.

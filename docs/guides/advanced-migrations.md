@@ -80,6 +80,86 @@ Directives are comment lines in a migration:
 | `-- migrax:no-transaction` | Run without a transaction, for statements like `CREATE INDEX CONCURRENTLY` |
 | `-- migrax:resume-safe` | Allow `migrate --resume` to re-run it after a failure |
 | `-- migrax:lint-ignore MX001` | Silence a lint rule for the next statement |
+| `-- migrax:no-split` | Send the whole file to the database as one statement |
+
+## Procedures, functions and triggers
+
+Migrax runs a migration statement by statement and normally splits it at semicolons. The body
+of a procedure or trigger has semicolons of its own, so mark where it ends the way your
+database's own tools expect:
+
+=== "SQL Server"
+
+    A line with only `GO` ends a batch. Each batch is sent whole.
+
+    ```sql
+    CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));
+    GO
+    CREATE PROCEDURE add_note @note VARCHAR(100) AS
+    BEGIN
+      SET NOCOUNT ON;
+      INSERT INTO note_log (id, note) SELECT COALESCE(MAX(id), 0) + 1, @note FROM note_log;
+    END;
+    GO
+    ```
+
+=== "MySQL and MariaDB"
+
+    `DELIMITER` changes what ends a statement, until the next `DELIMITER` line.
+
+    ```sql
+    CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));
+    DELIMITER $$
+    CREATE PROCEDURE add_note(IN p_note VARCHAR(100))
+    BEGIN
+      DECLARE next_id INT;
+      SELECT COALESCE(MAX(id), 0) + 1 INTO next_id FROM note_log;
+      INSERT INTO note_log (id, note) VALUES (next_id, p_note);
+    END$$
+    DELIMITER ;
+    ```
+
+=== "Oracle"
+
+    A line with only `/` ends a PL/SQL block: `CREATE PROCEDURE`, `FUNCTION`, `PACKAGE`,
+    `TRIGGER`, `TYPE`, or an anonymous `BEGIN` or `DECLARE` block. Other statements still end
+    at their semicolon.
+
+    ```sql
+    CREATE TABLE note_log (id NUMBER PRIMARY KEY, note VARCHAR2(100));
+    CREATE OR REPLACE PROCEDURE add_note(p_note IN VARCHAR2) AS
+    BEGIN
+      INSERT INTO note_log (id, note) SELECT NVL(MAX(id), 0) + 1, p_note FROM note_log;
+    END;
+    /
+    ```
+
+=== "PostgreSQL"
+
+    Function bodies in dollar quotes (`$$ ... $$`) need nothing extra.
+
+    ```sql
+    CREATE FUNCTION add_note(p_note VARCHAR) RETURNS void AS $$
+    BEGIN
+      INSERT INTO note_log (id, note) SELECT COALESCE(MAX(id), 0) + 1, p_note FROM note_log;
+    END;
+    $$ LANGUAGE plpgsql;
+    ```
+
+=== "SQLite"
+
+    End a trigger with a line holding only `/`, as for Oracle.
+
+    ```sql
+    CREATE TRIGGER add_note AFTER INSERT ON note_source
+    BEGIN
+      INSERT INTO note_log (id, note) SELECT COALESCE(MAX(id), 0) + 1, NEW.note FROM note_log;
+    END;
+    /
+    ```
+
+Anything else can go in a file of its own with `-- migrax:no-split`: Migrax then sends the
+whole file as one statement. `lint` and `verify` split files the same way.
 
 ## Several schemas (multi-tenant)
 

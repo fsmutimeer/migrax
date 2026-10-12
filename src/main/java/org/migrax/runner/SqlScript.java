@@ -14,6 +14,12 @@ import java.util.regex.Pattern;
  */
 public final class SqlScript {
   private static final Pattern PLACEHOLDER = Pattern.compile("\\$\\{([A-Za-z0-9_.-]+)}");
+  private static final Pattern GO_LINE = Pattern.compile("(?i)\\s*GO\\s*");
+  private static final Pattern SLASH_LINE = Pattern.compile("\\s*/\\s*");
+  private static final Pattern DELIMITER_LINE = Pattern.compile("(?i)DELIMITER\\s+(\\S+)");
+  private static final Pattern PLSQL_BLOCK = Pattern.compile("(?is)(?:CREATE\\s+(?:OR\\s+REPLACE"
+      + "\\s+)?(?:(?:NON)?EDITIONABLE\\s+)?(?:PROCEDURE|FUNCTION|PACKAGE|TRIGGER|TYPE)"
+      + "|DECLARE|BEGIN)\\b");
 
   private SqlScript() {}
 
@@ -62,18 +68,70 @@ public final class SqlScript {
   /**
    * Splits a script into statements on semicolons outside quotes, comments and PostgreSQL
    * dollar-quoted bodies. Statements that contain only comments are dropped.
+   *
+   * <p>Scripts with stored procedures, functions and triggers use the separators of each
+   * database's own tools:
+   * <ul>
+   *   <li>a line with only {@code GO} (SQL Server) ends a batch, which runs whole; semicolons
+   *       inside it don't split;</li>
+   *   <li>a {@code DELIMITER $$} line (MySQL, MariaDB) changes the delimiter until the next
+   *       {@code DELIMITER} line; those lines are not sent;</li>
+   *   <li>in a script with a line holding only {@code /} (Oracle), a PL/SQL block ({@code CREATE
+   *       PROCEDURE}, {@code FUNCTION}, {@code PACKAGE}, {@code TRIGGER}, {@code TYPE}, or an
+   *       anonymous {@code BEGIN} or {@code DECLARE} block) ends at that line, not at its
+   *       semicolons;</li>
+   *   <li>a {@code -- migrax:no-split} line sends the whole script as one statement.</li>
+   * </ul>
    */
   public static List<String> split(String sql, boolean backslashEscapes) {
+    if (hasDirective(sql, "no-split")) {
+      List<String> whole = new ArrayList<>();
+      addStatement(whole, new StringBuilder(sql));
+      return whole;
+    }
+    boolean batches = sql.lines().anyMatch(line -> GO_LINE.matcher(line).matches());
+    boolean slashBlocks = sql.lines().anyMatch(line -> SLASH_LINE.matcher(line).matches());
     List<String> statements = new ArrayList<>();
     StringBuilder current = new StringBuilder();
     char quote = 0;
     String dollarQuote = null;
     boolean lineComment = false;
     boolean blockComment = false;
+    String delimiter = ";";
+    // Whether the current statement has text besides comments, and whether it is PL/SQL.
+    boolean started = false;
+    boolean plsqlBlock = false;
 
     for (int i = 0; i < sql.length(); i++) {
       char ch = sql.charAt(i);
       char next = i + 1 < sql.length() ? sql.charAt(i + 1) : 0;
+      boolean code = !lineComment && !blockComment && dollarQuote == null && quote == 0;
+
+      if (code && (i == 0 || sql.charAt(i - 1) == '\n')) {
+        int end = sql.indexOf('\n', i);
+        end = end < 0 ? sql.length() : end + 1;
+        String line = sql.substring(i, end).strip();
+        Matcher delimiterLine = DELIMITER_LINE.matcher(line);
+        boolean separator = (batches && GO_LINE.matcher(line).matches())
+            || (slashBlocks && SLASH_LINE.matcher(line).matches());
+        // DELIMITER is a command only between statements, not a column inside one.
+        boolean newDelimiter = !started && delimiterLine.matches();
+        if (separator || newDelimiter) {
+          addStatement(statements, current);
+          started = false;
+          plsqlBlock = false;
+          if (newDelimiter) {
+            delimiter = delimiterLine.group(1);
+          }
+          i = end - 1;
+          continue;
+        }
+      }
+      if (code && !started && !Character.isWhitespace(ch) && !(ch == '-' && next == '-')
+          && !(ch == '/' && next == '*')) {
+        started = true;
+        plsqlBlock = slashBlocks && PLSQL_BLOCK.matcher(sql).region(i, sql.length()).lookingAt();
+      }
 
       if (lineComment) {
         current.append(ch);
@@ -117,7 +175,11 @@ public final class SqlScript {
         continue;
       }
 
-      if (ch == '-' && next == '-') {
+      if (!delimiter.equals(";") && sql.startsWith(delimiter, i)) {
+        addStatement(statements, current);
+        started = false;
+        i += delimiter.length() - 1;
+      } else if (ch == '-' && next == '-') {
         current.append(ch).append(next);
         i++;
         lineComment = true;
@@ -142,8 +204,9 @@ public final class SqlScript {
         } else {
           current.append(ch);
         }
-      } else if (ch == ';') {
+      } else if (ch == ';' && delimiter.equals(";") && !batches && !plsqlBlock) {
         addStatement(statements, current);
+        started = false;
       } else {
         current.append(ch);
       }
