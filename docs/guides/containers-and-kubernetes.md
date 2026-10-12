@@ -30,7 +30,8 @@ Successfully applied migration '0001_initial.sql'.
 Applied 1 migration(s); 1 total in /migrations.
 ```
 
-`migrate`, `status`, `rollback`, `repair`, `clean`, `lint` and `drift` work in the image.
+`migrate`, `status`, `rollback`, `repair`, `clean`, `lint`, `drift` and `doctor` work in the
+image; `doctor` checks the migrations and the database connection there.
 `generate`, `check` and `verify` read your entities, so they run where your project is built
 (your machine or CI), not in the image.
 

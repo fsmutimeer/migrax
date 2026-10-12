@@ -1,8 +1,10 @@
 # Troubleshooting
 
 Start with `migrax doctor`: it checks Java, the build, the entities, the database connection
-and risky settings, and says how to fix each problem. Add `--verbose` to any command for debug
-output and stack traces.
+and risky settings, and says how to fix each problem. In a folder with migrations but no
+`pom.xml`, `build.gradle` or entity package (the container image, or a project in another
+language), it checks only the migrations and the database. Add `--verbose` to any command for
+debug output and stack traces.
 
 ??? question "`migrax` is not recognized"
 

@@ -79,33 +79,50 @@ final class DoctorCommand implements Command {
     doctor.check(javaVersion >= 17, "Java " + System.getProperty("java.version"),
         "Migrax needs Java 17 or newer.");
     ProjectBuild.Tool tool = ProjectBuild.detect(project.root());
-    doctor.check(tool != ProjectBuild.Tool.NONE || ProjectContext.explicitClasspath(args.raw) != null,
-        "Build tool: " + tool.name().toLowerCase(Locale.ROOT),
-        "No pom.xml or build.gradle found. Run inside the service folder, or set MIGRAX_CLASSPATH.");
     String packageName = project.packageNameOrNull();
-    doctor.check(packageName != null, "Entity package: " + packageName,
-        "Pass --package <name> or set MIGRAX_PACKAGE.");
-    doctor.info("Framework: " + project.framework().label());
-    doctor.info("Naming: " + project.naming().id()
-        + " (must match Hibernate; set migrax.naming=spring|jpa|jpa-snake|micronaut to change)");
-    NamingStrategy fresh = project.frameworkNaming();
-    if (!fresh.equals(project.naming())) {
-      doctor.warn("The snapshot was made with '" + project.naming().id() + "' naming, but "
-          + project.framework().label()
-          + " uses '" + fresh.id() + "'. Migrax keeps '" + project.naming().id()
-          + "' so it matches your tables; if the application cannot find columns, set "
-          + "migrax.naming=" + fresh.id() + " and generate a migration that renames them.");
+    Path migrations = project.migrations();
+    List<Path> files = MigrationLoader.sqlFiles(migrations);
+    // Migrations but no build file and no entity package: a project that writes its migrations
+    // by hand (another language, or the container image), so the Java checks don't apply. A Java
+    // project opened in the wrong folder has no migrations there and still fails them.
+    boolean withoutJava = tool == ProjectBuild.Tool.NONE && packageName == null
+        && !files.isEmpty();
+    if (withoutJava) {
+      doctor.info("No pom.xml, build.gradle or entity package: checking migrations and the "
+          + "database only");
+    } else {
+      doctor.check(tool != ProjectBuild.Tool.NONE
+              || ProjectContext.explicitClasspath(args.raw) != null,
+          "Build tool: " + tool.name().toLowerCase(Locale.ROOT),
+          "No pom.xml or build.gradle found. Run inside the service folder, or set "
+              + "MIGRAX_CLASSPATH.");
+      doctor.check(packageName != null, "Entity package: " + packageName,
+          "Pass --package <name> or set MIGRAX_PACKAGE.");
+      doctor.info("Framework: " + project.framework().label());
+      doctor.info("Naming: " + project.naming().id()
+          + " (must match Hibernate; set migrax.naming=spring|jpa|jpa-snake|micronaut to change)");
+      NamingStrategy fresh = project.frameworkNaming();
+      if (!fresh.equals(project.naming())) {
+        doctor.warn("The snapshot was made with '" + project.naming().id() + "' naming, but "
+            + project.framework().label()
+            + " uses '" + fresh.id() + "'. Migrax keeps '" + project.naming().id()
+            + "' so it matches your tables; if the application cannot find columns, set "
+            + "migrax.naming=" + fresh.id() + " and generate a migration that renames them.");
+      }
     }
 
     URLClassLoader loader = null;
     try {
+      // Without Java this only loads the JDBC drivers; there is nothing to compile.
       loader = project.loader(true);
-      doctor.ok("Project compiled and dependencies resolved");
+      if (!withoutJava) {
+        doctor.ok("Project compiled and dependencies resolved");
+      }
     } catch (Exception e) {
       doctor.fail("Project build: " + Errors.describe(e), "Fix the build, or pass --no-build.");
     }
 
-    if (loader != null) {
+    if (loader != null && !withoutJava) {
       String jpa = loadable(loader, "jakarta.persistence.Entity") ? "jakarta.persistence"
           : loadable(loader, "javax.persistence.Entity") ? "javax.persistence" : null;
       doctor.check(jpa != null, "JPA API found: " + jpa,
@@ -140,8 +157,6 @@ final class DoctorCommand implements Command {
       }
     }
 
-    Path migrations = project.migrations();
-    List<Path> files = MigrationLoader.sqlFiles(migrations);
     doctor.ok("Migrations: " + files.size() + " file(s) in " + project.display(migrations));
     for (ProjectDatabaseConfig.SchemaGeneration setting
         : ProjectDatabaseConfig.schemaGenerationSettings(project.resources(), project.config())) {
@@ -154,7 +169,7 @@ final class DoctorCommand implements Command {
     }
     if (Files.exists(project.snapshot())) {
       doctor.ok("Snapshot: " + project.display(project.snapshot()));
-    } else {
+    } else if (!withoutJava) {
       doctor.info("Snapshot: none yet; the first generate uses the database as baseline");
     }
 
@@ -186,8 +201,9 @@ final class DoctorCommand implements Command {
             .stream().filter(row -> row.state() == MigrationRunner.State.PENDING).count();
         doctor.info("Pending migrations: " + pending);
       } catch (Exception e) {
-        doctor.fail("Database connection: " + Errors.describe(e),
-            "Check the URL, user, password and that the JDBC driver is a project dependency.");
+        doctor.fail("Database connection: " + Errors.describe(e), withoutJava
+            ? "Check the URL, user, password and that the JDBC driver is in MIGRAX_DRIVERS."
+            : "Check the URL, user, password and that the JDBC driver is a project dependency.");
       }
     }
 
