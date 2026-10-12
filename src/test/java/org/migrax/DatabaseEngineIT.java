@@ -49,6 +49,7 @@ class DatabaseEngineIT {
             Database sqlite = new Database("jdbc:sqlite:" + file, "", "");
             exerciseRunner(sqlite);
             exerciseGeneratedSchema(sqlite);
+            exerciseProcedures(sqlite);
           } finally {
             Files.deleteIfExists(file);
             Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
@@ -78,6 +79,7 @@ class DatabaseEngineIT {
         }
         exerciseRunner(Database.of(container));
         exerciseGeneratedSchema(Database.of(container));
+        exerciseProcedures(Database.of(container));
       }
     });
   }
@@ -245,6 +247,101 @@ class DatabaseEngineIT {
           INSERT INTO migration_probe (id, content) VALUES (1, 'semicolon; inside');
           """);
       assertThrows(IllegalStateException.class, () -> runner.migrate(connection, List.of(initial)));
+    }
+  }
+
+  /**
+   * Procedures and triggers written the way each database's own tools expect them: GO batches
+   * (SQL Server), DELIMITER (MySQL, MariaDB), a / line after PL/SQL (Oracle, also used for the
+   * SQLite trigger) and dollar quotes (PostgreSQL). The migration runs, then the procedure or
+   * trigger is used.
+   */
+  private static void exerciseProcedures(Database database) throws Exception {
+    String url = database.url();
+    String script;
+    String call;
+    if (url.startsWith("jdbc:sqlserver:")) {
+      script = """
+          CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));
+          GO
+          CREATE PROCEDURE add_note @note VARCHAR(100) AS
+          BEGIN
+            SET NOCOUNT ON;
+            INSERT INTO note_log (id, note) SELECT COALESCE(MAX(id), 0) + 1, @note FROM note_log;
+          END;
+          GO
+          """;
+      call = "EXEC add_note 'a; b'";
+    } else if (url.startsWith("jdbc:mysql:") || url.startsWith("jdbc:mariadb:")) {
+      script = """
+          CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));
+          DELIMITER $$
+          CREATE PROCEDURE add_note(IN p_note VARCHAR(100))
+          BEGIN
+            DECLARE next_id INT;
+            SELECT COALESCE(MAX(id), 0) + 1 INTO next_id FROM note_log;
+            INSERT INTO note_log (id, note) VALUES (next_id, p_note);
+          END$$
+          DELIMITER ;
+          """;
+      call = "CALL add_note('a; b')";
+    } else if (url.startsWith("jdbc:oracle:")) {
+      script = """
+          CREATE TABLE note_log (id NUMBER PRIMARY KEY, note VARCHAR2(100));
+          CREATE OR REPLACE PROCEDURE add_note(p_note IN VARCHAR2) AS
+          BEGIN
+            INSERT INTO note_log (id, note) SELECT NVL(MAX(id), 0) + 1, p_note FROM note_log;
+          END;
+          /
+          """;
+      call = "BEGIN add_note('a; b'); END;";
+    } else if (url.startsWith("jdbc:sqlite:")) {
+      script = """
+          CREATE TABLE note_log (id INTEGER PRIMARY KEY, note VARCHAR(100));
+          CREATE TABLE note_source (note VARCHAR(100));
+          CREATE TRIGGER add_note AFTER INSERT ON note_source
+          BEGIN
+            INSERT INTO note_log (id, note)
+              SELECT COALESCE(MAX(id), 0) + 1, NEW.note FROM note_log;
+          END;
+          /
+          """;
+      call = "INSERT INTO note_source VALUES ('a; b')";
+    } else {
+      boolean cockroach;
+      try (Connection connection = database.connect()) {
+        cockroach = org.migrax.dialect.Dialects.forConnection(connection)
+            .filter(d -> d.id().equals("cockroachdb")).isPresent();
+      }
+      if (cockroach) {
+        return;
+      }
+      script = """
+          CREATE TABLE note_log (id INTEGER PRIMARY KEY, note VARCHAR(100));
+          CREATE FUNCTION add_note(p_note VARCHAR) RETURNS void AS $$
+          BEGIN
+            INSERT INTO note_log (id, note) SELECT COALESCE(MAX(id), 0) + 1, p_note FROM note_log;
+          END;
+          $$ LANGUAGE plpgsql;
+          """;
+      call = "SELECT add_note('a; b')";
+    }
+    Path folder = Files.createTempDirectory("migrax-procedures-it");
+    Path file = folder.resolve("0001_procedures.sql");
+    Files.writeString(file, script);
+    try (Connection connection = database.connect()) {
+      new MigrationRunner().migrate(connection, List.of(file));
+      try (Statement statement = connection.createStatement()) {
+        statement.execute(call);
+      }
+      if (!connection.getAutoCommit()) {
+        connection.commit();
+      }
+      try (Statement statement = connection.createStatement();
+           var rows = statement.executeQuery("SELECT note FROM note_log")) {
+        org.junit.jupiter.api.Assertions.assertTrue(rows.next(), url);
+        assertEquals("a; b", rows.getString(1), url);
+      }
     }
   }
 }

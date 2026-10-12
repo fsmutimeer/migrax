@@ -5,8 +5,10 @@ Known limits in Migrax 0.4.0:
 - **Check constraints and comments** (`@Check`, `@Comment`, enum check constraints) are not
   generated. Add them with a hand-written migration (`migrax new`).
 - **One migration folder** per project.
-- **Statement splitting:** SQL Server `GO` batches and client `DELIMITER` commands are not
-  supported; PL/SQL blocks with inner semicolons must be split by hand.
+- **Statement splitting:** procedures and triggers need the separators described in
+  [Procedures, functions and
+  triggers](../guides/advanced-migrations.md#procedures-functions-and-triggers) (`GO`,
+  `DELIMITER`, a `/` line). `GO` with a repeat count (`GO 5`) is not supported.
 - **Hibernate before 5.4** is read by annotation scanning with Hibernate 6's rules. See
   [Hibernate versions](hibernate.md).
 - **Other JPA providers** are read by annotation scanning with Hibernate's naming rules.
