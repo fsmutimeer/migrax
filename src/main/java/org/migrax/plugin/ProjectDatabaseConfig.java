@@ -582,6 +582,29 @@ public final class ProjectDatabaseConfig {
     return text.toString();
   }
 
+  /**
+   * Every folder of a comma-separated location list such as
+   * {@code classpath:db/migration,filesystem:db/dev-data}, in the order given.
+   *
+   * @since 0.5.0
+   */
+  public static List<Path> resolveMigrationDirectories(
+      String locations, Path projectDirectory, Path resourcesDirectory) {
+    List<Path> folders = new java.util.ArrayList<>();
+    for (String location : locations == null ? new String[0] : locations.split(",")) {
+      if (!location.isBlank()) {
+        Path folder = resolveMigrationDirectory(location, projectDirectory, resourcesDirectory);
+        if (!folders.contains(folder)) {
+          folders.add(folder);
+        }
+      }
+    }
+    if (folders.isEmpty()) {
+      folders.add(resolveMigrationDirectory(locations, projectDirectory, resourcesDirectory));
+    }
+    return folders;
+  }
+
   public static Path resolveMigrationDirectory(
       String location, Path projectDirectory, Path resourcesDirectory) {
     if (location == null || location.isBlank()) {

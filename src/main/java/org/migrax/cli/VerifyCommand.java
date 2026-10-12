@@ -163,7 +163,6 @@ final class VerifyCommand implements Command {
   private static String verifyRollbacks(Connection connection, MigrationRunner runner,
                                         Project project, List<Migration> migrations,
                                         PrintStream err) throws Exception {
-    Path folder = project.migrations();
     Map<String, Migration> java = new HashMap<>();
     migrations.stream().filter(Migration::isJava).forEach(m -> java.put(m.version(), m));
     List<MigrationRunner.AppliedMigration> applied = runner.applied(connection).stream()
@@ -173,7 +172,7 @@ final class VerifyCommand implements Command {
     String firstWithout = null;
     for (int i = applied.size() - 1; i >= 0; i--) {
       String version = applied.get(i).version();
-      Path script = MigrationLoader.rollbackScript(folder, version);
+      Path script = project.rollbackScript(version);
       if (java.containsKey(version)) {
         scripts.add(java.get(version));
       } else if (script != null) {

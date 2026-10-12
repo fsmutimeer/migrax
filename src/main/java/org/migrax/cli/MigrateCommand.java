@@ -67,16 +67,15 @@ final class MigrateCommand implements Command {
     Args args = context.args();
     PrintStream out = context.out();
     project.requireUrl();
-    Path folder = project.migrations();
     List<Migration> migrations = project.migrationsToRun(true);
     if (migrations.isEmpty() && !hasHistory(context, project)) {
-      out.println("No migrations in " + project.display(folder) + ". Run 'migrax generate' first.");
+      out.println("No migrations in " + project.displayMigrations() + ". Run 'migrax generate' first.");
       context.result("applied", 0);
       return OK;
     }
     long versioned = migrations.stream().filter(m -> m.kind() == Migration.Kind.VERSIONED).count();
     String target = Project.blank(args.option("--to")) ? null
-        : target(args.option("--to"), migrations, project.display(folder));
+        : target(args.option("--to"), migrations, project.displayMigrations());
     MigrationRunner.Options options = project.runOptions().withTarget(target);
     Map<String, Migration> byVersion = new HashMap<>();
     migrations.forEach(m -> byVersion.put(m.version(), m));
@@ -104,8 +103,8 @@ final class MigrateCommand implements Command {
           pending.forEach(row -> out.println("  " + row.version()));
           String dialect = project.dialect(false, out).id();
           for (MigrationRunner.MigrationStatus row : pending) {
-            Path file = folder.resolve(row.version());
-            if (Files.isRegularFile(file)) {
+            Path file = project.migrationFile(row.version());
+            if (file != null) {
               Reports.printFindings(out,
                   SqlLinter.lint(project.display(file), Files.readString(file), dialect));
             }
@@ -128,7 +127,7 @@ final class MigrateCommand implements Command {
           out.println("Nothing to migrate: all " + versioned + " migration(s) are applied.");
         } else {
           out.println("Applied " + applied + " migration(s); " + versioned + " total in "
-              + project.display(folder) + ".");
+              + project.displayMigrations() + ".");
         }
       }
       return OK;

@@ -161,6 +161,23 @@ database's own tools expect:
 Anything else can go in a file of its own with `-- migrax:no-split`: Migrax then sends the
 whole file as one statement. `lint` and `verify` split files the same way.
 
+## Several migration folders
+
+Migrations can come from more than one folder, for example shared migrations from a library
+module next to the application's own, or test data that only some environments load:
+
+```properties
+migrax.locations=classpath:db/migration,filesystem:db/dev-data
+```
+
+(or `--locations` and `MIGRAX_LOCATIONS` with the same value). Migrax reads every folder and
+runs the files in version order across all of them. File names must be unique across the
+folders: two folders with the same file name is an error. A rollback script lives in the
+`rollback` folder next to its migration.
+
+`new`, `generate`, `squash`, `merge` and `import` write to the first folder; new files are
+numbered after the highest number in any folder.
+
 ## Several schemas (multi-tenant)
 
 Run the same migrations once per schema:

@@ -8,6 +8,9 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- Several migration folders: `--locations`, `MIGRAX_LOCATIONS` and `migrax.locations` take a
+  comma-separated list (CLI, Maven, Gradle and the startup integrations). Files run in version
+  order across all folders; new files go into the first one.
 - `migrax baseline <migration> --yes` (Maven: `migrax:baseline`) adopts a database whose
   tables already exist: it records the migrations up to the named one as applied without
   running them, so `migrate` only runs the later ones.

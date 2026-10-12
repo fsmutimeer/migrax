@@ -112,7 +112,7 @@ final class GenerateCommand implements Command {
     // also writes those tables as a baseline migration, so the migrations alone can build an
     // empty database.
     boolean baseline = !hasSnapshot && !changes.previous().tables().isEmpty()
-        && MigrationFiles.nextNumber(migrations) == 1;
+        && project.nextNumber() == 1;
     if (operations.isEmpty()) {
       out.println("No changes detected.");
       if (!hasSnapshot) {
@@ -168,7 +168,7 @@ final class GenerateCommand implements Command {
     String name;
     Path file;
     try {
-      name = migrationName(args, migrations, changes.previous(), main.isEmpty() ? online : main);
+      name = migrationName(args, project, changes.previous(), main.isEmpty() ? online : main);
       file = migrations.resolve(name + ".sql");
       if (Files.exists(file)) {
         throw new UsageException("Migration already exists: " + project.display(file),
@@ -286,11 +286,12 @@ final class GenerateCommand implements Command {
         + "databases are created from it.");
   }
 
-  private static String migrationName(Args args, Path migrations, SchemaModel previous,
+  private static String migrationName(Args args, Project project, SchemaModel previous,
                                       List<Operation> operations) throws Exception {
     String name = args.option("--name");
     if (Project.blank(name)) {
-      return Migrations.nextName(migrations, previous.tables().isEmpty(), operations);
+      return Migrations.nextName(project.migrationFolders(), previous.tables().isEmpty(),
+          operations);
     }
     name = name.trim();
     if (name.endsWith(".sql")) {
@@ -303,7 +304,7 @@ final class GenerateCommand implements Command {
     // A plain --name gets the next number, so the file
     // is ordered and applied; 'migrate' skips SQL files without a version.
     if (MigrationRunner.versionParts(name + ".sql").isEmpty()) {
-      name = String.format(Locale.ROOT, "%04d_%s", MigrationFiles.nextNumber(migrations), name);
+      name = String.format(Locale.ROOT, "%04d_%s", project.nextNumber(), name);
     }
     return name;
   }

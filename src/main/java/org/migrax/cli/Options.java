@@ -46,7 +46,7 @@ final class Options {
         "--password-file <path>  Read the database password from a file (mounted secret)");
     HELP.put("--schema", "--schema <name>         Database schema to read");
     HELP.put("--schemas", "--schemas <a,b>         Run for each schema (multi-tenant)");
-    HELP.put("--locations", "--locations <path>      Migration folder, e.g. filesystem:db/sql");
+    HELP.put("--locations", "--locations <paths>     Migration folders, comma-separated (e.g. filesystem:db/sql)");
     HELP.put("--java-package", "--java-package <pkg>    Package of Java migrations (default: db.migration)");
     HELP.put("--classpath", "--classpath <paths>     Extra classpath; skips Maven/Gradle resolution");
     HELP.put("--no-build", "--no-build              Do not run Maven/Gradle; use compiled classes");

@@ -12,15 +12,19 @@ final class MigrationFiles {
 
   /** A migration file named on the command line, by file name, name without .sql or path. */
   static Path find(Project project, String name) throws Exception {
-    Path migrations = project.migrations();
-    for (Path candidate : List.of(migrations.resolve(name), migrations.resolve(name + ".sql"),
-        project.root().resolve(name), Path.of(name))) {
+    for (String candidate : List.of(name, name + ".sql")) {
+      Path file = project.migrationFile(candidate);
+      if (file != null) {
+        return file;
+      }
+    }
+    for (Path candidate : List.of(project.root().resolve(name), Path.of(name))) {
       if (Files.isRegularFile(candidate)) {
         return candidate;
       }
     }
     throw new UsageException("Migration file not found: " + name,
-        "Run 'migrax status' to list migrations in " + project.display(migrations) + ".");
+        "Run 'migrax status' to list migrations in " + project.displayMigrations() + ".");
   }
 
   /** The next migration number after the highest one in the folder. */

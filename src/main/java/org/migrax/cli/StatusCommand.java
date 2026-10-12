@@ -64,7 +64,6 @@ final class StatusCommand implements Command {
     PrintStream out = context.out();
     PrintStream err = context.err();
     project.requireUrl();
-    Path folder = project.migrations();
     List<Migration> migrations = project.migrationsToRun(true);
     boolean problems = false;
     List<Object> json = new ArrayList<>();
@@ -84,7 +83,7 @@ final class StatusCommand implements Command {
                   "detail", row.detail())).toList()));
           continue;
         }
-        out.println("Migrations in " + project.display(folder) + " for "
+        out.println("Migrations in " + project.displayMigrations() + " for "
             + RuntimeJdbc.sanitizeUrl(project.credentials().url())
             + (schema == null ? "" : ", schema " + schema));
         if (rows.isEmpty()) {

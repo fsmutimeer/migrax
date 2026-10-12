@@ -4,7 +4,6 @@ Known limits in Migrax 0.4.0:
 
 - **Check constraints and comments** (`@Check`, `@Comment`, enum check constraints) are not
   generated. Add them with a hand-written migration (`migrax new`).
-- **One migration folder** per project.
 - **Statement splitting:** procedures and triggers need the separators described in
   [Procedures, functions and
   triggers](../guides/advanced-migrations.md#procedures-functions-and-triggers) (`GO`,

@@ -48,6 +48,32 @@ public final class Migrations {
    */
   public static String nextName(Path migrations, boolean baselineIsEmpty,
                                 List<Operation> operations) throws IOException {
+    return nextName(List.of(migrations), baselineIsEmpty, operations);
+  }
+
+  /**
+   * The next migration name when migrations are read from several folders: its number follows
+   * the highest number in any of them.
+   *
+   * @since 0.5.0
+   */
+  public static String nextName(List<Path> folders, boolean baselineIsEmpty,
+                                List<Operation> operations) throws IOException {
+    int latest = 0;
+    for (Path migrations : folders) {
+      latest = Math.max(latest, latestNumber(migrations));
+    }
+    if (latest == 0 && baselineIsEmpty) {
+      return "0001_initial";
+    }
+    String description = description(operations);
+    if (description.isEmpty()) {
+      description = "auto_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"));
+    }
+    return String.format(Locale.ROOT, "%04d_%s", latest + 1, description);
+  }
+
+  private static int latestNumber(Path migrations) throws IOException {
     int latest = 0;
     if (Files.isDirectory(migrations)) {
       try (Stream<Path> paths = Files.list(migrations)) {
@@ -67,14 +93,7 @@ public final class Migrations {
         }
       }
     }
-    if (latest == 0 && baselineIsEmpty) {
-      return "0001_initial";
-    }
-    String description = description(operations);
-    if (description.isEmpty()) {
-      description = "auto_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"));
-    }
-    return String.format(Locale.ROOT, "%04d_%s", latest + 1, description);
+    return latest;
   }
 
   /** Name from the first operations, e.g. {@code add_customer_phone_and_more}. */

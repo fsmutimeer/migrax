@@ -61,14 +61,13 @@ final class LintCommand implements Command {
     PrintStream out = context.out();
     PrintStream err = context.err();
     String dialect = project.dialect(true, args.flag("--json") ? err : out).id();
-    Path folder = project.migrations();
     List<Path> files = new ArrayList<>();
     if (args.positionals.size() > 1) {
       for (String name : args.positionals.subList(1, args.positionals.size())) {
         files.add(MigrationFiles.find(project, name));
       }
     } else {
-      List<Path> all = MigrationLoader.sqlFiles(folder);
+      List<Path> all = project.migrationFiles();
       if (args.flag("--all") || !project.hasUrl()) {
         files.addAll(all);
       } else {

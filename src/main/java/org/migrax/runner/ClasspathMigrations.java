@@ -27,6 +27,31 @@ import java.util.stream.Stream;
 public final class ClasspathMigrations {
   private ClasspathMigrations() {}
 
+  /**
+   * SQL migrations of several classpath folders. A file name found in two of them is an error,
+   * because both would be recorded under that name.
+   *
+   * @since 0.5.0
+   */
+  public static List<Migration> load(ClassLoader loader, List<String> locations)
+      throws IOException {
+    Map<String, String> folderOf = new LinkedHashMap<>();
+    List<Migration> migrations = new ArrayList<>();
+    for (String location : new java.util.LinkedHashSet<>(locations.stream()
+        .map(String::trim).filter(location -> !location.isEmpty()).toList())) {
+      for (Migration migration : load(loader, location)) {
+        String other = folderOf.putIfAbsent(migration.version(), location);
+        if (other != null) {
+          throw new IllegalStateException("Two migration locations contain "
+              + migration.version() + ": " + other + " and " + location
+              + ". Migration file names must be unique across all locations.");
+        }
+        migrations.add(migration);
+      }
+    }
+    return migrations;
+  }
+
   /** SQL migrations in a classpath folder such as {@code db/migration}; sub-folders skipped. */
   public static List<Migration> load(ClassLoader loader, String location) throws IOException {
     String folder = location.replace("classpath:", "").replaceAll("^/+", "")

@@ -67,7 +67,7 @@ final class NewCommand implements Command {
     }
     Path folder = project.migrations();
     Files.createDirectories(folder);
-    int next = MigrationFiles.nextNumber(folder) - 1;
+    int next = project.nextNumber() - 1;
     String javaPackage = project.javaPackage();
     Path javaFolder = project.root().resolve("src/main/java").resolve(javaPackage.replace('.', '/'));
     if (Files.isDirectory(javaFolder)) {
