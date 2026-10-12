@@ -185,4 +185,22 @@ class RunnerFeaturesTest {
       assertThrows(SQLException.class, () -> count(connection, "SELECT COUNT(*) FROM never_run"));
     }
   }
+
+  @Test
+  void targetStopsAfterTheGivenMigrationAndSkipsRepeatables() throws Exception {
+    try (Connection connection = database()) {
+      List<Migration> all = List.of(sql("0001_a.sql", "CREATE TABLE a (id INT);"),
+          sql("0002_b.sql", "CREATE TABLE b (id INT);"),
+          sql("0003_c.sql", "CREATE TABLE c (id INT);"),
+          sql("R__view.sql", "CREATE OR REPLACE VIEW v AS SELECT id FROM c;"));
+      MigrationRunner runner = new MigrationRunner();
+      assertEquals(2, runner.migrateAll(connection, all,
+          MigrationRunner.Options.defaults().withTarget("0002_b.sql")));
+      assertEquals(List.of("0001_a.sql", "0002_b.sql"), history(connection));
+      assertThrows(SQLException.class, () -> count(connection, "SELECT COUNT(*) FROM c"));
+      assertEquals(2, migrate(connection, all));
+      assertEquals(List.of("0001_a.sql", "0002_b.sql", "0003_c.sql", "R__view.sql"),
+          history(connection));
+    }
+  }
 }

@@ -82,6 +82,22 @@ shows the exact line to change:
                   (or validate: Hibernate then checks the schema at startup without changing it)
 ```
 
+## Applying a release in steps
+
+To roll out several migrations one at a time (for example, run the slow index first and check
+the database before going on), stop after a given migration:
+
+```console
+$ migrax migrate --to 0007
+Applying migration '0007_add_order_index.sql'...
+Successfully applied migration '0007_add_order_index.sql'.
+Applied 1 migration(s) up to 0007_add_order_index.sql.
+2 migration(s) after it stay pending.
+```
+
+`--to` takes the file name, its start, or the version number. Repeatable migrations (`R__*.sql`)
+wait until a `migrate` without `--to`, because they may use what later migrations add.
+
 ## A release checklist
 
 - [x] Migration generated in development and reviewed in the pull request

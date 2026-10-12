@@ -10,7 +10,9 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** {@code migrax migrate}: apply pending migrations to the database. */
 final class MigrateCommand implements Command {
@@ -32,7 +34,7 @@ final class MigrateCommand implements Command {
 
   @Override
   public String usage() {
-    return "migrax migrate [--dry-run] [--resume] [--schemas a,b]";
+    return "migrax migrate [--to <migration>] [--dry-run] [--resume] [--schemas a,b]";
   }
 
   @Override
@@ -40,6 +42,8 @@ final class MigrateCommand implements Command {
     return """
         Applies pending SQL and Java migrations in order, then new or changed repeatable
         R__*.sql migrations, with beforeMigrate/afterMigrate callbacks and ${placeholders}.
+        --to applies versioned migrations only up to and including the given one;
+        repeatable migrations then wait for the next migrate without --to.
         --dry-run lists and lints pending migrations without changing the database.
         --schemas runs the migrations once per schema (multi-tenant).
         --resume re-runs a failed migration only if it is marked '-- migrax:resume-safe'.""";
@@ -52,7 +56,7 @@ final class MigrateCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--dry-run", "--json", "--resume", "--lock-timeout", "--schemas", "--url",
+    return List.of("--to", "--dry-run", "--json", "--resume", "--lock-timeout", "--schemas", "--url",
         "--user", "--password", "--password-file", "--locations", "--java-package", "--classpath",
         "--no-build");
   }
@@ -71,6 +75,11 @@ final class MigrateCommand implements Command {
       return OK;
     }
     long versioned = migrations.stream().filter(m -> m.kind() == Migration.Kind.VERSIONED).count();
+    String target = Project.blank(args.option("--to")) ? null
+        : target(args.option("--to"), migrations, project.display(folder));
+    MigrationRunner.Options options = project.runOptions().withTarget(target);
+    Map<String, Migration> byVersion = new HashMap<>();
+    migrations.forEach(m -> byVersion.put(m.version(), m));
     MigrationRunner runner = context.migrationRunner();
     try (Connection connection = project.connect()) {
       for (String schema : project.schemasOrDefault()) {
@@ -81,11 +90,14 @@ final class MigrateCommand implements Command {
         if (args.flag("--dry-run")) {
           List<MigrationRunner.MigrationStatus> pending = runner.statusOf(connection, migrations)
               .stream().filter(row -> row.state() == MigrationRunner.State.PENDING
-                  || row.state() == MigrationRunner.State.OUTDATED).toList();
+                  || row.state() == MigrationRunner.State.OUTDATED)
+              .filter(row -> byVersion.get(row.version()) == null
+                  || !options.beyondTarget(byVersion.get(row.version()))).toList();
           context.resultList("schemas").add(JsonOut.object("schema", schema, "wouldApply",
               pending.stream().map(MigrationRunner.MigrationStatus::version).toList()));
           if (pending.isEmpty()) {
-            out.println("Nothing to migrate: all " + versioned + " migration(s) are applied.");
+            out.println(target != null ? "Nothing to migrate up to " + target + "."
+                : "Nothing to migrate: all " + versioned + " migration(s) are applied.");
             continue;
           }
           out.println(pending.size() + " migration(s) would be applied:");
@@ -100,10 +112,19 @@ final class MigrateCommand implements Command {
           }
           continue;
         }
-        int applied = runner.migrateAll(connection, migrations, project.runOptions());
+        int applied = runner.migrateAll(connection, migrations, options);
         context.resultList("schemas").add(JsonOut.object("schema", schema, "applied", applied,
             "total", versioned));
-        if (applied == 0) {
+        if (target != null) {
+          out.println(applied == 0 ? "Nothing to migrate up to " + target + "."
+              : "Applied " + applied + " migration(s) up to " + target + ".");
+          long waiting = runner.statusOf(connection, migrations).stream()
+              .filter(row -> row.state() == MigrationRunner.State.PENDING
+                  || row.state() == MigrationRunner.State.OUTDATED).count();
+          if (waiting > 0) {
+            out.println(waiting + " migration(s) after it stay pending.");
+          }
+        } else if (applied == 0) {
           out.println("Nothing to migrate: all " + versioned + " migration(s) are applied.");
         } else {
           out.println("Applied " + applied + " migration(s); " + versioned + " total in "
@@ -112,6 +133,34 @@ final class MigrateCommand implements Command {
       }
       return OK;
     }
+  }
+
+  /**
+   * The versioned migration --to names: its file name (with or without .sql), the start of
+   * it, or its version number ({@code 5} for {@code 0005_add_email.sql}).
+   */
+  static String target(String wanted, List<Migration> migrations, String folder) {
+    List<String> versions = migrations.stream()
+        .filter(m -> m.kind() == Migration.Kind.VERSIONED).sorted(MigrationRunner.ORDER)
+        .map(Migration::version).toList();
+    for (String version : versions) {
+      if (version.equals(wanted) || version.equals(wanted + ".sql")) {
+        return version;
+      }
+    }
+    for (String version : versions) {
+      if (version.startsWith(wanted)) {
+        return version;
+      }
+    }
+    List<java.math.BigInteger> number = MigrationRunner.versionParts(wanted);
+    for (String version : versions) {
+      if (!number.isEmpty() && MigrationRunner.versionParts(version).equals(number)) {
+        return version;
+      }
+    }
+    throw new UsageException("No migration '" + wanted + "' in " + folder + ".",
+        "Run 'migrax status' to see the migrations.");
   }
 
   /**

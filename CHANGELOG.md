@@ -8,6 +8,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- `migrate --to <migration>` (Maven: `-Dmigrax.to=...`) applies versioned migrations only up
+  to and including the named one, for staged rollouts. The name can be the file name, its
+  start, or the version number (`--to 5`). Repeatable migrations wait for the next migrate
+  without `--to`.
 - Migrations can contain stored procedures, functions and triggers: a line with only `GO` ends
   a SQL Server batch, `DELIMITER` lines change the MySQL/MariaDB delimiter, and a line with only
   `/` ends an Oracle PL/SQL block (also usable for SQLite triggers). `-- migrax:no-split` sends

@@ -13,6 +13,10 @@ public final class MigrateMojo extends AbstractMigraxMojo {
   @Parameter(property = "migrax.resume", defaultValue = "false")
   private boolean resume;
 
+  /** Apply versioned migrations only up to and including this one. */
+  @Parameter(property = "migrax.to")
+  private String to;
+
   /** Only list and lint pending migrations. */
   @Parameter(property = "migrax.dryRun", defaultValue = "false")
   private boolean dryRun;
@@ -24,6 +28,7 @@ public final class MigrateMojo extends AbstractMigraxMojo {
 
   @Override
   protected void addArguments(List<String> args) {
+    option(args, "--to", to);
     flag(args, "--resume", resume);
     flag(args, "--dry-run", dryRun);
   }

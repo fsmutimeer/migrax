@@ -58,7 +58,7 @@ final class Options {
         "--lock-timeout <time>   Wait this long while another process migrates (e.g. 2m)");
     HELP.put("--resume", "--resume                Re-run a failed resume-safe migration");
     HELP.put("--steps", "--steps <n>             Number of migrations to roll back");
-    HELP.put("--to", "--to <migration>        Last migration to keep / squash up to");
+    HELP.put("--to", "--to <migration>        Last migration to apply, keep or squash up to");
     HELP.put("--action", "--action <action>       applied, retry or forget");
     HELP.put("--yes", "--yes, -y               Confirm without asking");
     HELP.put("--json", "--json                  Machine-readable output");
