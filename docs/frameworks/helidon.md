@@ -64,7 +64,8 @@ with the counts as data (`/health/ready`).
 
 Helidon SE uses its database client rather than JPA, so there are no entities to generate
 migrations from. Write migrations with `migrax new` and apply them with `migrax migrate` in your
-deployment. Migrax reads the connection from `application.yaml`:
+deployment ([Using Migrax without Java entities](../guides/without-entities.md) explains
+this setup). Migrax reads the connection from `application.yaml`:
 
 ```yaml
 db:
