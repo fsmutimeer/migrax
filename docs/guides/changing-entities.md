@@ -75,14 +75,19 @@ public class Product {
 Migrax reads Hibernate's `@Check`, `@Checks` and `@Comment` (`org.hibernate.annotations`), and
 the `check` and `comment` attributes of Jakarta Persistence 3.2's `@Table` and `@Column`. A new
 table gets its checks inside `CREATE TABLE`; an existing one gets
-`ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)`. The condition is copied as written, so use SQL
-that your database understands; `migrax verify` runs it on that database before release.
-MySQL enforces checks from 8.0.16 on, and `migrax doctor` warns on older servers.
+`ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)`.
+
+Your condition goes into the migration exactly as you wrote it, so write it in your database's
+SQL. `migrax verify` runs the migration on a throwaway copy of that database, so a condition the
+database doesn't understand shows up there, before release. MySQL enforces checks from 8.0.16
+on; `migrax doctor` warns on older servers.
 
 A check without a name gets one from its table and condition, such as
 `ck_product_3f2a9c1e`. When you change the condition, the name changes too: the migration drops
-the old constraint and adds the new one. Adding a check fails when existing rows break it; fix
-those rows in the same migration, before the check is added.
+the old constraint and adds the new one. If the database already has the check under a name it
+chose itself (Hibernate creates unnamed checks that way), Migrax recognizes it by its condition
+and keeps that name. Adding a check fails when existing rows break it; fix those rows in the
+same migration, before the check is added.
 
 Comments are written the way each database stores them: `COMMENT ON` (PostgreSQL, CockroachDB,
 Oracle, H2), part of the table or column definition (MySQL, MariaDB), or the `MS_Description`
