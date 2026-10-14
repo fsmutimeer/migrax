@@ -1,27 +1,48 @@
 # Limitations
 
-Known limits in Migrax 0.5.0:
+What Migrax doesn't do yet, and what to do instead.
 
-- **Check constraints** are copied into the migration as written: Migrax doesn't translate
-  the condition between databases. MySQL enforces them from 8.0.16 on. See
-  [Check constraints and comments](../guides/changing-entities.md#check-constraints-and-comments).
-- **Comments** are not kept by SQLite; Migrax leaves them out there.
-- **Statement splitting:** procedures and triggers need the separators described in
-  [Procedures, functions and
-  triggers](../guides/advanced-migrations.md#procedures-functions-and-triggers) (`GO`,
-  `DELIMITER`, a `/` line). `GO` with a repeat count (`GO 5`) is not supported.
-- **Hibernate before 5.4** is read by annotation scanning with Hibernate 6's rules. See
-  [Hibernate versions](hibernate.md).
-- **Other JPA providers** are read by annotation scanning with Hibernate's naming rules.
-- **Quarkus:** the startup integration runs in JVM mode, after Hibernate has started. Keep
-  `quarkus.hibernate-orm.schema-management.strategy=none`.
-- **Rollback scripts** restore structure, not deleted data.
-- **Application servers:** data sources defined in the server's configuration are not read; set
-  the connection with environment variables or options.
-- **SQLite:** Hibernate can't load `@Lob` fields through the SQLite driver, and `verify` uses
-  Migrax's structural check instead of Hibernate's validation. See
-  [Databases](databases.md#sqlite).
-- **CockroachDB:** some column type changes need CockroachDB's experimental settings; review
-  migrations that change types. See [Databases](databases.md#cockroachdb).
-- **Distribution:** Migrax is not on Maven Central yet. Install the libraries from source, or
-  use the [container image](../guides/containers-and-kubernetes.md).
+## Reading your entities
+
+**Hibernate older than 5.4.** Migrax reads these projects from their annotations, using the
+rules of current Hibernate versions. Most mappings come out the same, but older versions differ
+in places: Hibernate 5 shares one `hibernate_sequence` between entities, for example.
+`migrax doctor` tells you when this applies. Review the generated migrations and run
+`migrax verify` before you release them. See [Hibernate versions](hibernate.md).
+
+**JPA providers other than Hibernate**, such as EclipseLink or OpenJPA, are read the same way,
+with Hibernate's naming rules. If your provider names tables or columns differently, set the
+names in your entities (`@Table`, `@Column`) or check the generated migrations.
+
+## Running migrations
+
+**Quarkus applies migrations after Hibernate has started.** Keep
+`quarkus.hibernate-orm.schema-management.strategy=none`: with `validate`, Hibernate would check
+the schema before the new migrations ran and stop the application. Validate in CI with
+`migrax verify` instead. The integration runs in JVM mode, not in a native executable.
+
+**Data sources defined inside an application server** (WildFly, Payara, Open Liberty, ...)
+aren't visible to the `migrax` command. Give it the connection with
+`MIGRAX_DATABASE_URL`, `MIGRAX_DATABASE_USER` and `MIGRAX_DATABASE_PASSWORD`, or the matching
+options.
+
+**`--schemas` on SQL Server.** SQL Server can't change a connection's default schema, so Migrax
+can't move from one schema to the next. Run Migrax once per schema, each time with a login
+whose default schema is that schema.
+
+**Oracle package bodies and anonymous PL/SQL blocks** need a line with only `/` after them.
+Procedures, functions and triggers don't; see
+[Procedures, functions and triggers](../guides/advanced-migrations.md#procedures-functions-and-triggers).
+
+## Rolling back
+
+**A rollback brings back the structure, not the data.** Rolling back a migration that dropped a
+column re-creates the column, but its values are gone. Each rollback script says at the top what
+it can't restore. Back up the database before a release that drops data. See
+[Rollbacks and recovery](../guides/rollbacks-and-recovery.md).
+
+## Getting Migrax
+
+**Migrax isn't on Maven Central yet.** To use the Maven plugin or a framework integration,
+install the libraries from source, as described on each framework's page. The command line tool
+and the [container image](../guides/containers-and-kubernetes.md) don't need this.
