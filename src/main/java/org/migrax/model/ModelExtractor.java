@@ -23,18 +23,21 @@ public final class ModelExtractor {
   private static final String ADAPTER_PACKAGE = "org.migrax.orm.";
   private static final String READER = "org.migrax.orm.HibernateSchemaReader";
   private static final String ECLIPSELINK_READER = "org.migrax.orm.EclipseLinkSchemaReader";
+  private static final String OPENJPA_READER = "org.migrax.orm.OpenJpaSchemaReader";
 
   /** How entities are read. */
   public enum Mode {
     /**
-     * Hibernate's mapping when Hibernate is available, else EclipseLink's when EclipseLink is,
-     * else annotation scanning.
+     * Hibernate's mapping when Hibernate is available, else EclipseLink's or OpenJPA's when the
+     * project has one of them, else annotation scanning.
      */
     AUTO,
     /** Hibernate's mapping only; fails if Hibernate 5 or newer is unavailable. */
     HIBERNATE,
     /** EclipseLink's mapping only; fails if EclipseLink is unavailable (since 0.6.0). */
     ECLIPSELINK,
+    /** OpenJPA's mapping only; fails if OpenJPA is unavailable (since 0.6.0). */
+    OPENJPA,
     /** JPA annotation scanning only. */
     ANNOTATIONS;
 
@@ -46,9 +49,10 @@ public final class ModelExtractor {
         case "auto" -> AUTO;
         case "hibernate" -> HIBERNATE;
         case "eclipselink" -> ECLIPSELINK;
+        case "openjpa" -> OPENJPA;
         case "annotations", "annotation", "reflection" -> ANNOTATIONS;
         default -> throw new IllegalArgumentException(
-            "Unknown extractor '" + value + "'. Use auto, hibernate, eclipselink or "
+            "Unknown extractor '" + value + "'. Use auto, hibernate, eclipselink, openjpa or "
                 + "annotations.");
       };
     }
@@ -72,23 +76,30 @@ public final class ModelExtractor {
     ClassLoader previous = thread.getContextClassLoader();
     thread.setContextClassLoader(loader);
     try {
-      if (mode == Mode.ECLIPSELINK || mode == Mode.AUTO && !readsMapping(hibernateVersion(loader))
-          && eclipseLinkVersion(loader) != null) {
-        String version = eclipseLinkVersion(loader);
+      // Without Hibernate: the project's EclipseLink, else its OpenJPA.
+      boolean otherProvider = mode == Mode.AUTO && !readsMapping(hibernateVersion(loader));
+      Mode provider = mode == Mode.ECLIPSELINK || mode == Mode.OPENJPA ? mode
+          : otherProvider && eclipseLinkVersion(loader) != null ? Mode.ECLIPSELINK
+          : otherProvider && openJpaVersion(loader) != null ? Mode.OPENJPA : null;
+      if (provider != null) {
+        boolean eclipseLink = provider == Mode.ECLIPSELINK;
+        String product = eclipseLink ? "EclipseLink" : "OpenJPA";
+        String version = eclipseLink ? eclipseLinkVersion(loader) : openJpaVersion(loader);
         if (version == null) {
-          throw new IllegalStateException("EclipseLink is not on the project classpath.");
+          throw new IllegalStateException(product + " is not on the project classpath.");
         }
         try {
-          return new Result(readWithEclipseLink(loader, basePackage, dialect,
-              hibernateSettings), "EclipseLink " + version + " mapping");
+          return new Result(readWithProvider(eclipseLink ? ECLIPSELINK_READER : OPENJPA_READER,
+              loader, basePackage, dialect, hibernateSettings),
+              product + " " + version + " mapping");
         } catch (Exception | LinkageError e) {
-          if (mode == Mode.ECLIPSELINK) {
-            throw new IllegalStateException("EclipseLink could not read the entity mapping: "
+          if (mode == provider) {
+            throw new IllegalStateException(product + " could not read the entity mapping: "
                 + rootMessage(e), e);
           }
-          Log.warn("EclipseLink could not read the entity mapping ({}); scanning JPA "
-              + "annotations instead. Use --extractor eclipselink to see the full error.",
-              rootMessage(e));
+          Log.warn(product + " could not read the entity mapping ({}); scanning JPA "
+              + "annotations instead. Use --extractor " + product.toLowerCase(Locale.ROOT)
+              + " to see the full error.", rootMessage(e));
         }
       } else if (mode != Mode.ANNOTATIONS) {
         String version = hibernateVersion(loader);
@@ -171,9 +182,24 @@ public final class ModelExtractor {
     }
   }
 
-  private static SchemaModel readWithEclipseLink(ClassLoader loader, String basePackage,
-                                                 Dialect dialect, Map<String, String> settings)
-      throws Exception {
+  /**
+   * OpenJPA's version on the class loader, or null when OpenJPA is absent.
+   *
+   * @since 0.6.0
+   */
+  public static String openJpaVersion(ClassLoader loader) {
+    try {
+      Class<?> version = Class.forName("org.apache.openjpa.conf.OpenJPAVersion", true, loader);
+      return String.valueOf(version.getField("VERSION_NUMBER").get(null));
+    } catch (ReflectiveOperationException | LinkageError e) {
+      return null;
+    }
+  }
+
+  /** Reads the entities with an adapter for the project's EclipseLink or OpenJPA. */
+  private static SchemaModel readWithProvider(String adapter, ClassLoader loader,
+                                              String basePackage, Dialect dialect,
+                                              Map<String, String> settings) throws Exception {
     List<Class<?>> classes = new ArrayList<>(JpaExtractor.scanEntities(loader, basePackage));
     classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "Embeddable"));
     classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "MappedSuperclass"));
@@ -181,7 +207,7 @@ public final class ModelExtractor {
     if (classes.isEmpty()) {
       return SchemaModel.empty();
     }
-    Class<?> reader = new AdapterClassLoader(loader).loadClass(ECLIPSELINK_READER);
+    Class<?> reader = new AdapterClassLoader(loader).loadClass(adapter);
     try {
       return (SchemaModel) reader.getMethod("read", List.class, Map.class, Dialect.class)
           .invoke(reader.getConstructor().newInstance(), classes,
