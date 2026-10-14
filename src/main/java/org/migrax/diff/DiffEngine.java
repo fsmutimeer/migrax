@@ -54,7 +54,8 @@ public final class DiffEngine {
 
     for (SchemaModel.Sequence sequence : after.sequences()) {
       if (before.sequence(sequence.name()) == null) {
-        changes.add(new CreateSequence(sequence));
+        // A sequence that is a row in a table can only be added once the table exists.
+        (sequence.inTable() ? adds : changes).add(new CreateSequence(sequence));
       }
     }
 
@@ -162,7 +163,8 @@ public final class DiffEngine {
 
     for (SchemaModel.Sequence sequence : before.sequences()) {
       if (after.sequence(sequence.name()) == null) {
-        changes.add(new DropSequence(sequence.name()));
+        // A sequence that is a row in a table goes before its table can.
+        (sequence.inTable() ? drops : changes).add(new DropSequence(sequence.name(), sequence));
       }
     }
 

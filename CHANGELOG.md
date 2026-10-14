@@ -14,6 +14,13 @@ All notable changes to Migrax are listed here. The format follows
   `migrax-quarkus-deployment` artifact itself. The readiness check is added only when the
   application has the health extension, so the build warning about `HealthCheck` is gone.
   Migrations are listed when the application is built: set `migrax.locations` before the build.
+- EclipseLink: projects that use EclipseLink are read through EclipseLink's own mapping, as
+  Hibernate projects are through Hibernate's: its names, its join and collection tables, and
+  its id strategies, including the `SEQUENCE` table and rows a plain `@GeneratedValue` needs.
+  Before, they were read with Hibernate's rules and EclipseLink failed at runtime. Tested with
+  EclipseLink 2.7, 3.0 and 4.0, and on PostgreSQL and MySQL. `--extractor eclipselink` forces
+  it. The database reader also recognizes H2's `BINARY LARGE OBJECT` and `CHARACTER LARGE
+  OBJECT` columns, which made the first `generate` change `@Lob` columns on H2.
 - Jakarta EE: the new `migrax-jakarta-ee` integration applies the migrations when the
   application starts on the server, to the data source `persistence.xml` names as the server
   provides it (or `migrax.datasource`), so the connection isn't configured twice. Tested on

@@ -104,8 +104,13 @@ public final class Json {
       var s = m.sequences().get(i);
       b.append(NL).append("    {\"name\":").append(q(s.name()))
           .append(",\"initialValue\":").append(s.initialValue())
-          .append(",\"allocationSize\":").append(s.allocationSize())
-          .append('}').append(i + 1 < m.sequences().size() ? "," : "");
+          .append(",\"allocationSize\":").append(s.allocationSize());
+      if (s.inTable()) {
+        b.append(",\"table\":").append(q(s.table()))
+            .append(",\"nameColumn\":").append(q(s.nameColumn()))
+            .append(",\"valueColumn\":").append(q(s.valueColumn()));
+      }
+      b.append('}').append(i + 1 < m.sequences().size() ? "," : "");
     }
     b.append(m.sequences().isEmpty() ? "" : NL + "  ").append("]").append(NL);
     return b.append("}").append(NL).toString();
@@ -252,7 +257,8 @@ public final class Json {
       ss.add(new SchemaModel.Sequence(
           str(x, "name"),
           iv instanceof Number ? ((Number) iv).longValue() : 1,
-          av instanceof Number ? ((Number) av).longValue() : 50));
+          av instanceof Number ? ((Number) av).longValue() : 50,
+          nullableStr(x, "table"), nullableStr(x, "nameColumn"), nullableStr(x, "valueColumn")));
     }
     return new SchemaModel(ts, ss);
   }

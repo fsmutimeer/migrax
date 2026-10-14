@@ -33,7 +33,26 @@ Tested patch versions: 5.0.12, 5.1.17, 5.2.18, 5.3.36, 5.4.33, 5.5.9, 5.6.15, 6.
     Migrax reads your entities from their annotations and `verify` compares the schema itself,
     and both say that JAXB is missing.
 
-## Without Hibernate, or before 5.0
+## EclipseLink
+
+When your project uses EclipseLink instead of Hibernate, Migrax asks **your EclipseLink** for
+its mapping, again without connecting to a database. The migrations then have the names
+EclipseLink uses (its default names such as `ID` and `Customer_SCORES`, written in lower case
+except where the database's table names are case-sensitive, as on MySQL), and what its id
+strategies need:
+
+- `GenerationType.IDENTITY`: an identity column.
+- `GenerationType.SEQUENCE`: a database sequence, started the way EclipseLink expects; on
+  databases without sequences (MySQL), an identity column, as EclipseLink uses there.
+- A plain `@GeneratedValue` (or `TABLE`): EclipseLink's `SEQUENCE` table and its row for each
+  generator.
+
+Tested versions: 2.7.15 (`javax.persistence`), 3.0.4 and 4.0.4 (`jakarta.persistence`). The
+same fixture project is generated, migrated and verified, and then EclipseLink itself saves and
+reads every kind of entity against the migrated database. EclipseLink has no schema validation,
+so `verify` compares the schema with the mapping itself.
+
+## Without Hibernate or EclipseLink, or before Hibernate 5.0
 
 Migrax then scans the JPA annotations and applies Hibernate 6's rules. That covers the common
 mappings, but types and sequence names can differ from older Hibernate versions (Hibernate 5
@@ -44,8 +63,9 @@ generated migrations carefully and run `migrax verify`.
 
 | `--extractor` | Behavior |
 |---|---|
-| `auto` (default) | Hibernate's mapping when possible, otherwise annotation scanning |
+| `auto` (default) | Hibernate's mapping when possible, else EclipseLink's, else annotation scanning |
 | `hibernate` | Hibernate's mapping only; fails with the reason if it can't be used |
+| `eclipselink` | EclipseLink's mapping only; fails with the reason if it can't be used |
 | `annotations` | Annotation scanning only |
 
 `migrax doctor` shows which reader is used. `migrax inspect` prints the schema it read.

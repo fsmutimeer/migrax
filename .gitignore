@@ -16,6 +16,7 @@ Thumbs.db
 compat/hibernate/work/
 compat/quarkus/work/
 compat/jakarta-ee/work/
+compat/eclipselink/work/
 
 # MkDocs output
 site/

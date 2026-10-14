@@ -10,9 +10,9 @@ in places: Hibernate 4 shares one `hibernate_sequence` between entities, for exa
 `migrax doctor` tells you when this applies. Review the generated migrations and run
 `migrax verify` before you release them. See [Hibernate versions](hibernate.md).
 
-**JPA providers other than Hibernate**, such as EclipseLink or OpenJPA, are read the same way,
-with Hibernate's naming rules. If your provider names tables or columns differently, set the
-names in your entities (`@Table`, `@Column`) or check the generated migrations.
+**JPA providers other than Hibernate and EclipseLink**, such as OpenJPA, are read the same
+way, with Hibernate's naming rules. If your provider names tables or columns differently, set
+the names in your entities (`@Table`, `@Column`) or check the generated migrations.
 
 ## Running migrations
 

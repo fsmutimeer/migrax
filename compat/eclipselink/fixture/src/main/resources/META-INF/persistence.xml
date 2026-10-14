@@ -1,0 +1,13 @@
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence" version="3.0">
+  <persistence-unit name="fixture" transaction-type="RESOURCE_LOCAL">
+    <class>com.matrix.Address</class>
+    <class>com.matrix.CardPayment</class>
+    <class>com.matrix.CashPayment</class>
+    <class>com.matrix.Customer</class>
+    <class>com.matrix.OrderLine</class>
+    <class>com.matrix.Payment</class>
+    <class>com.matrix.PurchaseOrder</class>
+    <class>com.matrix.Tag</class>
+    <exclude-unlisted-classes>true</exclude-unlisted-classes>
+  </persistence-unit>
+</persistence>

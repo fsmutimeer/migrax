@@ -375,5 +375,26 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
   }
   public record Index(String name, List<String> columns, boolean unique){ public Index{columns=List.copyOf(columns);} }
   public record ForeignKey(String name, List<String> columns, String referencedTable, List<String> referencedColumns){ public ForeignKey{columns=List.copyOf(columns); referencedColumns=List.copyOf(referencedColumns);} }
-  public record Sequence(String name, Long initialValue, Long allocationSize){ }
+  /**
+   * A sequence. A database sequence by default; with {@code table}, a row in a table that
+   * holds the next values of several sequences, one row each (EclipseLink's table sequencing:
+   * the name in {@code nameColumn}, the counter in {@code valueColumn}). The table itself is
+   * one of the model's tables.
+   *
+   * @param table the table holding the sequence's row, or null for a database sequence
+   *     (since 0.6.0)
+   * @param nameColumn the table's column with the sequence name (since 0.6.0)
+   * @param valueColumn the table's column with the last value handed out (since 0.6.0)
+   */
+  public record Sequence(String name, Long initialValue, Long allocationSize, String table,
+                         String nameColumn, String valueColumn) {
+    public Sequence(String name, Long initialValue, Long allocationSize) {
+      this(name, initialValue, allocationSize, null, null, null);
+    }
+
+    /** Whether the sequence is a row in a table rather than a database sequence. */
+    public boolean inTable() {
+      return table != null;
+    }
+  }
 }

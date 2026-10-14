@@ -724,6 +724,8 @@ public final class DatabaseSchemaReader {
     if (typeName != null) {
       String type = typeName.toLowerCase(java.util.Locale.ROOT);
       if (type.contains("json")) return "json";
+      // H2 names its LOB types BINARY LARGE OBJECT and CHARACTER LARGE OBJECT.
+      if (type.contains("large object")) return type.contains("char") ? "clob" : "blob";
       if (type.contains("uuid") || type.equals("uniqueidentifier")) return "uuid";
       if (type.contains("time zone") || type.contains("datetimeoffset")
           || type.equals("timestamptz")) return "timestamptz";
