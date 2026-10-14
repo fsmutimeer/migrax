@@ -31,7 +31,42 @@ public final class DatabaseBaseline {
     if (DatabaseSchemaReader.foldsNames(connection)) {
       database = database.withNameCaseFrom(entities);
     }
-    return withSequenceDefaults(database, entities);
+    boolean keepsComments = !connection.getMetaData().getDatabaseProductName()
+        .toLowerCase(java.util.Locale.ROOT).contains("sqlite");
+    return withEntityChecks(withSequenceDefaults(database, entities), entities, keepsComments);
+  }
+
+  /**
+   * Only the checks and comments the entities declare are Migrax's: others in the database
+   * (Hibernate's enum checks, hand-written ones) are left out, so the first generate never
+   * drops or clears them. Databases report a check's condition in their own words
+   * ({@code balance >= 0} comes back as {@code (balance >= (0)::numeric)} on PostgreSQL), so a
+   * check with the entity's name is taken as that check, written as the entity writes it. A
+   * database that keeps no comments (SQLite) is taken to have the entities' comments.
+   */
+  private static SchemaModel withEntityChecks(SchemaModel database, SchemaModel entities,
+                                              boolean keepsComments) {
+    java.util.List<SchemaModel.Table> tables = new java.util.ArrayList<>();
+    for (SchemaModel.Table table : database.tables()) {
+      SchemaModel.Table entity = entities.table(table.name());
+      java.util.List<SchemaModel.Check> checks = entity == null ? java.util.List.of()
+          : table.checks().stream().map(check -> entity.checks().stream()
+              .filter(c -> c.name().equalsIgnoreCase(check.name())).findFirst().orElse(null))
+              .filter(java.util.Objects::nonNull).toList();
+      java.util.List<SchemaModel.Column> columns = table.columns().stream().map(c -> {
+        SchemaModel.Column wanted = entity == null ? null : entity.column(c.name());
+        String comment = wanted == null || wanted.comment() == null ? null
+            : keepsComments ? c.comment() : wanted.comment();
+        return new SchemaModel.Column(c.name(), c.sqlType(), c.nullable(), c.length(),
+            c.precision(), c.scale(), c.defaultValue(), c.unique(), c.identity(),
+            c.sequenceName(), c.logicalType(), comment);
+      }).toList();
+      String comment = entity == null || entity.comment() == null ? null
+          : keepsComments ? table.comment() : entity.comment();
+      tables.add(new SchemaModel.Table(table.name(), columns, table.primaryKey(),
+          table.indexes(), table.foreignKeys(), checks, comment));
+    }
+    return new SchemaModel(tables, database.sequences());
   }
 
   /**
@@ -54,10 +89,10 @@ public final class DatabaseBaseline {
                     .anyMatch(s -> s.name().equalsIgnoreCase(c.sequenceName())));
         return !ownSequence ? c : new SchemaModel.Column(c.name(), c.sqlType(), c.nullable(),
             c.length(), c.precision(), c.scale(), c.defaultValue(), c.unique(), false,
-            wanted.sequenceName(), c.logicalType());
+            wanted.sequenceName(), c.logicalType(), c.comment());
       }).toList();
       tables.add(new SchemaModel.Table(table.name(), columns, table.primaryKey(), table.indexes(),
-          table.foreignKeys()));
+          table.foreignKeys(), table.checks(), table.comment()));
     }
     return new SchemaModel(tables, database.sequences());
   }

@@ -22,7 +22,8 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
           ? source.constraintName()
           : primaryKeyConstraintName(table.name());
       return new Table(table.name(), table.columns(),
-          new PrimaryKey(key.columns(), constraintName), table.indexes(), table.foreignKeys());
+          new PrimaryKey(key.columns(), constraintName), table.indexes(), table.foreignKeys(),
+          table.checks(), table.comment());
     }).toList();
     return new SchemaModel(namedTables, sequences);
   }
@@ -67,7 +68,7 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
       List<Column> columns = table.columns().stream()
           .map(c -> !cols.containsKey(c.name()) ? c : new Column(cols.get(c.name()), c.sqlType(),
               c.nullable(), c.length(), c.precision(), c.scale(), c.defaultValue(), c.unique(),
-              c.identity(), c.sequenceName(), c.logicalType()))
+              c.identity(), c.sequenceName(), c.logicalType(), c.comment()))
           .toList();
       PrimaryKey key = table.primaryKey() == null ? null
           : new PrimaryKey(map.apply(table.primaryKey().columns()),
@@ -81,7 +82,7 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
             k.referencedColumns().stream().map(n -> target.getOrDefault(n, n)).toList());
       }).toList();
       result.add(new Table(tableNames.getOrDefault(table.name(), table.name()), columns, key,
-          indexes, keys));
+          indexes, keys, table.checks(), table.comment()));
     }
     return new SchemaModel(result, sequences);
   }
@@ -170,11 +171,12 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
             && (compatibleType(existing, column) || sameSqlType.test(existing, column))
             ? new Column(column.name(), existing.sqlType(), column.nullable(), existing.length(),
                 existing.precision(), existing.scale(), column.defaultValue(), column.unique(),
-                column.identity(), column.sequenceName(), existing.logicalType())
+                column.identity(), column.sequenceName(), existing.logicalType(),
+                column.comment())
             : column);
       }
       result.add(new Table(table.name(), columns, table.primaryKey(), table.indexes(),
-          table.foreignKeys()));
+          table.foreignKeys(), table.checks(), table.comment()));
     }
     return new SchemaModel(result, sequences);
   }
@@ -251,7 +253,8 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
         indexes.add(match != null && !sameNameExists
             ? new Index(match.name(), index.columns(), index.unique()) : index);
       }
-      result.add(new Table(table.name(), table.columns(), table.primaryKey(), indexes, keys));
+      result.add(new Table(table.name(), table.columns(), table.primaryKey(), indexes, keys,
+          table.checks(), table.comment()));
     }
     return new SchemaModel(result, named.sequences());
   }
@@ -283,12 +286,54 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
         + String.format(java.util.Locale.ROOT, "%08x", (tableName + "." + columnName).hashCode());
   }
 
-  public record Table(String name, List<Column> columns, PrimaryKey primaryKey, List<Index> indexes, List<ForeignKey> foreignKeys) {
-    public Table { columns=List.copyOf(columns); indexes=List.copyOf(indexes); foreignKeys=List.copyOf(foreignKeys); }
+  /**
+   * A table.
+   *
+   * @param checks check constraints (since 0.5.0)
+   * @param comment the table comment, or null (since 0.5.0)
+   */
+  public record Table(String name, List<Column> columns, PrimaryKey primaryKey, List<Index> indexes, List<ForeignKey> foreignKeys, List<Check> checks, String comment) {
+    public Table { columns=List.copyOf(columns); indexes=List.copyOf(indexes); foreignKeys=List.copyOf(foreignKeys); checks = checks == null ? List.of() : List.copyOf(checks); comment = blankToNull(comment); }
+    public Table(String name, List<Column> columns, PrimaryKey primaryKey, List<Index> indexes, List<ForeignKey> foreignKeys) { this(name, columns, primaryKey, indexes, foreignKeys, List.of(), null); }
     public Column column(String name){return columns.stream().filter(c->c.name().equals(name)).findFirst().orElse(null);}
   }
-  public record Column(String name, String sqlType, boolean nullable, Integer length, Integer precision, Integer scale, String defaultValue, boolean unique, boolean identity, String sequenceName, String logicalType) {
+
+  /**
+   * A column.
+   *
+   * @param comment the column comment, or null (since 0.5.0)
+   */
+  public record Column(String name, String sqlType, boolean nullable, Integer length, Integer precision, Integer scale, String defaultValue, boolean unique, boolean identity, String sequenceName, String logicalType, String comment) {
+    public Column { comment = blankToNull(comment); }
+    public Column(String name, String sqlType, boolean nullable, Integer length, Integer precision, Integer scale, String defaultValue, boolean unique, boolean identity, String sequenceName, String logicalType) { this(name, sqlType, nullable, length, precision, scale, defaultValue, unique, identity, sequenceName, logicalType, null); }
     public Column(String name,String sqlType,boolean nullable,Integer length,Integer precision,Integer scale,String defaultValue,boolean unique){this(name,sqlType,nullable,length,precision,scale,defaultValue,unique,false,null,sqlType);}
+  }
+
+  /**
+   * A check constraint.
+   *
+   * @param name the constraint name
+   * @param expression the SQL condition, without {@code CHECK} and the outer parentheses
+   * @since 0.5.0
+   */
+  public record Check(String name, String expression) {}
+
+  /**
+   * The name Migrax gives a check constraint that has none: {@code ck_<table>_<hash>}, from
+   * the table and the condition, at most 30 characters for Oracle. Changing the condition
+   * changes the name, so the old constraint is dropped and the new one added.
+   *
+   * @since 0.5.0
+   */
+  public static String checkConstraintName(String table, String expression) {
+    String hash = String.format(Locale.ROOT, "%08x",
+        expression.strip().replaceAll("\\s+", " ").hashCode());
+    String prefix = "ck_" + table;
+    return (prefix.length() > 21 ? prefix.substring(0, 21) : prefix) + "_" + hash;
+  }
+
+  private static String blankToNull(String value) {
+    return value == null || value.isBlank() ? null : value;
   }
   public record PrimaryKey(List<String> columns, String constraintName){
     public PrimaryKey { columns = List.copyOf(columns); }

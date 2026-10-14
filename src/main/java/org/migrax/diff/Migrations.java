@@ -127,6 +127,9 @@ public final class Migrations {
     if (o instanceof AddIndex x) return "index_" + x.table();
     if (o instanceof DropIndex x) return "drop_index_" + x.table();
     if (o instanceof AddUnique x) return "unique_" + x.table() + "_" + x.column();
+    if (o instanceof org.migrax.ops.AddCheck x) return "check_" + x.table();
+    if (o instanceof org.migrax.ops.DropCheck x) return "drop_check_" + x.table();
+    if (o instanceof org.migrax.ops.SetComment x) return "comment_" + x.table();
     if (o instanceof DropUnique x) return "remove_unique_" + x.table() + "_" + x.column();
     if (o instanceof CreateSequence x) return "create_" + x.sequence().name();
     if (o instanceof DropSequence x) return "drop_" + x.name();
@@ -154,6 +157,16 @@ public final class Migrations {
     if (o instanceof AddForeignKey x) return "add foreign key " + x.fk().name() + " on " + x.table();
     if (o instanceof DropForeignKey x) return "drop foreign key " + x.name() + " on " + x.table();
     if (o instanceof AddUnique x) return "add unique constraint on " + x.table() + "." + x.column();
+    if (o instanceof org.migrax.ops.AddCheck x) {
+      return "add check " + x.check().name() + " on " + x.table();
+    }
+    if (o instanceof org.migrax.ops.DropCheck x) {
+      return "drop check " + x.name() + " on " + x.table();
+    }
+    if (o instanceof org.migrax.ops.SetComment x) {
+      return (x.comment() == null ? "remove comment on " : "comment on ") + x.table()
+          + (x.column() == null ? "" : "." + x.column().name());
+    }
     if (o instanceof DropUnique x) {
       return "drop unique constraint on " + x.table() + "." + x.column();
     }

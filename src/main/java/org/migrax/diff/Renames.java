@@ -207,7 +207,8 @@ public final class Renames {
               names.getOrDefault(k.referencedTable(), k.referencedTable()), k.referencedColumns()))
           .toList();
       tables.add(new SchemaModel.Table(names.getOrDefault(table.name(), table.name()),
-          table.columns(), table.primaryKey(), table.indexes(), keys));
+          table.columns(), table.primaryKey(), table.indexes(), keys, table.checks(),
+          table.comment()));
     }
     return new SchemaModel(tables, model.sequences());
   }
@@ -228,7 +229,7 @@ public final class Renames {
             .map(c -> own && c.name().equals(rename.from())
                 ? new SchemaModel.Column(rename.to(), c.sqlType(), c.nullable(), c.length(),
                     c.precision(), c.scale(), c.defaultValue(), c.unique(), c.identity(),
-                    c.sequenceName(), c.logicalType())
+                    c.sequenceName(), c.logicalType(), c.comment())
                 : c)
             .toList();
         SchemaModel.PrimaryKey key = table.primaryKey() == null || !own ? table.primaryKey()
@@ -244,7 +245,8 @@ public final class Renames {
                 k.referencedTable().equals(rename.table())
                     ? swap(k.referencedColumns(), rename) : k.referencedColumns()))
             .toList();
-        tables.add(new SchemaModel.Table(table.name(), columns, key, indexes, keys));
+        tables.add(new SchemaModel.Table(table.name(), columns, key, indexes, keys,
+            table.checks(), table.comment()));
       }
       result = new SchemaModel(tables, result.sequences());
     }

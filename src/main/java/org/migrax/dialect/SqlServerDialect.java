@@ -177,4 +177,39 @@ public final class SqlServerDialect extends AbstractDialect {
       }
     }
   }
+
+  @Override
+  protected String tableComment(String table, String comment) {
+    return description(table, null, comment);
+  }
+
+  @Override
+  protected String columnComment(String table, SchemaModel.Column column, String comment) {
+    return description(table, column.name(), comment);
+  }
+
+  /**
+   * SQL Server keeps comments as the MS_Description extended property. One statement without
+   * semicolons, so the migration runs it whole: it updates, adds or drops the property.
+   */
+  private String description(String table, String column, String comment) {
+    String target = "@level0type = N'SCHEMA', @level0name = @schema, @level1type = N'TABLE', "
+        + "@level1name = " + nLiteral(table)
+        + (column == null ? "" : ", @level2type = N'COLUMN', @level2name = " + nLiteral(column));
+    String exists = "SELECT 1 FROM sys.extended_properties WHERE name = N'MS_Description' "
+        + "AND major_id = OBJECT_ID(" + nLiteral(table) + ") AND minor_id = "
+        + (column == null ? "0" : "COLUMNPROPERTY(OBJECT_ID(" + nLiteral(table) + "), "
+            + nLiteral(column) + ", 'ColumnId')");
+    String set = comment == null ? ""
+        : "@name = N'MS_Description', @value = " + nLiteral(comment) + ", " + target;
+    return "DECLARE @schema sysname = SCHEMA_NAME() IF EXISTS (" + exists + ") "
+        + (comment == null
+            ? "EXEC sp_dropextendedproperty @name = N'MS_Description', " + target
+            : "EXEC sp_updateextendedproperty " + set + " ELSE EXEC sp_addextendedproperty "
+                + set);
+  }
+
+  private static String nLiteral(String value) {
+    return "N" + literal(value);
+  }
 }

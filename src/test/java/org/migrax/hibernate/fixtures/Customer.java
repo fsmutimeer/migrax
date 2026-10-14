@@ -6,8 +6,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-/** Typical Spring Boot entity: AUTO id, camelCase fields, unique column, embedded value. */
+/**
+ * Typical Spring Boot entity: AUTO id, camelCase fields, unique column, embedded value, a check
+ * constraint on the table and one on a column, comments.
+ */
 @Entity
+@org.hibernate.annotations.Comment("People who buy from the shop")
+@org.hibernate.annotations.Check(name = "ck_customer_balance", constraints = "balance >= 0")
 public class Customer {
   public enum Status { ACTIVE, BLOCKED }
 
@@ -21,9 +26,11 @@ public class Customer {
   public long version;
 
   @Column(nullable = false, length = 120)
+  @org.hibernate.annotations.Comment("The customer's name as they write it")
   public String fullName;
 
   @Column(unique = true)
+  @org.hibernate.annotations.Check(constraints = "email <> ''")
   public String email;
 
   public Instant createdAt;

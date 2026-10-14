@@ -31,6 +31,11 @@ public final class MariaDbDialect extends MySqlDialect {
   }
 
   @Override
+  protected String dropCheck(String table, String name) {
+    return "ALTER TABLE " + q(table) + " DROP CONSTRAINT " + q(name);
+  }
+
+  @Override
   protected String sequenceDefault(String name) {
     return "NEXT VALUE FOR " + q(name);
   }

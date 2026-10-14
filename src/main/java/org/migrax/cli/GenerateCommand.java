@@ -10,10 +10,12 @@ import org.migrax.diff.Renames;
 import org.migrax.diff.SnapshotStore;
 import org.migrax.lint.SqlLinter;
 import org.migrax.model.SchemaModel;
+import org.migrax.ops.AddCheck;
 import org.migrax.ops.AddForeignKey;
 import org.migrax.ops.AddIndex;
 import org.migrax.ops.AddUnique;
 import org.migrax.ops.CreateTable;
+import org.migrax.ops.DropCheck;
 import org.migrax.ops.DropForeignKey;
 import org.migrax.ops.DropIndex;
 import org.migrax.ops.DropUnique;
@@ -155,7 +157,7 @@ final class GenerateCommand implements Command {
           String table = Reports.table(operation);
           boolean existing = table != null && !newTables.contains(table);
           if (existing && (operation instanceof AddIndex || operation instanceof AddUnique
-              || operation instanceof AddForeignKey)) {
+              || operation instanceof AddForeignKey || operation instanceof AddCheck)) {
             online.add(operation);
           }
         }
@@ -324,6 +326,10 @@ final class GenerateCommand implements Command {
           && drop.name().equals(add.fk().name())) {
         return true;
       }
+      if (reverse instanceof DropCheck drop && operation instanceof AddCheck add
+          && drop.name().equals(add.check().name())) {
+        return true;
+      }
     }
     return false;
   }
@@ -341,13 +347,18 @@ final class GenerateCommand implements Command {
       List<SchemaModel.ForeignKey> keys = table.foreignKeys().stream().filter(k -> online.stream()
           .noneMatch(o -> o instanceof AddForeignKey a && a.table().equals(table.name())
               && a.fk().name().equals(k.name()))).toList();
+      List<SchemaModel.Check> checks = table.checks().stream().filter(c -> online.stream()
+          .noneMatch(o -> o instanceof AddCheck a && a.table().equals(table.name())
+              && a.check().name().equals(c.name()))).toList();
       List<SchemaModel.Column> columns = table.columns().stream().map(c -> online.stream()
           .anyMatch(o -> o instanceof AddUnique u && u.table().equals(table.name())
               && u.column().equals(c.name()))
           ? new SchemaModel.Column(c.name(), c.sqlType(), c.nullable(), c.length(), c.precision(),
-              c.scale(), c.defaultValue(), false, c.identity(), c.sequenceName(), c.logicalType())
+              c.scale(), c.defaultValue(), false, c.identity(), c.sequenceName(), c.logicalType(),
+              c.comment())
           : c).toList();
-      tables.add(new SchemaModel.Table(table.name(), columns, table.primaryKey(), indexes, keys));
+      tables.add(new SchemaModel.Table(table.name(), columns, table.primaryKey(), indexes, keys,
+          checks, table.comment()));
     }
     return new SchemaModel(tables, model.sequences());
   }

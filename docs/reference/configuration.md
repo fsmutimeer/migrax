@@ -40,6 +40,7 @@ in values are resolved from the environment.
 | Migration folders | `--locations`, `MIGRAX_LOCATIONS`, `migrax.locations` (comma-separated) | `classpath:db/migration` |
 | Naming strategy | `--naming`, `MIGRAX_NAMING`, `migrax.naming` | recorded in the snapshot, else detected ([details](naming.md)) |
 | Entity reader | `--extractor`, `MIGRAX_EXTRACTOR`, `migrax.extractor` | `auto` |
+| Check constraints for enum columns | `MIGRAX_ENUM_CHECKS`, `migrax.enum-checks` (`true` / `false`) | `false` ([details](../guides/changing-entities.md#enum-columns)) |
 | SQL dialect | `--dialect` | from the database URL |
 | Java migration package | `--java-package`, `migrax.java-package` | `db.migration` |
 | Environment (`-- migrax:env` migrations) | `--env`, `MIGRAX_ENV`, `migrax.env` | none: marked migrations are skipped |

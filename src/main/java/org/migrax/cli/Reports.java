@@ -61,6 +61,9 @@ final class Reports {
     if (o instanceof AddForeignKey x) return x.table();
     if (o instanceof DropForeignKey x) return x.table();
     if (o instanceof AddUnique x) return x.table();
+    if (o instanceof org.migrax.ops.AddCheck x) return x.table();
+    if (o instanceof org.migrax.ops.DropCheck x) return x.table();
+    if (o instanceof org.migrax.ops.SetComment x) return x.table();
     if (o instanceof DropUnique x) return x.table();
     if (o instanceof AddPrimaryKey x) return x.table();
     if (o instanceof DropPrimaryKey x) return x.table();

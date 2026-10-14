@@ -50,6 +50,7 @@ public final class DatabaseSchemaReader {
         tables.add(readTable(metadata, catalog, schema, name));
       }
     }
+    tables = withChecksAndComments(connection, catalog, schema, tables);
     boolean upperCase = metadata.storesUpperCaseIdentifiers();
     List<SchemaModel.Table> normalized = new ArrayList<>();
     for (SchemaModel.Table table : tables) {
@@ -68,7 +69,7 @@ public final class DatabaseSchemaReader {
     List<SchemaModel.Column> columns = table.columns().stream()
         .map(c -> new SchemaModel.Column(fold(c.name()), c.sqlType(), c.nullable(), c.length(),
             c.precision(), c.scale(), c.defaultValue(), c.unique(), c.identity(),
-            fold(c.sequenceName()), c.logicalType()))
+            fold(c.sequenceName()), c.logicalType(), c.comment()))
         .toList();
     SchemaModel.PrimaryKey key = table.primaryKey() == null ? null
         : new SchemaModel.PrimaryKey(fold(table.primaryKey().columns()),
@@ -80,7 +81,10 @@ public final class DatabaseSchemaReader {
         .map(k -> new SchemaModel.ForeignKey(fold(k.name()), fold(k.columns()),
             fold(k.referencedTable()), fold(k.referencedColumns())))
         .toList();
-    return new SchemaModel.Table(fold(table.name()), columns, key, indexes, keys);
+    List<SchemaModel.Check> checks = table.checks().stream()
+        .map(c -> new SchemaModel.Check(fold(c.name()), c.expression())).toList();
+    return new SchemaModel.Table(fold(table.name()), columns, key, indexes, keys, checks,
+        table.comment());
   }
 
   private static String fold(String name) {
@@ -115,11 +119,11 @@ public final class DatabaseSchemaReader {
         .map(c -> uniqueColumns.contains(c.name())
             ? new SchemaModel.Column(c.name(), c.sqlType(), c.nullable(), c.length(),
                 c.precision(), c.scale(), c.defaultValue(), true, c.identity(),
-                c.sequenceName(), c.logicalType())
+                c.sequenceName(), c.logicalType(), c.comment())
             : c)
         .toList();
-    return new SchemaModel.Table(
-        table.name(), columns, table.primaryKey(), remaining, table.foreignKeys());
+    return new SchemaModel.Table(table.name(), columns, table.primaryKey(), remaining,
+        table.foreignKeys(), table.checks(), table.comment());
   }
 
   private static String resolveSchema(
@@ -151,6 +155,208 @@ public final class DatabaseSchemaReader {
       }
     } catch (Throwable ignored) {}
     return null;
+  }
+
+  // ------------------------------------------------------------------ checks and comments
+
+  private static final Pattern SQLITE_CHECK = Pattern.compile(
+      "(?i)CONSTRAINT\\s+[\"`\\[]?([A-Za-z0-9_$]+)[\"`\\]]?\\s+CHECK\\s*\\(");
+
+  /**
+   * The tables with the check constraints and comments the database has. JDBC has no portable
+   * way to list either, so each database is asked in its own catalog; a database that can't
+   * answer (an older version, missing rights) reports none.
+   */
+  private static List<SchemaModel.Table> withChecksAndComments(
+      Connection connection, String catalog, String schema, List<SchemaModel.Table> tables)
+      throws SQLException {
+    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
+    // table -> checks, table -> comment, table.column -> comment (names as the database has them)
+    Map<String, List<SchemaModel.Check>> checks = new LinkedHashMap<>();
+    Map<String, String> comments = new LinkedHashMap<>();
+    String owner = schema;
+    if (product.contains("postgres") || product.contains("cockroach")) {
+      String namespace = schema == null ? "current_schema()" : "?";
+      for (String[] row : query(connection, "SELECT rel.relname, con.conname, "
+          + "pg_get_constraintdef(con.oid) FROM pg_constraint con JOIN pg_class rel ON rel.oid = "
+          + "con.conrelid JOIN pg_namespace n ON n.oid = rel.relnamespace WHERE con.contype = 'c' "
+          + "AND n.nspname = " + namespace, schema)) {
+        addCheck(checks, row[0], row[1], unwrapCheck(row[2]));
+      }
+      for (String[] row : query(connection, "SELECT c.relname, NULL, obj_description(c.oid, "
+          + "'pg_class') FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE "
+          + "c.relkind = 'r' AND n.nspname = " + namespace + " UNION ALL SELECT c.relname, "
+          + "a.attname, col_description(c.oid, a.attnum) FROM pg_class c JOIN pg_namespace n ON "
+          + "n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid WHERE c.relkind = "
+          + "'r' AND a.attnum > 0 AND n.nspname = " + namespace, schema, schema)) {
+        addComment(comments, row);
+      }
+    } else if (product.contains("mysql") || product.contains("mariadb")) {
+      owner = catalog;
+      for (String[] row : query(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
+          + "cc.CHECK_CLAUSE FROM information_schema.TABLE_CONSTRAINTS tc JOIN "
+          + "information_schema.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = "
+          + "tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME WHERE "
+          + "tc.CONSTRAINT_TYPE = 'CHECK' AND tc.TABLE_SCHEMA = ?", owner)) {
+        // MariaDB's json type is longtext with a json_valid() check of its own.
+        if (row[2] != null && !row[2].toLowerCase(Locale.ROOT).contains("json_valid(")) {
+          addCheck(checks, row[0], row[1], unwrapCheck(row[2]));
+        }
+      }
+      for (String[] row : query(connection, "SELECT TABLE_NAME, NULL, TABLE_COMMENT FROM "
+          + "information_schema.TABLES WHERE TABLE_SCHEMA = ? UNION ALL SELECT TABLE_NAME, "
+          + "COLUMN_NAME, COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ?",
+          owner, owner)) {
+        addComment(comments, row);
+      }
+    } else if (product.contains("sql server")) {
+      String namespace = schema == null ? "SCHEMA_NAME()" : "?";
+      for (String[] row : query(connection, "SELECT t.name, cc.name, cc.definition FROM "
+          + "sys.check_constraints cc JOIN sys.tables t ON t.object_id = cc.parent_object_id "
+          + "WHERE SCHEMA_NAME(t.schema_id) = " + namespace, schema)) {
+        addCheck(checks, row[0], row[1], unwrapCheck(row[2]));
+      }
+      for (String[] row : query(connection, "SELECT t.name, c.name, CAST(ep.value AS "
+          + "nvarchar(4000)) FROM sys.extended_properties ep JOIN sys.tables t ON t.object_id = "
+          + "ep.major_id LEFT JOIN sys.columns c ON c.object_id = ep.major_id AND c.column_id = "
+          + "ep.minor_id WHERE ep.class = 1 AND ep.name = 'MS_Description' AND "
+          + "SCHEMA_NAME(t.schema_id) = " + namespace, schema)) {
+        addComment(comments, row);
+      }
+    } else if (product.contains("oracle")) {
+      for (String[] row : query(connection, "SELECT table_name, constraint_name, "
+          + "search_condition_vc FROM all_constraints WHERE constraint_type = 'C' AND generated "
+          + "= 'USER NAME' AND owner = ?", owner)) {
+        addCheck(checks, row[0], row[1], row[2]);
+      }
+      for (String[] row : query(connection, "SELECT table_name, NULL, comments FROM "
+          + "all_tab_comments WHERE owner = ? UNION ALL SELECT table_name, column_name, comments "
+          + "FROM all_col_comments WHERE owner = ?", owner, owner)) {
+        addComment(comments, row);
+      }
+    } else if (product.contains("h2")) {
+      for (String[] row : query(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
+          + "cc.CHECK_CLAUSE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc JOIN "
+          + "INFORMATION_SCHEMA.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = "
+          + "tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME WHERE "
+          + "tc.CONSTRAINT_TYPE = 'CHECK' AND tc.TABLE_SCHEMA = ?", owner)) {
+        addCheck(checks, row[0], row[1], row[2]);
+      }
+      for (String[] row : query(connection, "SELECT TABLE_NAME, NULL, REMARKS FROM "
+          + "INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? UNION ALL SELECT TABLE_NAME, "
+          + "COLUMN_NAME, REMARKS FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ?",
+          owner, owner)) {
+        addComment(comments, row);
+      }
+    } else if (product.contains("sqlite")) {
+      // SQLite keeps no comments; its checks are only in the table's CREATE statement.
+      for (String[] row : query(connection,
+          "SELECT name, NULL, sql FROM sqlite_master WHERE type = 'table'")) {
+        if (row[2] == null) {
+          continue;
+        }
+        java.util.regex.Matcher matcher = SQLITE_CHECK.matcher(row[2]);
+        while (matcher.find()) {
+          addCheck(checks, row[0], matcher.group(1), parenthesized(row[2], matcher.end() - 1));
+        }
+      }
+    }
+    List<SchemaModel.Table> result = new ArrayList<>();
+    for (SchemaModel.Table table : tables) {
+      String key = table.name().toLowerCase(Locale.ROOT);
+      List<SchemaModel.Column> columns = table.columns().stream()
+          .map(c -> new SchemaModel.Column(c.name(), c.sqlType(), c.nullable(), c.length(),
+              c.precision(), c.scale(), c.defaultValue(), c.unique(), c.identity(),
+              c.sequenceName(), c.logicalType(),
+              comments.get(key + "." + c.name().toLowerCase(Locale.ROOT))))
+          .toList();
+      result.add(new SchemaModel.Table(table.name(), columns, table.primaryKey(),
+          table.indexes(), table.foreignKeys(), checks.getOrDefault(key, List.of()),
+          comments.get(key)));
+    }
+    return result;
+  }
+
+  private static void addCheck(Map<String, List<SchemaModel.Check>> checks, String table,
+                               String name, String expression) {
+    if (table != null && name != null) {
+      checks.computeIfAbsent(table.toLowerCase(Locale.ROOT), t -> new ArrayList<>())
+          .add(new SchemaModel.Check(name, expression == null ? "" : expression.strip()));
+    }
+  }
+
+  private static void addComment(Map<String, String> comments, String[] row) {
+    if (row[0] != null && row[2] != null && !row[2].isBlank()) {
+      comments.put(row[0].toLowerCase(Locale.ROOT)
+          + (row[1] == null ? "" : "." + row[1].toLowerCase(Locale.ROOT)), row[2]);
+    }
+  }
+
+  /** The condition of {@code CHECK (condition)} as databases report it. */
+  private static String unwrapCheck(String definition) {
+    if (definition == null) {
+      return null;
+    }
+    String text = definition.strip();
+    if (text.regionMatches(true, 0, "CHECK", 0, 5)) {
+      text = text.substring(5).strip();
+    }
+    return text;
+  }
+
+  /** The text inside the parentheses that open at {@code open}. */
+  private static String parenthesized(String sql, int open) {
+    int depth = 0;
+    for (int i = open; i < sql.length(); i++) {
+      char ch = sql.charAt(i);
+      if (ch == '(') {
+        depth++;
+      } else if (ch == ')' && --depth == 0) {
+        return sql.substring(open + 1, i);
+      }
+    }
+    return sql.substring(open + 1);
+  }
+
+  /** Rows of a catalog query as strings; none when the database can't answer it. */
+  private static List<String[]> query(Connection connection, String sql, String... params) {
+    List<String[]> rows = new ArrayList<>();
+    try (java.sql.PreparedStatement statement = connection.prepareStatement(sql)) {
+      int index = 1;
+      for (String param : params) {
+        if (sql.chars().filter(c -> c == '?').count() >= index) {
+          statement.setString(index++, param);
+        }
+      }
+      try (ResultSet result = statement.executeQuery()) {
+        int count = result.getMetaData().getColumnCount();
+        while (result.next()) {
+          String[] row = new String[count];
+          for (int i = 0; i < count; i++) {
+            row[i] = result.getString(i + 1);
+          }
+          rows.add(row);
+        }
+      }
+    } catch (SQLException e) {
+      Log.debug("Could not read checks or comments: {}", e.getMessage());
+      if (!autoCommit(connection)) {
+        try {
+          connection.rollback();
+        } catch (SQLException ignored) {
+          // The read still goes on without them.
+        }
+      }
+    }
+    return rows;
+  }
+
+  private static boolean autoCommit(Connection connection) {
+    try {
+      return connection.getAutoCommit();
+    } catch (SQLException e) {
+      return true;
+    }
   }
 
   private static SchemaModel.Table readTable(

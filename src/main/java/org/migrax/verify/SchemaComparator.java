@@ -120,6 +120,47 @@ public final class SchemaComparator {
             + key.columns() + " -> " + key.referencedTable() + " is not expected"));
       }
     }
+    compareChecksAndComments(expected, actual, dialect, differences);
+  }
+
+  /**
+   * The checks and comments the expected schema declares: checks by name (databases rewrite
+   * their conditions), comments by text. Others in the database (Hibernate's enum checks,
+   * hand-written ones) are not Migrax's and not reported. SQLite keeps no comments.
+   */
+  private static void compareChecksAndComments(SchemaModel.Table expected,
+                                               SchemaModel.Table actual, String dialect,
+                                               List<Difference> differences) {
+    String table = expected.name();
+    Set<String> actualChecks = new HashSet<>();
+    actual.checks().forEach(c -> actualChecks.add(key(c.name())));
+    for (SchemaModel.Check check : expected.checks()) {
+      if (!actualChecks.contains(key(check.name()))) {
+        differences.add(new Difference("missing_check", table, "check constraint "
+            + check.name() + " (" + check.expression() + ") is missing"));
+      }
+    }
+    if ("sqlite".equals(dialect)) {
+      return;
+    }
+    if (expected.comment() != null
+        && !java.util.Objects.equals(expected.comment(), actual.comment())) {
+      differences.add(new Difference("comment", table, "expected comment "
+          + quoted(expected.comment()) + " but the database has " + quoted(actual.comment())));
+    }
+    for (SchemaModel.Column column : expected.columns()) {
+      SchemaModel.Column found = column(actual, column.name());
+      if (found != null && column.comment() != null
+          && !java.util.Objects.equals(column.comment(), found.comment())) {
+        differences.add(new Difference("comment", table + "." + column.name(),
+            "expected comment " + quoted(column.comment()) + " but the database has "
+                + quoted(found.comment())));
+      }
+    }
+  }
+
+  private static String quoted(String comment) {
+    return comment == null ? "none" : "'" + comment + "'";
   }
 
   private static String signature(SchemaModel.ForeignKey key) {

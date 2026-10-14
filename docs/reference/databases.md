@@ -42,7 +42,7 @@ Hibernate): it has Hibernate's SQLite dialect, which Migrax uses to read the ent
 
 SQLite adds, renames and drops columns, renames tables and creates indexes in place. Any other
 change to an existing table (a column's type, length or `NOT NULL`, a primary key, a foreign
-key, a unique constraint) is made by **rebuilding the table**, as SQLite's documentation
+key, a unique or check constraint) is made by **rebuilding the table**, as SQLite's documentation
 describes: Migrax writes a migration that creates the new table, copies the rows, drops the old
 table, renames the new one and recreates its indexes. A rebuilt table's foreign keys are
 checked before the migration commits; if a row breaks one, the migration fails and nothing
@@ -61,6 +61,7 @@ Good to know:
   Migrax's own check instead of Hibernate's validation, because Hibernate's validator rejects
   the `integer` id columns that its own SQLite dialect creates.
 - SQLite has no schemas: `--schema` and `--schemas` don't apply.
+- SQLite keeps no table or column comments, so `@Comment` is left out of its migrations.
 - Hibernate can't load `@Lob` fields through the SQLite driver; prefer plain `String` and
   `byte[]` fields.
 

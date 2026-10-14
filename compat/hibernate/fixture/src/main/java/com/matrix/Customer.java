@@ -9,6 +9,8 @@ import java.util.Set;
 
 @Entity
 @Table(name = "customers", indexes = @Index(name = "idx_customers_city", columnList = "city"))
+@org.hibernate.annotations.Check(constraints = "balance >= 0")
+@org.hibernate.annotations.Comment("People who buy from the shop")
 public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,6 +32,7 @@ public class Customer {
     public boolean active;
 
     @Column(length = 2000)
+    @org.hibernate.annotations.Comment("Written by the support team")
     public String notes;
 
     @Embedded

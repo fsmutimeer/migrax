@@ -56,6 +56,53 @@ Several column renames are separated by commas. A rename with a type change beco
     When input isn't a terminal, Migrax prints each possible rename with the exact
     `--rename` option to use, and does not assume a rename.
 
+## Check constraints and comments
+
+`generate` writes the check constraints and comments your entities declare:
+
+```java
+@Entity
+@Comment("Things we sell")
+@Check(name = "ck_product_price", constraints = "price >= 0")
+public class Product {
+  @Comment("Price in cents")
+  @Check(constraints = "discount between 0 and 100")
+  private int discount;
+  ...
+}
+```
+
+Migrax reads Hibernate's `@Check`, `@Checks` and `@Comment` (`org.hibernate.annotations`), and
+the `check` and `comment` attributes of Jakarta Persistence 3.2's `@Table` and `@Column`. A new
+table gets its checks inside `CREATE TABLE`; an existing one gets
+`ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)`. The condition is copied as written, so use SQL
+that your database understands.
+
+A check without a name gets one from its table and condition, such as
+`ck_product_3f2a9c1e`. When you change the condition, the name changes too: the migration drops
+the old constraint and adds the new one. Adding a check fails when existing rows break it; fix
+those rows in the same migration, before the check is added.
+
+Comments are written the way each database stores them: `COMMENT ON` (PostgreSQL, CockroachDB,
+Oracle, H2), part of the table or column definition (MySQL, MariaDB), or the `MS_Description`
+property (SQL Server). SQLite keeps no comments, so they are left out there.
+
+With `--safe` on PostgreSQL and CockroachDB, a check added to an existing table goes into the
+second migration as `NOT VALID` followed by `VALIDATE CONSTRAINT`, so writes keep flowing.
+
+### Enum columns
+
+Hibernate 6 and newer also writes a check for every enum column, such as
+`status between 0 and 2`, or `status in ('ACTIVE','BLOCKED')` for `@Enumerated(STRING)`.
+Migrax leaves these out by default: with them, every new enum value needs a migration before the
+application can store it, and a forgotten one only shows up as failing inserts. To generate
+them, set `migrax.enum-checks=true` (or `MIGRAX_ENUM_CHECKS=true`).
+
+!!! note "Upgrading from Migrax 0.4"
+    Earlier versions ignored `@Check` and `@Comment`. The first `generate` after upgrading
+    writes the ones your entities already have. If you added them before with a hand-written
+    migration, edit the generated file and remove those statements before it runs.
+
 ## Drops and narrowing changes
 
 Dropping a table or column, or making a column smaller, deletes data. Migrax refuses until you

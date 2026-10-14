@@ -50,6 +50,7 @@ class DatabaseEngineIT {
             exerciseRunner(sqlite);
             exerciseGeneratedSchema(sqlite);
             exerciseProcedures(sqlite);
+            exerciseCheckAndCommentChanges(sqlite);
           } finally {
             Files.deleteIfExists(file);
             Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
@@ -80,6 +81,7 @@ class DatabaseEngineIT {
         exerciseRunner(Database.of(container));
         exerciseGeneratedSchema(Database.of(container));
         exerciseProcedures(Database.of(container));
+        exerciseCheckAndCommentChanges(Database.of(container));
       }
     });
   }
@@ -343,5 +345,95 @@ class DatabaseEngineIT {
         assertEquals("a; b", rows.getString(1), url);
       }
     }
+  }
+
+  /**
+   * Checks and comments change on a table that exists: a changed condition, a check added
+   * later, a comment changed and one removed, then everything removed. After each migration the
+   * database must have exactly the checks and comments of the model.
+   */
+  private static void exerciseCheckAndCommentChanges(Database database) throws Exception {
+    org.migrax.model.SchemaModel first = probe(List.of("price >= 0"), "Things we sell",
+        "In cents", null);
+    org.migrax.model.SchemaModel second = probe(List.of("price > 0", "discount <= 100"),
+        "Products we sell", null, "Percent");
+    org.migrax.model.SchemaModel third = probe(List.of(), null, null, null);
+    Path folder = Files.createTempDirectory("migrax-checks-it");
+    List<Path> files = new java.util.ArrayList<>();
+    try (Connection connection = database.connect()) {
+      org.migrax.dialect.Dialect dialect =
+          org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
+      boolean comments = !dialect.id().equals("sqlite");
+      // Start from a clean history; the steps above recorded their own files (CockroachDB
+      // skips the procedures, so after clean it has no history tables).
+      for (String table : List.of("migrax_history", "migrax_failures")) {
+        try (Statement statement = connection.createStatement()) {
+          statement.executeUpdate("DELETE FROM " + table);
+        } catch (SQLException absent) {
+          // Created by the first migration below.
+        }
+      }
+      if (!connection.getAutoCommit()) {
+        connection.commit();
+      }
+      org.migrax.model.SchemaModel before = org.migrax.model.SchemaModel.empty();
+      int version = 9001;
+      for (org.migrax.model.SchemaModel after : List.of(first, second, third)) {
+        List<org.migrax.ops.Operation> operations = dialect.prepare(
+            new org.migrax.diff.DiffEngine().diff(before, after), before, after);
+        String sql = operations.stream().map(o -> dialect.render(o) + ";\n")
+            .collect(java.util.stream.Collectors.joining());
+        Path file = folder.resolve(version++ + "_checks.sql");
+        Files.writeString(file, sql);
+        files.add(file);
+        try {
+          new MigrationRunner().migrate(connection, files);
+        } catch (Exception e) {
+          throw new AssertionError(dialect.id() + " failed:\n" + sql, e);
+        }
+        org.migrax.model.SchemaModel.Table expected = after.table("price_probe");
+        org.migrax.model.SchemaModel.Table actual =
+            org.migrax.plugin.DatabaseSchemaReader.read(connection).table("price_probe");
+        assertEquals(expected.checks().stream().map(c -> c.name().toLowerCase(
+                java.util.Locale.ROOT)).sorted().toList(),
+            actual.checks().stream().map(c -> c.name().toLowerCase(java.util.Locale.ROOT))
+                .sorted().toList(), dialect.id() + " checks after:\n" + sql);
+        if (comments) {
+          assertEquals(expected.comment(), actual.comment(), dialect.id() + ":\n" + sql);
+          for (org.migrax.model.SchemaModel.Column column : expected.columns()) {
+            assertEquals(column.comment(), actual.column(column.name()).comment(),
+                dialect.id() + " " + column.name() + ":\n" + sql);
+          }
+        }
+        before = after;
+      }
+      try (Statement statement = connection.createStatement()) {
+        statement.execute("DROP TABLE price_probe");
+      }
+      if (!connection.getAutoCommit()) {
+        connection.commit();
+      }
+    }
+  }
+
+  /** The probe table with the given check conditions and comments. */
+  private static org.migrax.model.SchemaModel probe(List<String> conditions, String comment,
+                                                     String priceComment,
+                                                     String discountComment) {
+    org.migrax.model.SchemaModel.Column id = new org.migrax.model.SchemaModel.Column("id",
+        "bigint", false, null, null, null, null, false, false, null, "bigint");
+    org.migrax.model.SchemaModel.Column price = new org.migrax.model.SchemaModel.Column("price",
+        "integer", false, null, null, null, null, false, false, null, "integer", priceComment);
+    org.migrax.model.SchemaModel.Column discount = new org.migrax.model.SchemaModel.Column(
+        "discount", "integer", true, null, null, null, null, false, false, null, "integer",
+        discountComment);
+    List<org.migrax.model.SchemaModel.Check> checks = conditions.stream()
+        .map(c -> new org.migrax.model.SchemaModel.Check(
+            org.migrax.model.SchemaModel.checkConstraintName("price_probe", c), c))
+        .toList();
+    return new org.migrax.model.SchemaModel(List.of(new org.migrax.model.SchemaModel.Table(
+        "price_probe", List.of(id, price, discount),
+        new org.migrax.model.SchemaModel.PrimaryKey(List.of("id"), "price_probe_pkey"),
+        List.of(), List.of(), checks, comment)));
   }
 }

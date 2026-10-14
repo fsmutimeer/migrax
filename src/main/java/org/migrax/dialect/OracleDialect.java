@@ -142,4 +142,10 @@ public final class OracleDialect extends AbstractDialect {
       }
     };
   }
+
+  /** Oracle has no NULL comment: an empty one removes it. */
+  @Override
+  protected String commentValue(String comment) {
+    return comment == null ? "''" : literal(comment);
+  }
 }

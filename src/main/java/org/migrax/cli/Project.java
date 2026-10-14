@@ -206,6 +206,16 @@ final class Project implements AutoCloseable {
     return ModelExtractor.Mode.parse(setting("--extractor", "extractor"));
   }
 
+  /** Hibernate settings plus Migrax's own reader settings (migrax.enum-checks). */
+  private Map<String, String> readerSettings() throws Exception {
+    Map<String, String> settings = new java.util.LinkedHashMap<>(hibernateSettings());
+    String enumChecks = setting(null, "enum-checks");
+    if (enumChecks != null) {
+      settings.put("migrax.enum-checks", enumChecks.trim());
+    }
+    return settings;
+  }
+
   Map<String, String> hibernateSettings() throws Exception {
     return ProjectDatabaseConfig.hibernateSettings(config());
   }
@@ -363,7 +373,7 @@ final class Project implements AutoCloseable {
   /** Reads the entity model with Hibernate's mapping or annotation scanning. */
   ModelExtractor.Result extract(Dialect dialect) throws Exception {
     return ModelExtractor.extract(loader(true), packageName(), naming(), dialect,
-        hibernateSettings(), extractorMode());
+        readerSettings(), extractorMode());
   }
 
   /** SQL files, repeatable migrations, callbacks and Java migrations. */
