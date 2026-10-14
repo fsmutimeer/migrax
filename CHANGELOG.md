@@ -6,6 +6,18 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Oracle packages, package and type bodies, and anonymous blocks (`BEGIN ... END;`,
+  `DECLARE ... BEGIN ... END;`) no longer need a line with only `/` after them: Migrax finds
+  where they end, as it already did for procedures, functions and triggers.
+- PostgreSQL and CockroachDB: a `migrate --sql` script run with psql recorded `applied_at` in
+  the server's time zone, so `migrax status` could show it hours before the migrations Migrax
+  applied itself. The script now records the time in the same zone as Migrax.
+- `verify`: when a migration fails on the throwaway database, the error says that the migration
+  fails on an empty database and what to check. It used to give the advice for a real database
+  (inspect it, repair, resume), which doesn't apply there.
+
 ## [0.6.0] - 2026-10-14
 
 The 0.6 release removes most of Migrax's limitations: EclipseLink and OpenJPA are read through

@@ -111,7 +111,7 @@ public final class SqlLinter {
 
       if (SqlScript.isRoutine(raw) && swallowsStatements(raw) && !ignores.contains("MX016")) {
         findings.add(finding("MX016", Severity.WARNING, file, number, text,
-            "This procedure, function or trigger seems to include the statements after it: "
+            "This procedure, function, trigger or block seems to include the statements after it: "
                 + "its body has an unmatched BEGIN, or it has none.",
             "Check that every BEGIN has its END, or end the body with GO (SQL Server), a "
                 + "DELIMITER line (MySQL, MariaDB) or a line with only / (Oracle, SQLite)."));

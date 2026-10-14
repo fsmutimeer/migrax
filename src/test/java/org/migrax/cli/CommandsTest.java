@@ -223,6 +223,15 @@ class CommandsTest {
     Result broken = cli("verify");
     assertEquals(1, broken.code(), broken.all());
     assertTrue(broken.out().contains("sample_entity"), broken.out());
+
+    // A migration that fails there: no advice about repairing a real database.
+    Files.writeString(migrations().resolve("0002_fails.sql"),
+        "INSERT INTO missing_table VALUES (1);\n");
+    Result fails = cli("verify");
+    assertEquals(1, fails.code(), fails.all());
+    assertTrue(fails.all().contains("error[MXE102]: Migration '0002_fails.sql' fails on an empty "
+        + "database"), fails.all());
+    assertFalse(fails.all().contains("repair"), fails.all());
   }
 
   /** A database with the entity's table that Migrax has never managed. */

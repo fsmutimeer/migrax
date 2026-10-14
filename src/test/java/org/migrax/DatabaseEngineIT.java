@@ -87,6 +87,7 @@ class DatabaseEngineIT {
         exerciseUnnamedCheck(Database.of(container));
         exerciseCockroachTypeChange(Database.of(container));
         exerciseKeepData(Database.of(container));
+        exerciseScriptTimestamps(Database.of(container));
       }
     });
   }
@@ -366,6 +367,28 @@ class DatabaseEngineIT {
         Files.writeString(repeat, "EXEC add_note2 'r'\nGO 3\n");
         files.add(repeat);
       }
+      boolean oracle = url.startsWith("jdbc:oracle:");
+      if (oracle) {
+        // A package, its body and an anonymous block, also without / lines.
+        Path pkg = folder.resolve("0003_package.sql");
+        Files.writeString(pkg, """
+            CREATE OR REPLACE PACKAGE notes AS
+              PROCEDURE add(p_note IN VARCHAR2);
+            END notes;
+            CREATE OR REPLACE PACKAGE BODY notes AS
+              PROCEDURE add(p_note IN VARCHAR2) IS
+              BEGIN
+                add_note2(p_note || '!');
+              END add;
+            END notes;
+            DECLARE
+              note VARCHAR2(10) := 'pkg';
+            BEGIN
+              notes.add(note);
+            END;
+            """);
+        files.add(pkg);
+      }
       try {
         new MigrationRunner().migrate(connection, files);
       } catch (Exception e) {
@@ -389,6 +412,14 @@ class DatabaseEngineIT {
              var rows = statement.executeQuery("SELECT COUNT(*) FROM note_log2 WHERE note = 'r'")) {
           rows.next();
           assertEquals(3, rows.getInt(1), "GO 3");
+        }
+      }
+      if (oracle) {
+        try (Statement statement = connection.createStatement();
+             var rows = statement.executeQuery(
+                 "SELECT COUNT(*) FROM note_log2 WHERE note = 'pkg!'")) {
+          rows.next();
+          assertEquals(1, rows.getInt(1), "package and anonymous block");
         }
       }
     }
@@ -530,6 +561,51 @@ class DatabaseEngineIT {
    * CockroachDB narrows a column type only outside a transaction with its experimental
    * setting; the generated migration must say so and run.
    */
+  /**
+   * A {@code migrate --sql} script run in a session with another time zone (as psql uses the
+   * server's zone) records its migrations at the same time of day as Migrax records its own.
+   */
+  private static void exerciseScriptTimestamps(Database database) throws Exception {
+    try (Connection connection = database.connect();
+         Connection other = database.connect()) {
+      if (!connection.getMetaData().getDatabaseProductName().toLowerCase(java.util.Locale.ROOT)
+          .contains("postgresql")) {
+        return;
+      }
+      try (Statement statement = connection.createStatement()) {
+        statement.executeUpdate("DELETE FROM migrax_history");
+      }
+      Path folder = Files.createTempDirectory("migrax-timestamps-it");
+      Path first = folder.resolve("0001_first_stamp.sql");
+      Files.writeString(first, "CREATE TABLE first_stamp (id INT);\n");
+      MigrationRunner runner = new MigrationRunner();
+      runner.migrate(connection, List.of(first));
+      String script = runner.script(connection, List.of(
+          org.migrax.runner.Migration.ofSql("0001_first_stamp.sql",
+              Files.readString(first)),
+          org.migrax.runner.Migration.ofSql("0002_second_stamp.sql",
+              "CREATE TABLE second_stamp (id INT);\n")),
+          MigrationRunner.Options.defaults());
+      try (Statement statement = other.createStatement()) {
+        statement.execute("SET TIME ZONE 'Pacific/Kiritimati'");
+        for (String sql : org.migrax.runner.SqlScript.split(script, false)) {
+          statement.execute(sql);
+        }
+      }
+      try (Statement statement = connection.createStatement();
+           var rows = statement.executeQuery("SELECT version, applied_at FROM migrax_history "
+               + "WHERE version LIKE '%_stamp.sql' ORDER BY version")) {
+        List<java.time.LocalDateTime> times = new java.util.ArrayList<>();
+        while (rows.next()) {
+          times.add(rows.getTimestamp(2).toLocalDateTime());
+        }
+        assertEquals(2, times.size());
+        long minutes = java.time.Duration.between(times.get(0), times.get(1)).abs().toMinutes();
+        org.junit.jupiter.api.Assertions.assertTrue(minutes < 10, times.toString());
+      }
+    }
+  }
+
   private static void exerciseCockroachTypeChange(Database database) throws Exception {
     try (Connection connection = database.connect()) {
       org.migrax.dialect.Dialect dialect =
