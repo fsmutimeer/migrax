@@ -96,7 +96,15 @@ applied afterwards), transactions where the database supports them, and the end 
 tool expects (`GO` for `sqlcmd`, `/` after PL/SQL for `sqlplus`, `DELIMITER` for `mysql`). The
 first lines say how to run it so it stops at the first error, for example
 `psql -v ON_ERROR_STOP=1 -f release-2026-10.sql`. Writing the script reads the database but
-changes nothing; Java migrations can't be written as SQL and are refused.
+changes nothing.
+
+With `--schemas tenant_a,tenant_b`, the script has a section per schema that starts by
+switching to it (`SET search_path`, `USE` or `ALTER SESSION SET CURRENT_SCHEMA`), so one run of
+the file migrates every tenant.
+
+A Java migration can't be written as SQL. The script stops before the first one and its last
+lines say what to do: run the script, then `migrax migrate --to <that migration>`, then write
+the next script with `migrax migrate --sql`.
 
 ## Applying a release in steps
 
