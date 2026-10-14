@@ -6,6 +6,8 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-14
+
 ### Fixed
 
 - Oracle packages, package and type bodies, and anonymous blocks (`BEGIN ... END;`,
@@ -500,7 +502,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/fsmutimeer/migrax/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/fsmutimeer/migrax/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/fsmutimeer/migrax/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/fsmutimeer/migrax/compare/v0.3.0...v0.4.0

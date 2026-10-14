@@ -47,7 +47,7 @@ Add the integration to your WAR or EAR:
 <dependency>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-jakarta-ee</artifactId>
-  <version>0.6.0</version>
+  <version>0.6.1</version>
 </dependency>
 ```
 
