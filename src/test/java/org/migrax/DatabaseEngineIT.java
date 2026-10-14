@@ -366,6 +366,28 @@ class DatabaseEngineIT {
         Files.writeString(repeat, "EXEC add_note2 'r'\nGO 3\n");
         files.add(repeat);
       }
+      boolean oracle = url.startsWith("jdbc:oracle:");
+      if (oracle) {
+        // A package, its body and an anonymous block, also without / lines.
+        Path pkg = folder.resolve("0003_package.sql");
+        Files.writeString(pkg, """
+            CREATE OR REPLACE PACKAGE notes AS
+              PROCEDURE add(p_note IN VARCHAR2);
+            END notes;
+            CREATE OR REPLACE PACKAGE BODY notes AS
+              PROCEDURE add(p_note IN VARCHAR2) IS
+              BEGIN
+                add_note2(p_note || '!');
+              END add;
+            END notes;
+            DECLARE
+              note VARCHAR2(10) := 'pkg';
+            BEGIN
+              notes.add(note);
+            END;
+            """);
+        files.add(pkg);
+      }
       try {
         new MigrationRunner().migrate(connection, files);
       } catch (Exception e) {
@@ -389,6 +411,14 @@ class DatabaseEngineIT {
              var rows = statement.executeQuery("SELECT COUNT(*) FROM note_log2 WHERE note = 'r'")) {
           rows.next();
           assertEquals(3, rows.getInt(1), "GO 3");
+        }
+      }
+      if (oracle) {
+        try (Statement statement = connection.createStatement();
+             var rows = statement.executeQuery(
+                 "SELECT COUNT(*) FROM note_log2 WHERE note = 'pkg!'")) {
+          rows.next();
+          assertEquals(1, rows.getInt(1), "package and anonymous block");
         }
       }
     }

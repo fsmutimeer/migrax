@@ -84,9 +84,10 @@ Directives are comment lines in a migration:
 
 ## Procedures, functions and triggers
 
-Write procedures, functions and triggers as you would anywhere else. Migrax runs a migration
-statement by statement, and it knows that a semicolon inside a body doesn't end the statement:
-the body ends with the `END` that closes its first `BEGIN`.
+Write procedures, functions, triggers, Oracle packages and anonymous blocks (`BEGIN ... END;`,
+`DECLARE ... BEGIN ... END;`) as you would anywhere else. Migrax runs a migration statement by
+statement, and it knows that a semicolon inside a body doesn't end the statement: the body ends
+with the `END` that closes its first `BEGIN`. A package ends with its own last `END`.
 
 ```sql
 CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));

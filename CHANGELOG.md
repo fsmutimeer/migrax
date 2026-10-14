@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Oracle packages, package and type bodies, and anonymous blocks (`BEGIN ... END;`,
+  `DECLARE ... BEGIN ... END;`) no longer need a line with only `/` after them: Migrax finds
+  where they end, as it already did for procedures, functions and triggers.
+
 ## [0.6.0] - 2026-10-14
 
 The 0.6 release removes most of Migrax's limitations: EclipseLink and OpenJPA are read through

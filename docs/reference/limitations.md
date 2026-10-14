@@ -20,10 +20,6 @@ the names in your entities (`@Table`, `@Column`) or check the generated migratio
 can't move from one schema to the next. Run Migrax once per schema, each time with a login
 whose default schema is that schema.
 
-**Oracle package bodies and anonymous PL/SQL blocks** need a line with only `/` after them.
-Procedures, functions and triggers don't; see
-[Procedures, functions and triggers](../guides/advanced-migrations.md#procedures-functions-and-triggers).
-
 ## Rolling back
 
 **A rollback brings back the structure, not the data**, unless the migration was generated with

@@ -22,13 +22,22 @@ public final class SqlScript {
       + "\\s+)?(?:(?:NON)?EDITIONABLE\\s+)?(?:PROCEDURE|FUNCTION|PACKAGE|TRIGGER|TYPE)"
       + "|DECLARE|BEGIN)\\b");
 
-  /** A statement that creates a procedure, function, trigger or event, whose body has semicolons. */
+  /**
+   * A statement that creates a procedure, function, trigger, event, package or type body, whose
+   * body has semicolons.
+   */
   private static final Pattern ROUTINE = Pattern.compile("(?is)CREATE\\s+(?:OR\\s+(?:REPLACE|ALTER)"
       + "\\s+)?(?:DEFINER\\s*=\\s*\\S+\\s+)?(?:(?:NON)?EDITIONABLE\\s+)?"
-      + "(?:PROCEDURE|PROC|FUNCTION|TRIGGER|EVENT)\\b");
+      + "(?:PROCEDURE|PROC|FUNCTION|TRIGGER|EVENT|PACKAGE|TYPE\\s+BODY)\\b");
+  /** An Oracle package or type body: its AS or IS opens a block that its last END closes. */
+  private static final Pattern PACKAGE = Pattern.compile("(?is)CREATE\\s+(?:OR\\s+REPLACE\\s+)?"
+      + "(?:(?:NON)?EDITIONABLE\\s+)?(?:PACKAGE|TYPE\\s+BODY)\\b");
   /** Words after BEGIN that start a transaction, not a block. */
   private static final java.util.Set<String> NOT_A_BLOCK =
       java.util.Set.of("TRAN", "TRANSACTION", "DISTRIBUTED", "WORK");
+  /** Words after a statement's first BEGIN that start a transaction (PostgreSQL, SQLite). */
+  private static final java.util.Set<String> TRANSACTION_MODES = java.util.Set.of(
+      "ISOLATION", "READ", "NOT", "DEFERRABLE", "DEFERRED", "IMMEDIATE", "EXCLUSIVE");
   /** Words after END that close a block BEGIN and CASE don't count. */
   private static final java.util.Set<String> OTHER_ENDS =
       java.util.Set.of("IF", "LOOP", "WHILE", "REPEAT", "FOR");
@@ -64,6 +73,24 @@ public final class SqlScript {
       start++;
     }
     return start < sql.length() ? sql.charAt(start) : 0;
+  }
+
+  /**
+   * Whether the statement at {@code i} is an anonymous block: {@code DECLARE} (not SQL Server's
+   * {@code DECLARE @variable}) or {@code BEGIN} that doesn't start a transaction.
+   */
+  private static boolean anonymousBlock(String sql, int i) {
+    String first = wordAt(sql, i).toUpperCase(Locale.ROOT);
+    int after = i + first.length();
+    if (first.equals("DECLARE")) {
+      return nextChar(sql, after) != '@';
+    }
+    if (!first.equals("BEGIN")) {
+      return false;
+    }
+    String second = nextWord(sql, after);
+    return !second.isEmpty() && !NOT_A_BLOCK.contains(second)
+        && !TRANSACTION_MODES.contains(second);
   }
 
   /** True when a standalone {@code -- migrax:<name>} line is present. */
@@ -151,6 +178,12 @@ public final class SqlScript {
     int depth = 0;
     boolean declarations = false;
     boolean closedBlock = false;
+    // In a package or type body, the procedures and functions declared directly in it: whether
+    // one's header is open (until its IS, AS or semicolon), and how many bodies wait for BEGIN.
+    // Any other BEGIN there starts the package's own code, which shares the package's END.
+    boolean packageBody = false;
+    boolean subprogramHeader = false;
+    int pendingBodies = 0;
 
     for (int i = 0; i < sql.length(); i++) {
       char ch = sql.charAt(i);
@@ -190,10 +223,14 @@ public final class SqlScript {
         started = true;
         plsqlBlock = slashBlocks && PLSQL_BLOCK.matcher(sql).region(i, sql.length()).lookingAt();
         routine = findsBodies && delimiter.equals(";")
-            && ROUTINE.matcher(sql).region(i, sql.length()).lookingAt();
+            && (ROUTINE.matcher(sql).region(i, sql.length()).lookingAt()
+                || anonymousBlock(sql, i));
+        packageBody = routine && PACKAGE.matcher(sql).region(i, sql.length()).lookingAt();
         depth = 0;
         declarations = false;
         closedBlock = false;
+        subprogramHeader = false;
+        pendingBodies = 0;
       }
 
       if (lineComment) {
@@ -238,6 +275,9 @@ public final class SqlScript {
         continue;
       }
 
+      if (ch == ';' && depth == 1) {
+        subprogramHeader = false;
+      }
       if (!delimiter.equals(";") && sql.startsWith(delimiter, i)) {
         addStatement(statements, current);
         started = false;
@@ -273,9 +313,21 @@ public final class SqlScript {
         String word = wordAt(sql, i);
         String upper = word.toUpperCase(Locale.ROOT);
         int after = i + word.length();
-        if (upper.equals("BEGIN") && !NOT_A_BLOCK.contains(nextWord(sql, after))) {
+        if (packageBody && depth == 1 && (upper.equals("PROCEDURE") || upper.equals("FUNCTION"))) {
+          subprogramHeader = true;
+        } else if (packageBody && depth == 1 && subprogramHeader
+            && (upper.equals("IS") || upper.equals("AS"))) {
+          subprogramHeader = false;
+          pendingBodies++;
+        } else if (packageBody && depth == 1 && upper.equals("BEGIN") && pendingBodies == 0) {
+          // The package's own code: no block of its own.
+          subprogramHeader = false;
+        } else if (upper.equals("BEGIN") && !NOT_A_BLOCK.contains(nextWord(sql, after))) {
           depth++;
           declarations = false;
+          if (packageBody && depth == 2) {
+            pendingBodies--;
+          }
         } else if (upper.equals("CASE")) {
           depth++;
         } else if (upper.equals("END") && depth > 0
@@ -284,9 +336,14 @@ public final class SqlScript {
           closedBlock = depth == 0;
         } else if (depth == 0 && !closedBlock && (upper.equals("AS") || upper.equals("DECLARE")
             || upper.equals("IS") && !COMPARISONS.contains(nextWord(sql, after)))) {
-          // A body follows, unless it is quoted text (PostgreSQL's AS $$ ... $$).
+          // A body follows, unless it is quoted text (PostgreSQL's AS $$ ... $$). A package's
+          // AS or IS opens the block its last END closes.
           char first = nextChar(sql, after);
-          declarations = first != '$' && first != '\'' && first != '"';
+          if (packageBody && !upper.equals("DECLARE")) {
+            depth++;
+          } else {
+            declarations = first != '$' && first != '\'' && first != '"';
+          }
         }
         current.append(word);
         i = after - 1;
@@ -309,9 +366,13 @@ public final class SqlScript {
     return statements;
   }
 
-  /** Whether a statement creates a procedure, function, trigger or event. */
+  /**
+   * Whether a statement creates a procedure, function, trigger, event, package or type body, or
+   * is an anonymous block.
+   */
   public static boolean isRoutine(String statement) {
-    return ROUTINE.matcher(stripComments(statement).strip()).lookingAt();
+    String text = stripComments(statement).strip();
+    return ROUTINE.matcher(text).lookingAt() || anonymousBlock(text, 0);
   }
 
   /** Whether a statement is a PL/SQL block, which Oracle's tools end with a / line. */

@@ -124,6 +124,78 @@ class SqlScriptTest {
   }
 
   @Test
+  void oraclePackagesAndAnonymousBlocksWithoutSlashLines() {
+    List<String> statements = split("""
+        CREATE OR REPLACE PACKAGE notes AS
+          TYPE note_list IS TABLE OF VARCHAR2(100);
+          PROCEDURE add_note(p_note IN VARCHAR2);
+          FUNCTION note_count RETURN NUMBER;
+        END notes;
+        CREATE OR REPLACE PACKAGE BODY notes AS
+          added NUMBER := 0;
+          CURSOR all_notes IS SELECT note FROM note_log;
+          FUNCTION next_id RETURN NUMBER IS
+            result NUMBER;
+          BEGIN
+            SELECT NVL(MAX(id), 0) + 1 INTO result FROM note_log;
+            RETURN result;
+          END next_id;
+          PROCEDURE add_note(p_note IN VARCHAR2) IS
+            PROCEDURE count_it IS BEGIN added := added + 1; END;
+          BEGIN
+            INSERT INTO note_log (id, note) VALUES (next_id, p_note);
+            IF p_note IS NULL THEN NULL; END IF;
+            count_it;
+          END add_note;
+          FUNCTION note_count RETURN NUMBER IS BEGIN RETURN added; END;
+        BEGIN
+          added := 0;
+        END notes;
+        CREATE OR REPLACE TYPE BODY point AS
+          MEMBER FUNCTION length RETURN NUMBER IS
+          BEGIN
+            RETURN SQRT(x * x + y * y);
+          END;
+        END;
+        DECLARE
+          total NUMBER;
+        BEGIN
+          SELECT COUNT(*) INTO total FROM note_log;
+          IF total = 0 THEN notes.add_note('first'); END IF;
+        END;
+        BEGIN
+          notes.add_note('second');
+        END;
+        INSERT INTO note_log VALUES (9, 'last');
+        """);
+    assertEquals(6, statements.size(), statements.toString());
+    org.junit.jupiter.api.Assertions.assertTrue(statements.get(0).endsWith("END notes;"));
+    org.junit.jupiter.api.Assertions.assertTrue(statements.get(1).startsWith(
+        "CREATE OR REPLACE PACKAGE BODY") && statements.get(1).endsWith("END notes;"));
+    org.junit.jupiter.api.Assertions.assertTrue(statements.get(2).startsWith(
+        "CREATE OR REPLACE TYPE BODY") && statements.get(2).endsWith("END;"));
+    org.junit.jupiter.api.Assertions.assertTrue(statements.get(3).startsWith("DECLARE")
+        && statements.get(3).endsWith("END;"));
+    assertEquals("BEGIN\n  notes.add_note('second');\nEND;", statements.get(4));
+    assertEquals("INSERT INTO note_log VALUES (9, 'last')", statements.get(5));
+  }
+
+  @Test
+  void transactionsAndVariablesAreNotBlocks() {
+    assertEquals(List.of("BEGIN", "INSERT INTO a VALUES (1)", "COMMIT"),
+        split("BEGIN;\nINSERT INTO a VALUES (1);\nCOMMIT;\n"));
+    assertEquals(2, split("BEGIN TRANSACTION;\nINSERT INTO a VALUES (1);\n").size());
+    assertEquals(2, split("BEGIN ISOLATION LEVEL SERIALIZABLE;\nINSERT INTO a VALUES (1);\n")
+        .size());
+    assertEquals(2, split("BEGIN IMMEDIATE;\nINSERT INTO a VALUES (1);\n").size());
+    assertEquals(2, split("DECLARE @n INT;\nSELECT 1;\n").size());
+    org.junit.jupiter.api.Assertions.assertTrue(SqlScript.isRoutine("BEGIN\n  p;\nEND;"));
+    org.junit.jupiter.api.Assertions.assertTrue(SqlScript.isRoutine(
+        "CREATE PACKAGE BODY p AS BEGIN NULL; END;"));
+    org.junit.jupiter.api.Assertions.assertFalse(SqlScript.isRoutine("BEGIN TRANSACTION"));
+  }
+
+  @Test
   void goWithACountRepeatsTheBatch() {
     String sql = """
         INSERT INTO counter DEFAULT VALUES;
