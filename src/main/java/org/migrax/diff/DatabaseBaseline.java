@@ -37,6 +37,24 @@ public final class DatabaseBaseline {
   }
 
   /**
+   * The entity's version of a database check: the check with the same name, or else an
+   * unnamed entity check with the same condition (Hibernate created it without a name, so the
+   * database chose one), kept under the database's name. Null when the entities don't declare
+   * it.
+   */
+  private static SchemaModel.Check entityCheck(SchemaModel.Table entity,
+                                               SchemaModel.Check check) {
+    return entity.checks().stream().filter(c -> c.name().equalsIgnoreCase(check.name()))
+        .findFirst()
+        .or(() -> entity.checks().stream()
+            .filter(c -> SchemaModel.hasGeneratedName(entity.name(), c)
+                && SchemaModel.sameCheckCondition(c.expression(), check.expression()))
+            .findFirst()
+            .map(c -> new SchemaModel.Check(check.name(), c.expression())))
+        .orElse(null);
+  }
+
+  /**
    * Only the checks and comments the entities declare are Migrax's: others in the database
    * (Hibernate's enum checks, hand-written ones) are left out, so the first generate never
    * drops or clears them. Databases report a check's condition in their own words
@@ -50,8 +68,7 @@ public final class DatabaseBaseline {
     for (SchemaModel.Table table : database.tables()) {
       SchemaModel.Table entity = entities.table(table.name());
       java.util.List<SchemaModel.Check> checks = entity == null ? java.util.List.of()
-          : table.checks().stream().map(check -> entity.checks().stream()
-              .filter(c -> c.name().equalsIgnoreCase(check.name())).findFirst().orElse(null))
+          : table.checks().stream().map(check -> entityCheck(entity, check))
               .filter(java.util.Objects::nonNull).toList();
       java.util.List<SchemaModel.Column> columns = table.columns().stream().map(c -> {
         SchemaModel.Column wanted = entity == null ? null : entity.column(c.name());

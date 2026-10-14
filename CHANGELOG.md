@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- On a database Hibernate created, an `@Check` without a name was added a second time by the
+  first `generate`, because the database had given the existing check a name of its own.
+  Migrax now recognizes the check by its condition and keeps the database's name.
+
 ## [0.5.0] - 2026-10-14
 
 The 0.5 release: check constraints and comments in generated migrations, stored procedures and

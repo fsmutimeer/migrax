@@ -51,6 +51,7 @@ class DatabaseEngineIT {
             exerciseGeneratedSchema(sqlite);
             exerciseProcedures(sqlite);
             exerciseCheckAndCommentChanges(sqlite);
+            exerciseUnnamedCheck(sqlite);
           } finally {
             Files.deleteIfExists(file);
             Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
@@ -82,6 +83,7 @@ class DatabaseEngineIT {
         exerciseGeneratedSchema(Database.of(container));
         exerciseProcedures(Database.of(container));
         exerciseCheckAndCommentChanges(Database.of(container));
+        exerciseUnnamedCheck(Database.of(container));
       }
     });
   }
@@ -435,5 +437,47 @@ class DatabaseEngineIT {
         "price_probe", List.of(id, price, discount),
         new org.migrax.model.SchemaModel.PrimaryKey(List.of("id"), "price_probe_pkey"),
         List.of(), List.of(), checks, comment)));
+  }
+
+  /**
+   * A database Hibernate created: its unnamed check got a name from the database, and the
+   * condition comes back in the database's own words. The first generate must recognize it
+   * and neither add it again nor drop it.
+   */
+  private static void exerciseUnnamedCheck(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      org.migrax.dialect.Dialect dialect =
+          org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
+      try (Statement statement = connection.createStatement()) {
+        statement.execute("CREATE TABLE unnamed_probe (id INT NOT NULL PRIMARY KEY, "
+            + "balance DECIMAL(12,2), CHECK (balance >= 0))");
+      }
+      if (!connection.getAutoCommit()) {
+        connection.commit();
+      }
+      org.migrax.model.SchemaModel.Column id = new org.migrax.model.SchemaModel.Column("id",
+          "integer", false, null, null, null, null, false, false, null, "integer");
+      org.migrax.model.SchemaModel.Column balance = new org.migrax.model.SchemaModel.Column(
+          "balance", "decimal", true, null, 12, 2, null, false, false, null, "decimal");
+      org.migrax.model.SchemaModel entities = new org.migrax.model.SchemaModel(List.of(
+          new org.migrax.model.SchemaModel.Table("unnamed_probe", List.of(id, balance),
+              new org.migrax.model.SchemaModel.PrimaryKey(List.of("id")), List.of(), List.of(),
+              List.of(new org.migrax.model.SchemaModel.Check(
+                  org.migrax.model.SchemaModel.checkConstraintName("unnamed_probe",
+                      "balance >= 0"), "balance >= 0")), null)));
+      var previous = org.migrax.diff.DatabaseBaseline.read(connection, null, entities);
+      var current = org.migrax.diff.DatabaseBaseline.align(entities, previous, dialect);
+      List<String> checkChanges = new org.migrax.diff.DiffEngine().diff(previous, current)
+          .stream().filter(o -> o instanceof org.migrax.ops.AddCheck
+              || o instanceof org.migrax.ops.DropCheck).map(dialect::render).toList();
+      assertEquals(List.of(), checkChanges, dialect.id() + ": database has "
+          + previous.table("unnamed_probe"));
+      try (Statement statement = connection.createStatement()) {
+        statement.execute("DROP TABLE unnamed_probe");
+      }
+      if (!connection.getAutoCommit()) {
+        connection.commit();
+      }
+    }
   }
 }
