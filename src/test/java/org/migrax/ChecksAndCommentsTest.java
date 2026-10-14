@@ -185,6 +185,60 @@ class ChecksAndCommentsTest {
   }
 
   @Test
+  void conditionsCompareTheWayDatabasesStoreThem() {
+    String entity = "balance >= 0";
+    for (String stored : List.of("((balance >= (0)::numeric))", "([balance]>=(0))",
+        "(`balance` >= 0)", "\"BALANCE\" >= 0", "(balance >= 0:::DECIMAL)", "balance>=0")) {
+      assertTrue(SchemaModel.sameCheckCondition(entity, stored), stored);
+    }
+    assertTrue(SchemaModel.sameCheckCondition("status != 'X'",
+        "((status)::text <> 'X'::character varying)"));
+    assertFalse(SchemaModel.sameCheckCondition(entity, "balance > 0"));
+    assertFalse(SchemaModel.sameCheckCondition(entity, "price >= 0"));
+  }
+
+  @Test
+  void anUnnamedCheckHibernateCreatedIsNotAddedTwice() throws Exception {
+    try (java.sql.Connection connection = java.sql.DriverManager.getConnection(
+        "jdbc:h2:mem:unnamed_checks;DB_CLOSE_DELAY=-1");
+         java.sql.Statement statement = connection.createStatement()) {
+      // How Hibernate writes an unnamed @Check: the database names it (CONSTRAINT_8 in H2).
+      statement.execute("CREATE TABLE product (id bigint NOT NULL, price integer NOT NULL, "
+          + "CONSTRAINT product_pkey PRIMARY KEY (id), CHECK (price >= 0))");
+      SchemaModel entities = model("price >= 0", null, null);
+      Dialect h2 = Dialects.byName("h2");
+      SchemaModel previous = org.migrax.diff.DatabaseBaseline.read(connection, null, entities);
+      String databaseName = previous.table("product").checks().get(0).name();
+      assertFalse(databaseName.startsWith("ck_"), databaseName);
+      SchemaModel current = org.migrax.diff.DatabaseBaseline.align(entities, previous, h2);
+      assertEquals(List.of(), new DiffEngine().diff(previous, current), "first generate");
+
+      // Later generates compare with the snapshot, which keeps the database's name.
+      assertEquals(List.of(), new DiffEngine().diff(previous,
+          org.migrax.diff.DatabaseBaseline.align(entities, previous, h2)), "later generate");
+      // A changed condition drops the check under the database's name.
+      SchemaModel changed = org.migrax.diff.DatabaseBaseline.align(
+          model("price > 0", null, null), previous, h2);
+      List<Operation> operations = new DiffEngine().diff(previous, changed);
+      assertEquals(databaseName, ((DropCheck) operations.get(0)).name(), operations.toString());
+      assertTrue(operations.get(1) instanceof AddCheck, operations.toString());
+      statement.execute("DROP TABLE product");
+    }
+  }
+
+  @Test
+  void anExplicitlyNamedCheckIsNeverRenamed() {
+    SchemaModel previous = model("price >= 0", null, null);
+    SchemaModel.Check named = new SchemaModel.Check("ck_price", "price >= 0");
+    SchemaModel entities = new SchemaModel(List.of(new SchemaModel.Table("product",
+        List.of(ID, price(null)), new SchemaModel.PrimaryKey(List.of("id"), "product_pkey"),
+        List.of(), List.of(), List.of(named), null)));
+    SchemaModel aligned = org.migrax.diff.DatabaseBaseline.align(entities, previous,
+        Dialects.byName("postgresql"));
+    assertEquals("ck_price", aligned.table("product").checks().get(0).name());
+  }
+
+  @Test
   void checksAndCommentsTheEntitiesDontDeclareAreLeftAlone() throws Exception {
     try (java.sql.Connection connection = java.sql.DriverManager.getConnection(
         "jdbc:h2:mem:unmanaged_checks;DB_CLOSE_DELAY=-1");

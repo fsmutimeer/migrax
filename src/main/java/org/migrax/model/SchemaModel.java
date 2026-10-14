@@ -253,8 +253,17 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
         indexes.add(match != null && !sameNameExists
             ? new Index(match.name(), index.columns(), index.unique()) : index);
       }
+      List<Check> checks = new ArrayList<>();
+      for (Check check : table.checks()) {
+        boolean sameName = old.checks().stream().anyMatch(c -> c.name().equals(check.name()));
+        Check match = sameName || !hasGeneratedName(table.name(), check) ? null
+            : old.checks().stream().filter(c -> c.expression().equals(check.expression())
+                && table.checks().stream().noneMatch(t -> t.name().equals(c.name())))
+                .findFirst().orElse(null);
+        checks.add(match == null ? check : new Check(match.name(), check.expression()));
+      }
       result.add(new Table(table.name(), table.columns(), table.primaryKey(), indexes, keys,
-          table.checks(), table.comment()));
+          checks, table.comment()));
     }
     return new SchemaModel(result, named.sequences());
   }
@@ -330,6 +339,31 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
         expression.strip().replaceAll("\\s+", " ").hashCode());
     String prefix = "ck_" + table;
     return (prefix.length() > 21 ? prefix.substring(0, 21) : prefix) + "_" + hash;
+  }
+
+  /** Type casts databases add when they store a condition: {@code ::numeric}, {@code :::INT8}. */
+  private static final java.util.regex.Pattern CAST = java.util.regex.Pattern.compile(
+      "(?i):{2,3}[a-z_][a-z0-9_]*(\\s+(varying|precision))?(\\([0-9, ]*\\))?(\\[\\])?");
+
+  /**
+   * Whether two check conditions are the same once written the way a database stores them:
+   * databases add parentheses, quotes and type casts and change case ({@code balance >= 0}
+   * comes back as {@code ((balance >= (0)::numeric))} or {@code ([balance]>=(0))}).
+   *
+   * @since 0.6.0
+   */
+  public static boolean sameCheckCondition(String a, String b) {
+    return a != null && b != null && normalizedCondition(a).equals(normalizedCondition(b));
+  }
+
+  private static String normalizedCondition(String condition) {
+    return CAST.matcher(condition).replaceAll("").toLowerCase(Locale.ROOT)
+        .replace("!=", "<>").replaceAll("[\"`\\[\\]()\\s]", "");
+  }
+
+  /** Whether a check has the name Migrax gives a check without one. */
+  public static boolean hasGeneratedName(String table, Check check) {
+    return check.name().equals(checkConstraintName(table, check.expression()));
   }
 
   private static String blankToNull(String value) {

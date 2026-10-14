@@ -161,6 +161,7 @@ public final class DatabaseSchemaReader {
 
   private static final Pattern SQLITE_CHECK = Pattern.compile(
       "(?i)CONSTRAINT\\s+[\"`\\[]?([A-Za-z0-9_$]+)[\"`\\]]?\\s+CHECK\\s*\\(");
+  private static final Pattern SQLITE_UNNAMED_CHECK = Pattern.compile("(?i)\\bCHECK\\s*\\(");
 
   /**
    * The tables with the check constraints and comments the database has. JDBC has no portable
@@ -225,8 +226,9 @@ public final class DatabaseSchemaReader {
       }
     } else if (product.contains("oracle")) {
       for (String[] row : query(connection, "SELECT table_name, constraint_name, "
-          + "search_condition_vc FROM all_constraints WHERE constraint_type = 'C' AND generated "
-          + "= 'USER NAME' AND owner = ?", owner)) {
+          + "search_condition_vc FROM all_constraints WHERE constraint_type = 'C' AND NOT "
+          + "(generated = 'GENERATED NAME' AND search_condition_vc LIKE '\"%\" IS NOT NULL') "
+          + "AND owner = ?", owner)) {
         addCheck(checks, row[0], row[1], row[2]);
       }
       for (String[] row : query(connection, "SELECT table_name, NULL, comments FROM "
@@ -255,9 +257,20 @@ public final class DatabaseSchemaReader {
         if (row[2] == null) {
           continue;
         }
+        java.util.Set<Integer> named = new java.util.HashSet<>();
         java.util.regex.Matcher matcher = SQLITE_CHECK.matcher(row[2]);
         while (matcher.find()) {
+          named.add(matcher.end() - 1);
           addCheck(checks, row[0], matcher.group(1), parenthesized(row[2], matcher.end() - 1));
+        }
+        // A check without a name has none in SQLite either; it gets the one Migrax would give.
+        java.util.regex.Matcher unnamed = SQLITE_UNNAMED_CHECK.matcher(row[2]);
+        while (unnamed.find()) {
+          if (!named.contains(unnamed.end() - 1)) {
+            String condition = parenthesized(row[2], unnamed.end() - 1).strip();
+            addCheck(checks, row[0], SchemaModel.checkConstraintName(row[0], condition),
+                condition);
+          }
         }
       }
     }
