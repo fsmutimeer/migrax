@@ -72,8 +72,8 @@ public class PostgresDialect extends AbstractDialect {
   /**
    * Non-blocking form of an operation on an existing table, for migrations marked
    * {@code -- migrax:no-transaction}: indexes are built CONCURRENTLY, unique constraints are
-   * attached to a concurrently built index, and foreign keys are added NOT VALID and then
-   * validated without blocking writes.
+   * attached to a concurrently built index, and foreign keys and check constraints are added
+   * NOT VALID and then validated without blocking writes.
    */
   public String renderOnline(org.migrax.ops.Operation operation) {
     if (operation instanceof org.migrax.ops.AddIndex x) {
@@ -88,6 +88,10 @@ public class PostgresDialect extends AbstractDialect {
     if (operation instanceof org.migrax.ops.AddForeignKey x) {
       return render(operation) + " NOT VALID;\nALTER TABLE " + q(x.table())
           + " VALIDATE CONSTRAINT " + q(x.fk().name());
+    }
+    if (operation instanceof org.migrax.ops.AddCheck x) {
+      return render(operation) + " NOT VALID;\nALTER TABLE " + q(x.table())
+          + " VALIDATE CONSTRAINT " + q(x.check().name());
     }
     return render(operation);
   }

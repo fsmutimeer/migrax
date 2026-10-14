@@ -8,6 +8,13 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- `generate` writes check constraints and comments: Hibernate's `@Check`, `@Checks` and
+  `@Comment`, and the `check` and `comment` attributes of Jakarta Persistence 3.2's `@Table`
+  and `@Column`, on all 8 databases (SQLite keeps no comments). A changed condition drops the
+  old check and adds the new one, and `--safe` adds checks on PostgreSQL and CockroachDB
+  without blocking writes. The checks Hibernate 6+ derives from enum columns are generated only
+  with `migrax.enum-checks=true`. Projects that already use these annotations get them in their
+  next generated migration; remove any that a hand-written migration added before.
 - `migrate --sql` (Maven: `-Dmigrax.sql=true`) prints one SQL script with everything `migrate`
   would do, for a DBA to review and run with `psql`, `mysql`, `sqlcmd` or `sqlplus`: the
   pending migrations, the history rows Migrax records, transactions where the database has

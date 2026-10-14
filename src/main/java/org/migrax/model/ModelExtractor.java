@@ -86,7 +86,10 @@ public final class ModelExtractor {
               + "classpath" + (version == null ? "" : " (found " + version + ")") + ".");
         }
       }
-      return new Result(new JpaExtractor(naming).extract(basePackage), "JPA annotations");
+      boolean enumChecks = hibernateSettings != null && "true".equalsIgnoreCase(
+          hibernateSettings.get("migrax.enum-checks"));
+      return new Result(new JpaExtractor(naming, enumChecks).extract(basePackage),
+          "JPA annotations");
     } finally {
       thread.setContextClassLoader(previous);
     }

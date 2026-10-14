@@ -42,7 +42,8 @@ with a SHA-256 checksum of the file. Failed attempts are recorded in `migrax_fai
    and refreshed when the build file changes.
 2. Reads the entities into a schema model.
 3. Compares it with the snapshot and works out the operations: create and drop tables, add,
-   drop, rename and alter columns, keys, indexes, unique constraints and sequences.
+   drop, rename and alter columns, keys, indexes, unique constraints, check constraints,
+   comments and sequences.
 4. Asks about likely renames, and refuses drops unless you pass `--allow-destructive`
    (see [Changing entities](changing-entities.md)).
 5. Writes the migration and its rollback script, lints the SQL, and updates the snapshot.

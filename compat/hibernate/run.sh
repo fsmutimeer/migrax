@@ -23,6 +23,8 @@ for v in $VERSIONS; do
   if [[ $v == 5.* ]]; then
     sed -i 's#<groupId>org.hibernate.orm</groupId>#<groupId>org.hibernate</groupId>#' pom.xml
     sed -i 's/jakarta\.persistence/javax.persistence/g' src/main/java/com/matrix/*.java
+    # @Comment is Hibernate 6+.
+    sed -i '/@org.hibernate.annotations.Comment/d' src/main/java/com/matrix/*.java
   fi
   # A path the JVM understands on Windows (Git Bash) and elsewhere.
   dir="$(pwd -W 2>/dev/null || pwd)"
@@ -44,6 +46,13 @@ for v in $VERSIONS; do
   [[ $gen -ne 0 || $mig -ne 0 || $chk -ne 0 || $ver -ne 0 ]] && status=FAILED
   [[ $reader != "Hibernate $v mapping" ]] && status=FAILED
   [[ $validation != "Hibernate $v schema validation" ]] && status=FAILED
+  # The fixture's @Check, and its @Comment on Hibernate 6+, must be in the migration.
+  grep -q "balance >= 0" src/main/resources/db/migration/*.sql || status=FAILED
+  # And no other check: the ones Hibernate derives (enum, discriminator, list order) stay out.
+  [[ $(cat src/main/resources/db/migration/*.sql | grep -o "CHECK (" | wc -l) -ne 1 ]] \
+    && status=FAILED
+  [[ $v != 5.* ]] && ! grep -q "People who buy" src/main/resources/db/migration/*.sql \
+    && status=FAILED
   [[ $status == FAILED ]] && failed=1
   printf '%-14s %-6s reader=[%s] generate=%s migrate=%s check=%s verify=%s validation=[%s]\n' \
     "$v" "$status" "${reader:-?}" "$gen" "$mig" "$chk" "$ver" "${validation:-?}"

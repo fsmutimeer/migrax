@@ -58,6 +58,8 @@ public final class Json {
             .append(",\"identity\":").append(c.identity())
             .append(",\"sequenceName\":").append(qn(c.sequenceName()))
             .append(",\"logicalType\":").append(q(c.logicalType()))
+            // Only when set, so snapshots without comments stay as they were.
+            .append(c.comment() == null ? "" : ",\"comment\":" + q(c.comment()))
             .append("}").append(j + 1 < t.columns().size() ? "," : "").append(NL);
       }
       b.append("      ],").append(NL);
@@ -80,7 +82,21 @@ public final class Json {
             .append(",\"referencedColumns\":").append(arr(x.referencedColumns()))
             .append('}').append(j + 1 < t.foreignKeys().size() ? "," : "");
       }
-      b.append(t.foreignKeys().isEmpty() ? "" : NL + "      ").append("]").append(NL);
+      b.append(t.foreignKeys().isEmpty() ? "" : NL + "      ").append("]");
+      if (!t.checks().isEmpty()) {
+        b.append(",").append(NL).append("      \"checks\": [");
+        for (int j = 0; j < t.checks().size(); j++) {
+          var x = t.checks().get(j);
+          b.append(NL).append("        {\"name\":").append(q(x.name()))
+              .append(",\"expression\":").append(q(x.expression()))
+              .append('}').append(j + 1 < t.checks().size() ? "," : "");
+        }
+        b.append(NL).append("      ]");
+      }
+      if (t.comment() != null) {
+        b.append(",").append(NL).append("      \"comment\": ").append(q(t.comment()));
+      }
+      b.append(NL);
       b.append("    }").append(i + 1 < m.tables().size() ? "," : "").append(NL);
     }
     b.append("  ],").append(NL).append("  \"sequences\": [");
@@ -193,7 +209,8 @@ public final class Json {
             bool(c, "unique"),
             bool(c, "identity"),
             nullableStr(c, "sequenceName"),
-            strOr(c, "logicalType", str(c, "sqlType"))));
+            strOr(c, "logicalType", str(c, "sqlType")),
+            nullableStr(c, "comment")));
       }
       SchemaModel.PrimaryKey pk = null;
       if (t.get("primaryKey") instanceof Map<?, ?> pkm) {
@@ -218,7 +235,14 @@ public final class Json {
             str(x, "referencedTable"),
             strings((List<?>) x.get("referencedColumns"))));
       }
-      ts.add(new SchemaModel.Table(str(t, "name"), cs, pk, ix, fk));
+      List<SchemaModel.Check> ck = new ArrayList<>();
+      if (t.get("checks") instanceof List<?> checks) {
+        for (Object co : checks) {
+          Map<?, ?> x = (Map<?, ?>) co;
+          ck.add(new SchemaModel.Check(str(x, "name"), str(x, "expression")));
+        }
+      }
+      ts.add(new SchemaModel.Table(str(t, "name"), cs, pk, ix, fk, ck, nullableStr(t, "comment")));
     }
     List<SchemaModel.Sequence> ss = new ArrayList<>();
     for (Object so : list(root, "sequences")) {

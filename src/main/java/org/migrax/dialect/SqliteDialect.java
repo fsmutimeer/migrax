@@ -137,6 +137,9 @@ public final class SqliteDialect extends AbstractDialect {
   /** A unique constraint added later is a unique index, which SQLite treats the same. */
   @Override
   public String render(Operation o) {
+    if (o instanceof org.migrax.ops.SetComment) {
+      return "-- SQLite keeps no comments";
+    }
     if (o instanceof AddUnique x) {
       return "CREATE UNIQUE INDEX " + q(x.name()) + " ON " + q(x.table()) + " (" + q(x.column())
           + ")";
@@ -199,7 +202,8 @@ public final class SqliteDialect extends AbstractDialect {
     List<Operation> result = new ArrayList<>();
     for (Operation operation : operations) {
       String table = table(operation);
-      if (operation instanceof AddForeignKey && created.contains(table)) {
+      if (operation instanceof AddForeignKey && created.contains(table)
+          || operation instanceof org.migrax.ops.SetComment) {
         continue;
       }
       if (table != null && rebuilt.contains(table)
@@ -223,15 +227,16 @@ public final class SqliteDialect extends AbstractDialect {
     for (SchemaModel.Table t : model.tables()) {
       if (operation instanceof RenameTable x && t.name().equalsIgnoreCase(x.from())) {
         t = new SchemaModel.Table(x.to(), t.columns(), t.primaryKey(), t.indexes(),
-            t.foreignKeys());
+            t.foreignKeys(), t.checks(), t.comment());
       } else if (operation instanceof RenameColumn x && t.name().equalsIgnoreCase(x.table())) {
         List<SchemaModel.Column> columns = t.columns().stream()
             .map(c -> !c.name().equalsIgnoreCase(x.from()) ? c : new SchemaModel.Column(x.to(),
                 c.sqlType(), c.nullable(), c.length(), c.precision(), c.scale(),
-                c.defaultValue(), c.unique(), c.identity(), c.sequenceName(), c.logicalType()))
+                c.defaultValue(), c.unique(), c.identity(), c.sequenceName(), c.logicalType(),
+                c.comment()))
             .toList();
         t = new SchemaModel.Table(t.name(), columns, t.primaryKey(), t.indexes(),
-            t.foreignKeys());
+            t.foreignKeys(), t.checks(), t.comment());
       }
       tables.add(t);
     }
@@ -246,7 +251,8 @@ public final class SqliteDialect extends AbstractDialect {
     return operation instanceof AlterColumn || operation instanceof DropColumn
         || operation instanceof AddPrimaryKey || operation instanceof DropPrimaryKey
         || operation instanceof AddForeignKey || operation instanceof DropForeignKey
-        || operation instanceof DropUnique;
+        || operation instanceof DropUnique || operation instanceof org.migrax.ops.AddCheck
+        || operation instanceof org.migrax.ops.DropCheck;
   }
 
   /** The table an operation changes, or null for sequences and plain SQL. */
@@ -266,6 +272,9 @@ public final class SqliteDialect extends AbstractDialect {
     if (operation instanceof DropForeignKey x) return x.table();
     if (operation instanceof AddUnique x) return x.table();
     if (operation instanceof DropUnique x) return x.table();
+    if (operation instanceof org.migrax.ops.AddCheck x) return x.table();
+    if (operation instanceof org.migrax.ops.DropCheck x) return x.table();
+    if (operation instanceof org.migrax.ops.SetComment x) return x.table();
     return null;
   }
 
@@ -281,7 +290,7 @@ public final class SqliteDialect extends AbstractDialect {
     List<String> statements = new ArrayList<>();
     statements.add("-- SQLite can't change this table in place: it is rebuilt with its rows.\n"
         + createTable(new SchemaModel.Table(temporary, after.columns(), after.primaryKey(),
-            List.of(), after.foreignKeys())));
+            List.of(), after.foreignKeys(), after.checks(), after.comment())));
     if (before != null) {
       List<String> copied = after.columns().stream().map(SchemaModel.Column::name)
           .filter(column -> before.column(column) != null).toList();

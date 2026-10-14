@@ -42,6 +42,25 @@ import org.hibernate.mapping.UniqueKey;
  * Hibernate is an application dependency rather than a Migrax dependency.
  */
 public final class HibernateSchemaReader {
+  /** Setting that keeps the check constraints Hibernate 6+ derives from enum columns. */
+  public static final String ENUM_CHECKS = "migrax.enum-checks";
+
+  /** Hibernate's own enum check, e.g. {@code status between 0 and 1} or {@code tier in (...)}. */
+  private static final Pattern ENUM_CHECK = Pattern.compile(
+      "(?is)\\(?\\s*[\"`\\[]?[A-Za-z0-9_$]+[\"`\\]]?\\s+(between\\s+-?\\d+\\s+and\\s+-?\\d+"
+          + "|in\\s*\\(.*\\))\\s*\\)?");
+
+  /** Whether enum checks are kept for this read. */
+  private boolean enumChecks;
+
+  /** Discriminator columns: Hibernate 6+ checks their values; Migrax leaves that out. */
+  private final java.util.Set<Column> discriminators =
+      java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+  /** List order columns: Hibernate 7 checks that they are not negative. */
+  private final java.util.Set<Column> orderColumns =
+      java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
   private static final Pattern GENERATED_NAME = Pattern.compile("(?i)(FK|UK|IDX)[0-9a-z]{15,}");
 
   /** Hibernate dialect class per Migrax dialect id. */
@@ -99,6 +118,7 @@ public final class HibernateSchemaReader {
       if (beanValidationApplies(loader, settings)) {
         applyBeanValidation(metadata);
       }
+      enumChecks = "true".equalsIgnoreCase(settings.get(ENUM_CHECKS));
       return convert(metadata, dialect);
     } finally {
       StandardServiceRegistryBuilder.destroy(registry);
@@ -177,6 +197,7 @@ public final class HibernateSchemaReader {
     if (COLUMN_IS_IDENTITY == null) {
       identityColumns = identityColumns(metadata);
     }
+    derivedCheckColumns(metadata);
     List<SchemaModel.Table> tables = new ArrayList<>();
     List<SchemaModel.Sequence> sequences = new ArrayList<>();
     boolean tableSequences = "mysql".equals(dialect.id()) || "sqlite".equals(dialect.id());
@@ -255,7 +276,106 @@ public final class HibernateSchemaReader {
           keyColumns, target.getName(), referenced.stream().map(Column::getName).toList()));
     }
     keys.sort(java.util.Comparator.comparing(SchemaModel.ForeignKey::name));
-    return new SchemaModel.Table(name, columns, primaryKey, indexes, keys);
+    return new SchemaModel.Table(name, columns, primaryKey, indexes, keys, checks(table),
+        text(call(table, "getComment")));
+  }
+
+  /**
+   * Whether Hibernate derives a check that Migrax leaves out: an enum's values (unless
+   * migrax.enum-checks=true), a discriminator's values, or a boolean stored as a number
+   * (Oracle's {@code in (0,1)}).
+   */
+  private boolean skipsDerivedCheck(Column column) {
+    if (discriminators.contains(column)) {
+      return true;
+    }
+    Object type = column.getValue() == null ? null : call(column.getValue(), "getType");
+    Object javaClass = type == null ? null : call(type, "getReturnedClass");
+    return javaClass instanceof Class<?> c
+        && (c.isEnum() && !enumChecks || c == Boolean.class || c == boolean.class);
+  }
+
+  /** Finds the discriminator and list order columns, whose checks Hibernate derives. */
+  private void derivedCheckColumns(Metadata metadata) {
+    discriminators.clear();
+    orderColumns.clear();
+    for (PersistentClass entity : metadata.getEntityBindings()) {
+      Object discriminator = call(entity, "getDiscriminator");
+      if (discriminator != null) {
+        selectables(discriminator).stream().filter(Column.class::isInstance)
+            .forEach(c -> discriminators.add((Column) c));
+      }
+    }
+    for (Object collection : metadata.getCollectionBindings()) {
+      Object index = call(collection, "getIndex");
+      if (index != null) {
+        selectables(index).stream().filter(Column.class::isInstance)
+            .forEach(c -> orderColumns.add((Column) c));
+      }
+    }
+  }
+
+  /**
+   * The table's check constraints, including column checks: Hibernate 6.2+ keeps named
+   * {@code CheckConstraint}s (Table.getChecks, Column.getCheckConstraints), older versions
+   * plain conditions (Table.getCheckConstraints, Column.getCheckConstraint; Hibernate 5 lists
+   * a table's only through Table.getCheckConstraintsIterator).
+   */
+  private List<SchemaModel.Check> checks(Table table) {
+    java.util.Map<String, SchemaModel.Check> checks = new java.util.LinkedHashMap<>();
+    Object tableChecks = call(table, "getChecks");
+    if (tableChecks == null) {
+      tableChecks = call(table, "getCheckConstraints");
+    }
+    if (tableChecks == null) {
+      tableChecks = call(table, "getCheckConstraintsIterator");
+    }
+    addChecks(checks, table.getName(), tableChecks, false);
+    for (Column column : columns(table)) {
+      if (orderColumns.contains(column)) {
+        continue;
+      }
+      Object columnChecks = call(column, "getCheckConstraints");
+      addChecks(checks, table.getName(),
+          columnChecks != null ? columnChecks : call(column, "getCheckConstraint"),
+          skipsDerivedCheck(column));
+    }
+    return new ArrayList<>(checks.values());
+  }
+
+  /**
+   * @param skipEnumChecks leave out the check Hibernate derives from an enum column's values
+   *     (only with migrax.enum-checks=true are they generated)
+   */
+  private static void addChecks(java.util.Map<String, SchemaModel.Check> checks, String table,
+                                Object found, boolean skipEnumChecks) {
+    java.util.List<Object> all = new ArrayList<>();
+    if (found instanceof java.util.Collection<?> collection) {
+      all.addAll(collection);
+    } else if (found instanceof java.util.Iterator<?> iterator) {
+      iterator.forEachRemaining(all::add);
+    } else if (found != null) {
+      all.add(found);
+    }
+    for (Object check : all) {
+      String condition = check instanceof String text ? text
+          : text(call(check, "getConstraint"));
+      if (condition == null || condition.isBlank()) {
+        continue;
+      }
+      String expression = condition.strip();
+      if (skipEnumChecks && ENUM_CHECK.matcher(expression).matches()) {
+        continue;
+      }
+      String name = check instanceof String ? null : text(call(check, "getName"));
+      SchemaModel.Check result = new SchemaModel.Check(name != null && !name.isBlank() ? name
+          : SchemaModel.checkConstraintName(table, expression), expression);
+      checks.putIfAbsent(result.name(), result);
+    }
+  }
+
+  private static String text(Object value) {
+    return value instanceof String text && !text.isBlank() ? text : null;
   }
 
   private SchemaModel.Column convert(Column column, Metadata metadata, Dialect dialect,
@@ -286,9 +406,10 @@ public final class HibernateSchemaReader {
         scale = null;
       }
     }
+    String comment = text(call(column, "getComment"));
     SchemaModel.Column neutral = new SchemaModel.Column(column.getName(), logical,
         column.isNullable(), length, precision, scale, column.getDefaultValue(), unique,
-        isIdentity(column), null, logical);
+        isIdentity(column), null, logical, comment);
     // Keep Migrax's portable logical type when it renders exactly as Hibernate would; otherwise
     // record Hibernate's SQL type as an explicit type.
     String rendered = null;
@@ -301,7 +422,8 @@ public final class HibernateSchemaReader {
       return neutral;
     }
     return new SchemaModel.Column(column.getName(), hibernateType, column.isNullable(), length,
-        precision, scale, column.getDefaultValue(), unique, isIdentity(column), null, logical);
+        precision, scale, column.getDefaultValue(), unique, isIdentity(column), null, logical,
+        comment);
   }
 
   private static String normalize(String type) {

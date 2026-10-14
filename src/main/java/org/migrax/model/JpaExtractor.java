@@ -37,8 +37,23 @@ public final class JpaExtractor {
    * @since 0.1.0
    */
   public JpaExtractor(NamingStrategy naming) {
-    this.naming = Objects.requireNonNull(naming, "naming");
+    this(naming, false);
   }
+
+  /**
+   * Creates an extractor that also writes the check constraints Hibernate 6+ derives from
+   * enum columns.
+   *
+   * @param enumChecks true for {@code migrax.enum-checks=true}
+   * @since 0.5.0
+   */
+  public JpaExtractor(NamingStrategy naming, boolean enumChecks) {
+    this.naming = Objects.requireNonNull(naming, "naming");
+    this.enumChecks = enumChecks;
+  }
+
+  /** Whether to write enum check constraints. */
+  private final boolean enumChecks;
 
   /**
    * Extracts a {@link SchemaModel} from all JPA {@code @Entity} classes found under the given
@@ -89,8 +104,138 @@ public final class JpaExtractor {
     addOneToManyJoinColumns(tables, ctx);
     addSyntheticJoinTables(tables, entities, ctx);
     addElementCollectionTables(tables, entities, ctx);
+    tables.replaceAll(table -> withChecksAndComment(table, entities, tableNames));
     tables.sort(Comparator.comparing(SchemaModel.Table::name));
     return new SchemaModel(tables, dedupeSequences(sequences));
+  }
+
+  // ------------------------------------------------------------------ checks and comments
+
+  /**
+   * The table with the check constraints and the comment its entity classes declare:
+   * Hibernate's {@code @Check} and {@code @Comment}, and Jakarta Persistence 3.2's
+   * {@code @Table(check, comment)} and {@code @Column(check)}.
+   */
+  private SchemaModel.Table withChecksAndComment(SchemaModel.Table table,
+                                                 List<Class<?>> entities,
+                                                 Map<Class<?>, String> tableNames) {
+    Map<String, SchemaModel.Check> checks = new LinkedHashMap<>();
+    table.checks().forEach(check -> checks.put(check.name(), check));
+    String comment = table.comment();
+    for (Class<?> e : entities) {
+      if (!table.name().equals(tableNames.get(e))) {
+        continue;
+      }
+      if (comment == null) {
+        comment = comment(e, ann(e, "Table"));
+      }
+      for (SchemaModel.Check check : checks(e, table.name())) {
+        checks.putIfAbsent(check.name(), check);
+      }
+      for (Field f : tableFields(e)) {
+        for (SchemaModel.Check check : checks(f, table.name())) {
+          checks.putIfAbsent(check.name(), check);
+        }
+        SchemaModel.Check enumCheck = enumChecks ? enumCheck(f, table) : null;
+        if (enumCheck != null) {
+          checks.putIfAbsent(enumCheck.name(), enumCheck);
+        }
+      }
+    }
+    return new SchemaModel.Table(table.name(), table.columns(), table.primaryKey(),
+        table.indexes(), table.foreignKeys(), new ArrayList<>(checks.values()), comment);
+  }
+
+  /**
+   * Fields whose columns are in the entity's own table: its own and its mapped superclasses',
+   * and for TABLE_PER_CLASS also its entity parents'.
+   */
+  private List<Field> tableFields(Class<?> e) {
+    List<Field> fields = new ArrayList<>();
+    boolean perClass = inheritanceStrategy(e) == InheritanceStrategy.TABLE_PER_CLASS;
+    for (Class<?> c = e; c != null && c != Object.class; c = c.getSuperclass()) {
+      if (c != e && isEntity(c) && !perClass) {
+        break;
+      }
+      fields.addAll(Arrays.asList(c.getDeclaredFields()));
+    }
+    return fields;
+  }
+
+  /** Check constraints declared on a class or field, named when they have no name. */
+  private static List<SchemaModel.Check> checks(AnnotatedElement element, String table) {
+    List<SchemaModel.Check> checks = new ArrayList<>();
+    for (Annotation a : element.getAnnotations()) {
+      String type = a.annotationType().getName();
+      AnnotationView view = new AnnotationView(a);
+      if (type.equals("org.hibernate.annotations.Check")) {
+        addCheck(checks, table, view.str("name", null), view.str("constraints", null));
+      } else if (type.equals("org.hibernate.annotations.Checks")
+          && view.get("value") instanceof Annotation[] each) {
+        for (Annotation check : each) {
+          AnnotationView inner = new AnnotationView(check);
+          addCheck(checks, table, inner.str("name", null), inner.str("constraints", null));
+        }
+      } else if ((type.equals("jakarta.persistence.Table")
+          || type.equals("jakarta.persistence.Column"))
+          && view.get("check") instanceof Annotation[] each) {
+        for (Annotation check : each) {
+          AnnotationView inner = new AnnotationView(check);
+          addCheck(checks, table, inner.str("name", null), inner.str("constraint", null));
+        }
+      }
+    }
+    return checks;
+  }
+
+  /**
+   * The check Hibernate 6+ writes for an enum field: its ordinal range, or its names when
+   * stored as text. None when the column type is the database's own enum type (MySQL).
+   */
+  private SchemaModel.Check enumCheck(Field f, SchemaModel.Table table) {
+    if (!f.getType().isEnum() || ann(f, "Transient") != null || isRelationship(f)) {
+      return null;
+    }
+    SchemaModel.Column column = table.column(columnName(f, ann(f, "Column"), ""));
+    if (column == null || column.sqlType() != null
+        && column.sqlType().toLowerCase(Locale.ROOT).startsWith("enum")) {
+      return null;
+    }
+    Object[] values = f.getType().getEnumConstants();
+    AnnotationView enumerated = ann(f, "Enumerated");
+    boolean byName = enumerated != null && "STRING".equals(String.valueOf(enumerated.get("value")));
+    String expression = byName
+        ? column.name() + " in (" + String.join(",", Arrays.stream(values)
+            .map(v -> "'" + ((Enum<?>) v).name() + "'").toList()) + ")"
+        : column.name() + " between 0 and " + (values.length - 1);
+    return new SchemaModel.Check(SchemaModel.checkConstraintName(table.name(), expression),
+        expression);
+  }
+
+  private static void addCheck(List<SchemaModel.Check> checks, String table, String name,
+                               String condition) {
+    if (condition != null) {
+      String expression = condition.strip();
+      checks.add(new SchemaModel.Check(name != null ? name
+          : SchemaModel.checkConstraintName(table, expression), expression));
+    }
+  }
+
+  /**
+   * The comment of a class or field: Hibernate's {@code @Comment}, or the {@code comment} of
+   * Jakarta Persistence 3.2's {@code @Table}, {@code @Column} or {@code @JoinColumn}.
+   */
+  private static String comment(AnnotatedElement element, AnnotationView mapping) {
+    for (Annotation a : element.getAnnotations()) {
+      if (a.annotationType().getName().equals("org.hibernate.annotations.Comment")) {
+        String value = new AnnotationView(a).str("value", null);
+        if (value != null) {
+          return value;
+        }
+      }
+    }
+    return mapping == null || !mapping.a.annotationType().getName().startsWith("jakarta.")
+        ? null : mapping.str("comment", null);
   }
 
   /** Carries all per-extraction mutable state. */
@@ -286,7 +431,7 @@ public final class JpaExtractor {
     cols.replaceAll(c -> baseColumns.contains(c.name()) || c.nullable() ? c
         : new SchemaModel.Column(c.name(), c.sqlType(), true, c.length(), c.precision(),
             c.scale(), c.defaultValue(), c.unique(), c.identity(), c.sequenceName(),
-            c.logicalType()));
+            c.logicalType(), c.comment()));
     ctx.built().put(root, new SchemaModel.Table(
         base.name(), sorted(cols), base.primaryKey(), dedupeIndexes(idx), dedupeFks(fks)));
   }
@@ -365,7 +510,8 @@ public final class JpaExtractor {
       String defaultValue = columnDefault(f);
       cols.removeIf(c -> c.name().equals(name));
       cols.add(new SchemaModel.Column(
-          name, sql, nullable, len, prec, scale, defaultValue, unique, identity, seq, logical));
+          name, sql, nullable, len, prec, scale, defaultValue, unique, identity, seq, logical,
+          comment(f, ca)));
       if (ann(f, "Id") != null) pk.add(name);
     }
   }
@@ -401,7 +547,8 @@ public final class JpaExtractor {
           ca == null ? null : sizedLength(logical, positiveInt(ca.get("length"))),
           ca == null ? null : positiveInt(ca.get("precision")),
           ca == null ? null : positiveInt(ca.get("scale")),
-          null, unique, isIdentity(ef), sequenceName(owner, ef, ctx.sequences()), logical));
+          null, unique, isIdentity(ef), sequenceName(owner, ef, ctx.sequences()), logical,
+          comment(ef, ca)));
       if (embeddedId || ann(ef, "Id") != null) pk.add(name);
     }
   }
@@ -450,7 +597,7 @@ public final class JpaExtractor {
         col, logicalTypeFor(targetIdField(target)), nullable,
         null, null, null, null,
         jc != null && Boolean.TRUE.equals(jc.get("unique")),
-        false, null, logicalTypeFor(targetIdField(target))));
+        false, null, logicalTypeFor(targetIdField(target)), comment(f, jc)));
     fks.add(new SchemaModel.ForeignKey(
         fkName(f, col, target),
         List.of(col),

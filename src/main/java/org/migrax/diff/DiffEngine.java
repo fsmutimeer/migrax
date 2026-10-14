@@ -5,7 +5,10 @@ import org.migrax.ops.AddColumn;
 import org.migrax.ops.AddForeignKey;
 import org.migrax.ops.AddIndex;
 import org.migrax.ops.AddPrimaryKey;
+import org.migrax.ops.AddCheck;
 import org.migrax.ops.AddUnique;
+import org.migrax.ops.DropCheck;
+import org.migrax.ops.SetComment;
 import org.migrax.ops.DropUnique;
 import org.migrax.ops.AlterColumn;
 import org.migrax.ops.CreateSequence;
@@ -77,8 +80,22 @@ public final class DiffEngine {
         for (SchemaModel.ForeignKey foreignKey : newTable.foreignKeys()) {
           adds.add(new AddForeignKey(newTable.name(), foreignKey));
         }
+        comments(null, newTable, adds);
         continue;
       }
+
+      // A check whose condition changed has a new name: the old one goes, the new one comes.
+      for (SchemaModel.Check oldCheck : oldTable.checks()) {
+        if (!newTable.checks().contains(oldCheck)) {
+          drops.add(new DropCheck(newTable.name(), oldCheck.name()));
+        }
+      }
+      for (SchemaModel.Check newCheck : newTable.checks()) {
+        if (!oldTable.checks().contains(newCheck)) {
+          adds.add(new AddCheck(newTable.name(), newCheck));
+        }
+      }
+      comments(oldTable, newTable, adds);
 
       if (!samePrimaryKey(oldTable.primaryKey(), newTable.primaryKey())
           && oldTable.primaryKey() != null) {
@@ -154,6 +171,20 @@ public final class DiffEngine {
     result.addAll(changes);
     result.addAll(adds);
     return List.copyOf(result);
+  }
+
+  /** Comments that differ from the old table (all of them for a new table). */
+  private static void comments(SchemaModel.Table oldTable, SchemaModel.Table newTable,
+                               List<Operation> operations) {
+    if (!Objects.equals(oldTable == null ? null : oldTable.comment(), newTable.comment())) {
+      operations.add(new SetComment(newTable.name(), null, newTable.comment()));
+    }
+    for (SchemaModel.Column column : newTable.columns()) {
+      SchemaModel.Column old = oldTable == null ? null : oldTable.column(column.name());
+      if (!Objects.equals(old == null ? null : old.comment(), column.comment())) {
+        operations.add(new SetComment(newTable.name(), column, column.comment()));
+      }
+    }
   }
 
   private static boolean samePrimaryKey(

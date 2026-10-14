@@ -2,8 +2,10 @@
 
 Known limits in Migrax 0.4.0:
 
-- **Check constraints and comments** (`@Check`, `@Comment`, enum check constraints) are not
-  generated. Add them with a hand-written migration (`migrax new`).
+- **Check constraints** are copied into the migration as written: Migrax doesn't translate
+  the condition between databases. MySQL enforces them from 8.0.16 on. See
+  [Check constraints and comments](../guides/changing-entities.md#check-constraints-and-comments).
+- **Comments** are not kept by SQLite; Migrax leaves them out there.
 - **Statement splitting:** procedures and triggers need the separators described in
   [Procedures, functions and
   triggers](../guides/advanced-migrations.md#procedures-functions-and-triggers) (`GO`,

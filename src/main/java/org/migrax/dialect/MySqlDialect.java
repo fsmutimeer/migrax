@@ -105,6 +105,54 @@ public class MySqlDialect extends AbstractDialect {
     return "ALTER TABLE " + q(table) + " MODIFY COLUMN " + column(after);
   }
 
+  /**
+   * A column's comment is part of its definition here: MODIFY COLUMN without it would remove
+   * the comment, so every definition carries it.
+   */
+  @Override
+  protected String column(SchemaModel.Column c) {
+    return super.column(c) + (c.comment() == null ? "" : " COMMENT " + literal(c.comment()));
+  }
+
+  @Override
+  protected String tableComment(String table, String comment) {
+    return "ALTER TABLE " + q(table) + " COMMENT = " + literal(comment == null ? "" : comment);
+  }
+
+  @Override
+  protected String columnComment(String table, SchemaModel.Column column, String comment) {
+    return "ALTER TABLE " + q(table) + " MODIFY COLUMN " + column(column);
+  }
+
+  /** MySQL 8.0.16+; MariaDB uses DROP CONSTRAINT. */
+  @Override
+  protected String dropCheck(String table, String name) {
+    return "ALTER TABLE " + q(table) + " DROP CHECK " + q(name);
+  }
+
+  /**
+   * Column comments of new tables, new columns and changed columns are already in their
+   * definitions; a separate statement would only repeat them.
+   */
+  @Override
+  public java.util.List<org.migrax.ops.Operation> prepare(
+      java.util.List<org.migrax.ops.Operation> operations, SchemaModel before,
+      SchemaModel after) {
+    java.util.Set<String> defined = new java.util.HashSet<>();
+    for (org.migrax.ops.Operation operation : operations) {
+      if (operation instanceof org.migrax.ops.CreateTable x) {
+        x.table().columns().forEach(c -> defined.add(x.table().name() + "." + c.name()));
+      } else if (operation instanceof org.migrax.ops.AddColumn x) {
+        defined.add(x.table() + "." + x.column().name());
+      } else if (operation instanceof org.migrax.ops.AlterColumn x) {
+        defined.add(x.table() + "." + x.after().name());
+      }
+    }
+    return operations.stream().filter(operation -> !(operation
+        instanceof org.migrax.ops.SetComment x && x.column() != null
+        && defined.contains(x.table() + "." + x.column().name()))).toList();
+  }
+
   @Override
   protected String renameTable(String from, String to) {
     return "RENAME TABLE " + q(from) + " TO " + q(to);

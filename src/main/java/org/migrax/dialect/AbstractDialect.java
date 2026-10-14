@@ -61,6 +61,14 @@ public abstract class AbstractDialect implements Dialect {
           + " UNIQUE (" + q(x.column()) + ")";
     }
     if (o instanceof DropUnique x) return dropUnique(x.table(), x.name());
+    if (o instanceof org.migrax.ops.AddCheck x) {
+      return "ALTER TABLE " + q(x.table()) + " ADD " + check(x.check());
+    }
+    if (o instanceof org.migrax.ops.DropCheck x) return dropCheck(x.table(), x.name());
+    if (o instanceof org.migrax.ops.SetComment x) {
+      return x.column() == null ? tableComment(x.table(), x.comment())
+          : columnComment(x.table(), x.column(), x.comment());
+    }
     if (o instanceof RunSql x) return x.sql();
     throw new IllegalArgumentException("Unsupported operation " + o);
   }
@@ -109,7 +117,40 @@ public abstract class AbstractDialect implements Dialect {
             + " UNIQUE (" + q(column.name()) + ")");
       }
     }
+    for (SchemaModel.Check check : t.checks()) {
+      parts.add(check(check));
+    }
     return "CREATE TABLE " + q(t.name()) + " (" + String.join(", ", parts) + ")";
+  }
+
+  /** {@code CONSTRAINT name CHECK (condition)}. */
+  protected String check(SchemaModel.Check check) {
+    return "CONSTRAINT " + q(check.name()) + " CHECK (" + check.expression() + ")";
+  }
+
+  protected String dropCheck(String table, String name) {
+    return "ALTER TABLE " + q(table) + " DROP CONSTRAINT " + q(name);
+  }
+
+  /** Sets the table comment; a null comment removes it. */
+  protected String tableComment(String table, String comment) {
+    return "COMMENT ON TABLE " + q(table) + " IS " + commentValue(comment);
+  }
+
+  /** Sets a column comment; a null comment removes it. */
+  protected String columnComment(String table, SchemaModel.Column column, String comment) {
+    return "COMMENT ON COLUMN " + q(table) + "." + q(column.name()) + " IS "
+        + commentValue(comment);
+  }
+
+  /** A comment as a SQL value: a string literal, or NULL to remove it. */
+  protected String commentValue(String comment) {
+    return comment == null ? "NULL" : literal(comment);
+  }
+
+  /** A SQL string literal. */
+  protected static String literal(String value) {
+    return "'" + value.replace("'", "''") + "'";
   }
 
   protected String addColumn(String table, SchemaModel.Column column) {
