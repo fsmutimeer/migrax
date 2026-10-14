@@ -1,6 +1,6 @@
 # Limitations
 
-Known limits in Migrax 0.4.0:
+Known limits in Migrax 0.5.0:
 
 - **Check constraints** are copied into the migration as written: Migrax doesn't translate
   the condition between databases. MySQL enforces them from 8.0.16 on. See
