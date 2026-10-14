@@ -430,9 +430,13 @@ public final class DatabaseSchemaReader {
         if (isHiddenRowId(result.getString("COLUMN_NAME"), optionalString(result, "COLUMN_DEF"))) {
           continue;
         }
+        // A fixed-length binary(n) is not a varbinary: keep its real type, which is what
+        // Hibernate writes for byte arrays and serialized values on some databases.
+        String sqlType = typeLower.equals("binary") && "varbinary".equals(logicalType)
+            && size != null ? "binary(" + size + ")" : logicalType;
         columns.add(new SchemaModel.Column(
             result.getString("COLUMN_NAME"),
-            logicalType,
+            sqlType,
             result.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls,
             length,
             precision,

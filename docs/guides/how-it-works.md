@@ -13,7 +13,7 @@ flowchart LR
 ```
 
 **Schema model.** Migrax builds a model of the tables your entities need. When your project has
-Hibernate 5.4 or newer, Migrax asks **your own Hibernate version** for its mapping, without
+Hibernate 5.0 or newer, Migrax asks **your own Hibernate version** for its mapping, without
 connecting to a database, so names, types, join tables, element collections, inheritance and
 sequences are exactly what your application expects. Without Hibernate it scans the
 `jakarta.persistence` / `javax.persistence` annotations instead.
