@@ -290,7 +290,7 @@ public final class MigrationRunner {
           failureTable ? null : failureTableDdl(connection), stoppedAt));
     }
     return new MigrationScript(connection.getMetaData().getDatabaseProductName(),
-        currentTimestamp(connection)).write(parts,
+        scriptTimestamp(connection)).write(parts,
         parse(migrations, options, backslashEscapes(connection)), callbacks(migrations));
   }
 
@@ -966,6 +966,25 @@ public final class MigrationRunner {
       return "SYSTIMESTAMP";
     }
     return "CURRENT_TIMESTAMP";
+  }
+
+  /**
+   * The current time for a script that another tool runs. PostgreSQL and CockroachDB write
+   * {@code CURRENT_TIMESTAMP} into a {@code TIMESTAMP} column in the session's time zone, which
+   * is this machine's zone for Migrax but the server's zone for psql: the script names the zone,
+   * so its rows match the ones Migrax writes itself.
+   */
+  private static String scriptTimestamp(Connection connection) throws SQLException {
+    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
+    if (!product.contains("postgresql")) {
+      return currentTimestamp(connection);
+    }
+    try (Statement statement = connection.createStatement();
+         ResultSet result = statement.executeQuery("SELECT current_setting('TimeZone')")) {
+      String zone = result.next() ? result.getString(1) : null;
+      return zone == null ? "CURRENT_TIMESTAMP"
+          : "(CURRENT_TIMESTAMP AT TIME ZONE '" + zone.replace("'", "''") + "')";
+    }
   }
 
   private static FailureRecord findFailure(Connection connection, String version)

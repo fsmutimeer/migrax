@@ -11,6 +11,9 @@ All notable changes to Migrax are listed here. The format follows
 - Oracle packages, package and type bodies, and anonymous blocks (`BEGIN ... END;`,
   `DECLARE ... BEGIN ... END;`) no longer need a line with only `/` after them: Migrax finds
   where they end, as it already did for procedures, functions and triggers.
+- PostgreSQL and CockroachDB: a `migrate --sql` script run with psql recorded `applied_at` in
+  the server's time zone, so `migrax status` could show it hours before the migrations Migrax
+  applied itself. The script now records the time in the same zone as Migrax.
 
 ## [0.6.0] - 2026-10-14
 
