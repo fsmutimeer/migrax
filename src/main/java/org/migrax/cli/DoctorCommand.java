@@ -86,6 +86,7 @@ final class DoctorCommand implements Command {
     // project opened in the wrong folder has no migrations there and still fails them.
     boolean withoutJava = tool == ProjectBuild.Tool.NONE && packageName == null
         && !files.isEmpty();
+    boolean entitiesHaveChecks = false;
     if (withoutJava) {
       doctor.info("No pom.xml, build.gradle or entity package: checking migrations and the "
           + "database only");
@@ -146,6 +147,8 @@ final class DoctorCommand implements Command {
           Dialect dialect = project.dialect(true,
               new PrintStream(java.io.OutputStream.nullOutputStream(), false, StandardCharsets.UTF_8));
           ModelExtractor.Result result = project.extract(dialect);
+          entitiesHaveChecks = result.model().tables().stream()
+              .anyMatch(t -> !t.checks().isEmpty());
           doctor.check(!result.model().tables().isEmpty(),
               "Entities: " + result.model().tables().size() + " table(s) under " + packageName
                   + " (" + result.source() + ")",
@@ -186,6 +189,10 @@ final class DoctorCommand implements Command {
         doctor.ok("Connected: " + (cockroach ? "CockroachDB (PostgreSQL protocol)" : product
             + " " + metadata.getDatabaseProductVersion())
             + " (driver " + metadata.getDriverVersion() + ")");
+        if (entitiesHaveChecks && ignoresChecks(product, metadata.getDatabaseProductVersion())) {
+          doctor.warn("Check constraints: MySQL before 8.0.16 accepts them but doesn't enforce "
+              + "them; the entities' @Check conditions are not checked on this server");
+        }
         // Take and release the migration lock, as migrate does.
         try (AutoCloseable lock = DatabaseMigrationLock.acquire(connection)) {
           if (product.toLowerCase(Locale.ROOT).contains("h2")) {
@@ -232,6 +239,23 @@ final class DoctorCommand implements Command {
    * Explains a Hibernate auto-DDL setting (ddl-auto=update and the like): where it is, what it
    * does to a Migrax-managed database, and the exact line to write instead.
    */
+  /** MySQL before 8.0.16 parses check constraints and ignores them. MariaDB enforces them. */
+  static boolean ignoresChecks(String product, String version) {
+    if (!product.toLowerCase(Locale.ROOT).contains("mysql") || version == null
+        || version.toLowerCase(Locale.ROOT).contains("mariadb")) {
+      return false;
+    }
+    java.util.regex.Matcher matcher =
+        java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)").matcher(version);
+    if (!matcher.find()) {
+      return false;
+    }
+    int major = Integer.parseInt(matcher.group(1));
+    int minor = Integer.parseInt(matcher.group(2));
+    int patch = Integer.parseInt(matcher.group(3));
+    return major < 8 || major == 8 && minor == 0 && patch < 16;
+  }
+
   private static void adviseSchemaGeneration(Report doctor, Project project,
                                              ProjectDatabaseConfig.SchemaGeneration setting) {
     List<String> details = new ArrayList<>();

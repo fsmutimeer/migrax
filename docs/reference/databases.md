@@ -31,8 +31,11 @@ What is different from PostgreSQL:
   says how to remove it.
 - `verify` starts a throwaway `cockroachdb/cockroach` container in Docker.
 
-CockroachDB runs schema changes in the background and some column type changes need its
-experimental settings; review migrations that change column types before you apply them.
+CockroachDB widens a column in place (a longer `VARCHAR`, `INT4` to `INT8`). Any other type
+change needs its experimental setting and can't run inside a transaction, so a migration with
+one starts with `-- migrax:no-transaction` and
+`SET enable_experimental_alter_column_type_general = true`. Its statements then commit one by
+one: if one fails, the earlier ones stay applied.
 
 ## SQLite
 

@@ -84,6 +84,7 @@ class DatabaseEngineIT {
         exerciseProcedures(Database.of(container));
         exerciseCheckAndCommentChanges(Database.of(container));
         exerciseUnnamedCheck(Database.of(container));
+        exerciseCockroachTypeChange(Database.of(container));
       }
     });
   }
@@ -519,6 +520,67 @@ class DatabaseEngineIT {
       }
       if (!connection.getAutoCommit()) {
         connection.commit();
+      }
+    }
+  }
+
+  /**
+   * CockroachDB narrows a column type only outside a transaction with its experimental
+   * setting; the generated migration must say so and run.
+   */
+  private static void exerciseCockroachTypeChange(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      org.migrax.dialect.Dialect dialect =
+          org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
+      if (!dialect.id().equals("cockroachdb")) {
+        return;
+      }
+      try (Statement statement = connection.createStatement()) {
+        statement.execute("CREATE TABLE type_probe (id INT8 PRIMARY KEY, n INT8, s VARCHAR(20))");
+        statement.execute("INSERT INTO type_probe VALUES (1, 5, 'abc')");
+      }
+      var n = new org.migrax.model.SchemaModel.Column("n", "bigint", true, null, null, null,
+          null, false, false, null, "bigint");
+      var s = new org.migrax.model.SchemaModel.Column("s", "varchar", true, 20, null, null,
+          null, false, false, null, "varchar");
+      List<org.migrax.ops.Operation> operations = dialect.prepare(List.of(
+          new org.migrax.ops.AlterColumn("type_probe", n, new org.migrax.model.SchemaModel.Column(
+              "n", "integer", true, null, null, null, null, false, false, null, "integer")),
+          new org.migrax.ops.AlterColumn("type_probe", s, new org.migrax.model.SchemaModel.Column(
+              "s", "varchar", true, 10, null, null, null, false, false, null, "varchar"))),
+          org.migrax.model.SchemaModel.empty(), org.migrax.model.SchemaModel.empty());
+      String sql = operations.stream().map(o -> dialect.render(o) + ";\n")
+          .collect(java.util.stream.Collectors.joining());
+      Path folder = Files.createTempDirectory("migrax-cockroach-types");
+      Path file = folder.resolve("0001_narrow.sql");
+      Files.writeString(file, sql);
+      for (String table : List.of("migrax_history", "migrax_failures")) {
+        try (Statement statement = connection.createStatement()) {
+          statement.executeUpdate("DELETE FROM " + table);
+        } catch (SQLException absent) {
+          // Created by the migration below.
+        }
+      }
+      try {
+        new MigrationRunner().migrate(connection, List.of(file));
+      } catch (Exception e) {
+        throw new AssertionError("cockroachdb failed:\n" + sql, e);
+      }
+      try (Statement statement = connection.createStatement();
+           var rows = statement.executeQuery("SELECT column_name, data_type, "
+               + "character_maximum_length FROM information_schema.columns WHERE table_name = "
+               + "'type_probe' AND column_name IN ('n', 's') ORDER BY column_name")) {
+        rows.next();
+        assertEquals("integer", rows.getString(2), sql);
+        rows.next();
+        assertEquals(10, rows.getInt(3), sql);
+      }
+      try (Statement statement = connection.createStatement();
+           var rows = statement.executeQuery("SELECT n, s FROM type_probe")) {
+        rows.next();
+        assertEquals(5, rows.getInt(1));
+        assertEquals("abc", rows.getString(2));
+        statement.execute("DROP TABLE type_probe");
       }
     }
   }

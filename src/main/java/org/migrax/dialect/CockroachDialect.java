@@ -39,6 +39,67 @@ public final class CockroachDialect extends PostgresDialect {
     return false;
   }
 
+  /**
+   * CockroachDB changes a column type in place only when it widens it (a longer string, a
+   * bigger integer). Any other change needs its experimental setting and runs only outside a
+   * transaction, so such a migration turns the setting on and runs without one.
+   */
+  @Override
+  public java.util.List<org.migrax.ops.Operation> prepare(
+      java.util.List<org.migrax.ops.Operation> operations, SchemaModel before,
+      SchemaModel after) {
+    boolean rewrites = operations.stream().anyMatch(o -> o instanceof org.migrax.ops.AlterColumn x
+        && (x.typeChanged() || x.sizeChanged())
+        && !widens(columnType(x.before()), columnType(x.after())));
+    if (!rewrites) {
+      return operations;
+    }
+    java.util.List<org.migrax.ops.Operation> result = new java.util.ArrayList<>();
+    result.add(new org.migrax.ops.RunSql("-- CockroachDB changes these column types only outside a "
+        + "transaction, with its experimental setting.\n-- migrax:no-transaction\n"
+        + "SET enable_experimental_alter_column_type_general = true", true));
+    result.addAll(operations);
+    return result;
+  }
+
+  /** Integer types by size. */
+  private static final java.util.List<String> INTEGERS =
+      java.util.List.of("int2", "smallint", "int4", "integer", "int", "int8", "bigint");
+
+  /** Whether CockroachDB can change {@code from} to {@code to} in place. */
+  static boolean widens(String from, String to) {
+    java.util.regex.Matcher a = TYPE.matcher(from.toLowerCase(java.util.Locale.ROOT).strip());
+    java.util.regex.Matcher b = TYPE.matcher(to.toLowerCase(java.util.Locale.ROOT).strip());
+    if (!a.matches() || !b.matches()) {
+      return false;
+    }
+    String nameA = a.group(1);
+    String nameB = b.group(1);
+    if (INTEGERS.contains(nameA) && INTEGERS.contains(nameB)) {
+      return integerSize(nameB) >= integerSize(nameA);
+    }
+    boolean stringA = nameA.matches("varchar|character varying|string|text");
+    boolean stringB = nameB.matches("varchar|character varying|string|text");
+    if (stringA && stringB) {
+      return b.group(2) == null || a.group(2) != null
+          && Integer.parseInt(b.group(2)) >= Integer.parseInt(a.group(2));
+    }
+    if (nameA.equals(nameB) && nameA.matches("decimal|numeric|bytes|bytea")) {
+      return b.group(2) == null || a.group(2) != null
+          && Integer.parseInt(b.group(2)) >= Integer.parseInt(a.group(2))
+          && java.util.Objects.equals(a.group(3), b.group(3));
+    }
+    return false;
+  }
+
+  private static final java.util.regex.Pattern TYPE = java.util.regex.Pattern.compile(
+      "([a-z][a-z0-9 ]*?)\\s*(?:\\(\\s*(\\d+)\\s*(?:,\\s*(\\d+)\\s*)?\\))?");
+
+  private static int integerSize(String name) {
+    return name.equals("int2") || name.equals("smallint") ? 2
+        : name.equals("int8") || name.equals("bigint") ? 8 : 4;
+  }
+
   @Override
   public boolean acceptsProduct(String productName) {
     return productName.contains("cockroach");
