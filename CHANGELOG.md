@@ -14,6 +14,11 @@ All notable changes to Migrax are listed here. The format follows
   `migrax-quarkus-deployment` artifact itself. The readiness check is added only when the
   application has the health extension, so the build warning about `HealthCheck` is gone.
   Migrations are listed when the application is built: set `migrax.locations` before the build.
+- Jakarta EE: the new `migrax-jakarta-ee` integration applies the migrations when the
+  application starts on the server, to the data source `persistence.xml` names as the server
+  provides it (or `migrax.datasource`), so the connection isn't configured twice. Tested on
+  WildFly and Payara. Migrations and Java migrations are also found in WildFly's virtual file
+  system.
 - Hibernate 5.0 to 5.3 are read through their own mapping and validate the schema in
   `verify`, like 5.4 and newer, instead of annotation scanning. 5.0 to 5.2 need JAXB in the
   project on Java 11 and newer; without it Migrax falls back as before and says what is

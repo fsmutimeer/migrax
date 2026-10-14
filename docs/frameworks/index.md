@@ -16,7 +16,7 @@ what it detected.
 | [Quarkus](quarkus.md) | `quarkus.datasource.*` | `jpa` | `migrax-quarkus` |
 | [Micronaut](micronaut.md) | `datasources.default.*` | `micronaut` with Micronaut Data, else `jpa` | `migrax-micronaut` |
 | [Helidon](helidon.md) | `javax.sql.DataSource.<name>.*`, `db.connection.*` (SE) | `jpa` | `migrax-helidon` (MP) |
-| [Jakarta EE, plain Hibernate](jakarta-ee.md) | `persistence.xml` | `jpa` | run the CLI in your deployment |
+| [Jakarta EE, plain Hibernate](jakarta-ee.md) | `persistence.xml` | `jpa` | `migrax-jakarta-ee` |
 
 Build tools: [Maven plugin](maven.md) and [Gradle plugin](gradle.md).
 

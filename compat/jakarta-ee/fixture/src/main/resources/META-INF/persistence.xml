@@ -1,0 +1,8 @@
+<persistence xmlns="https://jakarta.ee/xml/ns/persistence" version="3.0">
+  <persistence-unit name="app">
+    <jta-data-source>java:comp/DefaultDataSource</jta-data-source>
+    <properties>
+      <property name="jakarta.persistence.schema-generation.database.action" value="none"/>
+    </properties>
+  </persistence-unit>
+</persistence>

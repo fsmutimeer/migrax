@@ -29,6 +29,7 @@ DESCRIPTIONS = [
     ("migrax-quarkus-", "Quarkus startup integration"),
     ("migrax-micronaut-", "Micronaut startup integration"),
     ("migrax-helidon-", "Helidon MP startup integration"),
+    ("migrax-jakarta-ee-", "Jakarta EE startup integration (WildFly, Payara, ...)"),
     ("migrax-gradle-plugin-", "Gradle plugin"),
 ]
 

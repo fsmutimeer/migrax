@@ -17,6 +17,7 @@
     <module>quarkus</module>
     <module>micronaut</module>
     <module>helidon</module>
+    <module>jakarta-ee</module>
     <module>gradle-plugin</module>
     <module>gradle-plugin-marker</module>
   </modules>
