@@ -139,15 +139,16 @@ For a database whose tables already exist (created by hand, by a script or by an
 *Alias:* `makemigrations`
 
 ```
-migrax generate [--name <name>] [--allow-destructive] [--safe]
+migrax generate [--name <name>] [--allow-destructive [--keep-data]] [--safe]
 ```
 
-Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`. `--safe` (PostgreSQL, CockroachDB) builds indexes and constraints on existing tables without blocking writes, in a second migration. Always review the generated SQL; Migrax lints it for you.
+Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`; with `--keep-data`, dropped tables and columns go to `migrax_backup_*` tables and the rollback script restores them (`migrax backups` lists and drops those tables). `--safe` (PostgreSQL, CockroachDB) builds indexes and constraints on existing tables without blocking writes, in a second migration. Always review the generated SQL; Migrax lints it for you.
 
 | Option | Meaning |
 |---|---|
 | `--name <name>` | Migration file name (default: next number + description) |
 | `--allow-destructive` | Allow drops and narrowing type changes |
+| `--keep-data` | Keep dropped data in backup tables the rollback restores |
 | `--safe` | Non-blocking indexes and constraints (PostgreSQL, CockroachDB) |
 | `--rename t.old=new` | Treat a column change as a rename (comma-separated) |
 | `--rename-table old=new` | Treat a table change as a rename |
@@ -477,6 +478,31 @@ can't be restored. Migration files and the snapshot are not touched. Asks before
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--schema <name>` | Database schema to read |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
+| `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
+| `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--dir <path>` | Project folder (default: current folder) |
+
+### backups
+
+```
+migrax backups [--drop [<migration>] --yes]
+```
+
+Lists the `migrax_backup_*` tables that migrations generated with `--keep-data` keep dropped
+data in; their rollback scripts restore it from there. Once you are sure you won't roll a
+migration back, drop its backups: `--drop` removes them all, or only those of one migration
+(`--drop 0005`). Asks before dropping; `--yes` confirms without asking.
+
+| Option | Meaning |
+|---|---|
+| `--json` | Machine-readable output |
+| `--drop [<migration>]` | Drop the backup tables (all, or one migration's) |
+| `--yes, -y` | Confirm without asking |
+| `--url <jdbc-url>` | Database URL (default: application config) |
+| `--user <name>` | Database user |
+| `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
+| `--schema <name>` | Database schema to read |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |

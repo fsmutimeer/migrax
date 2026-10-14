@@ -52,6 +52,7 @@ class DatabaseEngineIT {
             exerciseProcedures(sqlite);
             exerciseCheckAndCommentChanges(sqlite);
             exerciseUnnamedCheck(sqlite);
+            exerciseKeepData(sqlite);
           } finally {
             Files.deleteIfExists(file);
             Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
@@ -85,6 +86,7 @@ class DatabaseEngineIT {
         exerciseCheckAndCommentChanges(Database.of(container));
         exerciseUnnamedCheck(Database.of(container));
         exerciseCockroachTypeChange(Database.of(container));
+        exerciseKeepData(Database.of(container));
       }
     });
   }
@@ -582,6 +584,24 @@ class DatabaseEngineIT {
         assertEquals("abc", rows.getString(2));
         statement.execute("DROP TABLE type_probe");
       }
+    }
+  }
+
+  /** generate --keep-data: migrate, roll back, and every row and value is back. */
+  private static void exerciseKeepData(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      for (String table : List.of("migrax_history", "migrax_failures")) {
+        try (Statement statement = connection.createStatement()) {
+          statement.executeUpdate("DELETE FROM " + table);
+        } catch (SQLException absent) {
+          // Created by the first migration of the scenario.
+        }
+      }
+      if (!connection.getAutoCommit()) {
+        connection.commit();
+      }
+      org.migrax.cli.KeepDataScenario.run(connection,
+          org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
     }
   }
 }

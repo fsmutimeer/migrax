@@ -99,6 +99,33 @@ public interface Dialect {
   String quote(String identifier);
 
   /**
+   * An identifier as this dialect writes it in generated SQL: quoted only when it has to be,
+   * so it names the same object as the dialect's other statements.
+   *
+   * @param identifier the identifier
+   * @return the identifier as written in SQL
+   * @since 0.6.0
+   */
+  default String identifier(String identifier) {
+    return identifier;
+  }
+
+  /**
+   * The statement that copies columns of a table into a new table, rows included.
+   *
+   * @param target the new table
+   * @param source the table to copy from
+   * @param columns the columns to copy
+   * @return SQL statement
+   * @since 0.6.0
+   */
+  default String copyTable(String target, String source, java.util.List<String> columns) {
+    return "CREATE TABLE " + identifier(target) + " AS SELECT "
+        + String.join(", ", columns.stream().map(this::identifier).toList()) + " FROM "
+        + identifier(source);
+  }
+
+  /**
    * Renders the given schema operation into a database-specific DDL statement.
    *
    * @param operation the operation to render

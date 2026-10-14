@@ -90,6 +90,11 @@ public abstract class AbstractDialect implements Dialect {
    * Writes an identifier as Hibernate does: plain names unquoted, reserved words and other
    * names quoted.
    */
+  @Override
+  public String identifier(String identifier) {
+    return q(identifier);
+  }
+
   protected String q(String identifier) {
     return needsQuoting(identifier) ? quote(identifier) : identifier;
   }

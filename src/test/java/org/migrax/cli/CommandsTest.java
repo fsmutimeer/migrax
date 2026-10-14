@@ -295,6 +295,32 @@ class CommandsTest {
   }
 
   @Test
+  void backupsListsAndDropsTheKeepDataTables() throws Exception {
+    setUp();
+    generateAndMigrate();
+    execute("CREATE TABLE migrax_backup_0003_orders (id bigint)");
+    execute("CREATE TABLE migrax_backup_0004_orders_notes (id bigint, notes varchar(10))");
+
+    Result list = cli("backups");
+    assertEquals(0, list.code(), list.all());
+    assertTrue(list.out().contains("MIGRAX_BACKUP_0003_ORDERS")
+        && list.out().contains("MIGRAX_BACKUP_0004_ORDERS_NOTES"), list.out());
+
+    Result unconfirmed = cli("backups", "--drop");
+    assertEquals(1, unconfirmed.code(), unconfirmed.all());
+    assertTrue(unconfirmed.err().contains("--yes"), unconfirmed.all());
+
+    Result one = cli("backups", "--drop", "0004", "--yes");
+    assertEquals(0, one.code(), one.all());
+    assertTrue(one.out().contains("Dropped 1 backup table(s)."), one.out());
+    Result rest = cli("backups");
+    assertTrue(rest.out().contains("MIGRAX_BACKUP_0003_ORDERS")
+        && !rest.out().contains("0004"), rest.out());
+    // Backups are not entities: drift and check leave them alone.
+    assertEquals(0, cli("check").code());
+  }
+
+  @Test
   void cleanEmptiesTheDatabaseOnlyWhenConfirmed() throws Exception {
     setUp();
     generateAndMigrate();
