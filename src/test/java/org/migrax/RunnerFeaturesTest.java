@@ -254,6 +254,34 @@ class RunnerFeaturesTest {
   }
 
   @Test
+  void aBuildTimeIndexReplacesScanningTheClasspath() throws Exception {
+    java.nio.file.Path root = java.nio.file.Files.createTempDirectory("migrax-index");
+    java.nio.file.Path folder = java.nio.file.Files.createDirectories(root.resolve("db/migration"));
+    java.nio.file.Files.writeString(folder.resolve("0001_listed.sql"), "CREATE TABLE a (id INT);");
+    java.nio.file.Files.writeString(folder.resolve("0002_unlisted.sql"), "CREATE TABLE b (id INT);");
+    org.migrax.runner.MigrationIndex index = new org.migrax.runner.MigrationIndex(
+        List.of("db/migration"), List.of("db/migration/0001_listed.sql"),
+        List.of(V0002__InsertRow.class.getName()));
+    // A folder the list wasn't made for is scanned as before.
+    java.nio.file.Files.createDirectories(root.resolve("db/later"));
+    java.nio.file.Files.writeString(root.resolve("db/later/0003_later.sql"), "SELECT 1;");
+    java.nio.file.Path resource = root.resolve(org.migrax.runner.MigrationIndex.RESOURCE);
+    java.nio.file.Files.createDirectories(resource.getParent());
+    java.nio.file.Files.writeString(resource, index.format());
+    try (java.net.URLClassLoader loader = new java.net.URLClassLoader(
+        new java.net.URL[] {root.toUri().toURL()}, getClass().getClassLoader())) {
+      assertEquals(index, org.migrax.runner.MigrationIndex.read(loader));
+      assertEquals(List.of("0001_listed.sql"), org.migrax.runner.ClasspathMigrations
+          .load(loader, "db/migration").stream().map(Migration::version).toList());
+      assertEquals(List.of("V0002__InsertRow"), org.migrax.runner.MigrationLoader
+          .javaMigrations(loader, "org.migrax").stream().map(Migration::version).toList());
+      assertEquals(List.of(), org.migrax.runner.MigrationLoader.javaMigrations(loader, "db"));
+      assertEquals(List.of("0003_later.sql"), org.migrax.runner.ClasspathMigrations
+          .load(loader, "db/later").stream().map(Migration::version).toList());
+    }
+  }
+
+  @Test
   void theSqlScriptStopsBeforeAJavaMigration() throws Exception {
     try (Connection connection = database()) {
       Migration first = sql("0001_t.sql", "CREATE TABLE t (id INT);");

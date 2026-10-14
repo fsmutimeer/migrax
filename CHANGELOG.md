@@ -8,6 +8,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- Quarkus: `migrax-quarkus` is now a Quarkus extension. It applies the migrations before
+  Hibernate starts, so `quarkus.hibernate-orm.schema-management.strategy=validate` works, and it
+  runs in native executables. The dependency stays the same; Quarkus fetches the new
+  `migrax-quarkus-deployment` artifact itself. The readiness check is added only when the
+  application has the health extension, so the build warning about `HealthCheck` is gone.
+  Migrations are listed when the application is built: set `migrax.locations` before the build.
 - SQL Server migrations can repeat a batch with `GO 5`, as in SQL Server's own tools.
 - `migrate --sql` works with `--schemas`: the script has a section per schema that switches to
   it first. When a Java migration is pending, the script now stops before it and says how to

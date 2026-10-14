@@ -29,7 +29,7 @@ while IFS= read -r pom; do
       sub(/<version>[^<]*<\/version>/, "<version>" new "</version>"); pending = 0
     }
     { print }' "$pom" > "$pom.tmp" && mv "$pom.tmp" "$pom"
-done < <(find . -name pom.xml -not -path "*/target/*" -not -path "./compat/hibernate/work/*")
+done < <(find . -name pom.xml -not -path "*/target/*" -not -path "./compat/*/work/*")
 
 sed -i -E "s/(properties\.getProperty\(\"version\", \")[^\"]+(\"\))/\1$NEW\2/" \
   integrations/gradle-plugin/src/main/java/org/migrax/gradle/MigraxPlugin.java

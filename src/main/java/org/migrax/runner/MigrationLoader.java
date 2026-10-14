@@ -87,6 +87,16 @@ public final class MigrationLoader {
   public static List<Migration> javaMigrations(ClassLoader loader, String javaPackage)
       throws Exception {
     List<Migration> migrations = new ArrayList<>();
+    MigrationIndex index = MigrationIndex.read(loader);
+    if (index != null) {
+      // Written at build time, for classpaths that can't be listed (native executables).
+      for (String name : index.javaIn(javaPackage)) {
+        Class<?> type = Class.forName(name, true, loader);
+        migrations.add(Migration.ofJava(
+            (JavaMigration) type.getDeclaredConstructor().newInstance()));
+      }
+      return migrations;
+    }
     for (Class<?> type : ClassScanner.scan(loader, javaPackage,
         c -> JavaMigration.class.isAssignableFrom(c) && !c.isInterface()
             && !Modifier.isAbstract(c.getModifiers()))) {

@@ -17,16 +17,18 @@ quarkus.datasource.password=${DB_PASSWORD}
 (`createdAt`). Migrax uses `jpa` naming, or the strategy in
 `quarkus.hibernate-orm.physical-naming-strategy`.
 
-Tell Hibernate not to change the schema:
+Tell Hibernate not to change the schema itself. `validate` checks it against your entities
+when the application starts; `none` leaves it alone:
 
 ```properties
-quarkus.hibernate-orm.schema-management.strategy=none
+quarkus.hibernate-orm.schema-management.strategy=validate
 ```
 
 !!! warning "Not `update`"
 
-    With `update`, Hibernate creates new tables when the application starts, before migrations
-    run, and the migration then fails with "already exists". `migrax doctor` warns about it.
+    With `update`, Hibernate changes tables itself when the application starts, outside your
+    migrations, and the next migration can fail with "already exists". `migrax doctor` warns
+    about it.
 
 ## Migrate at startup
 
@@ -38,7 +40,9 @@ quarkus.hibernate-orm.schema-management.strategy=none
 </dependency>
 ```
 
-Migrations from `db/migration` are applied when the application starts (JVM mode).
+`migrax-quarkus` is a Quarkus extension. When the application starts, it applies the
+migrations from `db/migration` before Hibernate starts, so `strategy=validate` checks the
+migrated schema. It works in JVM mode and in native executables.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -51,11 +55,13 @@ Migrations from `db/migration` are applied when the application starts (JVM mode
 | `migrax.placeholders.<name>` | | Values for `${name}` placeholders |
 | `migrax.schemas` | | Schemas to migrate one after another |
 
-!!! note "Keep `strategy=none` with the integration"
+!!! note "Native executables"
 
-    Quarkus starts Hibernate before the integration runs. With `validate`, a pending migration
-    would stop the application from starting, because Hibernate checks the schema first. Use
-    `none`, and validate in CI with `migrax verify` instead.
+    Quarkus lists the migrations while it builds the application, because a native executable
+    can't look through its own files. Set `migrax.locations` and `migrax.java-package` before
+    the build: in a native executable, a different value at runtime finds no new migrations.
+    Migrations outside your application, in a library jar, are found only when that jar has a
+    Jandex index.
 
 ## Readiness check
 
@@ -63,6 +69,4 @@ With `quarkus-smallrye-health` in the application, Migrax adds a `migrax` readin
 when every migration is applied and none failed, was edited or is missing, DOWN otherwise,
 with the counts as data (`/q/health/ready`).
 
-Without the health extension, Quarkus prints a warning while building that it can't index
-`org.eclipse.microprofile.health.HealthCheck`; it is harmless, and the check is simply not
-used.
+Without the health extension there is no readiness check, and nothing to configure.

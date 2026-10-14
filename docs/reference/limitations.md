@@ -16,11 +16,6 @@ names in your entities (`@Table`, `@Column`) or check the generated migrations.
 
 ## Running migrations
 
-**Quarkus applies migrations after Hibernate has started.** Keep
-`quarkus.hibernate-orm.schema-management.strategy=none`: with `validate`, Hibernate would check
-the schema before the new migrations ran and stop the application. Validate in CI with
-`migrax verify` instead. The integration runs in JVM mode, not in a native executable.
-
 **Data sources defined inside an application server** (WildFly, Payara, Open Liberty, ...)
 aren't visible to the `migrax` command. Give it the connection with
 `MIGRAX_DATABASE_URL`, `MIGRAX_DATABASE_USER` and `MIGRAX_DATABASE_PASSWORD`, or the matching

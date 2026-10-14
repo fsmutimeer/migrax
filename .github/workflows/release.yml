@@ -80,7 +80,8 @@ jobs:
             target/migrax-${{ env.VERSION }}.zip
             target/migrax-${{ env.VERSION }}.jar
             integrations/spring-boot-starter/target/migrax-spring-boot-starter-${{ env.VERSION }}.jar
-            integrations/quarkus/target/migrax-quarkus-${{ env.VERSION }}.jar
+            integrations/quarkus/runtime/target/migrax-quarkus-${{ env.VERSION }}.jar
+            integrations/quarkus/deployment/target/migrax-quarkus-deployment-${{ env.VERSION }}.jar
             integrations/micronaut/target/migrax-micronaut-${{ env.VERSION }}.jar
             integrations/helidon/target/migrax-helidon-${{ env.VERSION }}.jar
             integrations/gradle-plugin/target/migrax-gradle-plugin-${{ env.VERSION }}.jar

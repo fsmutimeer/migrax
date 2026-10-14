@@ -57,6 +57,27 @@ public final class ClasspathMigrations {
     String folder = location.replace("classpath:", "").replaceAll("^/+", "")
         .replaceAll("/+$", "");
     Map<String, Migration> migrations = new LinkedHashMap<>();
+    MigrationIndex index = MigrationIndex.read(loader);
+    if (index != null && index.covers(folder)) {
+      // Written at build time, for classpaths that can't be listed (native executables).
+      for (String path : index.sqlIn(folder)) {
+        try (InputStream in = loader.getResourceAsStream(path)) {
+          if (in == null) {
+            throw new IOException("Migration " + path + " is in " + MigrationIndex.RESOURCE
+                + " but not on the classpath.");
+          }
+          String name = path.substring(path.lastIndexOf('/') + 1);
+          migrations.putIfAbsent(name, Migration.ofSql(name,
+              new String(in.readAllBytes(), StandardCharsets.UTF_8)));
+        }
+      }
+      return new ArrayList<>(migrations.values());
+    }
+    if (index != null && !loader.getResources(folder).hasMoreElements()) {
+      org.migrax.util.Log.warn("Migration folder " + folder + " was not listed when the "
+          + "application was built (" + MigrationIndex.RESOURCE + " lists " + index.folders()
+          + "), and it can't be read now. Set migrax.locations before the build.");
+    }
     Enumeration<URL> urls = loader.getResources(folder);
     while (urls.hasMoreElements()) {
       URL url = urls.nextElement();

@@ -25,6 +25,7 @@ OUT = ROOT / "docs" / "downloads"
 
 DESCRIPTIONS = [
     ("migrax-spring-boot-starter-", "Spring Boot startup integration"),
+    ("migrax-quarkus-deployment-", "Quarkus extension, build part (used with migrax-quarkus)"),
     ("migrax-quarkus-", "Quarkus startup integration"),
     ("migrax-micronaut-", "Micronaut startup integration"),
     ("migrax-helidon-", "Helidon MP startup integration"),
