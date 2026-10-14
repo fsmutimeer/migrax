@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-14
+
+The 0.5 release: check constraints and comments in generated migrations, stored procedures and
+triggers in SQL migrations, and more control over what `migrate` runs and where.
+
 ### Added
 
 - `generate` writes check constraints and comments: Hibernate's `@Check`, `@Checks` and
@@ -44,7 +49,8 @@ All notable changes to Migrax are listed here. The format follows
 ### Changed
 
 - The documentation moved to https://migrax.org/; the old address
-  https://docs-migrax.github.io/ redirects there.
+  https://docs-migrax.github.io/ redirects there. The site has a new black, white and yellow
+  look.
 
 ### Fixed
 
@@ -419,7 +425,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/fsmutimeer/migrax/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/fsmutimeer/migrax/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/fsmutimeer/migrax/compare/v0.2.0...v0.3.0
 [0.3.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.3.0-rc.2...v0.3.0-rc.3
