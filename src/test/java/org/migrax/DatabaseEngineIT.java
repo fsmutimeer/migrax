@@ -346,6 +346,48 @@ class DatabaseEngineIT {
         org.junit.jupiter.api.Assertions.assertTrue(rows.next(), url);
         assertEquals("a; b", rows.getString(1), url);
       }
+
+      // The same script without GO, / or DELIMITER lines: Migrax finds where each body ends.
+      String plain = script.lines()
+          .filter(line -> !line.strip().matches("(?i)GO|/|DELIMITER\\s+\\S+"))
+          .map(line -> line.replace("END$$", "END;"))
+          .collect(java.util.stream.Collectors.joining("\n"))
+          .replace("note_log", "note_log2").replace("add_note", "add_note2")
+          .replace("note_source", "note_source2");
+      Path plainFile = folder.resolve("0002_procedures_without_separators.sql");
+      Files.writeString(plainFile, plain);
+      List<Path> files = new java.util.ArrayList<>(List.of(file, plainFile));
+      boolean sqlServer = url.startsWith("jdbc:sqlserver:");
+      if (sqlServer) {
+        Path repeat = folder.resolve("0003_repeat.sql");
+        Files.writeString(repeat, "EXEC add_note2 'r'\nGO 3\n");
+        files.add(repeat);
+      }
+      try {
+        new MigrationRunner().migrate(connection, files);
+      } catch (Exception e) {
+        throw new AssertionError(url + " failed:\n" + plain, e);
+      }
+      try (Statement statement = connection.createStatement()) {
+        statement.execute(call.replace("add_note", "add_note2").replace("note_source",
+            "note_source2"));
+      }
+      if (!connection.getAutoCommit()) {
+        connection.commit();
+      }
+      try (Statement statement = connection.createStatement();
+           var rows = statement.executeQuery(
+               "SELECT COUNT(*) FROM note_log2 WHERE note = 'a; b'")) {
+        rows.next();
+        assertEquals(1, rows.getInt(1), url);
+      }
+      if (sqlServer) {
+        try (Statement statement = connection.createStatement();
+             var rows = statement.executeQuery("SELECT COUNT(*) FROM note_log2 WHERE note = 'r'")) {
+          rows.next();
+          assertEquals(3, rows.getInt(1), "GO 3");
+        }
+      }
     }
   }
 

@@ -84,13 +84,32 @@ Directives are comment lines in a migration:
 
 ## Procedures, functions and triggers
 
-Migrax runs a migration statement by statement and normally splits it at semicolons. The body
-of a procedure or trigger has semicolons of its own, so mark where it ends the way your
-database's own tools expect:
+Write procedures, functions and triggers as you would anywhere else. Migrax runs a migration
+statement by statement, and it knows that a semicolon inside a body doesn't end the statement:
+the body ends with the `END` that closes its first `BEGIN`.
+
+```sql
+CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));
+
+CREATE PROCEDURE add_note(IN p_note VARCHAR(100))
+BEGIN
+  DECLARE next_id INT;
+  SELECT COALESCE(MAX(id), 0) + 1 INTO next_id FROM note_log;
+  INSERT INTO note_log (id, note) VALUES (next_id, p_note);
+END;
+```
+
+On SQL Server, a procedure written without `BEGIN` and `END` runs to the end of the file, as
+it does in SQL Server's own tools. `migrax lint` warns (MX016) when a body seems to take in
+the statements after it.
+
+You can also mark where a body ends the way your database's own tools do. Scripts copied from
+those tools work unchanged:
 
 === "SQL Server"
 
-    A line with only `GO` ends a batch. Each batch is sent whole.
+    A line with only `GO` ends a batch. Each batch is sent whole. `GO 5` runs the batch five
+    times.
 
     ```sql
     CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));

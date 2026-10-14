@@ -44,6 +44,101 @@ class SqlScriptTest {
   }
 
   @Test
+  void routinesWithoutSeparatorsEndWhereTheirBodyEnds() {
+    // MySQL and MariaDB, no DELIMITER: nested IF, CASE expression, WHILE, IS NULL.
+    List<String> mysql = split("""
+        CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));
+        CREATE PROCEDURE add_note(IN p_note VARCHAR(100))
+        BEGIN
+          DECLARE next_id INT;
+          SELECT COALESCE(MAX(id), 0) + 1 INTO next_id FROM note_log;
+          IF p_note IS NULL THEN SET p_note = 'none'; END IF;
+          WHILE next_id < 0 DO SET next_id = next_id + 1; END WHILE;
+          INSERT INTO note_log (id, note) VALUES (next_id, CASE WHEN p_note = '' THEN '-' ELSE p_note END);
+        END;
+        CREATE TRIGGER fill_note BEFORE INSERT ON note_log FOR EACH ROW
+          SET NEW.note = IF(NEW.note IS NULL, '-', NEW.note);
+        INSERT INTO note_log VALUES (1, 'a');
+        """);
+    assertEquals(4, mysql.size(), mysql.toString());
+    org.junit.jupiter.api.Assertions.assertTrue(mysql.get(1).startsWith("CREATE PROCEDURE")
+        && mysql.get(1).endsWith("END;"), mysql.get(1));
+    org.junit.jupiter.api.Assertions.assertTrue(mysql.get(2).startsWith("CREATE TRIGGER"));
+
+    // Oracle, no / line: declarations before BEGIN, a loop, the name after END.
+    List<String> oracle = split("""
+        CREATE OR REPLACE PROCEDURE add_note(p_note IN VARCHAR2) AS
+          next_id NUMBER;
+        BEGIN
+          SELECT NVL(MAX(id), 0) + 1 INTO next_id FROM note_log;
+          FOR i IN 1..2 LOOP NULL; END LOOP;
+          INSERT INTO note_log (id, note) VALUES (next_id, p_note);
+        END add_note;
+        CREATE TABLE other (id NUMBER);
+        """);
+    assertEquals(2, oracle.size(), oracle.toString());
+    org.junit.jupiter.api.Assertions.assertTrue(oracle.get(0).endsWith("END add_note;"));
+
+    // SQLite trigger, no / line.
+    List<String> sqlite = split("""
+        CREATE TRIGGER add_note AFTER INSERT ON note_source
+        BEGIN
+          INSERT INTO note_log (id, note) SELECT COALESCE(MAX(id), 0) + 1, NEW.note FROM note_log;
+        END;
+        INSERT INTO note_source VALUES ('x');
+        """);
+    assertEquals(2, sqlite.size(), sqlite.toString());
+
+    // SQL Server, no GO: TRY/CATCH and a transaction inside the body.
+    List<String> sqlServer = split("""
+        CREATE OR ALTER PROCEDURE add_note @note VARCHAR(100) AS
+        BEGIN
+          SET NOCOUNT ON;
+          BEGIN TRANSACTION;
+          BEGIN TRY
+            INSERT INTO note_log (id, note) SELECT COALESCE(MAX(id), 0) + 1, @note FROM note_log;
+            COMMIT;
+          END TRY
+          BEGIN CATCH
+            ROLLBACK;
+          END CATCH;
+        END;
+        EXEC add_note 'x';
+        """);
+    assertEquals(2, sqlServer.size(), sqlServer.toString());
+
+    // A body without BEGIN: on SQL Server it runs to the end of the batch.
+    assertEquals(1, split("CREATE PROCEDURE p AS SET NOCOUNT ON; SELECT 1;\n").size());
+
+    // PostgreSQL's quoted bodies are unaffected, and so are plain statements.
+    assertEquals(2, split("""
+        CREATE FUNCTION add_note(p_note VARCHAR) RETURNS void AS $$
+        BEGIN
+          INSERT INTO note_log (id, note) VALUES (1, p_note);
+        END;
+        $$ LANGUAGE plpgsql;
+        SELECT add_note('a');
+        """).size());
+    assertEquals(List.of("CREATE TABLE begin_log (id INT)", "INSERT INTO begin_log VALUES (1)"),
+        split("CREATE TABLE begin_log (id INT);\nINSERT INTO begin_log VALUES (1);\n"));
+  }
+
+  @Test
+  void goWithACountRepeatsTheBatch() {
+    String sql = """
+        INSERT INTO counter DEFAULT VALUES;
+        GO 3
+        SELECT 1;
+        GO
+        """;
+    assertEquals(List.of("INSERT INTO counter DEFAULT VALUES;", "INSERT INTO counter DEFAULT VALUES;",
+        "INSERT INTO counter DEFAULT VALUES;", "SELECT 1;"), split(sql));
+    // A column called go is not a separator, and GO 1 is a plain GO.
+    assertEquals(List.of("SELECT go FROM t;", "SELECT 2;"),
+        split("SELECT go FROM t;\nGO 1\nSELECT 2;\nGO\n"));
+  }
+
+  @Test
   void delimiterLinesChangeTheMysqlDelimiter() {
     String sql = """
         CREATE TABLE counter (id INT PRIMARY KEY, hits INT);
