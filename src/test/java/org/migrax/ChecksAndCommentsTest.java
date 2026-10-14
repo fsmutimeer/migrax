@@ -168,10 +168,9 @@ class ChecksAndCommentsTest {
 
   @Test
   void checksHibernateDerivesForDiscriminatorsAndListOrderAreLeftOut() throws Exception {
-    for (var mode : org.migrax.model.ModelExtractor.Mode.values()) {
-      if (mode == org.migrax.model.ModelExtractor.Mode.AUTO) {
-        continue;
-      }
+    // Hibernate's @Check: the Hibernate reader and the annotation scan read it.
+    for (var mode : List.of(org.migrax.model.ModelExtractor.Mode.HIBERNATE,
+        org.migrax.model.ModelExtractor.Mode.ANNOTATIONS)) {
       SchemaModel model = org.migrax.model.ModelExtractor.extract(
           Thread.currentThread().getContextClassLoader(), "org.migrax.hibernate.fixtures",
           org.migrax.model.NamingStrategy.SPRING, Dialects.byName("postgresql"),

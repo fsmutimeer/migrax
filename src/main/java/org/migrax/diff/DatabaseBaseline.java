@@ -26,14 +26,47 @@ public final class DatabaseBaseline {
    */
   public static SchemaModel read(Connection connection, String schema, SchemaModel entities)
       throws SQLException {
-    SchemaModel database = DatabaseSchemaReader.read(connection, schema)
-        .withSequencesFrom(entities, DatabaseSchemaReader.sequenceNames(connection));
+    SchemaModel database = withTableSequenceRows(connection, schema,
+        DatabaseSchemaReader.read(connection, schema)
+            .withSequencesFrom(entities, DatabaseSchemaReader.sequenceNames(connection)),
+        entities);
     if (DatabaseSchemaReader.foldsNames(connection)) {
       database = database.withNameCaseFrom(entities);
     }
     boolean keepsComments = !connection.getMetaData().getDatabaseProductName()
         .toLowerCase(java.util.Locale.ROOT).contains("sqlite");
     return withEntityChecks(withSequenceDefaults(database, entities), entities, keepsComments);
+  }
+
+  /**
+   * The entities' sequences that are rows in a table (EclipseLink's table sequencing) and whose
+   * row the database already has: they exist, so the first generate doesn't insert them again.
+   */
+  private static SchemaModel withTableSequenceRows(Connection connection, String schema,
+                                                  SchemaModel database, SchemaModel entities) {
+    List<SchemaModel.Sequence> found = new java.util.ArrayList<>(database.sequences());
+    for (SchemaModel.Sequence sequence : entities.sequences()) {
+      boolean tableExists = database.tables().stream()
+          .anyMatch(t -> t.name().equalsIgnoreCase(sequence.table()));
+      if (!sequence.inTable() || !tableExists
+          || found.stream().anyMatch(s -> s.name().equalsIgnoreCase(sequence.name()))) {
+        continue;
+      }
+      String table = (schema == null ? "" : schema + ".") + sequence.table();
+      try (java.sql.PreparedStatement query = connection.prepareStatement("SELECT COUNT(*) FROM "
+          + table + " WHERE " + sequence.nameColumn() + " = ?")) {
+        query.setString(1, sequence.name());
+        try (java.sql.ResultSet rows = query.executeQuery()) {
+          if (rows.next() && rows.getLong(1) > 0) {
+            found.add(sequence);
+          }
+        }
+      } catch (SQLException e) {
+        org.migrax.util.Log.debug("Could not read sequence {} from {}: {}", sequence.name(),
+            table, e.getMessage());
+      }
+    }
+    return new SchemaModel(database.tables(), found);
   }
 
   /**

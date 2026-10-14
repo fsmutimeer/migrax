@@ -34,6 +34,17 @@ public abstract class AbstractDialect implements Dialect {
 
   @Override
   public String render(Operation o) {
+    if (o instanceof CreateSequence x && x.sequence().inTable()) {
+      SchemaModel.Sequence s = x.sequence();
+      long start = (s.initialValue() == null ? 1L : s.initialValue()) - 1;
+      return "INSERT INTO " + q(s.table()) + " (" + q(s.nameColumn()) + ", "
+          + q(s.valueColumn()) + ") VALUES (" + literal(s.name()) + ", " + start + ")";
+    }
+    if (o instanceof DropSequence x && x.sequence() != null && x.sequence().inTable()) {
+      SchemaModel.Sequence s = x.sequence();
+      return "DELETE FROM " + q(s.table()) + " WHERE " + q(s.nameColumn()) + " = "
+          + literal(s.name());
+    }
     if (o instanceof CreateSequence x) return createSequence(x.sequence());
     if (o instanceof DropSequence x) return dropSequence(x.name());
     if (o instanceof CreateTable x) return createTable(x.table());

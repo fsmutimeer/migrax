@@ -22,13 +22,19 @@ import java.util.Map;
 public final class ModelExtractor {
   private static final String ADAPTER_PACKAGE = "org.migrax.orm.";
   private static final String READER = "org.migrax.orm.HibernateSchemaReader";
+  private static final String ECLIPSELINK_READER = "org.migrax.orm.EclipseLinkSchemaReader";
 
   /** How entities are read. */
   public enum Mode {
-    /** Hibernate metadata when Hibernate 6 is available, annotation scanning otherwise. */
+    /**
+     * Hibernate's mapping when Hibernate is available, else EclipseLink's when EclipseLink is,
+     * else annotation scanning.
+     */
     AUTO,
-    /** Hibernate metadata only; fails if Hibernate 6 is unavailable. */
+    /** Hibernate's mapping only; fails if Hibernate 5 or newer is unavailable. */
     HIBERNATE,
+    /** EclipseLink's mapping only; fails if EclipseLink is unavailable (since 0.6.0). */
+    ECLIPSELINK,
     /** JPA annotation scanning only. */
     ANNOTATIONS;
 
@@ -39,9 +45,11 @@ public final class ModelExtractor {
       return switch (value.trim().toLowerCase(Locale.ROOT)) {
         case "auto" -> AUTO;
         case "hibernate" -> HIBERNATE;
+        case "eclipselink" -> ECLIPSELINK;
         case "annotations", "annotation", "reflection" -> ANNOTATIONS;
         default -> throw new IllegalArgumentException(
-            "Unknown extractor '" + value + "'. Use auto, hibernate or annotations.");
+            "Unknown extractor '" + value + "'. Use auto, hibernate, eclipselink or "
+                + "annotations.");
       };
     }
   }
@@ -64,7 +72,25 @@ public final class ModelExtractor {
     ClassLoader previous = thread.getContextClassLoader();
     thread.setContextClassLoader(loader);
     try {
-      if (mode != Mode.ANNOTATIONS) {
+      if (mode == Mode.ECLIPSELINK || mode == Mode.AUTO && !readsMapping(hibernateVersion(loader))
+          && eclipseLinkVersion(loader) != null) {
+        String version = eclipseLinkVersion(loader);
+        if (version == null) {
+          throw new IllegalStateException("EclipseLink is not on the project classpath.");
+        }
+        try {
+          return new Result(readWithEclipseLink(loader, basePackage, dialect,
+              hibernateSettings), "EclipseLink " + version + " mapping");
+        } catch (Exception | LinkageError e) {
+          if (mode == Mode.ECLIPSELINK) {
+            throw new IllegalStateException("EclipseLink could not read the entity mapping: "
+                + rootMessage(e), e);
+          }
+          Log.warn("EclipseLink could not read the entity mapping ({}); scanning JPA "
+              + "annotations instead. Use --extractor eclipselink to see the full error.",
+              rootMessage(e));
+        }
+      } else if (mode != Mode.ANNOTATIONS) {
         String version = hibernateVersion(loader);
         boolean usable = readsMapping(version)
             && (mode == Mode.HIBERNATE || matchingEntities(loader, basePackage, version));
@@ -129,6 +155,40 @@ public final class ModelExtractor {
   /** True when every entity uses jakarta.persistence, which Hibernate 6 requires. */
   public static boolean jakartaEntities(ClassLoader loader, String basePackage) throws Exception {
     return matchingEntities(loader, basePackage, "6");
+  }
+
+  /**
+   * EclipseLink's version on the class loader, or null when EclipseLink is absent.
+   *
+   * @since 0.6.0
+   */
+  public static String eclipseLinkVersion(ClassLoader loader) {
+    try {
+      Class<?> version = Class.forName("org.eclipse.persistence.Version", true, loader);
+      return String.valueOf(version.getMethod("getVersion").invoke(null));
+    } catch (ReflectiveOperationException | LinkageError e) {
+      return null;
+    }
+  }
+
+  private static SchemaModel readWithEclipseLink(ClassLoader loader, String basePackage,
+                                                 Dialect dialect, Map<String, String> settings)
+      throws Exception {
+    List<Class<?>> classes = new ArrayList<>(JpaExtractor.scanEntities(loader, basePackage));
+    classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "Embeddable"));
+    classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "MappedSuperclass"));
+    classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "Converter"));
+    if (classes.isEmpty()) {
+      return SchemaModel.empty();
+    }
+    Class<?> reader = new AdapterClassLoader(loader).loadClass(ECLIPSELINK_READER);
+    try {
+      return (SchemaModel) reader.getMethod("read", List.class, Map.class, Dialect.class)
+          .invoke(reader.getConstructor().newInstance(), classes,
+              settings == null ? Map.of() : settings, dialect);
+    } catch (java.lang.reflect.InvocationTargetException e) {
+      throw e.getCause() instanceof Exception cause ? cause : e;
+    }
   }
 
   /** Hibernate's version on the class loader, or null when Hibernate is absent. */

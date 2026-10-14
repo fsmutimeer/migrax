@@ -89,6 +89,6 @@ before.
 
 !!! note "Other JPA providers"
 
-    Migrax reads the mapping through Hibernate. With another JPA provider it scans the
-    annotations and applies Hibernate's naming rules; check the generated names, and use
-    `migrax drift --entities` to compare.
+    Migrax reads the mapping through Hibernate or, on servers that use it (Payara, GlassFish),
+    EclipseLink. With another JPA provider it scans the annotations and applies Hibernate's
+    naming rules; check the generated names, and use `migrax drift --entities` to compare.

@@ -38,7 +38,8 @@ final class Options {
     HELP.put("--no-input", "--no-input              Never ask questions");
     HELP.put("--dialect", "--dialect <name>        " + String.join(", ", Dialects.NAMES));
     HELP.put("--naming", "--naming <strategy>     spring, jpa, jpa-snake or micronaut (default: detected)");
-    HELP.put("--extractor", "--extractor <mode>      auto, hibernate or annotations (default: auto)");
+    HELP.put("--extractor",
+        "--extractor <mode>      auto, hibernate, eclipselink or annotations (default: auto)");
     HELP.put("--url", "--url <jdbc-url>        Database URL (default: application config)");
     HELP.put("--user", "--user <name>           Database user");
     HELP.put("--password", "--password <secret>     Database password (prefer env vars)");
