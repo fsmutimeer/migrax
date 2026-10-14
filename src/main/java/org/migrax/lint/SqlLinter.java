@@ -32,6 +32,21 @@ public final class SqlLinter {
                         String sql, String message, String fix) {}
 
   private static final String IDENT = "[\\w$#.\"`\\[\\]]+";
+  /** A routine body that closed: it ends with END, or END and the routine's name. */
+  private static final Pattern ENDS_WITH_END = Pattern.compile("(?is).*\\bEND(?:\\s+\\w+)?\\s*;?\\s*");
+  private static final Pattern DOLLAR_QUOTED = Pattern.compile("(?s)\\$(\\w*)\\$.*?\\$\\1\\$");
+  private static final Pattern STRING = Pattern.compile("'(?:[^']|'')*'");
+
+  /**
+   * Whether a procedure, function or trigger took in the statements after it: its text holds
+   * semicolons outside quotes but doesn't end with END.
+   */
+  private static boolean swallowsStatements(String statement) {
+    String text = STRING.matcher(DOLLAR_QUOTED.matcher(SqlScript.stripComments(statement))
+        .replaceAll("")).replaceAll("''").strip();
+    String body = text.endsWith(";") ? text.substring(0, text.length() - 1) : text;
+    return body.contains(";") && !ENDS_WITH_END.matcher(text).matches();
+  }
   private static final Pattern CREATE_TABLE =
       Pattern.compile("(?i)^CREATE\\s+(?:GLOBAL\\s+TEMPORARY\\s+|TEMPORARY\\s+)?TABLE\\s+"
           + "(?:IF\\s+NOT\\s+EXISTS\\s+)?(" + IDENT + ")");
@@ -94,6 +109,13 @@ public final class SqlLinter {
       List<Finding> found = new ArrayList<>();
       int number = i + 1;
 
+      if (SqlScript.isRoutine(raw) && swallowsStatements(raw) && !ignores.contains("MX016")) {
+        findings.add(finding("MX016", Severity.WARNING, file, number, text,
+            "This procedure, function or trigger seems to include the statements after it: "
+                + "its body has an unmatched BEGIN, or it has none.",
+            "Check that every BEGIN has its END, or end the body with GO (SQL Server), a "
+                + "DELIMITER line (MySQL, MariaDB) or a line with only / (Oracle, SQLite)."));
+      }
       Matcher create = CREATE_TABLE.matcher(text);
       if (create.find()) {
         createdTables.add(normalize(create.group(1)));

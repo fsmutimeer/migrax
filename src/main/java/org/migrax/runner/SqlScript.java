@@ -22,7 +22,49 @@ public final class SqlScript {
       + "\\s+)?(?:(?:NON)?EDITIONABLE\\s+)?(?:PROCEDURE|FUNCTION|PACKAGE|TRIGGER|TYPE)"
       + "|DECLARE|BEGIN)\\b");
 
+  /** A statement that creates a procedure, function, trigger or event, whose body has semicolons. */
+  private static final Pattern ROUTINE = Pattern.compile("(?is)CREATE\\s+(?:OR\\s+(?:REPLACE|ALTER)"
+      + "\\s+)?(?:DEFINER\\s*=\\s*\\S+\\s+)?(?:(?:NON)?EDITIONABLE\\s+)?"
+      + "(?:PROCEDURE|PROC|FUNCTION|TRIGGER|EVENT)\\b");
+  /** Words after BEGIN that start a transaction, not a block. */
+  private static final java.util.Set<String> NOT_A_BLOCK =
+      java.util.Set.of("TRAN", "TRANSACTION", "DISTRIBUTED", "WORK");
+  /** Words after END that close a block BEGIN and CASE don't count. */
+  private static final java.util.Set<String> OTHER_ENDS =
+      java.util.Set.of("IF", "LOOP", "WHILE", "REPEAT", "FOR");
+  /** Words after IS that make it a comparison ({@code IS NULL}), not the start of a body. */
+  private static final java.util.Set<String> COMPARISONS =
+      java.util.Set.of("NULL", "NOT", "TRUE", "FALSE", "UNKNOWN", "DISTINCT", "JSON");
+
   private SqlScript() {}
+
+  /** The word starting at {@code i}, or an empty string. */
+  private static String wordAt(String sql, int i) {
+    int end = i;
+    while (end < sql.length()
+        && (Character.isLetterOrDigit(sql.charAt(end)) || sql.charAt(end) == '_')) {
+      end++;
+    }
+    return sql.substring(i, end);
+  }
+
+  /** The next word after {@code i}, skipping whitespace, upper case; empty when none. */
+  private static String nextWord(String sql, int i) {
+    int start = i;
+    while (start < sql.length() && Character.isWhitespace(sql.charAt(start))) {
+      start++;
+    }
+    return wordAt(sql, start).toUpperCase(Locale.ROOT);
+  }
+
+  /** The first character after {@code i} that is not whitespace, or 0. */
+  private static char nextChar(String sql, int i) {
+    int start = i;
+    while (start < sql.length() && Character.isWhitespace(sql.charAt(start))) {
+      start++;
+    }
+    return start < sql.length() ? sql.charAt(start) : 0;
+  }
 
   /** True when a standalone {@code -- migrax:<name>} line is present. */
   public static boolean hasDirective(String sql, String name) {
@@ -102,6 +144,13 @@ public final class SqlScript {
     // Whether the current statement has text besides comments, and whether it is PL/SQL.
     boolean started = false;
     boolean plsqlBlock = false;
+    // Without separators, a routine's body ends where its BEGIN ... END blocks close: the open
+    // BEGIN and CASE count, and whether declarations (AS, IS, DECLARE) still wait for a BEGIN.
+    boolean findsBodies = !batches && !slashBlocks;
+    boolean routine = false;
+    int depth = 0;
+    boolean declarations = false;
+    boolean closedBlock = false;
 
     for (int i = 0; i < sql.length(); i++) {
       char ch = sql.charAt(i);
@@ -140,6 +189,11 @@ public final class SqlScript {
           && !(ch == '/' && next == '*')) {
         started = true;
         plsqlBlock = slashBlocks && PLSQL_BLOCK.matcher(sql).region(i, sql.length()).lookingAt();
+        routine = findsBodies && delimiter.equals(";")
+            && ROUTINE.matcher(sql).region(i, sql.length()).lookingAt();
+        depth = 0;
+        declarations = false;
+        closedBlock = false;
       }
 
       if (lineComment) {
@@ -213,7 +267,35 @@ public final class SqlScript {
         } else {
           current.append(ch);
         }
-      } else if (ch == ';' && delimiter.equals(";") && !batches && !plsqlBlock) {
+      } else if (routine && Character.isLetter(ch) && (i == 0
+          || !(Character.isLetterOrDigit(sql.charAt(i - 1)) || sql.charAt(i - 1) == '_'
+              || sql.charAt(i - 1) == '@' || sql.charAt(i - 1) == '.'))) {
+        String word = wordAt(sql, i);
+        String upper = word.toUpperCase(Locale.ROOT);
+        int after = i + word.length();
+        if (upper.equals("BEGIN") && !NOT_A_BLOCK.contains(nextWord(sql, after))) {
+          depth++;
+          declarations = false;
+        } else if (upper.equals("CASE")) {
+          depth++;
+        } else if (upper.equals("END") && depth > 0
+            && !OTHER_ENDS.contains(nextWord(sql, after))) {
+          depth--;
+          closedBlock = depth == 0;
+        } else if (depth == 0 && !closedBlock && (upper.equals("AS") || upper.equals("DECLARE")
+            || upper.equals("IS") && !COMPARISONS.contains(nextWord(sql, after)))) {
+          // A body follows, unless it is quoted text (PostgreSQL's AS $$ ... $$).
+          char first = nextChar(sql, after);
+          declarations = first != '$' && first != '\'' && first != '"';
+        }
+        current.append(word);
+        i = after - 1;
+      } else if (ch == ';' && delimiter.equals(";") && !batches && !plsqlBlock
+          && !(routine && (depth > 0 || declarations))) {
+        if (routine && closedBlock) {
+          // PL/SQL needs the semicolon after END; the other databases accept it.
+          current.append(';');
+        }
         addStatement(statements, current);
         started = false;
       } else {
@@ -225,6 +307,11 @@ public final class SqlScript {
       throw new IllegalArgumentException("Unterminated quote or comment in SQL migration.");
     }
     return statements;
+  }
+
+  /** Whether a statement creates a procedure, function, trigger or event. */
+  public static boolean isRoutine(String statement) {
+    return ROUTINE.matcher(stripComments(statement).strip()).lookingAt();
   }
 
   /** Whether a statement is a PL/SQL block, which Oracle's tools end with a / line. */

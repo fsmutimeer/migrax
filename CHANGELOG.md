@@ -9,6 +9,10 @@ All notable changes to Migrax are listed here. The format follows
 ### Added
 
 - SQL Server migrations can repeat a batch with `GO 5`, as in SQL Server's own tools.
+- Procedures, functions and triggers no longer need `GO`, `DELIMITER` or `/` lines: Migrax ends
+  the statement with the `END` that closes the body's first `BEGIN`. Scripts with those lines
+  work as before. New lint rule MX016 warns when a body has an unmatched `BEGIN` and so takes
+  in the statements after it.
 
 ### Fixed
 

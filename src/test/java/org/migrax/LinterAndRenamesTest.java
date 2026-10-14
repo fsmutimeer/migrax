@@ -41,6 +41,32 @@ class LinterAndRenamesTest {
   }
 
   @Test
+  void warnsWhenARoutineBodyTakesInTheStatementsAfterIt() {
+    // A BEGIN without its END: the CREATE TABLE ends up inside the procedure.
+    assertEquals(Set.of("MX016"), codes("""
+        CREATE PROCEDURE p()
+        BEGIN
+          INSERT INTO t VALUES (1);
+        CREATE TABLE u (id INT);
+        """, "mysql"));
+    // Closed bodies, one-statement triggers and PostgreSQL's quoted bodies are fine.
+    assertEquals(Set.of(), codes("""
+        CREATE PROCEDURE p()
+        BEGIN
+        INSERT INTO t VALUES (1);
+        END;
+        CREATE TRIGGER g BEFORE INSERT ON t FOR EACH ROW SET NEW.id = 1;
+        """, "mysql"));
+    assertEquals(Set.of(), codes("""
+        CREATE FUNCTION f() RETURNS void AS $$
+        BEGIN
+          INSERT INTO t VALUES (1);
+        END;
+        $$ LANGUAGE plpgsql;
+        """, "postgresql"));
+  }
+
+  @Test
   void acceptsTheSafeForms() {
     assertEquals(Set.of(), codes("-- migrax:no-transaction\n"
         + "CREATE INDEX CONCURRENTLY i ON orders (customer_id);", "postgresql"));

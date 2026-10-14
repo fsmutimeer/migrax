@@ -30,4 +30,5 @@ ALTER TABLE customers DROP COLUMN legacy_code;
 | MX013 | warning | PostgreSQL | Adding a primary key builds an index while blocking writes | `CREATE UNIQUE INDEX CONCURRENTLY`, then `ADD CONSTRAINT ... PRIMARY KEY USING INDEX` |
 | MX014 | warning | PostgreSQL | Adding a check constraint scans the table under an exclusive lock | Add it `NOT VALID`, then `VALIDATE CONSTRAINT` later |
 | MX015 | info | SQL Server, Oracle | Index builds lock the table unless they run online | `WITH (ONLINE = ON)` (SQL Server Enterprise) or `ONLINE` (Oracle Enterprise) |
+| MX016 | warning | all | A procedure, function or trigger whose body has an unmatched `BEGIN`, so it takes in the statements after it | Give every `BEGIN` its `END`, or end the body with `GO`, a `DELIMITER` line or a `/` line |
 | MX000 | error | all | The migration could not be parsed | Fix the SQL |
