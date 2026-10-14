@@ -75,14 +75,14 @@ public final class ModelExtractor {
           } catch (Exception | LinkageError e) {
             if (mode == Mode.HIBERNATE) {
               throw new IllegalStateException("Hibernate could not read the entity mapping: "
-                  + rootMessage(e), e);
+                  + explain(e, version), e);
             }
             Log.warn("Hibernate could not read the entity mapping ({}); scanning JPA "
                 + "annotations instead. Use --extractor hibernate to see the full error.",
-                rootMessage(e));
+                explain(e, version));
           }
         } else if (mode == Mode.HIBERNATE) {
-          throw new IllegalStateException("Hibernate 5.4 or newer is not on the project "
+          throw new IllegalStateException("Hibernate 5 or newer is not on the project "
               + "classpath" + (version == null ? "" : " (found " + version + ")") + ".");
         }
       }
@@ -96,12 +96,12 @@ public final class ModelExtractor {
   }
 
   /**
-   * True when Migrax can read this Hibernate version's own mapping: 5.4 and newer. Earlier
+   * True when Migrax can read this Hibernate version's own mapping: 5.0 and newer. Earlier
    * versions are read by scanning annotations.
    */
   public static boolean readsMapping(String version) {
     return version != null
-        && (version.matches("^[6-9]\\..*") || version.matches("^5\\.[4-9]\\..*"));
+        && (version.matches("^[6-9]\\..*") || version.matches("^5\\.\\d+\\..*"));
   }
 
   /** The persistence API this Hibernate maps: javax for Hibernate 5, jakarta after. */
@@ -184,7 +184,7 @@ public final class ModelExtractor {
                                              String user, String password) throws Exception {
     String version = hibernateVersion(loader);
     if (!readsMapping(version)) {
-      throw new IllegalStateException("Hibernate 5.4 or newer is not on the project classpath.");
+      throw new IllegalStateException("Hibernate 5 or newer is not on the project classpath.");
     }
     Thread thread = Thread.currentThread();
     ClassLoader previous = thread.getContextClassLoader();
@@ -202,6 +202,38 @@ public final class ModelExtractor {
     } finally {
       thread.setContextClassLoader(previous);
     }
+  }
+
+  /**
+   * Whether Hibernate failed because a class it needs is missing from the project, such as
+   * JAXB for Hibernate 5.0 to 5.2 on Java 11 and newer.
+   *
+   * @since 0.6.0
+   */
+  public static boolean missingClass(Throwable error) {
+    for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+      if (cause instanceof NoClassDefFoundError || cause instanceof ClassNotFoundException) {
+        return true;
+      }
+      if (cause.getCause() == cause) {
+        break;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Hibernate's error in a sentence, with what to do when JAXB is missing.
+   *
+   * @since 0.6.0
+   */
+  public static String explain(Throwable error, String version) {
+    String message = rootMessage(error);
+    return message.contains("javax.xml.bind") || message.contains("javax/xml/bind")
+        ? message + ". Hibernate " + version + " needs JAXB, which Java 11 and newer don't "
+            + "include: add javax.xml.bind:jaxb-api and org.glassfish.jaxb:jaxb-runtime to the "
+            + "project"
+        : message;
   }
 
   private static String rootMessage(Throwable error) {

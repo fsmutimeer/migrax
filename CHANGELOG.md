@@ -14,6 +14,10 @@ All notable changes to Migrax are listed here. The format follows
   `migrax-quarkus-deployment` artifact itself. The readiness check is added only when the
   application has the health extension, so the build warning about `HealthCheck` is gone.
   Migrations are listed when the application is built: set `migrax.locations` before the build.
+- Hibernate 5.0 to 5.3 are read through their own mapping and validate the schema in
+  `verify`, like 5.4 and newer, instead of annotation scanning. 5.0 to 5.2 need JAXB in the
+  project on Java 11 and newer; without it Migrax falls back as before and says what is
+  missing. The Hibernate compatibility tests now cover 19 versions.
 - SQL Server migrations can repeat a batch with `GO 5`, as in SQL Server's own tools.
 - `migrate --sql` works with `--schemas`: the script has a section per schema that switches to
   it first. When a Java migration is pending, the script now stops before it and says how to
@@ -30,6 +34,9 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Fixed
 
+- The first `generate` on an existing database saw a fixed-length `BINARY(n)` column as
+  `varbinary` and wrote a change for it, for example for the `binary(255)` columns Hibernate 5
+  writes on H2. The database reader now keeps the column's real type.
 - On a database Hibernate created, an `@Check` without a name was added a second time by the
   first `generate`, because the database had given the existing check a name of its own.
   Migrax now recognizes the check by its condition and keeps the database's name.

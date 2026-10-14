@@ -13,6 +13,7 @@ import org.migrax.runner.MigrationLoader;
 import org.migrax.runner.MigrationRunner;
 import org.migrax.verify.SchemaComparator;
 import org.migrax.verify.ScratchDatabase;
+import org.migrax.util.Log;
 
 import java.io.PrintStream;
 import java.net.URLClassLoader;
@@ -109,17 +110,31 @@ final class VerifyCommand implements Command {
         List<String> problems = new ArrayList<>();
         // Hibernate's validator rejects the integer row-id columns that its own SQLite dialect
         // creates for Long ids, so SQLite gets the structural comparison.
+        boolean validated = false;
         if (ModelExtractor.readsMapping(hibernate) && !"sqlite".equals(dialect.id())
             && project.extractorMode() != ModelExtractor.Mode.ANNOTATIONS
             && ModelExtractor.matchingEntities(loader, packageName, hibernate)) {
-          String error = ModelExtractor.validateWithHibernate(loader, packageName,
-              project.naming(), dialect, project.hibernateSettings(), database.url(),
-              database.user(), database.password());
-          if (error != null) {
-            problems.add(error);
+          try {
+            String error = ModelExtractor.validateWithHibernate(loader, packageName,
+                project.naming(), dialect, project.hibernateSettings(), database.url(),
+                database.user(), database.password());
+            if (error != null) {
+              problems.add(error);
+            }
+            report.put("validation", "Hibernate " + hibernate + " schema validation");
+            validated = true;
+          } catch (Exception | LinkageError e) {
+            // A class Hibernate needs is missing (JAXB for Hibernate 5.0 to 5.2 on Java 11+):
+            // the structural comparison still checks the schema.
+            if (!ModelExtractor.missingClass(e)) {
+              throw e;
+            }
+            Log.warn("Hibernate " + hibernate + " could not start: "
+                + ModelExtractor.explain(e, hibernate) + ". Comparing the schema structurally "
+                + "instead.");
           }
-          report.put("validation", "Hibernate " + hibernate + " schema validation");
-        } else {
+        }
+        if (!validated) {
           SchemaModel expected = project.extract(dialect).model();
           SchemaModel actual = DatabaseSchemaReader.read(connection);
           SchemaComparator.compare(expected, actual, dialect.id())
