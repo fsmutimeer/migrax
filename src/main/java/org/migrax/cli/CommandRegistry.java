@@ -38,6 +38,7 @@ final class CommandRegistry {
     registry.add(new NewCommand());
     registry.add(new RepairCommand());
     registry.add(new CleanCommand());
+    registry.add(new BackupsCommand());
     registry.add(new InspectCommand());
     registry.add(new SqlCommand());
     registry.add(new VersionCommand());

@@ -43,6 +43,7 @@ mvn migrax:status
 | `migrax:repair` | `migrax repair` |
 | `migrax:baseline` | `migrax baseline` (`-Dmigrax.version=<migration>`) |
 | `migrax:clean` | `migrax clean` |
+| `migrax:backups` | `migrax backups` (`-Dmigrax.drop=true`, `-Dmigrax.migration=<number>`) |
 | `migrax:new` | `migrax new` |
 | `migrax:squash` | `migrax squash` |
 | `migrax:merge` | `migrax merge` |
@@ -55,6 +56,7 @@ Options are `-Dmigrax.*` properties (or `<configuration>` elements of the same n
 | Property | CLI option | Goals |
 |---|---|---|
 | `migrax.allowDestructive=true` | `--allow-destructive` | generate |
+| `migrax.keepData=true` | `--keep-data` | generate |
 | `migrax.renames=customers.email=contact_email` | `--rename` | generate |
 | `migrax.renameTables=client=customer` | `--rename-table` | generate |
 | `migrax.name=split_name` | `--name` | generate, new |
@@ -64,7 +66,7 @@ Options are `-Dmigrax.*` properties (or `<configuration>` elements of the same n
 | `migrax.sql=true` | `--sql` | migrate |
 | `migrax.lockTimeout=2m` | `--lock-timeout` | migrate, rollback, repair, clean, generate |
 | `migrax.steps=2`, `migrax.to=<migration>` | `--steps`, `--to` | rollback (`to` also migrate) |
-| `migrax.confirm=true` | `--yes` | rollback, repair, clean, baseline |
+| `migrax.confirm=true` | `--yes` | rollback, repair, clean, baseline, backups |
 | `migrax.action=applied` | `--action` | repair |
 | `migrax.impact=true` | `--impact` | plan |
 | `migrax.all=true`, `migrax.strict=true` | `--all`, `--strict` | lint |

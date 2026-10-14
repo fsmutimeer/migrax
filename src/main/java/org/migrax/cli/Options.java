@@ -22,7 +22,7 @@ final class Options {
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
       "--refresh", "--yes", "-y", "--help", "-h", "--version", "-V", "--json", "--safe",
       "--impact", "--strict", "--no-input", "--optimize", "--java", "--entities",
-      "--skip-rollbacks", "--all", "--allow-generate", "--sql");
+      "--skip-rollbacks", "--all", "--allow-generate", "--sql", "--keep-data", "--drop");
 
   private static final Map<String, String> HELP = new LinkedHashMap<>();
 
@@ -31,6 +31,9 @@ final class Options {
     HELP.put("--package", "--package <name>        Entity package (default: MIGRAX_PACKAGE or pom groupId)");
     HELP.put("--name", "--name <name>           Migration file name (default: next number + description)");
     HELP.put("--allow-destructive", "--allow-destructive     Allow drops and narrowing type changes");
+    HELP.put("--drop", "--drop [<migration>]    Drop the backup tables (all, or one migration's)");
+    HELP.put("--keep-data",
+        "--keep-data             Keep dropped data in backup tables the rollback restores");
     HELP.put("--safe",
         "--safe                  Non-blocking indexes and constraints (PostgreSQL, CockroachDB)");
     HELP.put("--rename", "--rename t.old=new      Treat a column change as a rename (comma-separated)");

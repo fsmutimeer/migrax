@@ -26,10 +26,11 @@ Procedures, functions and triggers don't; see
 
 ## Rolling back
 
-**A rollback brings back the structure, not the data.** Rolling back a migration that dropped a
-column re-creates the column, but its values are gone. Each rollback script says at the top what
-it can't restore. Back up the database before a release that drops data. See
-[Rollbacks and recovery](../guides/rollbacks-and-recovery.md).
+**A rollback brings back the structure, not the data**, unless the migration was generated with
+`--keep-data`. Rolling back a migration that dropped a column re-creates the column, but its
+values are gone; with `--keep-data` they come back from a backup table. Data in a table without a
+primary key can only be kept when the whole table is dropped. See
+[Keeping dropped data](../guides/rollbacks-and-recovery.md#keeping-dropped-data).
 
 ## Getting Migrax
 

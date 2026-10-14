@@ -62,7 +62,7 @@ final class GenerateCommand implements Command {
 
   @Override
   public String usage() {
-    return "migrax generate [--name <name>] [--allow-destructive] [--safe]";
+    return "migrax generate [--name <name>] [--allow-destructive [--keep-data]] [--safe]";
   }
 
   @Override
@@ -73,7 +73,9 @@ final class GenerateCommand implements Command {
         with no snapshot, the current database schema is the baseline: its tables are written
         to 0001_baseline.sql, which that database records as applied without running it.
         When a column or table seems renamed, Migrax asks (or pass --rename / --rename-table)
-        so the data is kept. Drops need --allow-destructive. --safe (PostgreSQL, CockroachDB)
+        so the data is kept. Drops need --allow-destructive; with --keep-data, dropped tables
+        and columns go to migrax_backup_* tables and the rollback script restores them
+        ('migrax backups' lists and drops those tables). --safe (PostgreSQL, CockroachDB)
         builds indexes and constraints on existing tables without blocking writes, in a second
         migration.
         Always review the generated SQL; Migrax lints it for you.""";
@@ -81,7 +83,8 @@ final class GenerateCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--name", "--allow-destructive", "--safe", "--rename", "--rename-table",
+    return List.of("--name", "--allow-destructive", "--keep-data", "--safe", "--rename",
+        "--rename-table",
         "--no-input", "--lock-timeout", "--dialect", "--package", "--naming", "--extractor",
         "--url", "--user", "--password", "--password-file", "--schema", "--locations",
         "--classpath", "--no-build", "--refresh");
@@ -199,13 +202,24 @@ final class GenerateCommand implements Command {
         changes.tableRenames(), changes.columnRenames());
     if (!main.isEmpty()) {
       SchemaModel afterMain = withoutOnline(changes.current(), online);
-      Files.writeString(file,
-          MigrationSql.render(dialect, main, null, changes.previous(), afterMain));
-      written.add(file);
       List<Operation> mainReverse = new ArrayList<>(reverse);
       mainReverse.removeIf(o -> undoesAny(o, online));
-      MigrationSql.writeRollback(migrations, file.getFileName().toString(), dialect, mainReverse,
-          main, afterMain, changes.previous());
+      if (args.flag("--keep-data")) {
+        // The migration's number as in its file name: 0005 for 0005_drop_notes.
+        KeepData.Plan keep = KeepData.apply(main, mainReverse, changes.previous(), dialect,
+            name.split("_", 2)[0]);
+        keep.warnings().forEach(Log::warn);
+        Files.writeString(file,
+            MigrationSql.render(dialect, keep.forward(), null, changes.previous(), afterMain));
+        MigrationSql.writeRollback(migrations, file.getFileName().toString(), dialect, keep,
+            main, afterMain, changes.previous());
+      } else {
+        Files.writeString(file,
+            MigrationSql.render(dialect, main, null, changes.previous(), afterMain));
+        MigrationSql.writeRollback(migrations, file.getFileName().toString(), dialect,
+            mainReverse, main, afterMain, changes.previous());
+      }
+      written.add(file);
       SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), name), afterMain,
           dialect.id());
     }

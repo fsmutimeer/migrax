@@ -14,6 +14,11 @@ All notable changes to Migrax are listed here. The format follows
   `migrax-quarkus-deployment` artifact itself. The readiness check is added only when the
   application has the health extension, so the build warning about `HealthCheck` is gone.
   Migrations are listed when the application is built: set `migrax.locations` before the build.
+- `generate --keep-data` keeps the data a migration drops, and its rollback script restores it:
+  a dropped table is renamed to a `migrax_backup_*` table and renamed back, and a dropped or
+  narrowed column is copied there with the table's primary key and filled again row by row.
+  The new `migrax backups` command lists the backup tables and drops them (`--drop`, `--yes`).
+  Tested on all 8 databases.
 - EclipseLink: projects that use EclipseLink are read through EclipseLink's own mapping, as
   Hibernate projects are through Hibernate's: its names, its join and collection tables, and
   its id strategies, including the `SEQUENCE` table and rows a plain `@GeneratedValue` needs.

@@ -16,6 +16,10 @@ public final class GenerateMojo extends AbstractMigraxMojo {
   @Parameter(property = "migrax.allowDestructive", defaultValue = "false")
   private boolean allowDestructive;
 
+  /** Keep dropped data in backup tables that the rollback script restores. */
+  @Parameter(property = "migrax.keepData", defaultValue = "false")
+  private boolean keepData;
+
   /** Migration file name; defaults to the next number and a description. */
   @Parameter(property = "migrax.name")
   private String name;
@@ -44,6 +48,7 @@ public final class GenerateMojo extends AbstractMigraxMojo {
   @Override
   protected void addArguments(List<String> args) {
     flag(args, "--allow-destructive", allowDestructive);
+    flag(args, "--keep-data", keepData);
     flag(args, "--safe", safe);
     option(args, "--name", name);
     option(args, "--rename", renames);

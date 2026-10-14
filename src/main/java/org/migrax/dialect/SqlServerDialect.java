@@ -178,6 +178,13 @@ public final class SqlServerDialect extends AbstractDialect {
     }
   }
 
+  /** SQL Server has no CREATE TABLE ... AS SELECT. */
+  @Override
+  public String copyTable(String target, String source, java.util.List<String> columns) {
+    return "SELECT " + String.join(", ", columns.stream().map(this::q).toList()) + " INTO "
+        + q(target) + " FROM " + q(source);
+  }
+
   @Override
   protected String tableComment(String table, String comment) {
     return description(table, null, comment);

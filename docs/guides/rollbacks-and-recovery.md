@@ -31,6 +31,34 @@ The rolled-back migrations become pending again, so `migrax migrate` re-applies 
     -- Note: deletes data written to categories since the migration ran.
     ```
 
+    To get the data back too, generate the migration with `--keep-data`.
+
+### Keeping dropped data
+
+```console
+$ migrax generate --allow-destructive --keep-data
+```
+
+With `--keep-data`, a migration that drops data keeps it, and its rollback script puts it back:
+
+- A dropped table is renamed to `migrax_backup_<migration>_<table>` instead. The rollback
+  renames it back, with its rows, keys and indexes.
+- A dropped column, or a column whose type change loses data, is first copied with the table's
+  primary key into `migrax_backup_<migration>_<table>_<column>`. The rollback adds the column
+  back and fills it row by row. A table without a primary key can't be matched row by row:
+  `generate` says so, and that column's data isn't kept.
+
+```sql
+-- Rollback for 0007_drop_notes.sql. 'migrax rollback' runs it.
+-- Restores the values of orders.notes from migrax_backup_0007_orders_notes.
+```
+
+The backup tables stay until you drop them; `migrax drift` and `migrax generate` leave them
+alone. List them with `migrax backups`, and once you are sure you won't roll a migration back,
+drop its backups with `migrax backups --drop 0007 --yes` (or `--drop` for all of them).
+Rows written after the migration ran have no backup: a restored NOT NULL column can't be filled
+for them, and the rollback stops there.
+
 Hand-written migrations from `migrax new` get an empty rollback script for you to fill in. Java
 migrations roll back through `JavaMigration.rollback(Connection)`.
 
