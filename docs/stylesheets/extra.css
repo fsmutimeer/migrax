@@ -6,6 +6,7 @@
 
 :root {
   --mx-yellow: #fbbf24;
+  --mx-yellow-deep: #f59e0b;
   --mx-yellow-soft: #fde68a;
   --mx-ink: #0a0a0a;
   --mx-ink-2: #141414;
@@ -209,8 +210,8 @@
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+  background: var(--mx-yellow);
+  box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.6);
   animation: mx-pulse 2.4s infinite;
 }
 .mx-pill__arrow {
@@ -660,6 +661,32 @@
   border-width: 1px;
   box-shadow: var(--mx-card-shadow);
 }
+/* Admonitions in the brand: informational ones yellow, warnings deep amber, the icon black on
+   white and yellow on black. Danger, failure and bug keep Material's red: red means danger. */
+.md-typeset :is(.admonition, details):is(.note, .abstract, .summary, .tldr, .info, .todo,
+    .tip, .hint, .important, .success, .check, .done, .question, .help, .faq, .example,
+    .quote, .cite) {
+  border-color: var(--mx-yellow);
+}
+.md-typeset :is(.note, .abstract, .summary, .tldr, .info, .todo, .tip, .hint, .important,
+    .success, .check, .done, .question, .help, .faq, .example, .quote, .cite)
+    > :is(.admonition-title, summary) {
+  background-color: rgba(251, 191, 36, 0.12);
+}
+.md-typeset :is(.admonition, details):is(.warning, .caution, .attention) {
+  border-color: var(--mx-yellow-deep);
+}
+.md-typeset :is(.warning, .caution, .attention) > :is(.admonition-title, summary) {
+  background-color: rgba(245, 158, 11, 0.18);
+}
+.md-typeset :is(.note, .abstract, .summary, .tldr, .info, .todo, .tip, .hint, .important,
+    .success, .check, .done, .question, .help, .faq, .example, .quote, .cite, .warning,
+    .caution, .attention) > :is(.admonition-title, summary)::before {
+  background-color: var(--mx-accent-text);
+}
+.md-typeset :is(.admonition, details):focus-within {
+  box-shadow: var(--mx-card-shadow);
+}
 .md-typeset table:not([class]) {
   border-radius: 12px;
   border: 1px solid var(--mx-card-border);
@@ -699,7 +726,15 @@
 }
 
 /* small helpers kept from the previous design */
-.mx-ok { color: #16a34a; font-weight: 600; }
+.mx-ok {
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--mx-yellow);
+  color: var(--mx-ink);
+  font-size: 0.85em;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .mx-note { opacity: 0.8; font-size: 0.85em; }
 
 /* ---------------------------------------------------------------- responsive */
@@ -756,9 +791,9 @@
   50% { opacity: 0; }
 }
 @keyframes mx-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
-  70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.55); }
+  70% { box-shadow: 0 0 0 8px rgba(251, 191, 36, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
 }
 
 /* People who asked their system for less motion get a still page. */

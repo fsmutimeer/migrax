@@ -24,7 +24,7 @@ debug output and stack traces.
     error. Common causes: entities using `javax.persistence` with Hibernate 6+ (or `jakarta` with
     Hibernate 5), or a Hibernate version older than 5.4.
 
-??? question "A migration fails with \"already exists\""
+??? question "A migration fails with 'already exists'"
 
     Something created the table before the migration ran, usually Hibernate with
     `ddl-auto=update` or `schema-management.strategy=update`. Set it to `none`, restore the
