@@ -6,6 +6,13 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-14
+
+The 0.6 release removes most of Migrax's limitations: EclipseLink and OpenJPA are read through
+their own mapping like Hibernate (now from 5.0), Quarkus migrates before Hibernate and in native
+executables, Jakarta EE servers migrate their own data sources, and `--keep-data` rollbacks
+restore dropped data.
+
 ### Added
 
 - Quarkus: `migrax-quarkus` is now a Quarkus extension. It applies the migrations before
@@ -481,7 +488,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/fsmutimeer/migrax/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/fsmutimeer/migrax/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/fsmutimeer/migrax/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/fsmutimeer/migrax/compare/v0.2.0...v0.3.0
