@@ -17,6 +17,31 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DialectTest {
+
+  @Test
+  void cockroachRunsTypeChangesThatRewriteOutsideATransaction() {
+    Dialect cockroach = Dialects.byName("cockroachdb");
+    java.util.function.BiFunction<SchemaModel.Column, SchemaModel.Column, String> migration =
+        (from, to) -> cockroach.prepare(List.of(new AlterColumn("t", from, to)),
+                SchemaModel.empty(), SchemaModel.empty()).stream().map(cockroach::render)
+            .map(sql -> sql + ";\n").collect(java.util.stream.Collectors.joining());
+    SchemaModel.Column big = new SchemaModel.Column("n", "bigint", true, null, null, null,
+        null, false, false, null, "bigint");
+    SchemaModel.Column small = new SchemaModel.Column("n", "integer", true, null, null, null,
+        null, false, false, null, "integer");
+    String narrowing = migration.apply(big, small);
+    assertTrue(org.migrax.runner.SqlScript.hasDirective(narrowing, "no-transaction"), narrowing);
+    assertTrue(narrowing.contains("SET enable_experimental_alter_column_type_general = true;"));
+
+    String widening = migration.apply(small, big);
+    assertFalse(widening.contains("experimental"), widening);
+    SchemaModel.Column shortText = new SchemaModel.Column("s", "varchar", true, 10, null, null,
+        null, false, false, null, "varchar");
+    SchemaModel.Column longText = new SchemaModel.Column("s", "varchar", true, 20, null, null,
+        null, false, false, null, "varchar");
+    assertFalse(migration.apply(shortText, longText).contains("experimental"));
+    assertTrue(migration.apply(longText, shortText).contains("experimental"));
+  }
   private static final List<Dialect> ALL = List.of(
       new PostgresDialect(), new MySqlDialect(), new MariaDbDialect(), new SqlServerDialect(),
       new OracleDialect(), new H2Dialect());

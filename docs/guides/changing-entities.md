@@ -76,7 +76,8 @@ Migrax reads Hibernate's `@Check`, `@Checks` and `@Comment` (`org.hibernate.anno
 the `check` and `comment` attributes of Jakarta Persistence 3.2's `@Table` and `@Column`. A new
 table gets its checks inside `CREATE TABLE`; an existing one gets
 `ALTER TABLE ... ADD CONSTRAINT ... CHECK (...)`. The condition is copied as written, so use SQL
-that your database understands.
+that your database understands; `migrax verify` runs it on that database before release.
+MySQL enforces checks from 8.0.16 on, and `migrax doctor` warns on older servers.
 
 A check without a name gets one from its table and condition, such as
 `ck_product_3f2a9c1e`. When you change the condition, the name changes too: the migration drops
