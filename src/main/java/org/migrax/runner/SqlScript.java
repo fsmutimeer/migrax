@@ -14,7 +14,8 @@ import java.util.regex.Pattern;
  */
 public final class SqlScript {
   private static final Pattern PLACEHOLDER = Pattern.compile("\\$\\{([A-Za-z0-9_.-]+)}");
-  private static final Pattern GO_LINE = Pattern.compile("(?i)\\s*GO\\s*");
+  /** {@code GO}, or {@code GO 5} to run the batch five times. */
+  private static final Pattern GO_LINE = Pattern.compile("(?i)\\s*GO(?:\\s+(\\d+))?\\s*");
   private static final Pattern SLASH_LINE = Pattern.compile("\\s*/\\s*");
   private static final Pattern DELIMITER_LINE = Pattern.compile("(?i)DELIMITER\\s+(\\S+)");
   private static final Pattern PLSQL_BLOCK = Pattern.compile("(?is)(?:CREATE\\s+(?:OR\\s+REPLACE"
@@ -73,7 +74,7 @@ public final class SqlScript {
    * database's own tools:
    * <ul>
    *   <li>a line with only {@code GO} (SQL Server) ends a batch, which runs whole; semicolons
-   *       inside it don't split;</li>
+   *       inside it don't split; {@code GO 5} runs the batch five times;</li>
    *   <li>a {@code DELIMITER $$} line (MySQL, MariaDB) changes the delimiter until the next
    *       {@code DELIMITER} line; those lines are not sent;</li>
    *   <li>in a script with a line holding only {@code /} (Oracle), a PL/SQL block ({@code CREATE
@@ -117,7 +118,15 @@ public final class SqlScript {
         // DELIMITER is a command only between statements, not a column inside one.
         boolean newDelimiter = !started && delimiterLine.matches();
         if (separator || newDelimiter) {
+          int before = statements.size();
           addStatement(statements, current);
+          Matcher go = GO_LINE.matcher(line);
+          if (batches && go.matches() && go.group(1) != null && statements.size() > before) {
+            String batch = statements.get(statements.size() - 1);
+            for (int repeat = Integer.parseInt(go.group(1)); repeat > 1; repeat--) {
+              statements.add(batch);
+            }
+          }
           started = false;
           plsqlBlock = false;
           if (newDelimiter) {

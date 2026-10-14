@@ -90,7 +90,8 @@ database's own tools expect:
 
 === "SQL Server"
 
-    A line with only `GO` ends a batch. Each batch is sent whole.
+    A line with only `GO` ends a batch. Each batch is sent whole. `GO 5` runs the batch five
+    times.
 
     ```sql
     CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));

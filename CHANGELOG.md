@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- SQL Server migrations can repeat a batch with `GO 5`, as in SQL Server's own tools.
+
 ### Fixed
 
 - On a database Hibernate created, an `@Check` without a name was added a second time by the

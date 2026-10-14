@@ -44,6 +44,21 @@ class SqlScriptTest {
   }
 
   @Test
+  void goWithACountRepeatsTheBatch() {
+    String sql = """
+        INSERT INTO counter DEFAULT VALUES;
+        GO 3
+        SELECT 1;
+        GO
+        """;
+    assertEquals(List.of("INSERT INTO counter DEFAULT VALUES;", "INSERT INTO counter DEFAULT VALUES;",
+        "INSERT INTO counter DEFAULT VALUES;", "SELECT 1;"), split(sql));
+    // A column called go is not a separator, and GO 1 is a plain GO.
+    assertEquals(List.of("SELECT go FROM t;", "SELECT 2;"),
+        split("SELECT go FROM t;\nGO 1\nSELECT 2;\nGO\n"));
+  }
+
+  @Test
   void delimiterLinesChangeTheMysqlDelimiter() {
     String sql = """
         CREATE TABLE counter (id INT PRIMARY KEY, hits INT);
