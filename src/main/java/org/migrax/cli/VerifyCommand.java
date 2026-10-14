@@ -99,7 +99,12 @@ final class VerifyCommand implements Command {
                   + "changed.");
         }
         MigrationRunner runner = context.migrationRunner();
-        int applied = runner.migrateAll(connection, migrations, project.runOptions());
+        int applied;
+        try {
+          applied = runner.migrateAll(connection, migrations, project.runOptions());
+        } catch (java.sql.SQLException e) {
+          throw failsOnEmptyDatabase(e);
+        }
         report.put("applied", applied);
         if (!json) {
           out.println("Applied " + applied + " migration(s) to a fresh " + dialect.id()
@@ -169,6 +174,24 @@ final class VerifyCommand implements Command {
       out.println(ok ? "Verified." : "Verification failed.");
     }
     return ok ? OK : ERROR;
+  }
+
+  /**
+   * A migration that fails on the throwaway database: the runner's advice (inspect the database,
+   * repair, resume) is meant for a real one, so say what the failure means here instead.
+   */
+  private static RuntimeException failsOnEmptyDatabase(java.sql.SQLException e) {
+    java.util.regex.Matcher name = java.util.regex.Pattern.compile("^Migration '([^']+)' failed")
+        .matcher(String.valueOf(e.getMessage()));
+    if (!name.find()) {
+      return new IllegalStateException(e.getMessage(), e);
+    }
+    Throwable cause = e.getCause() != null ? e.getCause() : e;
+    return new UsageException(ErrorCode.MIGRATION_FAILED,
+        "Migration '" + name.group(1) + "' fails on an empty database: "
+            + Errors.describe(cause),
+        "verify applies every migration, in order, to a new empty database. Fix the migration "
+            + "so it works there: it may use something that no earlier migration creates.");
   }
 
   /**

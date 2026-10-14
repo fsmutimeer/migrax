@@ -14,6 +14,9 @@ All notable changes to Migrax are listed here. The format follows
 - PostgreSQL and CockroachDB: a `migrate --sql` script run with psql recorded `applied_at` in
   the server's time zone, so `migrax status` could show it hours before the migrations Migrax
   applied itself. The script now records the time in the same zone as Migrax.
+- `verify`: when a migration fails on the throwaway database, the error says that the migration
+  fails on an empty database and what to check. It used to give the advice for a real database
+  (inspect it, repair, resume), which doesn't apply there.
 
 ## [0.6.0] - 2026-10-14
 
