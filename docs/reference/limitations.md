@@ -16,11 +16,6 @@ names in your entities (`@Table`, `@Column`) or check the generated migrations.
 
 ## Running migrations
 
-**Data sources defined inside an application server** (WildFly, Payara, Open Liberty, ...)
-aren't visible to the `migrax` command. Give it the connection with
-`MIGRAX_DATABASE_URL`, `MIGRAX_DATABASE_USER` and `MIGRAX_DATABASE_PASSWORD`, or the matching
-options.
-
 **`--schemas` on SQL Server.** SQL Server can't change a connection's default schema, so Migrax
 can't move from one schema to the next. Run Migrax once per schema, each time with a login
 whose default schema is that schema.

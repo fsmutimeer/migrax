@@ -38,8 +38,18 @@ public final class ClassScanner {
       URL url = urls.nextElement();
       if ("file".equals(url.getProtocol())) {
         scanDirectory(basePackage, Paths.get(url.toURI()), loader, filter, found);
-      } else if ("jar".equals(url.getProtocol())) {
+      } else if (url.openConnection() instanceof JarURLConnection) {
+        // jar: and the jar-like URLs of application servers (Open Liberty's wsjar:).
         scanJar(url, path, loader, filter, found);
+      } else {
+        // An application server's virtual file system (WildFly's vfs:).
+        for (VirtualFolder.Entry entry : VirtualFolder.list(url)) {
+          if (entry.path().endsWith(".class")) {
+            String relative = entry.path().substring(0, entry.path().length() - 6);
+            add(basePackage + "." + relative.replace('/', '.'), url + "/" + entry.path(),
+                loader, filter, found);
+          }
+        }
       }
     }
     List<Class<?>> sorted = new ArrayList<>(found);
@@ -66,13 +76,17 @@ public final class ClassScanner {
                               Predicate<Class<?>> filter, Set<Class<?>> found) throws Exception {
     JarURLConnection connection = (JarURLConnection) url.openConnection();
     connection.setUseCaches(false);
+    // The folder inside the jar: the package path, or deeper for a jar nested in a deployment.
+    String prefix = connection.getEntryName() == null ? path + "/"
+        : connection.getEntryName().replaceAll("/?$", "/");
+    String root = prefix.substring(0, prefix.length() - path.length() - 1);
     try (var jar = connection.getJarFile()) {
       var entries = jar.entries();
       while (entries.hasMoreElements()) {
         var entry = entries.nextElement();
-        if (!entry.isDirectory() && entry.getName().startsWith(path + "/")
+        if (!entry.isDirectory() && entry.getName().startsWith(prefix)
             && entry.getName().endsWith(".class")) {
-          String className = entry.getName().replace('/', '.');
+          String className = entry.getName().substring(root.length()).replace('/', '.');
           className = className.substring(0, className.length() - 6);
           add(className, url + "!/" + entry.getName(), loader, filter, found);
         }

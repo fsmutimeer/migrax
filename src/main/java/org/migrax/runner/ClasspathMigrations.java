@@ -95,6 +95,17 @@ public final class ClasspathMigrations {
         } catch (URISyntaxException e) {
           throw new IOException("Invalid migration folder URL " + url, e);
         }
+      } else if (!(url.openConnection() instanceof JarURLConnection)) {
+        // An application server's virtual file system (WildFly's vfs:).
+        for (org.migrax.util.VirtualFolder.Entry entry : org.migrax.util.VirtualFolder.list(url)) {
+          String name = entry.path();
+          if (name.endsWith(".sql") && name.indexOf('/') < 0) {
+            try (InputStream in = entry.opener().open()) {
+              migrations.putIfAbsent(name, Migration.ofSql(name,
+                  new String(in.readAllBytes(), StandardCharsets.UTF_8)));
+            }
+          }
+        }
       } else if (url.openConnection() instanceof JarURLConnection connection) {
         connection.setUseCaches(false);
         try (JarFile jar = connection.getJarFile()) {

@@ -84,6 +84,7 @@ jobs:
             integrations/quarkus/deployment/target/migrax-quarkus-deployment-${{ env.VERSION }}.jar
             integrations/micronaut/target/migrax-micronaut-${{ env.VERSION }}.jar
             integrations/helidon/target/migrax-helidon-${{ env.VERSION }}.jar
+            integrations/jakarta-ee/target/migrax-jakarta-ee-${{ env.VERSION }}.jar
             integrations/gradle-plugin/target/migrax-gradle-plugin-${{ env.VERSION }}.jar
 
       # A release created with GITHUB_TOKEN does not trigger other workflows, so start the docs
