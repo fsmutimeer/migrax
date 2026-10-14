@@ -2,13 +2,6 @@ package org.migrax.quarkus;
 
 import org.migrax.runner.StartupMigrations;
 import org.migrax.util.Log;
-import io.quarkus.runtime.StartupEvent;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
-import jakarta.interceptor.Interceptor;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,51 +9,33 @@ import java.util.Map;
 import javax.sql.DataSource;
 
 import org.eclipse.microprofile.config.Config;
-import org.eclipse.microprofile.config.ConfigProvider;
 import org.jboss.logging.Logger;
 
 /**
- * Applies Migrax migrations from {@code db/migration} when a Quarkus application starts.
+ * Applies Migrax migrations when a Quarkus application starts. The extension's build step
+ * calls it through {@link MigraxRecorder} before Hibernate ORM starts, so
+ * {@code quarkus.hibernate-orm.schema-management.strategy=validate} checks the migrated schema.
  *
  * <p>Settings: {@code migrax.enabled} (default true), {@code migrax.locations} (default
  * {@code db/migration}), {@code migrax.java-package}, {@code migrax.resume},
- * {@code migrax.schemas} and {@code migrax.placeholders.<name>}. Keep
- * {@code quarkus.hibernate-orm.schema-management.strategy} (formerly
- * {@code database.generation}) at {@code none}; Migrax owns the schema.
+ * {@code migrax.schemas} and {@code migrax.placeholders.<name>}.
  */
-@ApplicationScoped
-public class MigraxStartup {
+public final class MigraxStartup {
   private static final Logger LOG = Logger.getLogger("org.migrax");
 
-  @Inject
-  Instance<DataSource> dataSource;
-
-  void onStart(@Observes @Priority(Interceptor.Priority.PLATFORM_BEFORE) StartupEvent event)
-      throws Exception {
-    Config config = ConfigProvider.getConfig();
-    if (!config.getOptionalValue("migrax.enabled", Boolean.class).orElse(true)) {
-      return;
-    }
-    warnAboutSchemaManagement(config);
-    if (!dataSource.isResolvable()) {
-      LOG.warn("Migrax: no default DataSource; migrations were not applied.");
-      return;
-    }
-    migrate(dataSource.get(), config, Thread.currentThread().getContextClassLoader());
-  }
+  private MigraxStartup() {}
 
   /**
-   * Hibernate starts before StartupEvent, so its schema management runs before Migrax: with
-   * update or create it makes the tables first and the migrations then fail with "already
-   * exists".
+   * Hibernate's own schema changes (update, create) would change the schema after the
+   * migrations, outside them. none and validate leave the schema to Migrax.
    */
-  private static void warnAboutSchemaManagement(Config config) {
+  static void warnAboutSchemaManagement(Config config) {
     for (String key : List.of("quarkus.hibernate-orm.schema-management.strategy",
         "quarkus.hibernate-orm.database.generation")) {
       String value = config.getOptionalValue(key, String.class).orElse("none").trim();
       if (!value.equalsIgnoreCase("none") && !value.equalsIgnoreCase("validate")) {
-        LOG.warn("Migrax: " + key + "=" + value + " lets Hibernate change the schema before "
-            + "Migrax runs, so migrations can fail with 'already exists'. Set it to none.");
+        LOG.warn("Migrax: " + key + "=" + value + " lets Hibernate change the schema outside "
+            + "the migrations. Set it to validate or none.");
       }
     }
   }

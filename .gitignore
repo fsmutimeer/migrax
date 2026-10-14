@@ -14,6 +14,7 @@ Thumbs.db
 *.swo
 *.log
 compat/hibernate/work/
+compat/quarkus/work/
 
 # MkDocs output
 site/
