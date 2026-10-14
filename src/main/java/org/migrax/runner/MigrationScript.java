@@ -31,14 +31,33 @@ final class MigrationScript {
     this.timestamp = timestamp;
   }
 
+  /**
+   * What the script does in one schema.
+   *
+   * @param schema the schema, or null for the connection's own
+   * @param historyTable the history table's DDL when it doesn't exist there yet, else null
+   * @param failureTable the failure table's DDL when it doesn't exist there yet, else null
+   * @param stoppedAt the Java migration the plan stops before, or null
+   */
+  record Part(String schema, List<MigrationRunner.Step> plan, String historyTable,
+              String failureTable, String stoppedAt) {}
+
   String write(List<MigrationRunner.Step> plan, Map<String, List<String>> statements,
                Map<String, Migration> callbacks, String historyTable, String failureTable) {
-    long applied = plan.stream().filter(MigrationRunner.Apply.class::isInstance).count();
-    if (plan.isEmpty()) {
+    return write(List.of(new Part(null, plan, historyTable, failureTable, null)), statements,
+        callbacks);
+  }
+
+  String write(List<Part> parts, Map<String, List<String>> statements,
+               Map<String, Migration> callbacks) {
+    long applied = parts.stream().flatMap(part -> part.plan().stream())
+        .filter(MigrationRunner.Apply.class::isInstance).count();
+    if (parts.stream().allMatch(part -> part.plan().isEmpty() && part.stoppedAt() == null)) {
       return "-- Nothing to migrate: every migration is applied.\n";
     }
     out.append("-- Migration script written by Migrax: ").append(applied)
-        .append(" migration(s) to apply.\n");
+        .append(" migration(s) to apply")
+        .append(parts.size() > 1 ? " in " + parts.size() + " schemas" : "").append(".\n");
     out.append("-- Review it, then run the whole file with the database's own tool; it must stop\n");
     out.append("-- at the first error:\n");
     out.append("--   ").append(runCommand()).append('\n');
@@ -52,6 +71,28 @@ final class MigrationScript {
     if (tool == Tool.ORACLE) {
       out.append("WHENEVER SQLERROR EXIT FAILURE ROLLBACK\n\n");
     }
+    for (Part part : parts) {
+      part(part, statements, callbacks);
+    }
+    if (tool == Tool.ORACLE) {
+      out.append("EXIT\n");
+    }
+    return out.toString();
+  }
+
+  private void part(Part part, Map<String, List<String>> statements,
+                    Map<String, Migration> callbacks) {
+    if (part.schema() != null) {
+      out.append("-- Schema ").append(part.schema()).append('\n')
+          .append(terminated(useSchema(part.schema()))).append('\n');
+      if (part.plan().isEmpty() && part.stoppedAt() == null) {
+        out.append("-- Nothing to migrate in this schema.\n\n");
+        return;
+      }
+    }
+    String historyTable = part.historyTable();
+    String failureTable = part.failureTable();
+    List<MigrationRunner.Step> plan = part.plan();
     if (historyTable != null) {
       out.append("-- Migrax's history tables\n").append(terminated(historyTable));
     }
@@ -74,10 +115,23 @@ final class MigrationScript {
       }
     }
     section("afterMigrate.sql", callbacks.get("afterMigrate.sql"), statements);
-    if (tool == Tool.ORACLE) {
-      out.append("EXIT\n");
+    if (part.stoppedAt() != null) {
+      out.append("-- Stopped before ").append(part.stoppedAt())
+          .append(": a Java migration can't be written as SQL.\n")
+          .append("-- After this script, run it with 'migrax migrate --to ")
+          .append(part.stoppedAt()).append("',\n")
+          .append("-- then write the script for the rest with 'migrax migrate --sql'.\n\n");
     }
-    return out.toString();
+  }
+
+  /** The statement that makes {@code schema} the default for the statements after it. */
+  private String useSchema(String schema) {
+    return switch (tool) {
+      case MYSQL -> "USE " + schema;
+      case ORACLE -> "ALTER SESSION SET CURRENT_SCHEMA = " + schema;
+      case H2 -> "SET SCHEMA " + schema;
+      default -> "SET search_path TO " + schema;
+    };
   }
 
   private void migration(MigrationRunner.Apply apply, Map<String, List<String>> statements,

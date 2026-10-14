@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -253,12 +254,56 @@ class RunnerFeaturesTest {
   }
 
   @Test
-  void theSqlScriptRefusesJavaMigrations() throws Exception {
+  void theSqlScriptStopsBeforeAJavaMigration() throws Exception {
     try (Connection connection = database()) {
-      var error = assertThrows(IllegalStateException.class, () -> new MigrationRunner().script(
-          connection, List.of(Migration.ofJava(new V0002__InsertRow())),
-          MigrationRunner.Options.defaults()));
-      assertTrue(error.getMessage().contains("cannot be written as SQL"), error.getMessage());
+      Migration first = sql("0001_t.sql", "CREATE TABLE t (id INT);");
+      Migration java = Migration.ofJava(new V0002__InsertRow());
+      Migration last = sql("0003_u.sql", "CREATE TABLE u (id INT);");
+      List<Migration> all = List.of(first, java, last);
+      MigrationRunner runner = new MigrationRunner();
+      String script = runner.script(connection, all, MigrationRunner.Options.defaults());
+      assertTrue(script.contains("-- Stopped before V0002__InsertRow: a Java migration can't be "
+          + "written as SQL.\n-- After this script, run it with 'migrax migrate --to "
+          + "V0002__InsertRow',"), script);
+      assertFalse(script.contains("CREATE TABLE u"), script);
+
+      // The DBA runs the script, Migrax runs the Java migration, the next script does the rest.
+      org.h2.tools.RunScript.execute(connection, new java.io.StringReader(script));
+      runner.migrateAll(connection, all,
+          MigrationRunner.Options.defaults().withTarget("V0002__InsertRow"));
+      assertEquals(1, count(connection, "SELECT COUNT(*) FROM t WHERE id = 42"));
+      String rest = runner.script(connection, all, MigrationRunner.Options.defaults());
+      assertTrue(rest.contains("CREATE TABLE u") && !rest.contains("Stopped before"), rest);
+      org.h2.tools.RunScript.execute(connection, new java.io.StringReader(rest));
+      assertEquals(List.of("0001_t.sql", "V0002__InsertRow", "0003_u.sql"), history(connection));
+    }
+  }
+
+  @Test
+  void theSqlScriptCoversSeveralSchemas() throws Exception {
+    try (Connection connection = database()) {
+      try (var statement = connection.createStatement()) {
+        statement.execute("CREATE SCHEMA tenant_a");
+        statement.execute("CREATE SCHEMA tenant_b");
+      }
+      List<Migration> all = List.of(sql("0001_t.sql", "CREATE TABLE t (id INT);"));
+      MigrationRunner runner = new MigrationRunner();
+      // tenant_a is already migrated; tenant_b is not.
+      connection.setSchema("TENANT_A");
+      migrate(connection, all);
+      String script = runner.script(connection, all, MigrationRunner.Options.defaults(),
+          List.of("TENANT_A", "TENANT_B"), Connection::setSchema);
+      assertTrue(script.startsWith("-- Migration script written by Migrax: 1 migration(s) to "
+          + "apply in 2 schemas.\n"), script);
+      assertTrue(script.contains("-- Schema TENANT_A\nSET SCHEMA TENANT_A;\n\n"
+          + "-- Nothing to migrate in this schema.\n"), script);
+      assertTrue(script.contains("-- Schema TENANT_B\nSET SCHEMA TENANT_B;\n"), script);
+
+      connection.setSchema("PUBLIC");
+      org.h2.tools.RunScript.execute(connection, new java.io.StringReader(script));
+      connection.setSchema("TENANT_B");
+      assertEquals(List.of("0001_t.sql"), history(connection));
+      assertEquals(0, count(connection, "SELECT COUNT(*) FROM t"));
     }
   }
 }

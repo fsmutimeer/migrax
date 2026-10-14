@@ -83,12 +83,9 @@ final class MigrateCommand implements Command {
     migrations.forEach(m -> byVersion.put(m.version(), m));
     MigrationRunner runner = context.migrationRunner();
     if (args.flag("--sql")) {
-      if (!project.schemas().isEmpty()) {
-        throw new UsageException("--sql writes the script for one schema.",
-            "Leave out --schemas and point --url at each schema in turn.");
-      }
       try (Connection connection = project.connect()) {
-        String script = runner.script(connection, migrations, options);
+        String script = runner.script(connection, migrations, options,
+            project.schemasOrDefault(), Project::useSchema);
         if (args.flag("--json")) {
           context.result("script", script);
         } else {

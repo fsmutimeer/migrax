@@ -232,34 +232,66 @@ public final class MigrationRunner {
   /**
    * The SQL script that does what {@link #migrateAll} would do now, for a DBA to review and
    * run with the database's own tool. It reads the history and changes nothing. Java
-   * migrations cannot be written as SQL and are refused.
+   * migrations cannot be written as SQL: the script stops before the first one and says how
+   * to go on.
    *
    * @since 0.5.0
    */
   public String script(Connection connection, List<Migration> migrations, Options options)
       throws Exception {
+    return script(connection, migrations, options, java.util.Collections.singletonList(null),
+        (c, schema) -> { });
+  }
+
+  /** Points a connection at a schema. */
+  @FunctionalInterface
+  public interface SchemaSwitch {
+    void use(Connection connection, String schema) throws Exception;
+  }
+
+  /**
+   * The script for several schemas, one section each, in the order given.
+   *
+   * @param schemas the schemas; a null entry is the connection's own schema
+   * @param use points the connection at a schema before its part is read
+   * @since 0.6.0
+   */
+  public String script(Connection connection, List<Migration> migrations, Options options,
+                       List<String> schemas, SchemaSwitch use) throws Exception {
     validateVersions(migrations);
-    boolean historyTable = historyTableExists(connection, "migrax_history");
-    boolean failureTable = historyTableExists(connection, "migrax_failures");
-    Map<String, AppliedMigration> history = historyTable ? readHistory(connection) : Map.of();
-    verifyAppliedExist(connection, history, migrations, failureTable);
-    verifyAppliedChecksums(history, versioned(migrations));
-    if (failureTable) {
-      verifyFailedAttempts(connection, migrations, false);
-    }
-    List<Step> plan = plan(migrations, history, options);
-    for (Step step : plan) {
-      if (step instanceof Apply apply && apply.migration().isJava()) {
-        throw new IllegalStateException("Java migration '" + apply.migration().version()
-            + "' cannot be written as SQL. Apply it with 'migrax migrate', or write it as a "
-            + "SQL migration.");
+    List<MigrationScript.Part> parts = new ArrayList<>();
+    for (String schema : schemas) {
+      if (schema != null) {
+        use.use(connection, schema);
       }
+      boolean historyTable = historyTableExists(connection, "migrax_history");
+      boolean failureTable = historyTableExists(connection, "migrax_failures");
+      Map<String, AppliedMigration> history = historyTable ? readHistory(connection) : Map.of();
+      verifyAppliedExist(connection, history, migrations, failureTable);
+      verifyAppliedChecksums(history, versioned(migrations));
+      if (failureTable) {
+        verifyFailedAttempts(connection, migrations, false);
+      }
+      List<Step> plan = plan(migrations, history, options);
+      String stoppedAt = null;
+      for (int i = 0; i < plan.size(); i++) {
+        if (plan.get(i) instanceof Apply apply && apply.migration().isJava()) {
+          stoppedAt = apply.migration().version();
+          plan = plan.subList(0, i);
+          Log.warn("The script stops before Java migration '" + stoppedAt + "'"
+              + (schema == null ? "" : " in schema " + schema) + ": Java migrations can't be "
+              + "written as SQL. Run it with 'migrax migrate --to " + stoppedAt + "' after "
+              + "the script.");
+          break;
+        }
+      }
+      parts.add(new MigrationScript.Part(schema, plan,
+          historyTable ? null : historyTableDdl(connection),
+          failureTable ? null : failureTableDdl(connection), stoppedAt));
     }
     return new MigrationScript(connection.getMetaData().getDatabaseProductName(),
-        currentTimestamp(connection)).write(plan,
-        parse(migrations, options, backslashEscapes(connection)), callbacks(migrations),
-        historyTable ? null : historyTableDdl(connection),
-        failureTable ? null : failureTableDdl(connection));
+        currentTimestamp(connection)).write(parts,
+        parse(migrations, options, backslashEscapes(connection)), callbacks(migrations));
   }
 
   /** One step of a migration run. */
