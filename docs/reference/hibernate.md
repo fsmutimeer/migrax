@@ -52,7 +52,20 @@ same fixture project is generated, migrated and verified, and then EclipseLink i
 reads every kind of entity against the migrated database. EclipseLink has no schema validation,
 so `verify` compares the schema with the mapping itself.
 
-## Without Hibernate or EclipseLink, or before Hibernate 5.0
+## OpenJPA
+
+Projects that use OpenJPA (the JPA provider of Apache TomEE) are read through **your OpenJPA's**
+own mapping, also without a database. The migrations get OpenJPA's names (the class and field
+names as written, such as `Tag` and `createdAt`, in lower case except where the database's table
+names are case-sensitive), the indexes OpenJPA puts on foreign keys, and its id strategies:
+identity columns, database sequences, and `OPENJPA_SEQUENCE_TABLE` for a plain
+`@GeneratedValue` (OpenJPA adds its row itself).
+
+Tested versions: 3.2.2 (`javax.persistence`) and 4.1.1 (`jakarta.persistence`), with OpenJPA
+saving and reading every kind of entity against the migrated database, as for EclipseLink.
+OpenJPA has no sequences on MySQL and MariaDB: use `GenerationType.IDENTITY` there.
+
+## Without Hibernate, EclipseLink or OpenJPA, or before Hibernate 5.0
 
 Migrax then scans the JPA annotations and applies Hibernate 6's rules. That covers the common
 mappings, but types and sequence names can differ from older Hibernate versions (Hibernate 5
@@ -63,9 +76,10 @@ generated migrations carefully and run `migrax verify`.
 
 | `--extractor` | Behavior |
 |---|---|
-| `auto` (default) | Hibernate's mapping when possible, else EclipseLink's, else annotation scanning |
+| `auto` (default) | Hibernate's mapping when possible, else EclipseLink's or OpenJPA's, else annotation scanning |
 | `hibernate` | Hibernate's mapping only; fails with the reason if it can't be used |
 | `eclipselink` | EclipseLink's mapping only; fails with the reason if it can't be used |
+| `openjpa` | OpenJPA's mapping only; fails with the reason if it can't be used |
 | `annotations` | Annotation scanning only |
 
 `migrax doctor` shows which reader is used. `migrax inspect` prints the schema it read.

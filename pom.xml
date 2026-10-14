@@ -62,6 +62,13 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>org.apache.openjpa</groupId>
+      <artifactId>openjpa</artifactId>
+      <version>4.1.1</version>
+      <!-- Compile-only: the org.migrax.orm adapter runs against the application's OpenJPA. -->
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <version>2.3.232</version>

@@ -87,8 +87,9 @@ the server has it, from environment variables (`MIGRAX_DATASOURCE`, `MIGRAX_LOCA
 `MIGRAX_PLACEHOLDERS_<NAME>`, ...) and from system properties. Each one overrides the one
 before.
 
-!!! note "Other JPA providers"
+!!! note "JPA providers"
 
-    Migrax reads the mapping through Hibernate or, on servers that use it (Payara, GlassFish),
-    EclipseLink. With another JPA provider it scans the annotations and applies Hibernate's
-    naming rules; check the generated names, and use `migrax drift --entities` to compare.
+    Migrax reads the mapping through the server's JPA provider: Hibernate (WildFly), EclipseLink
+    (Payara, GlassFish) or OpenJPA (TomEE). With another JPA provider it scans the annotations
+    and applies Hibernate's naming rules; check the generated names, and use
+    `migrax drift --entities` to compare.

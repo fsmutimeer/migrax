@@ -58,7 +58,7 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
-| `--extractor <mode>` | auto, hibernate, eclipselink or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### mcp
@@ -157,7 +157,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
@@ -241,7 +241,7 @@ Shows the operations and SQL for current entity changes without writing files. `
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -305,7 +305,7 @@ Exits with code 2 when the entities differ from `.migrax/snapshot.json`, and wit
 | `--json` | Machine-readable output |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |
@@ -350,7 +350,7 @@ Starts a throwaway database (H2 in memory, or Docker for other engines), applies
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -376,7 +376,7 @@ Reads the database schema and reports manual changes: missing or extra tables, c
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -417,7 +417,7 @@ Renumbers migrations that share a number after a git merge (the one added later 
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
@@ -519,7 +519,7 @@ Prints the schema model Migrax builds from the entities.
 |---|---|
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |

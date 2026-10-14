@@ -19,6 +19,10 @@ All notable changes to Migrax are listed here. The format follows
   narrowed column is copied there with the table's primary key and filled again row by row.
   The new `migrax backups` command lists the backup tables and drops them (`--drop`, `--yes`).
   Tested on all 8 databases.
+- OpenJPA: projects that use OpenJPA (Apache TomEE's JPA provider) are read through OpenJPA's
+  own mapping too: its names, the indexes it puts on foreign keys, identity columns, sequences
+  and `OPENJPA_SEQUENCE_TABLE`. Tested with OpenJPA 3.2 and 4.1, and on PostgreSQL and MySQL;
+  `--extractor openjpa` forces it.
 - EclipseLink: projects that use EclipseLink are read through EclipseLink's own mapping, as
   Hibernate projects are through Hibernate's: its names, its join and collection tables, and
   its id strategies, including the `SEQUENCE` table and rows a plain `@GeneratedValue` needs.
