@@ -1,6 +1,6 @@
 # Hibernate versions
 
-With Hibernate 5.0 or newer in your project, Migrax asks **your Hibernate version itself** for
+With Hibernate 4.2 or newer in your project, Migrax asks **your Hibernate version itself** for
 the mapping, without connecting to a database. The generated schema is therefore exactly what
 your application expects: names, types, join tables, element collections, inheritance and
 sequences.
@@ -20,9 +20,10 @@ schema**, and the rollback scripts are tested.
 | 6.0 – 6.2 | `jakarta.persistence` | Spring Boot 3.0 and 3.1, early Quarkus 3 releases | <span class="mx-ok">Supported</span> |
 | 5.3 – 5.6 | `javax.persistence` | Spring Boot 2.1 to 2.7 | <span class="mx-ok">Supported</span> |
 | 5.0 – 5.2 | `javax.persistence` | Spring Boot 1.4 to 2.0 | <span class="mx-ok">Supported</span> (needs JAXB, see below) |
-| before 5.0 | `javax.persistence` | Spring Boot 1.3 and older | Annotation scanning only |
+| 4.2 – 4.3 | `javax.persistence` | Spring Boot 1.0 to 1.3, JBoss EAP 6, WildFly 8 and 9 | <span class="mx-ok">Supported</span> |
+| before 4.2 | `javax.persistence` | older applications | Annotation scanning only |
 
-Tested patch versions: 5.0.12, 5.1.17, 5.2.18, 5.3.36, 5.4.33, 5.5.9, 5.6.15, 6.0.2, 6.1.7,
+Tested patch versions: 4.2.21, 4.3.11, 5.0.12, 5.1.17, 5.2.18, 5.3.36, 5.4.33, 5.5.9, 5.6.15, 6.0.2, 6.1.7,
 6.2.52, 6.3.2, 6.4.10, 6.5.3, 6.6.58, 7.0.10, 7.1.36, 7.2.25, 7.3.13 and 7.4.12.
 
 !!! note "Hibernate 5.0 to 5.2 need JAXB"
@@ -32,6 +33,16 @@ Tested patch versions: 5.0.12, 5.1.17, 5.2.18, 5.3.36, 5.4.33, 5.5.9, 5.6.15, 6.
     `javax.xml.bind:jaxb-api` and `org.glassfish.jaxb:jaxb-runtime` (2.3.x). Without it,
     Migrax reads your entities from their annotations and `verify` compares the schema itself,
     and both say that JAXB is missing.
+
+!!! note "Hibernate 4"
+
+    The migrations follow Hibernate 4's own rules: its names (Hibernate 4 keeps names as
+    written, such as `createdAt`, unless the application sets a naming strategy) and its id
+    generators: a plain `@GeneratedValue` is an identity column on H2, MySQL, MariaDB and SQL
+    Server and the shared `hibernate_sequence` on PostgreSQL and Oracle, and sequences count
+    up by 1 unless `hibernate.id.new_generator_mappings` is on. Spring Boot 1's
+    `spring.jpa.hibernate.naming-strategy` is read like `hibernate.ejb.naming_strategy`.
+    Hibernate 4.2 implements JPA 2.0, so `@Table(indexes = ...)` needs 4.3.
 
 ## EclipseLink
 
@@ -65,11 +76,11 @@ Tested versions: 3.2.2 (`javax.persistence`) and 4.1.1 (`jakarta.persistence`), 
 saving and reading every kind of entity against the migrated database, as for EclipseLink.
 OpenJPA has no sequences on MySQL and MariaDB: use `GenerationType.IDENTITY` there.
 
-## Without Hibernate, EclipseLink or OpenJPA, or before Hibernate 5.0
+## Without Hibernate, EclipseLink or OpenJPA, or before Hibernate 4.2
 
 Migrax then scans the JPA annotations and applies Hibernate 6's rules. That covers the common
-mappings, but types and sequence names can differ from older Hibernate versions (Hibernate 5
-uses one shared `hibernate_sequence`, for example). `migrax doctor` warns when this applies. Check
+mappings, but types and sequence names can differ from older Hibernate versions (they use one
+shared `hibernate_sequence`, for example). `migrax doctor` warns when this applies. Check
 generated migrations carefully and run `migrax verify`.
 
 ## Choosing the reader

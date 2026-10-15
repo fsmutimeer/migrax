@@ -20,6 +20,9 @@ All notable changes to Migrax are listed here. The format follows
   It finds the rows again by a unique key whose columns are NOT NULL, or else by all their other
   columns; `generate` warns in that case, because rows that are the same in every other column
   get one value back for all of them.
+- Hibernate 4.2 and 4.3 are read through their own mapping, like Hibernate 5 and newer, and
+  `verify` has them validate the schema. Spring Boot 1's `spring.jpa.hibernate.naming-strategy`
+  is read too. Older versions are still read from their annotations.
 
 ## [0.6.1] - 2026-10-14
 
