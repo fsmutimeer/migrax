@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-15
+
+The 0.7 release removes three more limitations: `--schemas` works on SQL Server, `--keep-data`
+keeps data of tables without a primary key, and Hibernate 4.2 and 4.3 are read through their
+own mapping.
+
 ### Added
 
 - `--schemas` works on SQL Server. SQL Server can't switch a connection to another schema, so
@@ -520,7 +526,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/fsmutimeer/migrax/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/fsmutimeer/migrax/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/fsmutimeer/migrax/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/fsmutimeer/migrax/compare/v0.4.0...v0.5.0
