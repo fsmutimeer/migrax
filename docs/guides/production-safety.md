@@ -42,8 +42,12 @@ Verified.
 2. applies every migration from scratch;
 3. starts **your** Hibernate version with schema validation against the result (without
    Hibernate, it compares the schema with the entities);
-4. rolls the migrations back and applies them again, proving the rollback scripts work. When
-   older migrations have no rollback script, it checks the newest ones that do.
+4. tests every rollback script on its own, newest first: it rolls the migration back, applies
+   it again and checks that the schema is the same as before. A script that fails or leaves
+   something behind is named, for example
+   `Rollback scripts: failed: 0005_tag_color.sql fails when applied again after its rollback
+   script ran: ...`. When older migrations have no rollback script, it checks the newest ones
+   that do.
 
 Run it in CI on every pull request.
 

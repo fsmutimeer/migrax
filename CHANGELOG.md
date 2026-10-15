@@ -6,6 +6,13 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `verify` tests every rollback script on its own: it rolls the migration back, applies it
+  again and checks that the schema is the same, and it names the script when that fails.
+  Before, it only checked the end result, which missed a script that left something behind
+  when an older script removed it anyway (an index on a table dropped later).
+
 ## [0.8.0] - 2026-10-15
 
 Hibernate 4.0 and 4.1 read through their own mapping, and installs with Homebrew and Scoop.

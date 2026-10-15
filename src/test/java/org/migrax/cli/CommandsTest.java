@@ -234,6 +234,27 @@ class CommandsTest {
     assertFalse(fails.all().contains("repair"), fails.all());
   }
 
+  @Test
+  void verifyNamesTheRollbackScriptThatLeavesSomethingBehind() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate").code());
+    // Rolling everything back hides this: dropping the table also drops the index.
+    Files.writeString(migrations().resolve("0002_index.sql"),
+        "CREATE INDEX idx_extra ON sample_entity (name);\n");
+    Files.writeString(migrations().resolve("rollback/0002_index.sql"), "-- forgot the index\n");
+    Result verify = cli("verify");
+    assertEquals(1, verify.code(), verify.all());
+    assertTrue(verify.out().contains("Rollback scripts: failed: 0002_index.sql fails when "
+        + "applied again after its rollback script ran"), verify.out());
+    assertTrue(verify.out().contains("IDX_EXTRA"), "the database's own error: " + verify.out());
+    assertFalse(verify.out().contains("repair"), verify.out());
+
+    Files.writeString(migrations().resolve("rollback/0002_index.sql"), "DROP INDEX idx_extra;\n");
+    Result fixed = cli("verify");
+    assertTrue(fixed.out().contains("Rollback scripts: ok (2 rolled back and re-applied)"),
+        fixed.out());
+  }
+
   /** A database with the entity's table that Migrax has never managed. */
   private void existingDatabaseWithoutMigrations() throws Exception {
     generateAndMigrate();

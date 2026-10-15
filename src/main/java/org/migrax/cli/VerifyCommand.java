@@ -54,8 +54,9 @@ final class VerifyCommand implements Command {
     return """
         Starts a throwaway database (H2 in memory, or Docker for other engines), applies every
         migration, then checks the result: Hibernate's schema validation when Hibernate is in
-        the project, otherwise a structural comparison with the entities. It also rolls every
-        migration back and forward again to prove the rollback scripts work.""";
+        the project, otherwise a structural comparison with the entities. It also tests every
+        rollback script on its own: it rolls the migration back, applies it again and checks
+        that the schema is the same, so a broken script is named.""";
   }
 
   @Override
@@ -225,9 +226,15 @@ final class VerifyCommand implements Command {
       return firstWithout == null ? "skipped (no migrations)"
           : "skipped (" + firstWithout + " has no rollback script)";
     }
+    String dialect = project.dialect(false, err).id();
     try {
       SchemaModel before = DatabaseSchemaReader.read(connection);
       for (int i = 0; i < scripts.size(); i++) {
+        String failure = rollBackAndReapply(connection, runner, project, migrations,
+            versions.get(i), scripts.get(i), dialect);
+        if (failure != null) {
+          return "failed: " + failure;
+        }
         runner.rollback(connection, versions.get(i), scripts.get(i), project.runOptions());
       }
       if (firstWithout == null) {
@@ -239,7 +246,7 @@ final class VerifyCommand implements Command {
       }
       runner.migrateAll(connection, migrations, project.runOptions());
       List<SchemaComparator.Difference> changed = SchemaComparator.compare(before,
-          DatabaseSchemaReader.read(connection), project.dialect(false, err).id());
+          DatabaseSchemaReader.read(connection), dialect);
       if (!changed.isEmpty()) {
         return "failed: the schema differs after rolling back and re-applying: "
             + changed.stream().map(SchemaComparator.Difference::toString).toList();
@@ -250,5 +257,42 @@ final class VerifyCommand implements Command {
     } catch (Exception e) {
       return "failed: " + Errors.describe(e);
     }
+  }
+
+  /**
+   * Tests one rollback script on its own: rolls the migration back, applies it again and
+   * compares the schema with the one before. Checking only the end result misses a script that
+   * leaves something behind when an older script removes it anyway (an index on a table that is
+   * dropped later). Returns what went wrong, naming the script, or null.
+   */
+  private static String rollBackAndReapply(Connection connection, MigrationRunner runner,
+                                           Project project, List<Migration> migrations,
+                                           String version, Migration script, String dialect)
+      throws Exception {
+    SchemaModel before = DatabaseSchemaReader.read(connection);
+    try {
+      runner.rollback(connection, version, script, project.runOptions());
+    } catch (Exception e) {
+      return "the rollback script of " + version + " fails: " + Errors.describe(databaseError(e));
+    }
+    try {
+      runner.migrateAll(connection, migrations, project.runOptions().withTarget(version));
+    } catch (Exception e) {
+      return version + " fails when applied again after its rollback script ran: "
+          + Errors.describe(databaseError(e)) + " (the rollback script may leave something "
+          + "behind)";
+    }
+    List<SchemaComparator.Difference> changed = SchemaComparator.compare(before,
+        DatabaseSchemaReader.read(connection), dialect);
+    if (!changed.isEmpty()) {
+      return "rolling back " + version + " and applying it again changes the schema: "
+          + changed.stream().map(SchemaComparator.Difference::toString).toList();
+    }
+    return null;
+  }
+
+  /** The database's own error, without the runner's advice for a real database. */
+  private static Throwable databaseError(Exception e) {
+    return e instanceof java.sql.SQLException && e.getCause() != null ? e.getCause() : e;
   }
 }
