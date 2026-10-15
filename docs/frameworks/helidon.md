@@ -36,7 +36,7 @@ MicroProfile environment variables, such as `JAVAX_SQL_DATASOURCE_SHOP_DATASOURC
 <dependency>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-helidon</artifactId>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
 </dependency>
 ```
 

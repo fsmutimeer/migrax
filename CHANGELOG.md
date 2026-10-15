@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-15
+
+Hibernate 4.0 and 4.1 read through their own mapping, and installs with Homebrew and Scoop.
+
 ### Added
 
 - Hibernate 4.0 and 4.1 projects are read through Hibernate's own mapping, like 4.2 and newer,
@@ -539,7 +543,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/fsmutimeer/migrax/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/fsmutimeer/migrax/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/fsmutimeer/migrax/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/fsmutimeer/migrax/compare/v0.5.0...v0.6.0
