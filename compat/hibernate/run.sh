@@ -9,7 +9,7 @@
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 MIGRAX="${MIGRAX:-migrax}"
-VERSIONS="${*:-4.2.21.Final 4.3.11.Final 5.0.12.Final 5.1.17.Final 5.2.18.Final 5.3.36.Final 5.4.33.Final 5.5.9.Final \
+VERSIONS="${*:-4.0.1.Final 4.1.12.Final 4.2.21.Final 4.3.11.Final 5.0.12.Final 5.1.17.Final 5.2.18.Final 5.3.36.Final 5.4.33.Final 5.5.9.Final \
 5.6.15.Final 6.0.2.Final 6.1.7.Final 6.2.52.Final \
 6.3.2.Final 6.4.10.Final 6.5.3.Final 6.6.58.Final 7.0.10.Final 7.1.36.Final 7.2.25.Final \
 7.3.13.Final 7.4.12.Final}"
@@ -37,7 +37,7 @@ for v in $VERSIONS; do
     sed -i '/import java.time/d' src/main/java/com/matrix/*.java
     sed -i 's/^\( *\)public Instant \(\w*\);/\1@Temporal(TemporalType.TIMESTAMP)\n\1public java.util.Date \2;/; s/^\( *\)public LocalDateTime \(\w*\);/\1@Temporal(TemporalType.TIMESTAMP)\n\1public java.util.Date \2;/; s/^\( *\)public LocalDate \(\w*\);/\1@Temporal(TemporalType.DATE)\n\1public java.util.Date \2;/' src/main/java/com/matrix/*.java
   fi
-  if [[ $v == 4.2.* ]]; then
+  if [[ $v == 4.[012].* ]]; then
     # @Table(indexes = ...) is JPA 2.1, which Hibernate 4.3 brought.
     sed -i 's/, indexes = @Index([^)]*)//' src/main/java/com/matrix/*.java
   fi

@@ -4,7 +4,7 @@ What Migrax doesn't do yet, and what to do instead.
 
 ## Reading your entities
 
-**Hibernate older than 4.2.** Migrax reads these projects from their annotations, using the
+**Hibernate older than 4.0.** Migrax reads these projects from their annotations, using the
 rules of current Hibernate versions. Most mappings come out the same, but older versions differ
 in places: they share one `hibernate_sequence` between entities, for example.
 `migrax doctor` tells you when this applies. Review the generated migrations and run

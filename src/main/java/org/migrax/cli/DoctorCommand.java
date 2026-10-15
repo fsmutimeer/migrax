@@ -132,11 +132,11 @@ final class DoctorCommand implements Command {
         if (ModelExtractor.readsMapping(hibernate)) {
           doctor.ok("Hibernate " + hibernate + ": entities are read from Hibernate's own mapping");
         } else {
-          doctor.advise("Hibernate " + hibernate + " is older than 4.2, which Migrax cannot read",
+          doctor.advise("Hibernate " + hibernate + " is older than 4.0, which Migrax cannot read",
               List.of("Migrax scans the JPA annotations instead and follows Hibernate 6 defaults,",
                   "which differ from yours: for example Hibernate " + hibernate + " expects one",
                   "shared hibernate_sequence, and some column types differ. Upgrade to Hibernate",
-                  "4.2+, or check every generated migration and run 'migrax verify' before",
+                  "4.0+, or check every generated migration and run 'migrax verify' before",
                   "applying it."));
         }
       } else {

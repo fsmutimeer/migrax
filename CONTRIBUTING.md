@@ -26,7 +26,7 @@ powershell -ExecutionPolicy Bypass -File install.ps1    # Windows
 | Unit and H2 tests | `mvn verify` | CLI, diff engine, readers, runner, Hibernate validation on H2 |
 | Integrations | `mvn install -f integrations/pom.xml` | Startup integrations in real Spring Boot, Quarkus, Micronaut and Helidon applications |
 | Real databases | `mvn verify -Pdatabase-integration` | MySQL, MariaDB, PostgreSQL, SQL Server and Oracle in Docker |
-| Hibernate versions | `bash compat/hibernate/run.sh [version ...]` | Generate, migrate and verify with every Hibernate minor version from 4.2 to 7.4 |
+| Hibernate versions | `bash compat/hibernate/run.sh [version ...]` | Generate, migrate and verify with every Hibernate minor version from 4.0 to 7.4 |
 
 CI runs all of them on every pull request.
 
