@@ -31,7 +31,8 @@ public final class SqlLinter {
   public record Finding(String code, Severity severity, String file, int statement,
                         String sql, String message, String fix) {}
 
-  private static final String IDENT = "[\\w$#.\"`\\[\\]]+";
+  /** A name, maybe qualified or quoted, or with a placeholder such as ${migrax.schema}. */
+  private static final String IDENT = "[\\w$#.\"`\\[\\]{}]+";
   /** A routine body that closed: it ends with END, or END and the routine's name. */
   private static final Pattern ENDS_WITH_END = Pattern.compile("(?is).*\\bEND(?:\\s+\\w+)?\\s*;?\\s*");
   private static final Pattern DOLLAR_QUOTED = Pattern.compile("(?s)\\$(\\w*)\\$.*?\\$\\1\\$");
@@ -55,6 +56,13 @@ public final class SqlLinter {
   private static final Pattern CREATE_INDEX = Pattern.compile(
       "(?i)^CREATE\\s+(UNIQUE\\s+)?INDEX\\s+(CONCURRENTLY\\s+)?(?:IF\\s+NOT\\s+EXISTS\\s+)?"
           + "(?:" + IDENT + "\\s+)?ON\\s+(?:ONLY\\s+)?(" + IDENT + ")");
+  /** The table or sequence a statement creates, changes or writes to. */
+  private static final Pattern TABLE_STATEMENT = Pattern.compile("(?i)^(?:CREATE\\s+TABLE"
+      + "|ALTER\\s+TABLE|DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?|TRUNCATE\\s+TABLE"
+      + "|CREATE\\s+(?:UNIQUE\\s+)?(?:(?:NON)?CLUSTERED\\s+)?INDEX\\s+\\S+\\s+ON"
+      + "|INSERT\\s+INTO|UPDATE|DELETE\\s+FROM|(?:CREATE|ALTER|DROP)\\s+SEQUENCE)"
+      + "\\s+([^\\s(]+)");
+  private static final Pattern REFERENCES = Pattern.compile("(?i)\\bREFERENCES\\s+([^\\s(]+)");
   private static final Pattern VOLATILE_DEFAULT = Pattern.compile(
       "(?i)DEFAULT\\s+(now\\(\\)|clock_timestamp\\(\\)|random\\(\\)|gen_random_uuid\\(\\)"
           + "|uuid_generate_v4\\(\\)|nextval\\(|timeofday\\(\\))");
@@ -76,6 +84,21 @@ public final class SqlLinter {
    * @param dialect Migrax dialect id, e.g. postgresql
    */
   public static List<Finding> lint(String file, String sql, String dialect) {
+    return lint(file, sql, dialect, false);
+  }
+
+  /**
+   * Lints a migration script of a project that may run its migrations once per schema.
+   *
+   * @param file file name shown in findings
+   * @param sql script text
+   * @param dialect Migrax dialect id, e.g. postgresql
+   * @param schemas whether the project sets {@code migrax.schemas}: on SQL Server, every table
+   *     then needs its schema in front (MX017)
+   * @since 0.7.0
+   */
+  public static List<Finding> lint(String file, String sql, String dialect, boolean schemas) {
+    boolean namedSchemas = schemas && "sqlserver".equals(dialect);
     boolean postgres = "postgresql".equals(dialect);
     boolean transactional = !SqlScript.hasDirective(sql, "no-transaction");
     Set<String> fileIgnores = codes(IGNORE_FILE, sql);
@@ -115,6 +138,15 @@ public final class SqlLinter {
                 + "its body has an unmatched BEGIN, or it has none.",
             "Check that every BEGIN has its END, or end the body with GO (SQL Server), a "
                 + "DELIMITER line (MySQL, MariaDB) or a line with only / (Oracle, SQLite)."));
+      }
+      if (namedSchemas && !ignores.contains("MX017")) {
+        String unqualified = unqualifiedTable(text);
+        if (unqualified != null) {
+          findings.add(finding("MX017", Severity.WARNING, file, number, text,
+              "Table " + unqualified + " has no schema in front. SQL Server can't switch "
+                  + "schemas, so with migrax.schemas it is the login's default schema's table.",
+              "Write ${migrax.schema}." + unqualified + ": Migrax fills in each schema."));
+        }
       }
       Matcher create = CREATE_TABLE.matcher(text);
       if (create.find()) {
@@ -249,6 +281,24 @@ public final class SqlLinter {
       }
     }
     return findings;
+  }
+
+  /**
+   * The first table a statement creates, changes, writes to or references without a schema in
+   * front, or null. Temporary tables ({@code #t}) and table variables ({@code @t}) don't count.
+   */
+  private static String unqualifiedTable(String text) {
+    List<String> names = new ArrayList<>();
+    Matcher target = TABLE_STATEMENT.matcher(text);
+    if (target.find()) {
+      names.add(target.group(1));
+    }
+    Matcher references = REFERENCES.matcher(text);
+    while (references.find()) {
+      names.add(references.group(1));
+    }
+    return names.stream().filter(name -> !name.contains(".") && !name.startsWith("#")
+        && !name.startsWith("@")).findFirst().orElse(null);
   }
 
   private static Finding finding(String code, Severity severity, String file, int statement,

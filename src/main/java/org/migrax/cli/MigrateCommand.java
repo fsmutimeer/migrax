@@ -120,7 +120,8 @@ final class MigrateCommand implements Command {
             Path file = project.migrationFile(row.version());
             if (file != null) {
               Reports.printFindings(out,
-                  SqlLinter.lint(project.display(file), Files.readString(file), dialect));
+                  SqlLinter.lint(project.display(file), Files.readString(file), dialect,
+                      !project.schemas().isEmpty()));
             }
           }
           continue;

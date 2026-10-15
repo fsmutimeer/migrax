@@ -114,7 +114,7 @@ final class SquashCommand implements Command {
         throw new UsageException("--optimize needs " + project.display(history) + ".",
             "It is written by 'migrax generate'. Squash without --optimize instead.");
       }
-      Dialect dialect = project.dialect(false, out);
+      Dialect dialect = project.generating(project.dialect(false, out));
       body.setLength(0);
       body.append("\n-- Resulting schema only; data statements of the replaced migrations are "
           + "not included.\n");

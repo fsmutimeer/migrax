@@ -64,7 +64,7 @@ final class PlanCommand implements Command {
     Args args = context.args();
     PrintStream out = context.out();
     PrintStream err = context.err();
-    Dialect dialect = project.dialect(true, args.flag("--json") ? err : out);
+    Dialect dialect = project.generating(project.dialect(true, args.flag("--json") ? err : out));
     EntityChanges changes = EntityChanges.read(context, dialect, project.hasUrl(), false);
     if (!Files.exists(project.snapshot()) && !project.hasUrl() && !args.flag("--json")) {
       out.println("No snapshot yet: comparing with an empty schema. 'migrax generate' will "
@@ -83,7 +83,8 @@ final class PlanCommand implements Command {
     }
     String sql = MigrationSql.render(dialect, changes.operations(), null, changes.previous(),
         changes.current());
-    List<SqlLinter.Finding> findings = SqlLinter.lint("plan", sql, dialect.id());
+    List<SqlLinter.Finding> findings = SqlLinter.lint("plan", sql, dialect.id(),
+        !project.schemas().isEmpty());
     if (args.flag("--json")) {
       List<Object> operations = new ArrayList<>();
       for (Operation operation : changes.operations()) {

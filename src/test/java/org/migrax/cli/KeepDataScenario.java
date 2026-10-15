@@ -56,6 +56,21 @@ public final class KeepDataScenario {
   }
 
   public static void run(Connection connection, Dialect dialect) throws Exception {
+    run(connection, dialect, null);
+  }
+
+  /**
+   * The scenario in a schema of a multi-tenant project: the connection is pointed at it, and on
+   * SQL Server the dialect names it in every statement.
+   *
+   * @param schema the schema, or null for the connection's own
+   */
+  public static void run(Connection connection, Dialect dialect, String schema)
+      throws Exception {
+    String in = schema == null ? "" : schema + ".";
+    if (schema != null) {
+      org.migrax.runner.TargetSchema.use(connection, schema);
+    }
     SchemaModel before = model(true, true);
     SchemaModel after = model(false, false);
     Path folder = Files.createTempDirectory("migrax-keep-data");
@@ -64,10 +79,12 @@ public final class KeepDataScenario {
         new DiffEngine().diff(SchemaModel.empty(), before), null, SchemaModel.empty(), before));
     MigrationRunner runner = new MigrationRunner();
     runner.migrate(connection, List.of(setup));
-    execute(connection, "INSERT INTO kd_parent (id) VALUES (1)",
-        "INSERT INTO kd_child (id, parent_id, note) VALUES (10, 1, 'child note')",
-        "INSERT INTO kd_item (id, name, remark, grade) VALUES (1, 'first', 'remark one', 'S')",
-        "INSERT INTO kd_item (id, name, remark, grade) VALUES (2, 'second', NULL, 'M')");
+    execute(connection, "INSERT INTO " + in + "kd_parent (id) VALUES (1)",
+        "INSERT INTO " + in + "kd_child (id, parent_id, note) VALUES (10, 1, 'child note')",
+        "INSERT INTO " + in + "kd_item (id, name, remark, grade) VALUES (1, 'first', "
+            + "'remark one', 'S')",
+        "INSERT INTO " + in + "kd_item (id, name, remark, grade) VALUES (2, 'second', NULL, "
+            + "'M')");
 
     List<Operation> forward = new DiffEngine().diff(before, after);
     List<Operation> reverse = new DiffEngine().diff(after, before);
@@ -83,8 +100,8 @@ public final class KeepDataScenario {
     } catch (Exception e) {
       throw new AssertionError(dialect.id() + " migration failed:\n" + forwardSql, e);
     }
-    List<String> backups = org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, null,
-        "TABLE").stream().map(String::toLowerCase)
+    List<String> backups = org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+        schema, "TABLE").stream().map(String::toLowerCase)
         .filter(name -> name.startsWith("migrax_backup_0042_")).sorted().toList();
     assertEquals(List.of("migrax_backup_0042_kd_child", "migrax_backup_0042_kd_item_grade",
         "migrax_backup_0042_kd_item_name",
@@ -98,20 +115,21 @@ public final class KeepDataScenario {
       throw new AssertionError(dialect.id() + " rollback failed:\n" + reverseSql, e);
     }
     assertEquals("10|1|child note", row(connection,
-        "SELECT id, parent_id, note FROM kd_child"), dialect.id() + ":\n" + reverseSql);
+        "SELECT id, parent_id, note FROM " + in + "kd_child"), dialect.id() + ":\n" + reverseSql);
     assertEquals("1|first|remark one|S;2|second|null|M", rows(connection,
-        "SELECT id, name, remark, grade FROM kd_item ORDER BY id"), dialect.id());
-    assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, null,
-        "TABLE").stream().filter(name -> name.toLowerCase().startsWith("migrax_backup_0042_"))
+        "SELECT id, name, remark, grade FROM " + in + "kd_item ORDER BY id"), dialect.id());
+    assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+        schema, "TABLE").stream().filter(name -> name.toLowerCase().startsWith("migrax_backup_0042_"))
         .toList(), dialect.id() + ": backups after the rollback");
-    SchemaModel restored = org.migrax.plugin.DatabaseSchemaReader.read(connection);
+    SchemaModel restored = org.migrax.plugin.DatabaseSchemaReader.read(connection, schema);
     SchemaModel.Table item = table(restored, "kd_item");
     assertTrue(!column(item, "name").nullable(), dialect.id() + ": NOT NULL restored");
     assertEquals(1, table(restored, "kd_child").foreignKeys().size(),
         dialect.id() + ": foreign key restored");
 
-    execute(connection, "DROP TABLE kd_child", "DROP TABLE kd_item", "DROP TABLE kd_parent",
-        "DELETE FROM migrax_history WHERE version IN ('0041_setup.sql', '0042_drop.sql')");
+    execute(connection, "DROP TABLE " + in + "kd_child", "DROP TABLE " + in + "kd_item",
+        "DROP TABLE " + in + "kd_parent", "DELETE FROM " + in + "migrax_history WHERE version "
+            + "IN ('0041_setup.sql', '0042_drop.sql')");
   }
 
   private static SchemaModel.Table table(SchemaModel model, String name) {

@@ -111,6 +111,18 @@ public interface Dialect {
   }
 
   /**
+   * A table's or sequence's name as this dialect writes it in generated SQL: the identifier,
+   * with the schema in front when the dialect is bound to one.
+   *
+   * @param table the table or sequence name
+   * @return the name as written in SQL
+   * @since 0.7.0
+   */
+  default String tableName(String table) {
+    return identifier(table);
+  }
+
+  /**
    * The statement that copies columns of a table into a new table, rows included.
    *
    * @param target the new table
@@ -120,9 +132,9 @@ public interface Dialect {
    * @since 0.6.0
    */
   default String copyTable(String target, String source, java.util.List<String> columns) {
-    return "CREATE TABLE " + identifier(target) + " AS SELECT "
+    return "CREATE TABLE " + tableName(target) + " AS SELECT "
         + String.join(", ", columns.stream().map(this::identifier).toList()) + " FROM "
-        + identifier(source);
+        + tableName(source);
   }
 
   /**

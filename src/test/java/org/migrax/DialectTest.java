@@ -316,4 +316,55 @@ class DialectTest {
     assertThrows(IllegalStateException.class,
         () -> new PostgresDialect().render(new DropPrimaryKey("users")));
   }
+
+  @Test
+  void sqlServerNamesTheSchemaOfEveryTableWhenBoundToOne() {
+    SqlServerDialect dialect = new SqlServerDialect().inSchema("${migrax.schema}");
+    SchemaModel.Table author = new SchemaModel.Table("author",
+        List.of(column("id", "bigint", false, null)), new SchemaModel.PrimaryKey(List.of("id")),
+        List.of(), List.of(), List.of(), "Writers");
+    SchemaModel.Column authorId = column("author_id", "bigint", true, null);
+    SchemaModel.Table book = new SchemaModel.Table("book",
+        List.of(column("id", "bigint", false, null), authorId),
+        new SchemaModel.PrimaryKey(List.of("id")),
+        List.of(new SchemaModel.Index("ix_book_author", List.of("author_id"), false)),
+        List.of(new SchemaModel.ForeignKey("fk_book_author", List.of("author_id"), "author",
+            List.of("id"))));
+    SchemaModel model = new SchemaModel(List.of(author, book),
+        List.of(new SchemaModel.Sequence("book_seq", 1L, 50L)));
+    String sql = new DiffEngine().diff(SchemaModel.empty(), model).stream()
+        .map(dialect::render).collect(java.util.stream.Collectors.joining(";\n"));
+    assertTrue(sql.contains("CREATE SEQUENCE ${migrax.schema}.book_seq"), sql);
+    assertTrue(sql.contains("CREATE TABLE ${migrax.schema}.author ("), sql);
+    assertTrue(sql.contains("CREATE TABLE ${migrax.schema}.book ("), sql);
+    assertTrue(sql.contains("CREATE INDEX ix_book_author ON ${migrax.schema}.book"), sql);
+    assertTrue(sql.contains("ALTER TABLE ${migrax.schema}.book ADD CONSTRAINT fk_book_author "
+        + "FOREIGN KEY (author_id) REFERENCES ${migrax.schema}.author (id)"), sql);
+    assertTrue(sql.contains("DECLARE @schema sysname = N'${migrax.schema}' IF EXISTS"), sql);
+    assertTrue(sql.contains("OBJECT_ID(N'${migrax.schema}.author')"), sql);
+
+    assertEquals("EXEC sp_rename '${migrax.schema}.book', 'books'",
+        dialect.render(new org.migrax.ops.RenameTable("book", "books")));
+    assertEquals("EXEC sp_rename '${migrax.schema}.book.author_id', 'writer_id', 'COLUMN'",
+        dialect.render(new org.migrax.ops.RenameColumn("book", "author_id", "writer_id")));
+    assertEquals("DROP INDEX ix_book_author ON ${migrax.schema}.book",
+        dialect.render(new org.migrax.ops.DropIndex("book", "ix_book_author")));
+    assertEquals("ALTER TABLE ${migrax.schema}.book DROP COLUMN author_id",
+        dialect.render(new org.migrax.ops.DropColumn("book", "author_id")));
+    SchemaModel.Column withDefault = new SchemaModel.Column("author_id", "bigint", true, null,
+        null, null, "0", false, false, null, "bigint");
+    String alter = dialect.render(new AlterColumn("book", authorId, withDefault));
+    assertTrue(alter.contains("OBJECT_ID('${migrax.schema}.book')"), alter);
+    assertTrue(alter.contains("ALTER TABLE ${migrax.schema}.book ADD DEFAULT 0 FOR author_id"),
+        alter);
+    assertEquals("SELECT id, author_id INTO ${migrax.schema}.migrax_backup_book FROM "
+        + "${migrax.schema}.book", dialect.copyTable("migrax_backup_book", "book",
+            List.of("id", "author_id")));
+
+    // A schema name is quoted; the unbound dialect writes bare names as before.
+    assertEquals("DROP TABLE [tenant_a].book",
+        new SqlServerDialect().inSchema("tenant_a").render(new org.migrax.ops.DropTable("book")));
+    assertEquals("DROP TABLE book",
+        new SqlServerDialect().render(new org.migrax.ops.DropTable("book")));
+  }
 }

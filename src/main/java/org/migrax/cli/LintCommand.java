@@ -88,7 +88,8 @@ final class LintCommand implements Command {
     }
     List<SqlLinter.Finding> findings = new ArrayList<>();
     for (Path file : files) {
-      findings.addAll(SqlLinter.lint(project.display(file), Files.readString(file), dialect));
+      findings.addAll(SqlLinter.lint(project.display(file), Files.readString(file), dialect,
+          !project.schemas().isEmpty()));
     }
     boolean errors = findings.stream().anyMatch(f -> f.severity() == SqlLinter.Severity.ERROR);
     boolean warnings = findings.stream().anyMatch(f -> f.severity() == SqlLinter.Severity.WARNING);

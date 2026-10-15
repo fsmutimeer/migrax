@@ -37,20 +37,22 @@ public abstract class AbstractDialect implements Dialect {
     if (o instanceof CreateSequence x && x.sequence().inTable()) {
       SchemaModel.Sequence s = x.sequence();
       long start = (s.initialValue() == null ? 1L : s.initialValue()) - 1;
-      return "INSERT INTO " + q(s.table()) + " (" + q(s.nameColumn()) + ", "
+      return "INSERT INTO " + tableName(s.table()) + " (" + q(s.nameColumn()) + ", "
           + q(s.valueColumn()) + ") VALUES (" + literal(s.name()) + ", " + start + ")";
     }
     if (o instanceof DropSequence x && x.sequence() != null && x.sequence().inTable()) {
       SchemaModel.Sequence s = x.sequence();
-      return "DELETE FROM " + q(s.table()) + " WHERE " + q(s.nameColumn()) + " = "
+      return "DELETE FROM " + tableName(s.table()) + " WHERE " + q(s.nameColumn()) + " = "
           + literal(s.name());
     }
     if (o instanceof CreateSequence x) return createSequence(x.sequence());
     if (o instanceof DropSequence x) return dropSequence(x.name());
     if (o instanceof CreateTable x) return createTable(x.table());
-    if (o instanceof DropTable x) return "DROP TABLE " + q(x.table());
+    if (o instanceof DropTable x) return "DROP TABLE " + tableName(x.table());
     if (o instanceof AddColumn x) return addColumn(x.table(), x.column());
-    if (o instanceof DropColumn x) return "ALTER TABLE " + q(x.table()) + " DROP COLUMN " + q(x.column());
+    if (o instanceof DropColumn x) {
+      return "ALTER TABLE " + tableName(x.table()) + " DROP COLUMN " + q(x.column());
+    }
     if (o instanceof RenameColumn x) return renameColumn(x.table(), x.from(), x.to());
     if (o instanceof RenameTable x) return renameTable(x.from(), x.to());
     if (o instanceof AlterColumn x) return alterColumn(x);
@@ -58,22 +60,22 @@ public abstract class AbstractDialect implements Dialect {
     if (o instanceof DropPrimaryKey x) return dropPrimaryKey(x.table(), x.constraintName());
     if (o instanceof AddIndex x) {
       return "CREATE " + (x.index().unique() ? "UNIQUE " : "") + "INDEX " + q(x.index().name())
-          + " ON " + q(x.table()) + " (" + join(x.index().columns()) + ")";
+          + " ON " + tableName(x.table()) + " (" + join(x.index().columns()) + ")";
     }
     if (o instanceof DropIndex x) return dropIndex(x.table(), x.name());
     if (o instanceof AddForeignKey x) {
-      return "ALTER TABLE " + q(x.table()) + " ADD CONSTRAINT " + q(x.fk().name())
+      return "ALTER TABLE " + tableName(x.table()) + " ADD CONSTRAINT " + q(x.fk().name())
           + " FOREIGN KEY (" + join(x.fk().columns()) + ") REFERENCES "
-          + q(x.fk().referencedTable()) + " (" + join(x.fk().referencedColumns()) + ")";
+          + tableName(x.fk().referencedTable()) + " (" + join(x.fk().referencedColumns()) + ")";
     }
     if (o instanceof DropForeignKey x) return dropForeignKey(x.table(), x.name());
     if (o instanceof AddUnique x) {
-      return "ALTER TABLE " + q(x.table()) + " ADD CONSTRAINT " + q(x.name())
+      return "ALTER TABLE " + tableName(x.table()) + " ADD CONSTRAINT " + q(x.name())
           + " UNIQUE (" + q(x.column()) + ")";
     }
     if (o instanceof DropUnique x) return dropUnique(x.table(), x.name());
     if (o instanceof org.migrax.ops.AddCheck x) {
-      return "ALTER TABLE " + q(x.table()) + " ADD " + check(x.check());
+      return "ALTER TABLE " + tableName(x.table()) + " ADD " + check(x.check());
     }
     if (o instanceof org.migrax.ops.DropCheck x) return dropCheck(x.table(), x.name());
     if (o instanceof org.migrax.ops.SetComment x) {
@@ -93,6 +95,15 @@ public abstract class AbstractDialect implements Dialect {
   @Override
   public String identifier(String identifier) {
     return q(identifier);
+  }
+
+  /**
+   * A table's (or sequence's) name as written in generated SQL. The default is the bare
+   * identifier; a dialect bound to a schema puts it in front.
+   */
+  @Override
+  public String tableName(String table) {
+    return q(table);
   }
 
   protected String q(String identifier) {
@@ -136,7 +147,7 @@ public abstract class AbstractDialect implements Dialect {
     for (SchemaModel.Check check : t.checks()) {
       parts.add(check(check));
     }
-    return "CREATE TABLE " + q(t.name()) + " (" + String.join(", ", parts) + ")";
+    return "CREATE TABLE " + tableName(t.name()) + " (" + String.join(", ", parts) + ")";
   }
 
   /** {@code CONSTRAINT name CHECK (condition)}. */
@@ -145,17 +156,17 @@ public abstract class AbstractDialect implements Dialect {
   }
 
   protected String dropCheck(String table, String name) {
-    return "ALTER TABLE " + q(table) + " DROP CONSTRAINT " + q(name);
+    return "ALTER TABLE " + tableName(table) + " DROP CONSTRAINT " + q(name);
   }
 
   /** Sets the table comment; a null comment removes it. */
   protected String tableComment(String table, String comment) {
-    return "COMMENT ON TABLE " + q(table) + " IS " + commentValue(comment);
+    return "COMMENT ON TABLE " + tableName(table) + " IS " + commentValue(comment);
   }
 
   /** Sets a column comment; a null comment removes it. */
   protected String columnComment(String table, SchemaModel.Column column, String comment) {
-    return "COMMENT ON COLUMN " + q(table) + "." + q(column.name()) + " IS "
+    return "COMMENT ON COLUMN " + tableName(table) + "." + q(column.name()) + " IS "
         + commentValue(comment);
   }
 
@@ -170,7 +181,7 @@ public abstract class AbstractDialect implements Dialect {
   }
 
   protected String addColumn(String table, SchemaModel.Column column) {
-    return "ALTER TABLE " + q(table) + " ADD COLUMN " + column(column);
+    return "ALTER TABLE " + tableName(table) + " ADD COLUMN " + column(column);
   }
 
   /**
@@ -239,15 +250,16 @@ public abstract class AbstractDialect implements Dialect {
   }
 
   protected String alterColumn(String table, SchemaModel.Column before, SchemaModel.Column after) {
-    return "ALTER TABLE " + q(table) + " ALTER COLUMN " + q(after.name()) + " TYPE " + renderType(after);
+    return "ALTER TABLE " + tableName(table) + " ALTER COLUMN " + q(after.name()) + " TYPE "
+        + renderType(after);
   }
 
   protected String renameTable(String from, String to) {
-    return "ALTER TABLE " + q(from) + " RENAME TO " + q(to);
+    return "ALTER TABLE " + tableName(from) + " RENAME TO " + q(to);
   }
 
   protected String renameColumn(String table, String from, String to) {
-    return "ALTER TABLE " + q(table) + " RENAME COLUMN " + q(from) + " TO " + q(to);
+    return "ALTER TABLE " + tableName(table) + " RENAME COLUMN " + q(from) + " TO " + q(to);
   }
 
   // ------------------------------------------------------------------ keys and indexes
@@ -256,7 +268,7 @@ public abstract class AbstractDialect implements Dialect {
     String name = key.constraintName() == null || key.constraintName().isBlank()
         ? SchemaModel.primaryKeyConstraintName(table)
         : key.constraintName();
-    return "ALTER TABLE " + q(table) + " ADD CONSTRAINT " + q(name)
+    return "ALTER TABLE " + tableName(table) + " ADD CONSTRAINT " + q(name)
         + " PRIMARY KEY (" + join(key.columns()) + ")";
   }
 
@@ -266,15 +278,15 @@ public abstract class AbstractDialect implements Dialect {
           "Cannot drop the primary key on '" + table
               + "' because its constraint name is unavailable in the schema snapshot.");
     }
-    return "ALTER TABLE " + q(table) + " DROP CONSTRAINT " + q(constraintName);
+    return "ALTER TABLE " + tableName(table) + " DROP CONSTRAINT " + q(constraintName);
   }
 
   protected String dropForeignKey(String table, String name) {
-    return "ALTER TABLE " + q(table) + " DROP CONSTRAINT " + q(name);
+    return "ALTER TABLE " + tableName(table) + " DROP CONSTRAINT " + q(name);
   }
 
   protected String dropUnique(String table, String name) {
-    return "ALTER TABLE " + q(table) + " DROP CONSTRAINT " + q(name);
+    return "ALTER TABLE " + tableName(table) + " DROP CONSTRAINT " + q(name);
   }
 
   protected String dropIndex(String table, String name) {
@@ -289,12 +301,12 @@ public abstract class AbstractDialect implements Dialect {
   }
 
   protected String createSequence(SchemaModel.Sequence s) {
-    return "CREATE SEQUENCE " + q(s.name()) + " START WITH " + s.initialValue()
+    return "CREATE SEQUENCE " + tableName(s.name()) + " START WITH " + s.initialValue()
         + " INCREMENT BY " + s.allocationSize();
   }
 
   protected String dropSequence(String name) {
-    return "DROP SEQUENCE " + q(name);
+    return "DROP SEQUENCE " + tableName(name);
   }
 
   /** A numeric lock id derived from a lock name, for databases whose locks take numbers. */

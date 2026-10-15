@@ -3,6 +3,7 @@ package org.migrax.cli;
 import static org.migrax.cli.ExitCode.OK;
 
 import org.migrax.dialect.Dialect;
+import org.migrax.dialect.SqlServerDialect;
 import org.migrax.dialect.SqliteDialect;
 import org.migrax.model.SchemaModel;
 import org.migrax.ops.DropForeignKey;
@@ -112,7 +113,7 @@ final class CleanCommand implements Command {
             return OK;
           }
         }
-        drop(connection, dialect, objects, schema, project.lockTimeout());
+        drop(connection, inSchema(dialect, schema), objects, schema, project.lockTimeout());
         out.println("Dropped " + objects.count() + " from " + where + ".");
         context.resultList("schemas").add(JsonOut.object("schema", schema, "dropped",
             objects.json()));
@@ -139,6 +140,12 @@ final class CleanCommand implements Command {
     return project.schemasOrDefault();
   }
 
+  /** SQL Server can't switch schemas: its statements name the schema instead. */
+  static Dialect inSchema(Dialect dialect, String schema) {
+    return schema != null && dialect instanceof SqlServerDialect sqlServer
+        ? sqlServer.inSchema(schema) : dialect;
+  }
+
   /**
    * Drops views, then foreign keys (so tables can go in any order), tables and the sequences
    * that are left, with the migration lock held so no migration runs meanwhile.
@@ -151,7 +158,7 @@ final class CleanCommand implements Command {
       try (AutoCloseable lock = DatabaseMigrationLock.acquire(connection, lockTimeout)) {
         // The lock may have switched auto-commit off for its own work.
         connection.setAutoCommit(true);
-        dropViews(connection, dialect, objects.views);
+        dropViews(connection, dialect, schema, objects.views);
         // SQLite drops tables in any order while the lock has foreign keys switched off, and it
         // can't drop a foreign key on its own.
         if (!(dialect instanceof SqliteDialect)) {
@@ -180,15 +187,17 @@ final class CleanCommand implements Command {
   }
 
   /** Views can depend on each other: drop what can go, then try the rest again. */
-  private static void dropViews(Connection connection, Dialect dialect, List<String> views)
-      throws SQLException {
+  private static void dropViews(Connection connection, Dialect dialect, String schema,
+                                List<String> views) throws SQLException {
+    String prefix = schema != null && dialect instanceof SqlServerDialect
+        ? dialect.quote(schema) + "." : "";
     List<String> pending = new ArrayList<>(views);
     while (!pending.isEmpty()) {
       SQLException last = null;
       List<String> failed = new ArrayList<>();
       for (String view : pending) {
         try {
-          execute(connection, "DROP VIEW " + dialect.quote(view));
+          execute(connection, "DROP VIEW " + prefix + dialect.quote(view));
         } catch (SQLException e) {
           failed.add(view);
           last = e;

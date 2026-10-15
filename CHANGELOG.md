@@ -6,6 +6,17 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `--schemas` works on SQL Server. SQL Server can't switch a connection to another schema, so
+  Migrax names the schema instead: each schema gets its own `migrax_history`, and in a project
+  that sets `migrax.schemas`, `generate` writes every table as `${migrax.schema}.<table>`.
+  `migrate`, `status`, `rollback`, `migrate --sql`, `clean` and the startup integrations all
+  work per schema.
+- `${migrax.schema}`: a built-in placeholder for the schema a migration runs in, on every
+  database.
+- Lint rule MX017: on SQL Server with `migrax.schemas`, a table without its schema in front.
+
 ## [0.6.1] - 2026-10-14
 
 ### Fixed

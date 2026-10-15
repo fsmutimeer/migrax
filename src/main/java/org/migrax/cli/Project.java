@@ -3,6 +3,7 @@ package org.migrax.cli;
 import org.migrax.dialect.Dialect;
 import org.migrax.dialect.Dialects;
 import org.migrax.dialect.PostgresDialect;
+import org.migrax.dialect.SqlServerDialect;
 import org.migrax.diff.SnapshotStore;
 import org.migrax.model.ModelExtractor;
 import org.migrax.model.NamingStrategy;
@@ -11,6 +12,7 @@ import org.migrax.plugin.RuntimeJdbc;
 import org.migrax.runner.Migration;
 import org.migrax.runner.MigrationLoader;
 import org.migrax.runner.MigrationRunner;
+import org.migrax.runner.TargetSchema;
 import org.migrax.util.Log;
 
 import java.io.PrintStream;
@@ -239,6 +241,16 @@ final class Project implements AutoCloseable {
     return schemas;
   }
 
+  /**
+   * The dialect migrations are generated with. SQL Server can't switch schemas, so when the
+   * migrations run once per schema ({@link #schemas()}) every table names its schema with the
+   * {@code ${migrax.schema}} placeholder.
+   */
+  Dialect generating(Dialect dialect) throws Exception {
+    return dialect instanceof SqlServerDialect sqlServer && !schemas().isEmpty()
+        ? sqlServer.inSchema("${" + TargetSchema.PLACEHOLDER + "}") : dialect;
+  }
+
   /** The schemas a command runs for: {@link #schemas()}, or one null for the default schema. */
   List<String> schemasOrDefault() throws Exception {
     List<String> schemas = schemas();
@@ -388,20 +400,17 @@ final class Project implements AutoCloseable {
     return RuntimeJdbc.connect(loader(false), c.url(), c.user(), c.password());
   }
 
-  /** Points the connection at a schema; MySQL and MariaDB call schemas databases. */
+  /**
+   * Points the connection at a schema; MySQL and MariaDB call schemas databases. SQL Server
+   * can't switch, so Migrax names the schema itself ({@link TargetSchema}).
+   */
   static void useSchema(Connection connection, String schema) throws Exception {
     String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-    if (product.contains("mysql") || product.contains("mariadb")) {
-      connection.setCatalog(schema);
-    } else if (product.contains("sqlite")) {
+    if (product.contains("sqlite")) {
       throw new UsageException("SQLite has no schemas.",
           "Remove --schema/--schemas: each SQLite database is its own file.");
-    } else if (product.contains("sql server")) {
-      throw new UsageException("SQL Server cannot switch the default schema per connection.",
-          "Run Migrax once per schema with a login whose default schema is that schema.");
-    } else {
-      connection.setSchema(schema);
     }
+    TargetSchema.use(connection, schema);
   }
 
   /**

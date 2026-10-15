@@ -31,4 +31,5 @@ ALTER TABLE customers DROP COLUMN legacy_code;
 | MX014 | warning | PostgreSQL | Adding a check constraint scans the table under an exclusive lock | Add it `NOT VALID`, then `VALIDATE CONSTRAINT` later |
 | MX015 | info | SQL Server, Oracle | Index builds lock the table unless they run online | `WITH (ONLINE = ON)` (SQL Server Enterprise) or `ONLINE` (Oracle Enterprise) |
 | MX016 | warning | all | A procedure, function, trigger, package or block whose body has an unmatched `BEGIN`, so it takes in the statements after it | Give every `BEGIN` its `END`, or end the body with `GO`, a `DELIMITER` line or a `/` line |
+| MX017 | warning | SQL Server with `migrax.schemas` | A table without its schema in front lands in the login's default schema, not in each tenant's | Write `${migrax.schema}.<table>` ([several schemas](../guides/advanced-migrations.md#sql-server)) |
 | MX000 | error | all | The migration could not be parsed | Fix the SQL |

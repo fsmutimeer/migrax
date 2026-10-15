@@ -38,18 +38,16 @@ final class MigrationScript {
    * @param historyTable the history table's DDL when it doesn't exist there yet, else null
    * @param failureTable the failure table's DDL when it doesn't exist there yet, else null
    * @param stoppedAt the Java migration the plan stops before, or null
+   * @param history the history table's name in SQL
+   * @param qualified whether the statements name the schema themselves (SQL Server), so the
+   *     script doesn't switch to it
+   * @param statements each SQL migration's statements, placeholders filled in for this schema
    */
   record Part(String schema, List<MigrationRunner.Step> plan, String historyTable,
-              String failureTable, String stoppedAt) {}
+              String failureTable, String stoppedAt, String history, boolean qualified,
+              Map<String, List<String>> statements) {}
 
-  String write(List<MigrationRunner.Step> plan, Map<String, List<String>> statements,
-               Map<String, Migration> callbacks, String historyTable, String failureTable) {
-    return write(List.of(new Part(null, plan, historyTable, failureTable, null)), statements,
-        callbacks);
-  }
-
-  String write(List<Part> parts, Map<String, List<String>> statements,
-               Map<String, Migration> callbacks) {
+  String write(List<Part> parts, Map<String, Migration> callbacks) {
     long applied = parts.stream().flatMap(part -> part.plan().stream())
         .filter(MigrationRunner.Apply.class::isInstance).count();
     if (parts.stream().allMatch(part -> part.plan().isEmpty() && part.stoppedAt() == null)) {
@@ -72,7 +70,7 @@ final class MigrationScript {
       out.append("WHENEVER SQLERROR EXIT FAILURE ROLLBACK\n\n");
     }
     for (Part part : parts) {
-      part(part, statements, callbacks);
+      part(part, callbacks);
     }
     if (tool == Tool.ORACLE) {
       out.append("EXIT\n");
@@ -80,11 +78,14 @@ final class MigrationScript {
     return out.toString();
   }
 
-  private void part(Part part, Map<String, List<String>> statements,
-                    Map<String, Migration> callbacks) {
+  private void part(Part part, Map<String, Migration> callbacks) {
+    Map<String, List<String>> statements = part.statements();
     if (part.schema() != null) {
-      out.append("-- Schema ").append(part.schema()).append('\n')
-          .append(terminated(useSchema(part.schema()))).append('\n');
+      out.append("-- Schema ").append(part.schema()).append('\n');
+      if (!part.qualified()) {
+        out.append(terminated(useSchema(part.schema())));
+      }
+      out.append('\n');
       if (part.plan().isEmpty() && part.stoppedAt() == null) {
         out.append("-- Nothing to migrate in this schema.\n\n");
         return;
@@ -105,11 +106,12 @@ final class MigrationScript {
     section("beforeMigrate.sql", callbacks.get("beforeMigrate.sql"), statements);
     for (MigrationRunner.Step step : plan) {
       if (step instanceof MigrationRunner.Apply apply) {
-        migration(apply, statements, callbacks);
+        migration(apply, part.history(), statements, callbacks);
       } else if (step instanceof MigrationRunner.Record record) {
         out.append("-- ").append(record.version())
             .append(": replaced by a squashed migration, recorded without running\n");
-        out.append(terminated(insert(record.version(), record.checksum())));
+        out.append(terminated(insert(part.history(), record.version(),
+            record.checksum())));
         commitForOracle();
         out.append('\n');
       }
@@ -134,7 +136,8 @@ final class MigrationScript {
     };
   }
 
-  private void migration(MigrationRunner.Apply apply, Map<String, List<String>> statements,
+  private void migration(MigrationRunner.Apply apply, String history,
+                         Map<String, List<String>> statements,
                          Map<String, Migration> callbacks) {
     Migration migration = apply.migration();
     boolean transaction = !SqlScript.hasDirective(migration.sql(), "no-transaction")
@@ -148,10 +151,10 @@ final class MigrationScript {
     statements(migration, statements);
     statements(callbacks.get("afterEachMigrate.sql"), statements);
     if (apply.replaceHistory()) {
-      out.append(terminated("DELETE FROM migrax_history WHERE version=" + literal(
+      out.append(terminated("DELETE FROM " + history + " WHERE version=" + literal(
           migration.version())));
     }
-    out.append(terminated(insert(migration.version(), migration.checksum())));
+    out.append(terminated(insert(history, migration.version(), migration.checksum())));
     if (transaction) {
       out.append(tool == Tool.SQLSERVER ? "COMMIT\nGO\n" : "COMMIT;\n");
     }
@@ -191,8 +194,8 @@ final class MigrationScript {
     };
   }
 
-  private String insert(String version, String checksum) {
-    return "INSERT INTO migrax_history(version,checksum,applied_at) VALUES(" + literal(version)
+  private String insert(String history, String version, String checksum) {
+    return "INSERT INTO " + history + "(version,checksum,applied_at) VALUES(" + literal(version)
         + "," + literal(checksum) + "," + timestamp + ")";
   }
 

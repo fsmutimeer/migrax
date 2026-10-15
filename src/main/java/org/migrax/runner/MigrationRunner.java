@@ -201,8 +201,7 @@ public final class MigrationRunner {
       ensureFailureTable(connection);
       Map<String, Migration> callbacks = callbacks(migrations);
       // Parse every script before running anything, so a broken file changes nothing.
-      Map<String, List<String>> statements =
-          parse(migrations, options, backslashEscapes(connection));
+      Map<String, List<String>> statements = parse(migrations, options, connection);
 
       Map<String, AppliedMigration> history = readHistory(connection);
       verifyAppliedExist(connection, history, migrations, true);
@@ -287,11 +286,11 @@ public final class MigrationRunner {
       }
       parts.add(new MigrationScript.Part(schema, plan,
           historyTable ? null : historyTableDdl(connection),
-          failureTable ? null : failureTableDdl(connection), stoppedAt));
+          failureTable ? null : failureTableDdl(connection), stoppedAt, history(connection),
+          TargetSchema.named(connection) != null, parse(migrations, options, connection)));
     }
     return new MigrationScript(connection.getMetaData().getDatabaseProductName(),
-        scriptTimestamp(connection)).write(parts,
-        parse(migrations, options, backslashEscapes(connection)), callbacks(migrations));
+        scriptTimestamp(connection)).write(parts, callbacks(migrations));
   }
 
   /** One step of a migration run. */
@@ -398,16 +397,33 @@ public final class MigrationRunner {
     return callbacks;
   }
 
+  /** Every SQL migration's statements, with the placeholders filled in for this connection. */
   private static Map<String, List<String>> parse(List<Migration> migrations, Options options,
-                                                 boolean backslashEscapes) {
+                                                 Connection connection) throws SQLException {
+    boolean backslashEscapes = backslashEscapes(connection);
+    Map<String, String> placeholders = placeholders(connection, options);
     Map<String, List<String>> statements = new HashMap<>();
     for (Migration migration : migrations) {
       if (!migration.isJava()) {
         statements.put(migration.version(), SqlScript.split(
-            SqlScript.substitute(migration.sql(), options.placeholders()), backslashEscapes));
+            SqlScript.substitute(migration.sql(), placeholders), backslashEscapes));
       }
     }
     return statements;
+  }
+
+  /**
+   * The placeholders of the options, plus {@code ${migrax.schema}}: the schema the connection
+   * migrates, unless the options set it themselves.
+   */
+  private static Map<String, String> placeholders(Connection connection, Options options) {
+    String schema = TargetSchema.current(connection);
+    if (schema == null || options.placeholders().containsKey(TargetSchema.PLACEHOLDER)) {
+      return options.placeholders();
+    }
+    Map<String, String> placeholders = new HashMap<>(options.placeholders());
+    placeholders.put(TargetSchema.PLACEHOLDER, schema);
+    return placeholders;
   }
 
   private void applyMigration(Connection connection, Migration migration,
@@ -537,7 +553,7 @@ public final class MigrationRunner {
           rollback.java().rollback(connection);
         } else {
           List<String> commands = SqlScript.split(
-              SqlScript.substitute(rollback.sql(), options.placeholders()),
+              SqlScript.substitute(rollback.sql(), placeholders(connection, options)),
               backslashEscapes(connection));
           if (SqlScript.hasDirective(rollback.sql(), "no-transaction")) {
             connection.commit();
@@ -552,7 +568,8 @@ public final class MigrationRunner {
           }
         }
         try (PreparedStatement delete =
-                 connection.prepareStatement("DELETE FROM migrax_history WHERE version=?")) {
+                 connection.prepareStatement(
+                     "DELETE FROM " + history(connection) + " WHERE version=?")) {
           delete.setString(1, version);
           delete.executeUpdate();
         }
@@ -611,7 +628,7 @@ public final class MigrationRunner {
     if (historyTableExists(connection, "migrax_failures")) {
       try (Statement statement = connection.createStatement();
            ResultSet result = statement.executeQuery(
-               "SELECT version, failure_state, failure_message FROM migrax_failures")) {
+               "SELECT version, failure_state, failure_message FROM " + failures(connection))) {
         while (result.next()) {
           failures.put(result.getString(1),
               new String[]{result.getString(2), result.getString(3)});
@@ -753,12 +770,14 @@ public final class MigrationRunner {
       ensureFailureTable(connection);
       int removed;
       try (PreparedStatement delete =
-               connection.prepareStatement("DELETE FROM migrax_history WHERE version=?")) {
+               connection.prepareStatement(
+                   "DELETE FROM " + history(connection) + " WHERE version=?")) {
         delete.setString(1, version);
         removed = delete.executeUpdate();
       }
       try (PreparedStatement delete =
-               connection.prepareStatement("DELETE FROM migrax_failures WHERE version=?")) {
+               connection.prepareStatement(
+                   "DELETE FROM " + failures(connection) + " WHERE version=?")) {
         delete.setString(1, version);
         removed += delete.executeUpdate();
       }
@@ -794,7 +813,8 @@ public final class MigrationRunner {
     Set<String> recorded = new LinkedHashSet<>(history.keySet());
     if (failureTable) {
       try (Statement statement = connection.createStatement();
-           ResultSet result = statement.executeQuery("SELECT version FROM migrax_failures")) {
+           ResultSet result = statement.executeQuery(
+               "SELECT version FROM " + failures(connection))) {
         while (result.next()) {
           recorded.add(result.getString(1));
         }
@@ -835,7 +855,7 @@ public final class MigrationRunner {
     migrations.forEach(m -> available.put(m.version(), m));
     try (Statement statement = connection.createStatement();
          ResultSet result = statement.executeQuery(
-             "SELECT version, checksum, failure_state FROM migrax_failures")) {
+             "SELECT version, checksum, failure_state FROM " + failures(connection))) {
       while (result.next()) {
         Migration migration = available.get(result.getString(1));
         if (migration != null) {
@@ -853,7 +873,7 @@ public final class MigrationRunner {
     Map<String, AppliedMigration> history = new LinkedHashMap<>();
     try (Statement statement = connection.createStatement();
          ResultSet result = statement.executeQuery(
-             "SELECT version, checksum, applied_at FROM migrax_history")) {
+             "SELECT version, checksum, applied_at FROM " + history(connection))) {
       while (result.next()) {
         java.sql.Timestamp appliedAt = result.getTimestamp(3);
         history.put(result.getString(1), new AppliedMigration(result.getString(1),
@@ -868,13 +888,14 @@ public final class MigrationRunner {
                                     boolean replace) throws SQLException {
     if (replace) {
       try (PreparedStatement delete =
-               connection.prepareStatement("DELETE FROM migrax_history WHERE version=?")) {
+               connection.prepareStatement(
+                   "DELETE FROM " + history(connection) + " WHERE version=?")) {
         delete.setString(1, version);
         delete.executeUpdate();
       }
     }
     try (PreparedStatement insert = connection.prepareStatement(
-        "INSERT INTO migrax_history(version,checksum,applied_at) "
+        "INSERT INTO " + history(connection) + "(version,checksum,applied_at) "
             + "VALUES(?,?," + currentTimestamp(connection) + ")")) {
       insert.setString(1, version);
       insert.setString(2, checksum);
@@ -898,14 +919,24 @@ public final class MigrationRunner {
     }
   }
 
+  /** The history table's name in SQL, in the schema set with {@link TargetSchema#use}. */
+  private static String history(Connection connection) {
+    return TargetSchema.table(connection, "migrax_history");
+  }
+
+  /** The failure table's name in SQL, in the schema set with {@link TargetSchema#use}. */
+  private static String failures(Connection connection) {
+    return TargetSchema.table(connection, "migrax_failures");
+  }
+
   private static String historyTableDdl(Connection connection) throws SQLException {
-    return "CREATE TABLE migrax_history (version VARCHAR(255) PRIMARY KEY, "
+    return "CREATE TABLE " + history(connection) + " (version VARCHAR(255) PRIMARY KEY, "
         + "checksum VARCHAR(64) NOT NULL, "
         + "applied_at " + timestampType(connection) + " NOT NULL)";
   }
 
   private static String failureTableDdl(Connection connection) throws SQLException {
-    return "CREATE TABLE migrax_failures (version VARCHAR(255) PRIMARY KEY, "
+    return "CREATE TABLE " + failures(connection) + " (version VARCHAR(255) PRIMARY KEY, "
         + "checksum VARCHAR(64) NOT NULL, failure_state VARCHAR(16) NOT NULL, "
         + "attempt_count INTEGER NOT NULL, failure_message VARCHAR(2000), "
         + "updated_at " + timestampType(connection) + " NOT NULL)";
@@ -925,6 +956,10 @@ public final class MigrationRunner {
   }
 
   private static String currentSchema(Connection connection) {
+    String named = TargetSchema.named(connection);
+    if (named != null) {
+      return named;
+    }
     try {
       String schema = connection.getSchema();
       return schema == null || schema.isBlank() ? null : schema;
@@ -990,7 +1025,7 @@ public final class MigrationRunner {
   private static FailureRecord findFailure(Connection connection, String version)
       throws SQLException {
     try (PreparedStatement query = connection.prepareStatement(
-        "SELECT checksum, failure_state FROM migrax_failures WHERE version=?")) {
+        "SELECT checksum, failure_state FROM " + failures(connection) + " WHERE version=?")) {
       query.setString(1, version);
       try (ResultSet result = query.executeQuery()) {
         return result.next() ? new FailureRecord(result.getString(1), result.getString(2)) : null;
@@ -1009,7 +1044,7 @@ public final class MigrationRunner {
       Connection connection, String version, String checksum, String state, String message)
       throws SQLException {
     try (PreparedStatement update = connection.prepareStatement(
-        "UPDATE migrax_failures SET checksum=?, failure_state=?, "
+        "UPDATE " + failures(connection) + " SET checksum=?, failure_state=?, "
             + "attempt_count=attempt_count+?, failure_message=?, "
             + "updated_at=" + currentTimestamp(connection) + " WHERE version=?")) {
       update.setString(1, checksum);
@@ -1019,7 +1054,7 @@ public final class MigrationRunner {
       update.setString(5, version);
       if (update.executeUpdate() == 0) {
         try (PreparedStatement insert = connection.prepareStatement(
-            "INSERT INTO migrax_failures(version,checksum,failure_state,attempt_count,"
+            "INSERT INTO " + failures(connection) + "(version,checksum,failure_state,attempt_count,"
                 + "failure_message,updated_at) VALUES(?,?,?,?,?,"
                 + currentTimestamp(connection) + ")")) {
           insert.setString(1, version);
@@ -1035,7 +1070,8 @@ public final class MigrationRunner {
 
   private static void deleteFailure(Connection connection, String version) throws SQLException {
     try (PreparedStatement delete =
-             connection.prepareStatement("DELETE FROM migrax_failures WHERE version=?")) {
+             connection.prepareStatement(
+                 "DELETE FROM " + failures(connection) + " WHERE version=?")) {
       delete.setString(1, version);
       delete.executeUpdate();
     }
