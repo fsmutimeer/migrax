@@ -6,6 +6,17 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-15
+
+Every rollback script tested on its own, and Oracle 23ai support.
+
+### Changed
+
+- `verify` tests every rollback script on its own: it rolls the migration back, applies it
+  again and checks that the schema is the same, and it names the script when that fails.
+  Before, it only checked the end result, which missed a script that left something behind
+  when an older script removed it anyway (an index on a table dropped later).
+
 ### Fixed
 
 - On Oracle 23ai, `boolean` fields become `boolean` columns, as Hibernate expects there,
@@ -17,13 +28,8 @@ All notable changes to Migrax are listed here. The format follows
   Oracle XE 21 otherwise, with its own user instead of `system`.
 - `verify` on Oracle no longer reports Hibernate's temporary tables (`hte_...`) as left
   behind after rolling everything back: schema validation doesn't create them anymore.
-
-### Changed
-
-- `verify` tests every rollback script on its own: it rolls the migration back, applies it
-  again and checks that the schema is the same, and it names the script when that fails.
-  Before, it only checked the end result, which missed a script that left something behind
-  when an older script removed it anyway (an index on a table dropped later).
+- With Oracle's JDBC driver 23, a failed connection no longer prints the driver's trace (a
+  stack trace with the `PATH` and Java settings) to the console; `--verbose` still shows it.
 
 ## [0.8.0] - 2026-10-15
 
@@ -562,7 +568,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/fsmutimeer/migrax/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/fsmutimeer/migrax/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/fsmutimeer/migrax/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/fsmutimeer/migrax/compare/v0.6.0...v0.6.1
