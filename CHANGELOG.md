@@ -10,6 +10,9 @@ All notable changes to Migrax are listed here. The format follows
 
 - Hibernate 4.0 and 4.1 projects are read through Hibernate's own mapping, like 4.2 and newer,
   and `verify` has them validate the schema. Both versions are tested on every change.
+- Install with Homebrew on macOS and Linux (`brew install fsmutimeer/migrax/migrax`) or with
+  Scoop on Windows (`scoop bucket add migrax https://github.com/fsmutimeer/scoop-migrax`, then
+  `scoop install migrax`). Every stable release updates both.
 
 ### Changed
 

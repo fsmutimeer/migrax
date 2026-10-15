@@ -54,7 +54,13 @@ Successfully applied migration '0002_add_customers_phone.sql'.
 
 ## Install
 
-Java 17 or newer is required. Download the ZIP from the
+```bash
+brew install fsmutimeer/migrax/migrax                                  # macOS and Linux (Homebrew)
+scoop bucket add migrax https://github.com/fsmutimeer/scoop-migrax     # Windows (Scoop)
+scoop install migrax
+```
+
+Or, with Java 17 or newer, download the ZIP from the
 [Download page](https://migrax.org/download/) (or build with `mvn install`), extract
 it, then run the installer from that folder:
 
