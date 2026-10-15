@@ -5,7 +5,7 @@
   <!-- Gradle plugin marker: lets plugins { id("org.migrax") version "0.1.0" } find the plugin. -->
   <groupId>org.migrax</groupId>
   <artifactId>org.migrax.gradle.plugin</artifactId>
-  <version>0.8.0</version>
+  <version>0.8.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Migrax Gradle plugin marker</name>
 
@@ -13,7 +13,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax-gradle-plugin</artifactId>
-      <version>0.8.0</version>
+      <version>0.8.1-SNAPSHOT</version>
     </dependency>
   </dependencies>
 </project>
