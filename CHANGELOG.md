@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The Migrax GitHub Action uses `actions/setup-java@v6` and `actions/github-script@v8`, which
+  run on Node 24, so workflows that use it no longer show Node 20 deprecation warnings.
+
 ## [0.7.0] - 2026-10-15
 
 The 0.7 release removes three more limitations: `--schemas` works on SQL Server, `--keep-data`
