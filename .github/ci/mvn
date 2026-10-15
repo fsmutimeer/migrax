@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Runs the real Maven, and runs it once more with -U when it failed to download something.
+# Maven Central sometimes answers "not found" for files it has; Maven then remembers that
+# answer, so a plain second try would fail the same way. Real build failures are not retried.
+set -uo pipefail
+
+self_dir=$(cd -- "$(dirname -- "$0")" && pwd)
+real=""
+IFS=: read -ra dirs <<< "$PATH"
+for dir in "${dirs[@]}"; do
+  if [ "$dir" != "$self_dir" ] && [ -x "$dir/mvn" ]; then
+    real="$dir/mvn"
+    break
+  fi
+done
+if [ -z "$real" ]; then
+  echo "mvn: Maven was not found on the PATH" >&2
+  exit 127
+fi
+
+log=$(mktemp)
+trap 'rm -f "$log"' EXIT
+"$real" "$@" 2>&1 | tee "$log"
+status=${PIPESTATUS[0]}
+if [ "$status" -ne 0 ] && grep -qE "Could not (find|transfer) artifact|could not be resolved" "$log"; then
+  echo "mvn: a download from the Maven repository failed; trying once more with -U" >&2
+  "$real" -U "$@"
+  status=$?
+fi
+exit "$status"

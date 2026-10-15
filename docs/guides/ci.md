@@ -25,7 +25,7 @@ jobs:
   migrax:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: fsmutimeer/migrax@v0.7.0
         with:
           working-directory: .          # folder with pom.xml or build.gradle

@@ -1,4 +1,4 @@
-git # Migrax
+# Migrax
 
 [![CI](https://github.com/fsmutimeer/migrax/actions/workflows/ci.yml/badge.svg)](https://github.com/fsmutimeer/migrax/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/fsmutimeer/migrax?sort=semver)](https://github.com/fsmutimeer/migrax/releases)
@@ -38,7 +38,7 @@ Successfully applied migration '0002_add_customers_phone.sql'.
 - **Rollback included.** Every generated migration has a rollback script, and `verify` proves it
   works.
 - **Checked before production.** `lint` finds statements that lock tables or break running
-  instances, `verify` has Hibernate validate the result, and `drift` catches manual changes.
+  instances, `verify` checks the result against your mapping, and `drift` catches manual changes.
 - **Zero setup.** Run it in your service folder; it builds the project and reads the database
   settings your application already has.
 
