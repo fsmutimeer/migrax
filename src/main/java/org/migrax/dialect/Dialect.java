@@ -203,7 +203,7 @@ public interface Dialect {
    * the server when it can reach it. The default is {@code false}.
    *
    * @return {@code true} to have {@link #forServer} called with the server's version
-   * @since 0.8.1
+   * @since 0.9.0
    */
   default boolean dependsOnServerVersion() {
     return false;
@@ -215,7 +215,7 @@ public interface Dialect {
    * @param major the server's major version
    * @param minor the server's minor version
    * @return the dialect to use for that server
-   * @since 0.8.1
+   * @since 0.9.0
    */
   default Dialect forServer(int major, int minor) {
     return this;
@@ -226,7 +226,7 @@ public interface Dialect {
    * has the column types it uses on that server. Empty unless the version is known.
    *
    * @return the settings, possibly empty
-   * @since 0.8.1
+   * @since 0.9.0
    */
   default java.util.Map<String, String> serverSettings() {
     return java.util.Map.of();
@@ -238,7 +238,7 @@ public interface Dialect {
    * the SQL depends on it and the version is known.
    *
    * @return the version, or null
-   * @since 0.8.1
+   * @since 0.9.0
    */
   default String serverVersion() {
     return null;
@@ -249,7 +249,7 @@ public interface Dialect {
    * default one.
    *
    * @return an image name, or null
-   * @since 0.8.1
+   * @since 0.9.0
    */
   default String scratchImage() {
     return null;

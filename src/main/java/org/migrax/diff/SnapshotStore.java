@@ -44,7 +44,7 @@ public final class SnapshotStore {
    * Saves the snapshot with the dialect, naming strategy and database server version it was
    * generated with.
    *
-   * @since 0.8.1
+   * @since 0.9.0
    */
   public static void save(Path path, SchemaModel model, String dialect, String naming,
                           String server) throws Exception {
@@ -81,7 +81,7 @@ public final class SnapshotStore {
   /**
    * Database server version recorded in the snapshot ({@code major.minor}), or null.
    *
-   * @since 0.8.1
+   * @since 0.9.0
    */
   public static String server(Path path) {
     try {
