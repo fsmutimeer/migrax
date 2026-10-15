@@ -1,4 +1,4 @@
-# Hibernate versions
+# JPA providers
 
 With Hibernate 4.2 or newer in your project, Migrax asks **your Hibernate version itself** for
 the mapping, without connecting to a database. The generated schema is therefore exactly what

@@ -47,14 +47,16 @@ Nothing is hidden: you can edit every statement before it runs.
     ---
 
     Change an entity, run `migrax generate`. Tables, columns, keys, indexes, join tables,
-    element collections, sequences and inheritance come out exactly as Hibernate maps them.
+    element collections, sequences and inheritance come out exactly as your Hibernate,
+    EclipseLink or OpenJPA maps them.
 
 -   :material-shield-check:{ .lg .middle } __Checked before production__
 
     ---
 
     Every migration is linted for statements that lock big tables, fail on existing rows or
-    break running instances. `migrax verify` has your Hibernate version validate the result.
+    break running instances. `migrax verify` checks the result against your mapping, and
+    Hibernate validates it itself.
 
 -   :material-undo-variant:{ .lg .middle } __Rollback included__
 
@@ -92,7 +94,7 @@ Nothing is hidden: you can edit every statement before it runs.
 <div class="mx-stack mx-reveal" markdown>
 
 <div class="mx-stack__row"><span class="mx-stack__label">Frameworks</span><span class="mx-chip">Spring Boot</span><span class="mx-chip">Quarkus</span><span class="mx-chip">Micronaut 4 and 5</span><span class="mx-chip">Helidon 4</span><span class="mx-chip">Jakarta EE</span><span class="mx-chip">Plain Hibernate</span></div>
-<div class="mx-stack__row"><span class="mx-stack__label">Hibernate</span><span class="mx-chip">5.4 to 7.4, each version reading its own mapping</span></div>
+<div class="mx-stack__row"><span class="mx-stack__label">JPA providers</span><span class="mx-chip">Hibernate 4.2 to 7.4</span><span class="mx-chip">EclipseLink 2.7 to 4.0</span><span class="mx-chip">OpenJPA 3.2 and 4.1</span><span class="mx-chip">each read through its own mapping</span></div>
 <div class="mx-stack__row"><span class="mx-stack__label">Databases</span><span class="mx-chip">PostgreSQL</span><span class="mx-chip">CockroachDB</span><span class="mx-chip">MySQL 8</span><span class="mx-chip">MariaDB</span><span class="mx-chip">SQL Server</span><span class="mx-chip">Oracle 12c+</span><span class="mx-chip">H2</span><span class="mx-chip">SQLite</span></div>
 <div class="mx-stack__row"><span class="mx-stack__label">Run it from</span><span class="mx-chip">Command line</span><span class="mx-chip">Maven plugin</span><span class="mx-chip">Gradle plugin</span><span class="mx-chip">Application startup</span></div>
 
