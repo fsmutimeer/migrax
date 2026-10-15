@@ -22,6 +22,8 @@ import java.util.Map;
 public final class ModelExtractor {
   private static final String ADAPTER_PACKAGE = "org.migrax.orm.";
   private static final String READER = "org.migrax.orm.HibernateSchemaReader";
+  /** Hibernate 4.2 and 4.3 build their mapping with Configuration, not Metadata. */
+  private static final String HIBERNATE4_READER = "org.migrax.orm.Hibernate4SchemaReader";
   private static final String ECLIPSELINK_READER = "org.migrax.orm.EclipseLinkSchemaReader";
   private static final String OPENJPA_READER = "org.migrax.orm.OpenJpaSchemaReader";
 
@@ -32,7 +34,7 @@ public final class ModelExtractor {
      * project has one of them, else annotation scanning.
      */
     AUTO,
-    /** Hibernate's mapping only; fails if Hibernate 5 or newer is unavailable. */
+    /** Hibernate's mapping only; fails if Hibernate 4.2 or newer is unavailable. */
     HIBERNATE,
     /** EclipseLink's mapping only; fails if EclipseLink is unavailable (since 0.6.0). */
     ECLIPSELINK,
@@ -119,7 +121,7 @@ public final class ModelExtractor {
                 explain(e, version));
           }
         } else if (mode == Mode.HIBERNATE) {
-          throw new IllegalStateException("Hibernate 5 or newer is not on the project "
+          throw new IllegalStateException("Hibernate 4.2 or newer is not on the project "
               + "classpath" + (version == null ? "" : " (found " + version + ")") + ".");
         }
       }
@@ -133,18 +135,18 @@ public final class ModelExtractor {
   }
 
   /**
-   * True when Migrax can read this Hibernate version's own mapping: 5.0 and newer. Earlier
+   * True when Migrax can read this Hibernate version's own mapping: 4.2 and newer. Earlier
    * versions are read by scanning annotations.
    */
   public static boolean readsMapping(String version) {
-    return version != null
-        && (version.matches("^[6-9]\\..*") || version.matches("^5\\.\\d+\\..*"));
+    return version != null && (version.matches("^[6-9]\\..*")
+        || version.matches("^5\\.\\d+\\..*") || version.matches("^4\\.[23]\\..*"));
   }
 
-  /** The persistence API this Hibernate maps: javax for Hibernate 5, jakarta after. */
+  /** The persistence API this Hibernate maps: javax up to Hibernate 5, jakarta after. */
   public static String persistencePackage(String version) {
-    return version != null && version.startsWith("5.") ? "javax.persistence"
-        : "jakarta.persistence";
+    return version != null && (version.startsWith("5.") || version.startsWith("4."))
+        ? "javax.persistence" : "jakarta.persistence";
   }
 
   /** True when every entity uses the persistence API that the Hibernate version maps. */
@@ -237,13 +239,14 @@ public final class ModelExtractor {
     }
     String version = hibernateVersion(loader);
     if (!matchingEntities(loader, basePackage, version)) {
-      // Hibernate 5 maps only javax.persistence entities, Hibernate 6+ only jakarta ones.
+      // Hibernate 4 and 5 map only javax.persistence entities, Hibernate 6+ only jakarta ones.
       throw new IllegalStateException("Not every entity uses " + persistencePackage(version)
           + ", which Hibernate " + version + " requires.");
     }
     classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "Converter"));
     ClassLoader adapterLoader = new AdapterClassLoader(loader);
-    Class<?> reader = adapterLoader.loadClass(READER);
+    Class<?> reader = adapterLoader.loadClass(version.startsWith("4.") ? HIBERNATE4_READER
+        : READER);
     Object instance = reader.getConstructor().newInstance();
     try {
       return (SchemaModel) reader.getMethod("read", List.class, Map.class, NamingStrategy.class,
@@ -270,7 +273,7 @@ public final class ModelExtractor {
                                              String user, String password) throws Exception {
     String version = hibernateVersion(loader);
     if (!readsMapping(version)) {
-      throw new IllegalStateException("Hibernate 5 or newer is not on the project classpath.");
+      throw new IllegalStateException("Hibernate 4.2 or newer is not on the project classpath.");
     }
     Thread thread = Thread.currentThread();
     ClassLoader previous = thread.getContextClassLoader();
@@ -278,8 +281,8 @@ public final class ModelExtractor {
     try {
       List<Class<?>> classes = new ArrayList<>(JpaExtractor.scanEntities(loader, basePackage));
       classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "Converter"));
-      Class<?> validator = new AdapterClassLoader(loader)
-          .loadClass("org.migrax.orm.HibernateSchemaValidator");
+      Class<?> validator = new AdapterClassLoader(loader).loadClass(version.startsWith("4.")
+          ? HIBERNATE4_READER : "org.migrax.orm.HibernateSchemaValidator");
       Object instance = validator.getConstructor().newInstance();
       return (String) validator.getMethod("validate", List.class, Map.class,
           NamingStrategy.class, Dialect.class, String.class, String.class, String.class)

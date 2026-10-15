@@ -396,6 +396,11 @@ public final class ProjectDatabaseConfig {
     copy(config, settings, "quarkus.hibernate-orm.mapping.naming.implicit-strategy",
         "hibernate.implicit_naming_strategy");
     copy(config, settings, "spring.jpa.database-platform", "hibernate.dialect");
+    // Spring Boot 1 with Hibernate 4.
+    copy(config, settings, "spring.jpa.hibernate.naming-strategy",
+        "hibernate.ejb.naming_strategy");
+    copy(config, settings, "spring.jpa.hibernate.naming_strategy",
+        "hibernate.ejb.naming_strategy");
     settings.keySet().removeIf(key -> key.startsWith("hibernate.connection.")
         || key.startsWith("jakarta.persistence.jdbc.") || key.startsWith("javax.persistence.jdbc.")
         || key.startsWith("hibernate.hbm2ddl") || key.contains("schema-generation")

@@ -14,6 +14,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import static org.migrax.orm.HibernateMapping.call;
+import static org.migrax.orm.HibernateMapping.constraintName;
+import static org.migrax.orm.HibernateMapping.generatedName;
+import static org.migrax.orm.HibernateMapping.logicalType;
+import static org.migrax.orm.HibernateMapping.normalize;
+import static org.migrax.orm.HibernateMapping.text;
+
 import org.hibernate.boot.Metadata;
 import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.model.relational.Namespace;
@@ -60,8 +67,6 @@ public final class HibernateSchemaReader {
   /** List order columns: Hibernate 7 checks that they are not negative. */
   private final java.util.Set<Column> orderColumns =
       java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-
-  private static final Pattern GENERATED_NAME = Pattern.compile("(?i)(FK|UK|IDX)[0-9a-z]{15,}");
 
   /** Hibernate dialect class per Migrax dialect id. */
   private static final Map<String, String> DIALECTS = Map.of(
@@ -257,7 +262,7 @@ public final class HibernateSchemaReader {
       String keyName = table.getPrimaryKey().getName();
       primaryKey = new SchemaModel.PrimaryKey(
           table.getPrimaryKey().getColumns().stream().map(Column::getName).toList(),
-          keyName == null || GENERATED_NAME.matcher(keyName).matches()
+          keyName == null || generatedName(keyName)
               ? SchemaModel.primaryKeyConstraintName(name) : keyName);
     }
 
@@ -374,9 +379,6 @@ public final class HibernateSchemaReader {
     }
   }
 
-  private static String text(Object value) {
-    return value instanceof String text && !text.isBlank() ? text : null;
-  }
 
   private SchemaModel.Column convert(Column column, Metadata metadata, Dialect dialect,
                                      boolean unique) {
@@ -426,42 +428,8 @@ public final class HibernateSchemaReader {
         comment);
   }
 
-  private static String normalize(String type) {
-    return type.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ")
-        .replace(" (", "(").replace(", ", ",").trim();
-  }
 
-  /** Readable Migrax-style name instead of Hibernate's hashed FK/UK/IDX names. */
-  private static String constraintName(String name, String readable) {
-    if (name == null || name.isBlank() || GENERATED_NAME.matcher(name).matches()) {
-      return SchemaModel.boundedName(readable.toLowerCase(Locale.ROOT));
-    }
-    return name;
-  }
 
-  private static String logicalType(int code) {
-    return switch (code) {
-      case 12, 1 -> "varchar";
-      case -9, -15 -> "nvarchar";
-      case -1, -16, 4001, 4002 -> "text";
-      case 2005, 2011, 3005, 3006 -> "clob";
-      case 4, 5, -6 -> "integer";
-      case -5 -> "bigint";
-      case 16, -7 -> "boolean";
-      case 2, 3 -> "decimal";
-      case 8 -> "double";
-      case 6, 7 -> "float";
-      case 91 -> "date";
-      case 92, 2013 -> "time";
-      case 93 -> "timestamp";
-      case 2014, 3003 -> "timestamptz";
-      case -2, -3, -4, 4003 -> "varbinary";
-      case 2004, 3004 -> "blob";
-      case 3000 -> "uuid";
-      case 3001, 3018 -> "json";
-      default -> "other";
-    };
-  }
 
   // ------------------------------------------------------------------ bean validation
 
@@ -702,34 +670,6 @@ public final class HibernateSchemaReader {
     return type != null ? (String) type : (String) call(column, "getSqlType", dialect, metadata);
   }
 
-  /**
-   * Calls a public method whose parameters accept {@code args}; returns null when this
-   * Hibernate version has no such method.
-   */
-  private static Object call(Object target, String name, Object... args) {
-    for (java.lang.reflect.Method method : target.getClass().getMethods()) {
-      if (!method.getName().equals(name) || method.getParameterCount() != args.length) {
-        continue;
-      }
-      boolean fits = true;
-      for (int i = 0; i < args.length; i++) {
-        fits &= args[i] != null && method.getParameterTypes()[i].isInstance(args[i]);
-      }
-      if (fits) {
-        try {
-          return method.invoke(target, args);
-        } catch (java.lang.reflect.InvocationTargetException e) {
-          if (e.getCause() instanceof RuntimeException runtime) {
-            throw runtime;
-          }
-          throw new IllegalStateException(e.getCause());
-        } catch (IllegalAccessException e) {
-          throw new IllegalStateException(e);
-        }
-      }
-    }
-    return null;
-  }
 
   /** Column.isIdentity() exists from Hibernate 6.4 on; null before. */
   private static final java.lang.reflect.Method COLUMN_IS_IDENTITY = isIdentityMethod();
