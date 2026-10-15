@@ -27,9 +27,60 @@ public final class OracleDialect extends AbstractDialect {
       "start", "successful", "synonym", "sysdate", "trigger", "uid", "validate", "varchar",
       "varchar2", "view", "whenever");
 
+  /** Oracle 23ai has a boolean type, which Hibernate uses there. */
+  private static final int NATIVE_BOOLEAN = 23;
+
+  /** The server's version, or null when unknown. */
+  private final Integer major;
+  private final Integer minor;
+
+  /** The dialect for a server of unknown version: booleans are {@code number(1,0)}. */
+  public OracleDialect() {
+    this(null, null);
+  }
+
+  private OracleDialect(Integer major, Integer minor) {
+    this.major = major;
+    this.minor = minor;
+  }
+
   @Override
   public String id() {
     return "oracle";
+  }
+
+  @Override
+  public boolean dependsOnServerVersion() {
+    return true;
+  }
+
+  @Override
+  public Dialect forServer(int major, int minor) {
+    return new OracleDialect(major, minor);
+  }
+
+  @Override
+  public java.util.Map<String, String> serverSettings() {
+    return major == null ? java.util.Map.of() : java.util.Map.of(
+        "jakarta.persistence.database-product-name", "Oracle",
+        "jakarta.persistence.database-major-version", String.valueOf(major),
+        "jakarta.persistence.database-minor-version", String.valueOf(minor));
+  }
+
+  @Override
+  public String serverVersion() {
+    return major == null ? null : major + "." + minor;
+  }
+
+  /** Oracle 23ai for a 23ai project; Oracle XE 21 otherwise, which has no boolean type. */
+  @Override
+  public String scratchImage() {
+    return nativeBoolean() ? "gvenzl/oracle-free:slim-faststart"
+        : "gvenzl/oracle-xe:21-slim-faststart";
+  }
+
+  private boolean nativeBoolean() {
+    return major != null && major >= NATIVE_BOOLEAN;
   }
 
   @Override
@@ -51,7 +102,7 @@ public final class OracleDialect extends AbstractDialect {
       case "varbinary" -> "raw(" + length(c) + ")";
       case "integer" -> "number(10,0)";
       case "bigint" -> "number(19,0)";
-      case "boolean" -> "number(1,0)";
+      case "boolean" -> nativeBoolean() ? "boolean" : "number(1,0)";
       case "decimal" -> numeric("number", c, "number(38,2)");
       case "double" -> "float(53)";
       case "float" -> "float(24)";

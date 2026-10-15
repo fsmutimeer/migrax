@@ -33,9 +33,21 @@ public final class Json {
    * @param naming naming strategy id the snapshot was generated with, or null
    */
   public static String write(SchemaModel m, String dialect, String naming) {
+    return write(m, dialect, naming, null);
+  }
+
+  /**
+   * @param dialect dialect the snapshot was generated for, or null
+   * @param naming naming strategy id the snapshot was generated with, or null
+   * @param server database server version the SQL was written for, or null
+   */
+  public static String write(SchemaModel m, String dialect, String naming, String server) {
     StringBuilder b = new StringBuilder("{").append(NL);
     if (dialect != null) {
       b.append("  \"dialect\": ").append(q(dialect)).append(",").append(NL);
+    }
+    if (server != null) {
+      b.append("  \"server\": ").append(q(server)).append(",").append(NL);
     }
     if (naming != null) {
       b.append("  \"naming\": ").append(q(naming)).append(",").append(NL);
@@ -184,8 +196,13 @@ public final class Json {
 
   public static void write(Path p, SchemaModel m, String dialect, String naming)
       throws Exception {
+    write(p, m, dialect, naming, null);
+  }
+
+  public static void write(Path p, SchemaModel m, String dialect, String naming, String server)
+      throws Exception {
     Files.createDirectories(p.getParent());
-    Files.writeString(p, write(m, dialect, naming));
+    Files.writeString(p, write(m, dialect, naming, server));
   }
 
   public static SchemaModel read(Path p) throws Exception {

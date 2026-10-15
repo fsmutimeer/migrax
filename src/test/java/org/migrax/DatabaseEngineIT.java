@@ -41,6 +41,9 @@ class DatabaseEngineIT {
         database("SQL Server 2022", () -> new MSSQLServerContainer<>(
             "mcr.microsoft.com/mssql/server:2022-latest").acceptLicense()),
         database("Oracle XE 21", () -> new OracleContainer("gvenzl/oracle-xe:21-slim-faststart")),
+        // Oracle 23ai has a boolean type, which Hibernate uses there.
+        database("Oracle Free 23ai", () -> new org.testcontainers.oracle.OracleContainer(
+            "gvenzl/oracle-free:23-slim-faststart")),
         database("CockroachDB 24.3", () -> new CockroachContainer(
             "cockroachdb/cockroach:v24.3.11")),
         DynamicTest.dynamicTest("SQLite", () -> {
@@ -77,8 +80,8 @@ class DatabaseEngineIT {
     return DynamicTest.dynamicTest(name, () -> {
       try (JdbcDatabaseContainer<?> container = createContainer.get()) {
         container.start();
-        if (container instanceof OracleContainer oracle) {
-          grantOracleLockPermission(oracle);
+        if (container.getDockerImageName().contains("gvenzl/oracle")) {
+          grantOracleLockPermission(container);
         }
         exerciseRunner(Database.of(container));
         exerciseGeneratedSchema(Database.of(container));
@@ -93,7 +96,8 @@ class DatabaseEngineIT {
     });
   }
 
-  private static void grantOracleLockPermission(OracleContainer container) throws Exception {
+  private static void grantOracleLockPermission(JdbcDatabaseContainer<?> container)
+      throws Exception {
     String username = container.getUsername().toUpperCase(java.util.Locale.ROOT);
     java.util.Properties properties = new java.util.Properties();
     properties.setProperty("user", "sys");

@@ -109,6 +109,26 @@ class DialectTest {
   }
 
   /** Hibernate writes names unquoted, so Migrax does too; the database folds both alike. */
+  @Test void oracle23aiBooleansUseTheBooleanType() {
+    SchemaModel.Column flag = column("active", "boolean", false, null);
+    Dialect unknown = new OracleDialect();
+    assertTrue(unknown.dependsOnServerVersion());
+    assertEquals("number(1,0)", unknown.columnType(flag));
+    assertEquals(java.util.Map.of(), unknown.serverSettings());
+    assertEquals("number(1,0)", unknown.forServer(21, 3).columnType(flag));
+    assertEquals("gvenzl/oracle-xe:21-slim-faststart", unknown.forServer(21, 3).scratchImage());
+
+    Dialect oracle23 = unknown.forServer(23, 26);
+    assertEquals("boolean", oracle23.columnType(flag));
+    assertEquals("23", oracle23.serverSettings().get("jakarta.persistence.database-major-version"));
+    assertEquals("gvenzl/oracle-free:slim-faststart", oracle23.scratchImage());
+    assertEquals("oracle", oracle23.id());
+
+    Dialect postgres = new PostgresDialect();
+    assertFalse(postgres.dependsOnServerVersion());
+    assertSame(postgres, postgres.forServer(16, 4));
+  }
+
   @Test void writesPlainIdentifiersUnquotedAndQuotesReservedWords() {
     var plain = new AddColumn("users", column("display_name", "varchar", true, 100));
     assertEquals("ALTER TABLE users ADD COLUMN display_name varchar(100)",
