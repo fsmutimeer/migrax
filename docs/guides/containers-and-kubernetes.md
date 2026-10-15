@@ -12,7 +12,7 @@ or build is needed.
 ## The container image
 
 ```
-ghcr.io/fsmutimeer/migrax:0.8.0
+ghcr.io/fsmutimeer/migrax:0.9.0
 ```
 
 It has Java, Migrax and these JDBC drivers: PostgreSQL (also for CockroachDB), MariaDB (also
@@ -24,7 +24,7 @@ $ docker run --rm -v "$PWD/src/main/resources/db/migration:/migrations:ro" \
     -e MIGRAX_DATABASE_URL=jdbc:postgresql://db:5432/shop \
     -e MIGRAX_DATABASE_USER=shop -e MIGRAX_DATABASE_PASSWORD_FILE=/run/secrets/db-password \
     -v "$PWD/db-password:/run/secrets/db-password:ro" \
-    ghcr.io/fsmutimeer/migrax:0.8.0 migrate
+    ghcr.io/fsmutimeer/migrax:0.9.0 migrate
 Applying migration '0001_initial.sql'...
 Successfully applied migration '0001_initial.sql'.
 Applied 1 migration(s); 1 total in /migrations.
@@ -40,7 +40,7 @@ image; `doctor` checks the migrations and the database connection there.
 Usually the migrations are baked into an image built with each version of the application:
 
 ```dockerfile
-FROM ghcr.io/fsmutimeer/migrax:0.8.0
+FROM ghcr.io/fsmutimeer/migrax:0.9.0
 COPY src/main/resources/db/migration/ /migrations/
 # The snapshot lets 'migrax drift' compare the database with what the migrations produce.
 COPY .migrax/snapshot.json /workspace/.migrax/snapshot.json
@@ -52,7 +52,7 @@ MySQL Connector/J and Oracle's driver aren't included, because their licenses di
 Migrax's. Add them in your image:
 
 ```dockerfile
-FROM ghcr.io/fsmutimeer/migrax:0.8.0
+FROM ghcr.io/fsmutimeer/migrax:0.9.0
 ADD --chmod=644 https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.1.0/mysql-connector-j-9.1.0.jar /opt/migrax/drivers/
 ```
 

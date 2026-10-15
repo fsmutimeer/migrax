@@ -5,7 +5,7 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-quarkus-parent</artifactId>
-    <version>0.8.1-SNAPSHOT</version>
+    <version>0.9.0</version>
   </parent>
   <artifactId>migrax-quarkus</artifactId>
   <name>Migrax for Quarkus</name>
@@ -18,7 +18,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.8.1-SNAPSHOT</version>
+      <version>0.9.0</version>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
