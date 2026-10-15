@@ -62,8 +62,8 @@ Nothing is hidden: you can edit every statement before it runs.
 
     ---
 
-    Each generated migration comes with a rollback script, and `verify` proves it works by
-    rolling everything back and forward again.
+    Each generated migration comes with a rollback script, and `verify` tests every one of
+    them: roll back, apply again, same schema.
 
 -   :material-account-question:{ .lg .middle } __Asks before it loses data__
 
