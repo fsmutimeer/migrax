@@ -302,6 +302,52 @@ final class Project implements AutoCloseable {
    * @param allowDefault fall back to PostgreSQL with a note instead of failing
    */
   Dialect dialect(boolean allowDefault, PrintStream out) throws Exception {
+    return forServer(chooseDialect(allowDefault, out));
+  }
+
+  /**
+   * The dialect for the server's version when its SQL depends on it (Oracle 23ai has a boolean
+   * type): the configured server's, or else the one recorded in the snapshot; otherwise the
+   * dialect as it is.
+   */
+  private Dialect forServer(Dialect dialect) throws Exception {
+    if (!dialect.dependsOnServerVersion()) {
+      return dialect;
+    }
+    if (serverVersion == null) {
+      serverVersion = askServerVersion(dialect);
+      if (serverVersion.length == 0 && dialect.id().equals(SnapshotStore.dialect(snapshot()))) {
+        serverVersion = parseVersion(SnapshotStore.server(snapshot()));
+      }
+    }
+    return serverVersion.length == 2 ? dialect.forServer(serverVersion[0], serverVersion[1])
+        : dialect;
+  }
+
+  private int[] askServerVersion(Dialect dialect) throws Exception {
+    if (!hasUrl() || !dialect.acceptsUrl(credentials().url())) {
+      return new int[0];
+    }
+    try (Connection connection = connect()) {
+      java.sql.DatabaseMetaData metadata = connection.getMetaData();
+      return new int[] {metadata.getDatabaseMajorVersion(), metadata.getDatabaseMinorVersion()};
+    } catch (Exception e) {
+      Log.debug("Could not ask the database for its version: {}", e.getMessage());
+      return new int[0];
+    }
+  }
+
+  private static int[] parseVersion(String version) {
+    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)")
+        .matcher(version == null ? "" : version);
+    return matcher.matches() ? new int[] {Integer.parseInt(matcher.group(1)),
+        Integer.parseInt(matcher.group(2))} : new int[0];
+  }
+
+  /** The server's major and minor version, asked once per command; empty when unknown. */
+  private int[] serverVersion;
+
+  private Dialect chooseDialect(boolean allowDefault, PrintStream out) throws Exception {
     String name = args.option("--dialect");
     if (!blank(name)) {
       return Dialects.byName(name);

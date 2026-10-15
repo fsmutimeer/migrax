@@ -79,7 +79,9 @@ public final class ScratchDatabase implements AutoCloseable {
           + "scratch database.");
     }
     Log.info("Starting a throwaway {} database ({})...", dialect, chosenImage);
-    List<String> command = new ArrayList<>(List.of("docker", "run", "-d", "--rm", "-P"));
+    // The port by number: the Oracle images don't declare it, so -P would publish nothing.
+    List<String> command = new ArrayList<>(List.of("docker", "run", "-d", "--rm", "-p",
+        String.valueOf(engine.port)));
     for (String variable : engine.environment) {
       command.add("-e");
       command.add(variable);
@@ -95,9 +97,10 @@ public final class ScratchDatabase implements AutoCloseable {
           .orElseThrow(() -> new IllegalStateException("Docker did not publish port "
               + engine.port + ": " + mapping));
       String port = hostPort.substring(hostPort.lastIndexOf(':') + 1).trim();
-      String url = engine.url.replace("{port}", port);
+      String url = engine.url(chosenImage).replace("{port}", port);
       ScratchDatabase database = new ScratchDatabase(url, engine.user, engine.password, id);
       database.awaitReady(loader, engine.startupSeconds);
+      engine.prepare(id, url);
       return database;
     } catch (Exception e) {
       remove(id);
@@ -184,9 +187,10 @@ public final class ScratchDatabase implements AutoCloseable {
     SQLSERVER("mcr.microsoft.com/mssql/server:2022-latest", 1433,
         "jdbc:sqlserver://localhost:{port};encrypt=false;trustServerCertificate=true", "sa",
         "Migrax_Passw0rd!", 300, "ACCEPT_EULA=Y", "MSSQL_SA_PASSWORD=Migrax_Passw0rd!"),
+    // An ordinary user: system's schema holds Oracle's own tables.
     ORACLE("gvenzl/oracle-free:slim-faststart", 1521,
-        "jdbc:oracle:thin:@localhost:{port}/FREEPDB1", "system", "migrax", 300,
-        "ORACLE_PASSWORD=migrax"),
+        "jdbc:oracle:thin:@localhost:{port}/FREEPDB1", "migrax", "migrax", 300,
+        "ORACLE_PASSWORD=migrax", "APP_USER=migrax", "APP_USER_PASSWORD=migrax"),
     COCKROACHDB("cockroachdb/cockroach:v24.3.11", 26257,
         "jdbc:postgresql://localhost:{port}/defaultdb?sslmode=disable", "root", "", 180);
 
@@ -207,6 +211,22 @@ public final class ScratchDatabase implements AutoCloseable {
       this.password = password;
       this.startupSeconds = startupSeconds;
       this.environment = environment;
+    }
+
+    /** The JDBC URL for the image: Oracle XE names its database XEPDB1, Oracle Free FREEPDB1. */
+    String url(String image) {
+      return this == ORACLE && image.contains("oracle-xe") ? url.replace("FREEPDB1", "XEPDB1")
+          : url;
+    }
+
+    /** Readies the started database: Migrax's lock on Oracle needs EXECUTE on DBMS_LOCK. */
+    void prepare(String containerId, String jdbcUrl) throws Exception {
+      if (this == ORACLE) {
+        String pdb = jdbcUrl.substring(jdbcUrl.lastIndexOf('/') + 1);
+        run(List.of("docker", "exec", containerId, "bash", "-c", "printf 'ALTER SESSION SET "
+            + "CONTAINER=" + pdb + ";\nGRANT EXECUTE ON SYS.DBMS_LOCK TO " + user
+            + ";\n' | sqlplus -s / as sysdba"), 120);
+      }
     }
 
     /** Arguments after the image name: CockroachDB's image needs a start command. */

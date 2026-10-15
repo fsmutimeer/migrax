@@ -7,7 +7,7 @@
 | MySQL 8 | `mysql` | DDL commits immediately; sequences are `next_val` tables |
 | MariaDB | `mariadb` | Like MySQL |
 | SQL Server | `sqlserver` | Lock through `sp_getapplock` |
-| Oracle 12c and newer | `oracle` | Lock needs `EXECUTE` on `DBMS_LOCK` |
+| Oracle 12c and newer | `oracle` | Lock needs `EXECUTE` on `DBMS_LOCK`; booleans follow the version ([details](#oracle)) |
 | H2 | `h2` | For development and tests; `verify` uses it in memory |
 | SQLite 3.35 and newer | `sqlite` | Changes SQLite can't make in place rebuild the table ([details](#sqlite)) |
 
@@ -36,6 +36,22 @@ change needs its experimental setting and can't run inside a transaction, so a m
 one starts with `-- migrax:no-transaction` and
 `SET enable_experimental_alter_column_type_general = true`. Its statements then commit one by
 one: if one fails, the earlier ones stay applied.
+
+## Oracle
+
+Migrax's migration lock uses `DBMS_LOCK`, so the account that runs the migrations needs
+`GRANT EXECUTE ON SYS.DBMS_LOCK TO <user>`.
+
+Oracle 23ai has a `boolean` type, and Hibernate uses it there, while on older versions a
+`boolean` field is a `number(1,0)` column. Migrax asks the database for its version and writes
+what your Hibernate expects on it. The first `generate` records the version in the snapshot
+(`"server": "23.26"`), so commands without a database connection, such as `verify` in CI,
+write the same types. `verify` starts Oracle Free 23ai for a 23ai project and Oracle XE 21
+otherwise, in Docker.
+
+Moving an existing database to 23ai doesn't change its columns: `number(1,0)` columns stay,
+and new ones are `boolean`. If your application validates its schema with Hibernate, change
+the old columns in a migration of your own.
 
 ## SQLite
 
@@ -92,7 +108,8 @@ need `-- migrax:no-transaction` at the top of the migration.
 ## Testing against real engines
 
 The Migrax build includes a suite that runs migrations and Hibernate validation against real
-MySQL, MariaDB, PostgreSQL, SQL Server, Oracle and CockroachDB containers, and on SQLite:
+MySQL, MariaDB, PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai) and CockroachDB containers,
+and on SQLite:
 
 ```bash
 mvn verify -Pdatabase-integration    # needs Docker

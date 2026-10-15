@@ -128,7 +128,7 @@ final class GenerateCommand implements Command {
           printBaseline(out, project, file, changes.previous());
         }
         SnapshotStore.save(project.snapshot(), changes.current(), dialect.id(),
-            project.recordedNaming());
+            project.recordedNaming(), dialect.serverVersion());
         out.println("Saved the entity schema as the baseline snapshot: "
             + project.display(project.snapshot()));
       }
@@ -245,7 +245,7 @@ final class GenerateCommand implements Command {
           changes.current(), dialect.id());
     }
     SnapshotStore.save(project.snapshot(), changes.current(), dialect.id(),
-            project.recordedNaming());
+            project.recordedNaming(), dialect.serverVersion());
 
     for (Path path : written) {
       out.println("Created " + project.display(path) + ":");

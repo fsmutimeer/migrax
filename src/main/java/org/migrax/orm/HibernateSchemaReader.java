@@ -115,6 +115,8 @@ public final class HibernateSchemaReader {
     StandardServiceRegistryBuilder builder = registryBuilder(loader, settings, naming, dialect);
     builder.applySetting("hibernate.boot.allow_jdbc_metadata_access", "false");
     builder.applySetting("hibernate.temp.use_jdbc_metadata_defaults", "false");
+    // The server's version, when known: Hibernate's types depend on it (boolean on Oracle 23ai).
+    dialect.serverSettings().forEach(builder::applySetting);
     StandardServiceRegistry registry = builder.build();
     try {
       MetadataSources sources = new MetadataSources(registry);

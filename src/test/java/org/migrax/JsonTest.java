@@ -66,4 +66,25 @@ class JsonTest {
     SchemaModel restored = Json.parse(json);
     assertEquals("'val\rwith\ttab'", restored.table("special_table").columns().get(0).defaultValue());
   }
+
+  @Test
+  void recordsTheServerVersionOnlyWhenKnown() throws Exception {
+    java.nio.file.Path dir = java.nio.file.Files.createTempDirectory("migrax-json");
+    try {
+      java.nio.file.Path oracle = dir.resolve("oracle.json");
+      org.migrax.diff.SnapshotStore.save(oracle, SchemaModel.empty(), "oracle", null, "23.26");
+      assertEquals("23.26", org.migrax.diff.SnapshotStore.server(oracle));
+      assertEquals("oracle", org.migrax.diff.SnapshotStore.dialect(oracle));
+      // Without a version the snapshot is written exactly as before.
+      assertEquals(Json.write(SchemaModel.empty(), "postgresql", "spring"),
+          Json.write(SchemaModel.empty(), "postgresql", "spring", null));
+      java.nio.file.Path postgres = dir.resolve("postgres.json");
+      org.migrax.diff.SnapshotStore.save(postgres, SchemaModel.empty(), "postgresql", null, null);
+      assertNull(org.migrax.diff.SnapshotStore.server(postgres));
+    } finally {
+      try (var files = java.nio.file.Files.walk(dir)) {
+        files.sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+      }
+    }
+  }
 }

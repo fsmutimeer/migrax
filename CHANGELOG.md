@@ -6,6 +6,18 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- On Oracle 23ai, `boolean` fields become `boolean` columns, as Hibernate expects there,
+  instead of `number(1,0)`. Migrax asks the database for its version and records it in the
+  snapshot for commands that run without a connection. Older Oracle versions keep
+  `number(1,0)`.
+- `verify` without `--url` works on Oracle: the throwaway container's port was never
+  published, so it could not connect. It now starts Oracle Free 23ai for a 23ai project and
+  Oracle XE 21 otherwise, with its own user instead of `system`.
+- `verify` on Oracle no longer reports Hibernate's temporary tables (`hte_...`) as left
+  behind after rolling everything back: schema validation doesn't create them anymore.
+
 ### Changed
 
 - `verify` tests every rollback script on its own: it rolls the migration back, applies it

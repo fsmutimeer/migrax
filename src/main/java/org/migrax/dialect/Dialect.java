@@ -197,4 +197,61 @@ public interface Dialect {
   default boolean transactionalDdl() {
     return true;
   }
+
+  /**
+   * Whether the SQL this dialect writes depends on the server's version, so that Migrax asks
+   * the server when it can reach it. The default is {@code false}.
+   *
+   * @return {@code true} to have {@link #forServer} called with the server's version
+   * @since 0.8.1
+   */
+  default boolean dependsOnServerVersion() {
+    return false;
+  }
+
+  /**
+   * This dialect for a server of the given version. The default returns this dialect.
+   *
+   * @param major the server's major version
+   * @param minor the server's minor version
+   * @return the dialect to use for that server
+   * @since 0.8.1
+   */
+  default Dialect forServer(int major, int minor) {
+    return this;
+  }
+
+  /**
+   * Hibernate settings that tell the project's Hibernate the server version, so that its mapping
+   * has the column types it uses on that server. Empty unless the version is known.
+   *
+   * @return the settings, possibly empty
+   * @since 0.8.1
+   */
+  default java.util.Map<String, String> serverSettings() {
+    return java.util.Map.of();
+  }
+
+  /**
+   * The server version this dialect writes SQL for, as {@code major.minor}, recorded in the
+   * snapshot so that commands without a database connection write the same SQL. Null unless
+   * the SQL depends on it and the version is known.
+   *
+   * @return the version, or null
+   * @since 0.8.1
+   */
+  default String serverVersion() {
+    return null;
+  }
+
+  /**
+   * The Docker image for {@code verify}'s throwaway database of this server, or null for the
+   * default one.
+   *
+   * @return an image name, or null
+   * @since 0.8.1
+   */
+  default String scratchImage() {
+    return null;
+  }
 }

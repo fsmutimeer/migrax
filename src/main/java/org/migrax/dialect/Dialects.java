@@ -94,6 +94,11 @@ public final class Dialects {
       throws java.sql.SQLException {
     for (Dialect dialect : available()) {
       if (dialect.acceptsConnection(connection)) {
+        if (dialect.dependsOnServerVersion()) {
+          java.sql.DatabaseMetaData metadata = connection.getMetaData();
+          dialect = dialect.forServer(metadata.getDatabaseMajorVersion(),
+              metadata.getDatabaseMinorVersion());
+        }
         return Optional.of(dialect);
       }
     }

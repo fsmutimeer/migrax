@@ -19,6 +19,9 @@ public final class Main {
   private static final java.util.logging.Logger HIBERNATE_LOG =
       java.util.logging.Logger.getLogger("org.hibernate");
 
+  private static final String ORACLE_FIRST_FAILURE =
+      "oracle.jdbc.diagnostic.enableDiagnoseFirstFailure";
+
   private Main() {}
 
   public static void main(String[] args) {
@@ -133,6 +136,11 @@ public final class Main {
    */
   static void quietHibernateLogging(boolean verbose) {
     HIBERNATE_LOG.setLevel(verbose ? null : java.util.logging.Level.SEVERE);
+    // ojdbc 23 dumps its connection trace (stack trace, PATH, Java settings) on every failed
+    // connection; verify's wait for a starting Oracle container fails many times on purpose.
+    if (!verbose && System.getProperty(ORACLE_FIRST_FAILURE) == null) {
+      System.setProperty(ORACLE_FIRST_FAILURE, "false");
+    }
     if (System.getProperty("org.jboss.logging.provider") == null) {
       System.setProperty("org.jboss.logging.provider", "jdk");
     }

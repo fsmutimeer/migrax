@@ -40,6 +40,17 @@ public final class SnapshotStore {
     Json.write(path, model, dialect, naming);
   }
 
+  /**
+   * Saves the snapshot with the dialect, naming strategy and database server version it was
+   * generated with.
+   *
+   * @since 0.8.1
+   */
+  public static void save(Path path, SchemaModel model, String dialect, String naming,
+                          String server) throws Exception {
+    Json.write(path, model, dialect, naming, server);
+  }
+
   public static SchemaModel load(Path path) throws Exception {
     String content = Files.readString(path);
     if (content.contains("<<<<<<<") || content.contains(">>>>>>>")) {
@@ -62,6 +73,19 @@ public final class SnapshotStore {
   public static String naming(Path path) {
     try {
       return Files.exists(path) ? Json.rootString(Files.readString(path), "naming") : null;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  /**
+   * Database server version recorded in the snapshot ({@code major.minor}), or null.
+   *
+   * @since 0.8.1
+   */
+  public static String server(Path path) {
+    try {
+      return Files.exists(path) ? Json.rootString(Files.readString(path), "server") : null;
     } catch (Exception e) {
       return null;
     }

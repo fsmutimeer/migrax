@@ -137,7 +137,7 @@ final class MergeCommand implements Command {
       } catch (IllegalStateException e) {
         Dialect dialect = project.dialect(false, out);
         SnapshotStore.save(project.snapshot(), project.extract(dialect).model(), dialect.id(),
-            project.recordedNaming());
+            project.recordedNaming(), dialect.serverVersion());
         out.println("Rebuilt " + project.display(project.snapshot())
             + " from the merged entities (it had merge conflicts).");
         rebuilt = true;

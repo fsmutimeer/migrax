@@ -90,7 +90,8 @@ final class VerifyCommand implements Command {
                 : args.option("--user"),
             Project.blank(args.option("--password")) ? project.credentials().password()
                 : args.option("--password"))
-        : ScratchDatabase.start(dialect.id(), args.option("--image"), loader)) {
+        : ScratchDatabase.start(dialect.id(), Project.blank(args.option("--image"))
+            ? dialect.scratchImage() : args.option("--image"), loader)) {
       try (Connection connection = RuntimeJdbc.connect(loader, database.url(), database.user(),
           database.password())) {
         if (!Project.blank(url) && !DatabaseSchemaReader.read(connection).tables().isEmpty()
