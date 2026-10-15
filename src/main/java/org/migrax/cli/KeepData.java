@@ -152,7 +152,7 @@ final class KeepData {
     List<String> restores = keptColumns.stream().map(column -> restore(dialect, column))
         .toList();
     List<String> cleanup = keptColumns.stream()
-        .map(column -> "DROP TABLE " + dialect.identifier(column.backup())).toList();
+        .map(column -> "DROP TABLE " + dialect.tableName(column.backup())).toList();
     return new Plan(newForward, newReverse, withNullable(before, keptColumns, madeNullable),
         restores, finish, cleanup, kept, notes, warnings);
   }
@@ -173,15 +173,19 @@ final class KeepData {
     return new SchemaModel(tables, model.sequences());
   }
 
-  /** Puts the column's values back where the primary key matches. */
+  /**
+   * Puts the column's values back where the primary key matches. The subqueries refer to the
+   * updated table by its name alone, which works when the dialect puts a schema in front.
+   */
   private static String restore(Dialect dialect, KeptColumn kept) {
     String table = dialect.identifier(kept.table());
-    String backup = dialect.identifier(kept.backup());
+    String backup = dialect.tableName(kept.backup());
     String column = dialect.identifier(kept.column().name());
     String match = String.join(" AND ", kept.key().stream()
         .map(k -> "b." + dialect.identifier(k) + " = " + table + "." + dialect.identifier(k))
         .toList());
-    return "UPDATE " + table + " SET " + column + " = (SELECT b." + column + " FROM " + backup
+    return "UPDATE " + dialect.tableName(kept.table()) + " SET " + column + " = (SELECT b."
+        + column + " FROM " + backup
         + " b WHERE " + match + ") WHERE EXISTS (SELECT 1 FROM " + backup + " b WHERE " + match
         + ")";
   }

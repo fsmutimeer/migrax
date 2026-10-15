@@ -31,9 +31,48 @@ public final class SqlServerDialect extends AbstractDialect {
       "tran", "transaction", "trigger", "truncate", "try_convert", "tsequal", "unpivot",
       "updatetext", "use", "varying", "view", "waitfor", "while", "within", "writetext");
 
+  /** The schema every table name is qualified with, or null for the login's default schema. */
+  private final String schema;
+
+  public SqlServerDialect() {
+    this(null);
+  }
+
+  private SqlServerDialect(String schema) {
+    this.schema = schema;
+  }
+
+  /**
+   * This dialect, writing every table and sequence as {@code <schema>.<name>}. SQL Server
+   * can't switch a session's default schema, so SQL for several schemas names it: either a
+   * schema name, or the placeholder {@code ${migrax.schema}} that Migrax fills in per schema.
+   *
+   * @param schema a schema name, or {@code ${migrax.schema}}
+   * @return a dialect bound to that schema
+   * @since 0.7.0
+   */
+  public SqlServerDialect inSchema(String schema) {
+    return new SqlServerDialect(schema);
+  }
+
   @Override
   public String id() {
     return "sqlserver";
+  }
+
+  @Override
+  public String tableName(String table) {
+    return schema == null ? q(table) : schemaSql() + "." + q(table);
+  }
+
+  /** The schema as written in SQL: the placeholder as it is, a name quoted. */
+  private String schemaSql() {
+    return schema.startsWith("${") ? schema : quote(schema);
+  }
+
+  /** A table's name as a string for OBJECT_ID and sp_rename, with the schema in front. */
+  private String objectName(String table) {
+    return schema == null ? table : schemaSql() + "." + table;
   }
 
   @Override
@@ -48,7 +87,7 @@ public final class SqlServerDialect extends AbstractDialect {
 
   @Override
   protected String sequenceDefault(String name) {
-    return "NEXT VALUE FOR " + q(name);
+    return "NEXT VALUE FOR " + tableName(name);
   }
 
   @Override
@@ -87,7 +126,7 @@ public final class SqlServerDialect extends AbstractDialect {
 
   @Override
   protected String addColumn(String table, SchemaModel.Column column) {
-    return "ALTER TABLE " + q(table) + " ADD " + column(column);
+    return "ALTER TABLE " + tableName(table) + " ADD " + column(column);
   }
 
   /**
@@ -102,18 +141,18 @@ public final class SqlServerDialect extends AbstractDialect {
       statements.add(alterColumn(change.table(), change.before(), change.after()));
     }
     if (change.defaultChanged()) {
-      String table = change.table().replace("'", "''");
+      String table = objectName(change.table()).replace("'", "''");
       String column = change.after().name().replace("'", "''");
       // One T-SQL batch without semicolons, so the script splitter keeps it together.
       statements.add("DECLARE @df sysname SELECT @df = d.name FROM sys.default_constraints d "
           + "JOIN sys.columns c ON c.default_object_id = d.object_id "
           + "WHERE d.parent_object_id = OBJECT_ID('" + table + "') AND c.name = '" + column
-          + "' IF @df IS NOT NULL EXEC('ALTER TABLE " + q(change.table())
+          + "' IF @df IS NOT NULL EXEC('ALTER TABLE " + tableName(change.table())
           + " DROP CONSTRAINT [' + @df + ']')");
       String value = change.after().defaultValue();
       if (value != null && !value.isBlank()) {
-        statements.add("ALTER TABLE " + q(change.table()) + " ADD DEFAULT " + value + " FOR "
-            + q(change.after().name()));
+        statements.add("ALTER TABLE " + tableName(change.table()) + " ADD DEFAULT " + value
+            + " FOR " + q(change.after().name()));
       }
     }
     return String.join(";\n", statements);
@@ -121,24 +160,26 @@ public final class SqlServerDialect extends AbstractDialect {
 
   @Override
   protected String alterColumn(String table, SchemaModel.Column before, SchemaModel.Column after) {
-    return "ALTER TABLE " + q(table) + " ALTER COLUMN " + q(after.name()) + " " + renderType(after)
+    return "ALTER TABLE " + tableName(table) + " ALTER COLUMN " + q(after.name()) + " "
+        + renderType(after)
         + (after.nullable() ? " NULL" : " NOT NULL");
   }
 
   @Override
   protected String dropIndex(String table, String name) {
-    return "DROP INDEX " + q(name) + " ON " + q(table);
+    return "DROP INDEX " + q(name) + " ON " + tableName(table);
   }
 
   @Override
   protected String renameTable(String from, String to) {
-    return "EXEC sp_rename '" + from.replace("'", "''") + "', '" + to.replace("'", "''") + "'";
+    return "EXEC sp_rename '" + objectName(from).replace("'", "''") + "', '"
+        + to.replace("'", "''") + "'";
   }
 
   @Override
   protected String renameColumn(String table, String from, String to) {
-    return "EXEC sp_rename '" + table.replace("'", "''") + "." + from.replace("'", "''")
-        + "', '" + to.replace("'", "''") + "', 'COLUMN'";
+    return "EXEC sp_rename '" + objectName(table).replace("'", "''") + "."
+        + from.replace("'", "''") + "', '" + to.replace("'", "''") + "', 'COLUMN'";
   }
 
   @Override
@@ -182,7 +223,7 @@ public final class SqlServerDialect extends AbstractDialect {
   @Override
   public String copyTable(String target, String source, java.util.List<String> columns) {
     return "SELECT " + String.join(", ", columns.stream().map(this::q).toList()) + " INTO "
-        + q(target) + " FROM " + q(source);
+        + tableName(target) + " FROM " + tableName(source);
   }
 
   @Override
@@ -204,12 +245,13 @@ public final class SqlServerDialect extends AbstractDialect {
         + "@level1name = " + nLiteral(table)
         + (column == null ? "" : ", @level2type = N'COLUMN', @level2name = " + nLiteral(column));
     String exists = "SELECT 1 FROM sys.extended_properties WHERE name = N'MS_Description' "
-        + "AND major_id = OBJECT_ID(" + nLiteral(table) + ") AND minor_id = "
-        + (column == null ? "0" : "COLUMNPROPERTY(OBJECT_ID(" + nLiteral(table) + "), "
-            + nLiteral(column) + ", 'ColumnId')");
+        + "AND major_id = OBJECT_ID(" + nLiteral(objectName(table)) + ") AND minor_id = "
+        + (column == null ? "0" : "COLUMNPROPERTY(OBJECT_ID(" + nLiteral(objectName(table))
+            + "), " + nLiteral(column) + ", 'ColumnId')");
     String set = comment == null ? ""
         : "@name = N'MS_Description', @value = " + nLiteral(comment) + ", " + target;
-    return "DECLARE @schema sysname = SCHEMA_NAME() IF EXISTS (" + exists + ") "
+    return "DECLARE @schema sysname = " + (schema == null ? "SCHEMA_NAME()" : nLiteral(schema))
+        + " IF EXISTS (" + exists + ") "
         + (comment == null
             ? "EXEC sp_dropextendedproperty @name = N'MS_Description', " + target
             : "EXEC sp_updateextendedproperty " + set + " ELSE EXEC sp_addextendedproperty "

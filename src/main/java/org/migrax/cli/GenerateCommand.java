@@ -104,7 +104,7 @@ final class GenerateCommand implements Command {
           "The first generate reads the current database as its baseline. Set "
               + project.urlSetting() + ", MIGRAX_DATABASE_URL, or --url.");
     }
-    Dialect dialect = project.dialect(false, out);
+    Dialect dialect = project.generating(project.dialect(false, out));
     EntityChanges changes = EntityChanges.read(context, dialect, true, true);
     if (changes.current().tables().isEmpty()) {
       throw new UsageException(ErrorCode.NO_ENTITIES,
@@ -258,7 +258,8 @@ final class GenerateCommand implements Command {
         + project.display(migrations.resolve(MigrationLoader.ROLLBACK_FOLDER)) + ".");
     for (Path path : written) {
       Reports.printFindings(out,
-          SqlLinter.lint(project.display(path), Files.readString(path), dialect.id()));
+          SqlLinter.lint(project.display(path), Files.readString(path), dialect.id(),
+              !project.schemas().isEmpty()));
     }
     out.println("Review the SQL, then run 'migrax migrate'.");
     return OK;

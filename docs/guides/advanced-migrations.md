@@ -71,6 +71,9 @@ Set values in application config (`migrax.placeholders.reporting_role=analyst`),
 property (`-Dmigrax.placeholders.reporting_role=analyst`) or an environment variable
 (`MIGRAX_PLACEHOLDERS_REPORTING_ROLE=analyst`).
 
+`${migrax.schema}` is built in: it is the schema the migration runs in. With
+[several schemas](#several-schemas-multi-tenant) it changes from one schema to the next.
+
 ## Directives
 
 Directives are comment lines in a migration:
@@ -237,5 +240,25 @@ Run the same migrations once per schema:
 $ migrax migrate --schemas tenant_a,tenant_b,tenant_c
 ```
 
-Or set `migrax.schemas=tenant_a,tenant_b` in application config. `status` and `rollback`
-accept the same option, and the startup integrations read `migrax.schemas`.
+Or set `migrax.schemas=tenant_a,tenant_b` in application config. `status`, `rollback`,
+`migrate --sql` and `clean` accept the same option, and the startup integrations read
+`migrax.schemas`. Each schema keeps its own `migrax_history`, so a schema added later gets every
+migration on the next run.
+
+Create the schemas before the first run; Migrax creates the tables in them, not the schemas.
+
+### SQL Server
+
+SQL Server can't switch a connection to another schema: a table name without a schema always
+means the login's default schema, usually `dbo`. So in a project that sets `migrax.schemas`,
+`generate` puts `${migrax.schema}.` in front of every table, and Migrax fills in each schema
+when it runs the migration:
+
+```sql
+CREATE TABLE ${migrax.schema}.book (id bigint NOT NULL, title varchar(255), ...);
+CREATE INDEX ix_book_title ON ${migrax.schema}.book (title);
+```
+
+Write your own migrations the same way. `migrax lint` warns about a table without its schema
+(MX017), because that statement would change the table in the default schema, once for every
+tenant. Migrax's own history tables are named the same way (`[tenant_a].migrax_history`).

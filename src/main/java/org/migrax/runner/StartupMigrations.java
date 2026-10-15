@@ -6,7 +6,6 @@ import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import javax.sql.DataSource;
 
@@ -64,7 +63,7 @@ public final class StartupMigrations {
       }
       int applied = 0;
       for (String schema : schemas) {
-        useSchema(connection, schema);
+        TargetSchema.use(connection, schema);
         applied += runner.migrateAll(connection, migrations, options);
       }
       return applied;
@@ -127,7 +126,7 @@ public final class StartupMigrations {
       for (String schema : schemas.isEmpty() ? java.util.Collections.<String>singletonList(null)
           : schemas) {
         if (schema != null) {
-          useSchema(connection, schema);
+          TargetSchema.use(connection, schema);
         }
         for (MigrationRunner.MigrationStatus row
             : new MigrationRunner().withEnvironment(environment)
@@ -162,14 +161,6 @@ public final class StartupMigrations {
     return schemas;
   }
 
-  private static void useSchema(Connection connection, String schema) throws Exception {
-    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-    if (product.contains("mysql") || product.contains("mariadb")) {
-      connection.setCatalog(schema);
-    } else {
-      connection.setSchema(schema);
-    }
-  }
 
   /**
    * The (jta-)data-source the first persistence unit in META-INF/persistence.xml names, or

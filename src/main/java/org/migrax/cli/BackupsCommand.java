@@ -99,9 +99,11 @@ final class BackupsCommand implements Command {
       }
       boolean autoCommit = connection.getAutoCommit();
       connection.setAutoCommit(true);
+      Dialect dropping = CleanCommand.inSchema(dialect, Project.blank(schema) ? null
+          : schema.trim());
       try (Statement statement = connection.createStatement()) {
         for (String backup : backups) {
-          statement.execute(dialect.render(new DropTable(backup)));
+          statement.execute(dropping.render(new DropTable(backup)));
         }
       } finally {
         connection.setAutoCommit(autoCommit);

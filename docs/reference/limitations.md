@@ -14,12 +14,6 @@ in places: Hibernate 4 shares one `hibernate_sequence` between entities, for exa
 the same way, with Hibernate's naming rules. If your provider names tables or columns differently, set
 the names in your entities (`@Table`, `@Column`) or check the generated migrations.
 
-## Running migrations
-
-**`--schemas` on SQL Server.** SQL Server can't change a connection's default schema, so Migrax
-can't move from one schema to the next. Run Migrax once per schema, each time with a login
-whose default schema is that schema.
-
 ## Rolling back
 
 **A rollback brings back the structure, not the data**, unless the migration was generated with

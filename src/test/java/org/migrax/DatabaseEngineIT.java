@@ -88,6 +88,7 @@ class DatabaseEngineIT {
         exerciseCockroachTypeChange(Database.of(container));
         exerciseKeepData(Database.of(container));
         exerciseScriptTimestamps(Database.of(container));
+        exerciseSchemas(Database.of(container));
       }
     });
   }
@@ -603,6 +604,136 @@ class DatabaseEngineIT {
         long minutes = java.time.Duration.between(times.get(0), times.get(1)).abs().toMinutes();
         org.junit.jupiter.api.Assertions.assertTrue(minutes < 10, times.toString());
       }
+    }
+  }
+
+  /**
+   * --schemas: the same migrations in two schemas, each with its own history, through migrate,
+   * status, rollback, migrate --sql and clean. SQL Server can't switch schemas, so there the
+   * generated migration names them with ${migrax.schema}; PostgreSQL switches the search path.
+   * The default schema stays untouched.
+   */
+  private static void exerciseSchemas(Database database) throws Exception {
+    org.migrax.dialect.Dialect dialect;
+    try (Connection connection = database.connect()) {
+      dialect = org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
+    }
+    boolean sqlServer = dialect instanceof org.migrax.dialect.SqlServerDialect;
+    if (!sqlServer && !"postgresql".equals(dialect.id())) {
+      return;
+    }
+    List<String> tenants = List.of("tenant_a", "tenant_b");
+    List<String> defaultSchema;
+    try (Connection connection = database.connect();
+         Statement statement = connection.createStatement()) {
+      for (String tenant : tenants) {
+        statement.execute("CREATE SCHEMA " + tenant);
+      }
+      defaultSchema = org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, null,
+          "TABLE");
+    }
+    Path project = Files.createTempDirectory("migrax-schemas-it");
+    Path migrations = project.resolve("migrations");
+    Files.createDirectories(migrations.resolve("rollback"));
+    org.migrax.dialect.Dialect generating = sqlServer
+        ? ((org.migrax.dialect.SqlServerDialect) dialect).inSchema("${migrax.schema}")
+        : dialect;
+    Files.writeString(migrations.resolve("0001_entities.sql"), HibernateValidationTest.generate(
+        org.migrax.model.NamingStrategy.SPRING, generating,
+        org.migrax.model.ModelExtractor.Mode.ANNOTATIONS));
+    Files.writeString(migrations.resolve("0002_notes.sql"), """
+        CREATE TABLE ${migrax.schema}.note (id INT PRIMARY KEY, body VARCHAR(100));
+        INSERT INTO ${migrax.schema}.note (id, body) VALUES (1, 'in ${migrax.schema}');
+        """);
+    Files.writeString(migrations.resolve("rollback/0002_notes.sql"),
+        "DROP TABLE ${migrax.schema}.note;\n");
+    java.util.function.Function<String[], String> cli = args -> {
+      List<String> all = new java.util.ArrayList<>(List.of(args));
+      all.addAll(List.of("--schemas", String.join(",", tenants), "--url", database.url(),
+          "--user", database.user(), "--password", database.password(), "--dir",
+          project.toString(), "--no-build"));
+      if (!args[0].equals("clean")) {
+        all.addAll(List.of("--locations", migrations.toString()));
+      }
+      java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+      java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
+      int code = org.migrax.cli.Main.run(all.toArray(String[]::new),
+          new java.io.PrintStream(out, true), new java.io.PrintStream(err, true));
+      assertEquals(0, code, all + "\n" + out + "\n" + err);
+      return out.toString();
+    };
+
+    cli.apply(new String[] {"migrate"});
+    assertSchemas(database, tenants, 2, true);
+    String status = cli.apply(new String[] {"status"});
+    org.junit.jupiter.api.Assertions.assertFalse(status.toLowerCase(java.util.Locale.ROOT)
+        .contains("pending"), status);
+
+    cli.apply(new String[] {"rollback", "--yes"});
+    assertSchemas(database, tenants, 1, false);
+
+    // The script a DBA would run: one part per schema, the history in each.
+    String script = cli.apply(new String[] {"migrate", "--sql"});
+    for (String tenant : tenants) {
+      org.junit.jupiter.api.Assertions.assertTrue(script.contains(sqlServer
+          ? "INSERT INTO [" + tenant + "].migrax_history" : "SET search_path TO " + tenant),
+          script);
+    }
+    try (Connection connection = database.connect();
+         Statement statement = connection.createStatement()) {
+      for (String sql : org.migrax.runner.SqlScript.split(script, false)) {
+        statement.execute(sql);
+      }
+    }
+    assertSchemas(database, tenants, 2, true);
+
+    // generate --keep-data in a schema: backups, restores and renames name it on SQL Server.
+    try (Connection connection = database.connect()) {
+      // The scenario brings its own migrations; the history of the ones above would be missing.
+      try (Statement statement = connection.createStatement()) {
+        statement.executeUpdate("DELETE FROM tenant_b.migrax_history");
+      }
+      org.migrax.cli.KeepDataScenario.run(connection, generating, "tenant_b");
+    }
+
+    cli.apply(new String[] {"clean", "--yes"});
+    try (Connection connection = database.connect()) {
+      for (String tenant : tenants) {
+        assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+            tenant, "TABLE"), tenant + " after clean");
+      }
+      assertEquals(defaultSchema, org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+          null, "TABLE"), "default schema after clean");
+      try (Statement statement = connection.createStatement()) {
+        for (String tenant : tenants) {
+          statement.execute("DROP SCHEMA " + tenant);
+        }
+      }
+    }
+  }
+
+  /** Each schema has its history, its own note (or none), and the default schema has none. */
+  private static void assertSchemas(Database database, List<String> tenants, int applied,
+                                    boolean notes) throws Exception {
+    try (Connection connection = database.connect();
+         Statement statement = connection.createStatement()) {
+      for (String tenant : tenants) {
+        try (var rows = statement.executeQuery("SELECT COUNT(*) FROM " + tenant
+            + ".migrax_history")) {
+          rows.next();
+          assertEquals(applied, rows.getInt(1), tenant + " history");
+        }
+        if (notes) {
+          try (var rows = statement.executeQuery("SELECT body FROM " + tenant + ".note")) {
+            rows.next();
+            assertEquals("in " + tenant, rows.getString(1));
+          }
+        }
+        assertEquals(notes, org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+            tenant, "TABLE").stream().anyMatch("note"::equalsIgnoreCase), tenant + " note");
+      }
+      assertEquals(false, org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, null,
+          "TABLE").stream().anyMatch("note"::equalsIgnoreCase), "note in the default schema");
     }
   }
 

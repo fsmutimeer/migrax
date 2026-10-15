@@ -41,6 +41,30 @@ class LinterAndRenamesTest {
   }
 
   @Test
+  void warnsAboutTablesWithoutTheirSchemaInASqlServerProjectWithSchemas() {
+    java.util.function.Function<String, Set<String>> tenants = sql ->
+        SqlLinter.lint("test.sql", sql, "sqlserver", true).stream()
+            .map(SqlLinter.Finding::code).collect(Collectors.toSet());
+    assertEquals(Set.of("MX017"), tenants.apply("CREATE TABLE book (id INT PRIMARY KEY);"));
+    assertEquals(Set.of("MX017"), tenants.apply("INSERT INTO book (id) VALUES (1);"));
+    assertEquals(Set.of("MX017"), tenants.apply("CREATE TABLE ${migrax.schema}.book "
+        + "(id INT, author_id INT REFERENCES author (id));"));
+    assertEquals(Set.of(), tenants.apply("""
+        CREATE TABLE ${migrax.schema}.book (id INT PRIMARY KEY,
+          author_id INT REFERENCES ${migrax.schema}.author (id));
+        CREATE INDEX ix_book ON ${migrax.schema}.book (author_id);
+        INSERT INTO [${migrax.schema}].book (id) VALUES (1);
+        CREATE TABLE #scratch (id INT);
+        """));
+    assertEquals(Set.of(),
+        tenants.apply("-- migrax:lint-ignore MX017\nCREATE TABLE book (id INT);"));
+    // Only SQL Server projects that set migrax.schemas need it.
+    assertEquals(Set.of(), codes("CREATE TABLE book (id INT PRIMARY KEY);", "sqlserver"));
+    assertEquals(Set.of(), SqlLinter.lint("test.sql", "CREATE TABLE book (id INT);",
+        "postgresql", true).stream().map(SqlLinter.Finding::code).collect(Collectors.toSet()));
+  }
+
+  @Test
   void warnsWhenARoutineBodyTakesInTheStatementsAfterIt() {
     // A BEGIN without its END: the CREATE TABLE ends up inside the procedure.
     assertEquals(Set.of("MX016"), codes("""
