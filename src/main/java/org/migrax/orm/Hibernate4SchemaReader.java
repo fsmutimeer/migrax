@@ -23,7 +23,7 @@ import static org.migrax.orm.HibernateMapping.normalize;
 import static org.migrax.orm.HibernateMapping.text;
 
 /**
- * Reads the entity mapping of Hibernate 4.2 and 4.3, and validates a schema with it. These
+ * Reads the entity mapping of Hibernate 4.0 to 4.3, and validates a schema with it. These
  * versions build their mapping with {@code Configuration} instead of the {@code Metadata} API of
  * Hibernate 5 and newer, but describe tables with the same {@code org.hibernate.mapping}
  * classes. Every Hibernate call is reflective: Migrax compiles against a current Hibernate,
@@ -34,9 +34,9 @@ public final class Hibernate4SchemaReader {
   /** Hibernate 4 dialects per Migrax dialect id, newest first; the first one present is used. */
   private static final Map<String, List<String>> DIALECTS = Map.of(
       "postgresql", List.of("org.hibernate.dialect.PostgreSQL9Dialect",
-          "org.hibernate.dialect.PostgreSQL82Dialect"),
+          "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect"),
       "cockroachdb", List.of("org.hibernate.dialect.PostgreSQL9Dialect",
-          "org.hibernate.dialect.PostgreSQL82Dialect"),
+          "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect"),
       "mysql", List.of("org.hibernate.dialect.MySQL5InnoDBDialect"),
       "mariadb", List.of("org.hibernate.dialect.MySQL5InnoDBDialect"),
       "sqlserver", List.of("org.hibernate.dialect.SQLServer2012Dialect",

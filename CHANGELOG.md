@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Hibernate 4.0 and 4.1 projects are read through Hibernate's own mapping, like 4.2 and newer,
+  and `verify` has them validate the schema. Both versions are tested on every change.
+
 ### Changed
 
 - The Migrax GitHub Action uses `actions/setup-java@v6` and `actions/github-script@v8`, which
