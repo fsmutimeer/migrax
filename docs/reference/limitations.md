@@ -18,8 +18,7 @@ the names in your entities (`@Table`, `@Column`) or check the generated migratio
 
 **A rollback brings back the structure, not the data**, unless the migration was generated with
 `--keep-data`. Rolling back a migration that dropped a column re-creates the column, but its
-values are gone; with `--keep-data` they come back from a backup table. Data in a table without a
-primary key can only be kept when the whole table is dropped. See
+values are gone; with `--keep-data` they come back from a backup table. See
 [Keeping dropped data](../guides/rollbacks-and-recovery.md#keeping-dropped-data).
 
 ## Getting Migrax

@@ -183,6 +183,11 @@ public final class SqlServerDialect extends AbstractDialect {
   }
 
   @Override
+  public String firstValue(String value, String from, String condition) {
+    return "SELECT TOP 1 " + value + " FROM " + from + " WHERE " + condition;
+  }
+
+  @Override
   public boolean acceptsProduct(String productName) {
     return productName.contains("microsoft sql server");
   }
