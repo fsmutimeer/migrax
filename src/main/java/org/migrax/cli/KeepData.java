@@ -29,7 +29,9 @@ import java.util.Map;
  * rollback script puts it back. A dropped table is renamed to its backup, so the rollback
  * renames it back with its rows, keys and indexes. A dropped column, or a column whose type
  * change loses data, is first copied with the table's primary key into a backup table, and the
- * rollback fills it again from there, row by row.
+ * rollback fills it again from there, row by row. A table without a primary key uses a unique
+ * key whose columns are NOT NULL instead; without one either, rows are matched by all their
+ * other columns.
  */
 final class KeepData {
   /** Prefix of every backup table, which drift and the first generate leave alone. */
@@ -52,15 +54,24 @@ final class KeepData {
    * @param cleanup statements that drop the column backups
    * @param kept the forward operations whose data the rollback restores
    * @param notes what the rollback script's header says about it
-   * @param warnings changes whose data can't be kept (no primary key)
+   * @param warnings changes whose data can't be kept, or kept only by matching whole rows
    */
   record Plan(List<Operation> forward, List<Operation> reverse, SchemaModel middle,
               List<String> restores, List<Operation> finish, List<String> cleanup,
               List<Operation> kept, List<String> notes, List<String> warnings) {}
 
-  /** A column whose values sit in a backup table. */
-  private record KeptColumn(String table, SchemaModel.Column column, List<String> key,
-                            String backup) {}
+  /**
+   * A column whose values sit in a backup table.
+   *
+   * @param key the columns that find a row again: a primary or unique key, or with
+   *     {@code unique} false every other column of the row
+   */
+  private record KeptColumn(String table, SchemaModel.Column column,
+                            List<SchemaModel.Column> key, boolean unique, String backup) {}
+
+  /** Logical types whose values can't be compared with = on every database. */
+  private static final java.util.Set<String> NOT_COMPARABLE =
+      java.util.Set.of("text", "clob", "blob", "json");
 
   static Plan apply(List<Operation> forward, List<Operation> reverse, SchemaModel before,
                     Dialect dialect, String number) {
@@ -93,19 +104,31 @@ final class KeepData {
       }
       if (column != null) {
         SchemaModel.Table old = before.table(table);
-        SchemaModel.PrimaryKey key = old == null ? null : old.primaryKey();
-        if (key == null || key.columns().isEmpty() || key.columns().contains(column.name())) {
+        List<String> changed = changedColumns(forward, table);
+        List<SchemaModel.Column> key = old == null ? null : uniqueKey(old, column, changed);
+        boolean unique = key != null;
+        if (!unique && old != null) {
+          key = old.columns().stream().filter(c -> !changed.contains(c.name())
+              && !NOT_COMPARABLE.contains(logical(c))).toList();
+        }
+        if (key == null || key.isEmpty()) {
           warnings.add("--keep-data can't keep " + table + "." + column.name()
-              + ": the table has no primary key to match its rows by.");
+              + ": the table has no key and no other column to match its rows by.");
         } else {
           String backup = backupName(number, table, column.name());
-          List<String> copied = new ArrayList<>(key.columns());
+          List<String> copied = new ArrayList<>(key.stream().map(SchemaModel.Column::name)
+              .toList());
           copied.add(column.name());
           newForward.add(new RunSql(dialect.copyTable(backup, table, copied), true));
-          keptColumns.add(new KeptColumn(table, column, key.columns(), backup));
+          keptColumns.add(new KeptColumn(table, column, key, unique, backup));
           kept.add(operation);
           notes.add("Restores the values of " + table + "." + column.name() + " from " + backup
-              + ".");
+              + (unique ? "." : ", matching rows by their other columns."));
+          if (!unique) {
+            warnings.add("--keep-data keeps " + table + "." + column.name() + " by matching "
+                + "rows on their other columns: " + table + " has no primary key or unique key. "
+                + "Rows that are equal in those columns all get the value of one of them back.");
+          }
         }
       }
       newForward.add(operation);
@@ -157,6 +180,53 @@ final class KeepData {
         restores, finish, cleanup, kept, notes, warnings);
   }
 
+  /**
+   * The primary key, or else a unique key whose columns are all NOT NULL, that finds a row
+   * without the kept column and without columns the migration changes; null when there is none.
+   */
+  private static List<SchemaModel.Column> uniqueKey(SchemaModel.Table table,
+                                                    SchemaModel.Column kept,
+                                                    List<String> changed) {
+    List<List<String>> candidates = new ArrayList<>();
+    if (table.primaryKey() != null) {
+      candidates.add(table.primaryKey().columns());
+    }
+    table.columns().stream().filter(SchemaModel.Column::unique)
+        .forEach(c -> candidates.add(List.of(c.name())));
+    table.indexes().stream().filter(SchemaModel.Index::unique)
+        .forEach(index -> candidates.add(index.columns()));
+    for (List<String> names : candidates) {
+      List<SchemaModel.Column> columns = names.stream().map(table::column).toList();
+      if (!names.isEmpty() && !names.contains(kept.name())
+          && names.stream().noneMatch(changed::contains)
+          && columns.stream().allMatch(c -> c != null && !c.nullable())) {
+        return columns;
+      }
+    }
+    return null;
+  }
+
+  /** Columns of a table that the migration drops, renames or changes. */
+  private static List<String> changedColumns(List<Operation> forward, String table) {
+    List<String> changed = new ArrayList<>();
+    for (Operation operation : forward) {
+      if (operation instanceof DropColumn drop && drop.table().equals(table)) {
+        changed.add(drop.column());
+      } else if (operation instanceof AlterColumn alter && alter.table().equals(table)) {
+        changed.add(alter.before().name());
+      } else if (operation instanceof org.migrax.ops.RenameColumn rename
+          && rename.table().equals(table)) {
+        changed.add(rename.from());
+      }
+    }
+    return changed;
+  }
+
+  private static String logical(SchemaModel.Column column) {
+    String type = column.logicalType() != null ? column.logicalType() : column.sqlType();
+    return type == null ? "" : type.toLowerCase(Locale.ROOT);
+  }
+
   /** The schema with the given kept columns nullable: where the rollback's structure ends. */
   private static SchemaModel withNullable(SchemaModel model, List<KeptColumn> kept,
                                           List<SchemaModel.Column> columns) {
@@ -174,20 +244,27 @@ final class KeepData {
   }
 
   /**
-   * Puts the column's values back where the primary key matches. The subqueries refer to the
-   * updated table by its name alone, which works when the dialect puts a schema in front.
+   * Puts the column's values back where the key matches. Matching whole rows, NULLs count as
+   * equal, and equal rows can match several backup rows: one of them gives the value. The
+   * subqueries refer to the updated table by its name alone, which works when the dialect puts
+   * a schema in front.
    */
   private static String restore(Dialect dialect, KeptColumn kept) {
     String table = dialect.identifier(kept.table());
     String backup = dialect.tableName(kept.backup());
     String column = dialect.identifier(kept.column().name());
-    String match = String.join(" AND ", kept.key().stream()
-        .map(k -> "b." + dialect.identifier(k) + " = " + table + "." + dialect.identifier(k))
-        .toList());
-    return "UPDATE " + dialect.tableName(kept.table()) + " SET " + column + " = (SELECT b."
-        + column + " FROM " + backup
-        + " b WHERE " + match + ") WHERE EXISTS (SELECT 1 FROM " + backup + " b WHERE " + match
-        + ")";
+    String match = String.join(" AND ", kept.key().stream().map(k -> {
+      String saved = "b." + dialect.identifier(k.name());
+      String current = table + "." + dialect.identifier(k.name());
+      return kept.unique() || !k.nullable() ? saved + " = " + current
+          : "(" + saved + " = " + current + " OR " + saved + " IS NULL AND " + current
+              + " IS NULL)";
+    }).toList());
+    String value = kept.unique()
+        ? "SELECT b." + column + " FROM " + backup + " b WHERE " + match
+        : dialect.firstValue("b." + column, backup + " b", match);
+    return "UPDATE " + dialect.tableName(kept.table()) + " SET " + column + " = (" + value
+        + ") WHERE EXISTS (SELECT 1 FROM " + backup + " b WHERE " + match + ")";
   }
 
   private static SchemaModel.Column nullable(SchemaModel.Column c, boolean nullable) {

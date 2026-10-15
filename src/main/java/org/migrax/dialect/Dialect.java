@@ -138,6 +138,19 @@ public interface Dialect {
   }
 
   /**
+   * A query for one value from the first matching row, for use as a scalar subquery.
+   *
+   * @param value the value to select, such as {@code b.note}
+   * @param from the table to read, with its alias
+   * @param condition the WHERE condition
+   * @return the SELECT statement, without parentheses
+   * @since 0.7.0
+   */
+  default String firstValue(String value, String from, String condition) {
+    return "SELECT " + value + " FROM " + from + " WHERE " + condition + " LIMIT 1";
+  }
+
+  /**
    * Renders the given schema operation into a database-specific DDL statement.
    *
    * @param operation the operation to render

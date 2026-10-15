@@ -45,8 +45,13 @@ With `--keep-data`, a migration that drops data keeps it, and its rollback scrip
   renames it back, with its rows, keys and indexes.
 - A dropped column, or a column whose type change loses data, is first copied with the table's
   primary key into `migrax_backup_<migration>_<table>_<column>`. The rollback adds the column
-  back and fills it row by row. A table without a primary key can't be matched row by row:
-  `generate` says so, and that column's data isn't kept.
+  back and fills it row by row.
+- A table without a primary key works the same way with a unique key whose columns are all
+  NOT NULL. Without either, Migrax copies the column with all the other columns of the row and
+  finds each row again by those values (empty values match each other). `generate` warns about
+  it: rows that are the same in every other column get one value back for all of them, which
+  only matters if they had different values in the dropped column. Columns that the same
+  migration changes, and long text, binary and JSON columns, aren't used to match rows.
 
 ```sql
 -- Rollback for 0007_drop_notes.sql. 'migrax rollback' runs it.

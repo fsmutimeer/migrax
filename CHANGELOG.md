@@ -16,6 +16,10 @@ All notable changes to Migrax are listed here. The format follows
 - `${migrax.schema}`: a built-in placeholder for the schema a migration runs in, on every
   database.
 - Lint rule MX017: on SQL Server with `migrax.schemas`, a table without its schema in front.
+- `generate --keep-data` keeps dropped and narrowed columns of tables without a primary key.
+  It finds the rows again by a unique key whose columns are NOT NULL, or else by all their other
+  columns; `generate` warns in that case, because rows that are the same in every other column
+  get one value back for all of them.
 
 ## [0.6.1] - 2026-10-14
 

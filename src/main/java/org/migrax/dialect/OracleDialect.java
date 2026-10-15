@@ -70,6 +70,12 @@ public final class OracleDialect extends AbstractDialect {
     return "\"" + identifier.replace("\"", "\"\"") + "\"";
   }
 
+  /** ROWNUM works on every Oracle version; FETCH FIRST needs 12c. */
+  @Override
+  public String firstValue(String value, String from, String condition) {
+    return "SELECT " + value + " FROM " + from + " WHERE (" + condition + ") AND ROWNUM = 1";
+  }
+
   @Override
   protected String addColumn(String table, SchemaModel.Column column) {
     return "ALTER TABLE " + q(table) + " ADD (" + column(column) + ")";

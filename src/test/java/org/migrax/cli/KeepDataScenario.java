@@ -21,8 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * {@code generate --keep-data} end to end on a real database: a dropped table, a dropped
  * nullable and a dropped NOT NULL column and a narrowed column, migrated and rolled back. Every
- * row and value must be back, with the NOT NULL and the foreign key. Shared by the H2 unit test
- * and the 8-database integration test.
+ * row and value must be back, with the NOT NULL and the foreign key. Columns are also dropped
+ * from a table with only a unique key, and from one with no key at all, duplicate rows and
+ * NULLs included. Shared by the H2 unit test and the 8-database integration test.
  */
 public final class KeepDataScenario {
   private KeepDataScenario() {}
@@ -52,6 +53,16 @@ public final class KeepDataScenario {
     item.add(column("grade", "varchar", true, withColumns ? 100 : 10));
     tables.add(new SchemaModel.Table("kd_item", item,
         new SchemaModel.PrimaryKey(List.of("id"), "kd_item_pkey"), List.of(), List.of()));
+    List<SchemaModel.Column> coded = new ArrayList<>(List.of(new SchemaModel.Column("code",
+        "varchar", false, 20, null, null, null, true, false, null, "varchar")));
+    List<SchemaModel.Column> loose = new ArrayList<>(List.of(column("a", "varchar", true, 20),
+        column("b", "integer", true, null)));
+    if (withColumns) {
+      coded.add(column("label", "varchar", true, 50));
+      loose.add(column("extra", "varchar", true, 50));
+    }
+    tables.add(new SchemaModel.Table("kd_coded", coded, null, List.of(), List.of()));
+    tables.add(new SchemaModel.Table("kd_loose", loose, null, List.of(), List.of()));
     return new SchemaModel(tables);
   }
 
@@ -84,12 +95,21 @@ public final class KeepDataScenario {
         "INSERT INTO " + in + "kd_item (id, name, remark, grade) VALUES (1, 'first', "
             + "'remark one', 'S')",
         "INSERT INTO " + in + "kd_item (id, name, remark, grade) VALUES (2, 'second', NULL, "
-            + "'M')");
+            + "'M')",
+        "INSERT INTO " + in + "kd_coded (code, label) VALUES ('A', 'alpha')",
+        "INSERT INTO " + in + "kd_coded (code, label) VALUES ('B', NULL)",
+        "INSERT INTO " + in + "kd_loose (a, b, extra) VALUES ('x', 1, 'same')",
+        "INSERT INTO " + in + "kd_loose (a, b, extra) VALUES ('x', 1, 'same')",
+        "INSERT INTO " + in + "kd_loose (a, b, extra) VALUES (NULL, 2, 'null a')",
+        "INSERT INTO " + in + "kd_loose (a, b, extra) VALUES ('y', NULL, 'null b')",
+        "INSERT INTO " + in + "kd_loose (a, b, extra) VALUES ('z', 3, NULL)");
 
     List<Operation> forward = new DiffEngine().diff(before, after);
     List<Operation> reverse = new DiffEngine().diff(after, before);
     KeepData.Plan plan = KeepData.apply(forward, reverse, before, dialect, "0042");
-    assertEquals(List.of(), plan.warnings());
+    assertEquals(List.of("--keep-data keeps kd_loose.extra by matching rows on their other "
+        + "columns: kd_loose has no primary key or unique key. Rows that are equal in those "
+        + "columns all get the value of one of them back."), plan.warnings());
     Path migration = folder.resolve("0042_drop.sql");
     String forwardSql = MigrationSql.render(dialect, plan.forward(), null, before, after);
     MigrationSql.writeRollback(folder, "0042_drop.sql", dialect, plan, forward, after, before);
@@ -103,9 +123,9 @@ public final class KeepDataScenario {
     List<String> backups = org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
         schema, "TABLE").stream().map(String::toLowerCase)
         .filter(name -> name.startsWith("migrax_backup_0042_")).sorted().toList();
-    assertEquals(List.of("migrax_backup_0042_kd_child", "migrax_backup_0042_kd_item_grade",
-        "migrax_backup_0042_kd_item_name",
-        "migrax_backup_0042_kd_item_remark"), backups,
+    assertEquals(List.of("migrax_backup_0042_kd_child", "migrax_backup_0042_kd_coded_label",
+        "migrax_backup_0042_kd_item_grade", "migrax_backup_0042_kd_item_name",
+        "migrax_backup_0042_kd_item_remark", "migrax_backup_0042_kd_loose_extra"), backups,
         dialect.id() + ":\n" + forwardSql);
 
     try {
@@ -118,6 +138,12 @@ public final class KeepDataScenario {
         "SELECT id, parent_id, note FROM " + in + "kd_child"), dialect.id() + ":\n" + reverseSql);
     assertEquals("1|first|remark one|S;2|second|null|M", rows(connection,
         "SELECT id, name, remark, grade FROM " + in + "kd_item ORDER BY id"), dialect.id());
+    assertEquals("A|alpha;B|null", rows(connection,
+        "SELECT code, label FROM " + in + "kd_coded ORDER BY code"), dialect.id());
+    // Sorted here: databases order NULLs differently.
+    assertEquals(List.of("null|2|null a", "x|1|same", "x|1|same", "y|null|null b", "z|3|null"),
+        java.util.Arrays.stream(rows(connection, "SELECT a, b, extra FROM " + in + "kd_loose")
+            .split(";")).sorted().toList(), dialect.id() + ":\n" + reverseSql);
     assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
         schema, "TABLE").stream().filter(name -> name.toLowerCase().startsWith("migrax_backup_0042_"))
         .toList(), dialect.id() + ": backups after the rollback");
@@ -127,7 +153,8 @@ public final class KeepDataScenario {
     assertEquals(1, table(restored, "kd_child").foreignKeys().size(),
         dialect.id() + ": foreign key restored");
 
-    execute(connection, "DROP TABLE " + in + "kd_child", "DROP TABLE " + in + "kd_item",
+    execute(connection, "DROP TABLE " + in + "kd_coded", "DROP TABLE " + in + "kd_loose",
+        "DROP TABLE " + in + "kd_child", "DROP TABLE " + in + "kd_item",
         "DROP TABLE " + in + "kd_parent", "DELETE FROM " + in + "migrax_history WHERE version "
             + "IN ('0041_setup.sql', '0042_drop.sql')");
   }
