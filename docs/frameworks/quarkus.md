@@ -36,7 +36,7 @@ quarkus.hibernate-orm.schema-management.strategy=validate
 <dependency>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-quarkus</artifactId>
-  <version>0.7.0</version>
+  <version>0.8.0</version>
 </dependency>
 ```
 

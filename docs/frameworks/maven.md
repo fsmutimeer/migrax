@@ -11,7 +11,7 @@ you prefer not to install the CLI.
     <plugin>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.7.0</version>
+      <version>0.8.0</version>
     </plugin>
   </plugins>
 </build>
