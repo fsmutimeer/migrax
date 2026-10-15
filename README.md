@@ -9,8 +9,8 @@ git # Migrax
 **Your entities change. Migrax writes the migration.**
 
 Migrax reads your JPA entities, compares them with what your database looks like, and writes the
-SQL migration for you, with a rollback script, linted for locking and data loss, and verified by
-your own Hibernate version before it reaches production.
+SQL migration for you, with a rollback script, linted for locking and data loss, and verified
+against your own Hibernate, EclipseLink or OpenJPA mapping before it reaches production.
 
 **[Documentation](https://migrax.org/)** ·
 [Quick start](https://migrax.org/getting-started/quickstart/) ·
@@ -31,7 +31,8 @@ Successfully applied migration '0002_add_customers_phone.sql'.
 ## Highlights
 
 - **Migrations written for you.** Tables, columns, keys, indexes, join tables, element
-  collections, sequences and inheritance, exactly as your Hibernate version maps them.
+  collections, sequences and inheritance, exactly as your Hibernate, EclipseLink or OpenJPA
+  version maps them.
 - **Asks before it loses data.** Likely renames are confirmed and kept as renames; drops need
   `--allow-destructive`.
 - **Rollback included.** Every generated migration has a rollback script, and `verify` proves it
@@ -46,7 +47,7 @@ Successfully applied migration '0002_add_customers_phone.sql'.
 | | |
 |---|---|
 | Frameworks | Spring Boot, Quarkus, Micronaut 4 and 5, Helidon 4, Jakarta EE and plain Hibernate |
-| Hibernate | 5.4 to 7.4, each version reading and validating its own mapping |
+| JPA providers | Hibernate 4.2 to 7.4, EclipseLink 2.7 to 4.0, OpenJPA 3.2 and 4.1, each read through its own mapping |
 | Databases | PostgreSQL, CockroachDB, MySQL 8, MariaDB, SQL Server, Oracle 12c+, H2, SQLite |
 | Ways to run | Command line, Maven plugin, Gradle plugin, at application startup, container image, GitHub Action |
 | AI assistants | `migrax mcp` (Model Context Protocol server), `llms.txt` docs |

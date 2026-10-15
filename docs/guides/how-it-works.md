@@ -13,10 +13,10 @@ flowchart LR
 ```
 
 **Schema model.** Migrax builds a model of the tables your entities need. When your project has
-Hibernate 4.2 or newer, Migrax asks **your own Hibernate version** for its mapping, without
-connecting to a database, so names, types, join tables, element collections, inheritance and
-sequences are exactly what your application expects. Without Hibernate it scans the
-`jakarta.persistence` / `javax.persistence` annotations instead.
+Hibernate 4.2 or newer, EclipseLink or OpenJPA, Migrax asks **your own JPA provider** for its
+mapping, without connecting to a database, so names, types, join tables, element collections,
+inheritance and sequences are exactly what your application expects. Without one of them it
+scans the `jakarta.persistence` / `javax.persistence` annotations instead.
 
 **Snapshot.** `.migrax/snapshot.json` records the schema your migrations produce. `generate`
 compares the entities with the snapshot and writes only the difference. The snapshot also records
