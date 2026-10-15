@@ -3,6 +3,33 @@
 Migrax is a command line tool. It needs **Java 17 or newer**; nothing else has to be installed,
 and no administrator rights are needed.
 
+## With a package manager
+
+The quickest way, if you use one of these:
+
+=== "Homebrew (macOS and Linux)"
+
+    ```bash
+    brew install fsmutimeer/migrax/migrax
+    ```
+
+    Homebrew installs Java with it. When `JAVA_HOME` is set, Migrax uses that Java instead.
+
+=== "Scoop (Windows)"
+
+    ```powershell
+    scoop bucket add migrax https://github.com/fsmutimeer/scoop-migrax
+    scoop install migrax
+    ```
+
+    Migrax needs Java 17 or newer. If you don't have it, install one with Scoop too:
+    `scoop bucket add java`, then `scoop install java/temurin21-jdk`.
+
+Then check it with `migrax version` and continue with the [Quick start](quickstart.md). The
+package managers get every stable release on the day it is published.
+
+Without a package manager, install Migrax from its ZIP in three steps:
+
 ## 1. Get Migrax
 
 === "From a release"
@@ -113,7 +140,10 @@ Extra JVM options go in `MIGRAX_JAVA_OPTS`.
 
 ## Updating and uninstalling
 
-Run the installer of the new version again to update. To uninstall, delete the install folder
+With Homebrew: `brew upgrade migrax` and `brew uninstall migrax`. With Scoop: `scoop update
+migrax` and `scoop uninstall migrax`.
+
+Otherwise, run the installer of the new version again to update. To uninstall, delete the install folder
 (`%LOCALAPPDATA%\migrax` on Windows, `~/.local/share/migrax` and the `~/.local/bin/migrax` link
 on macOS and Linux) and remove its `bin` folder from your user `PATH`.
 

@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Install with Homebrew on macOS and Linux (`brew install fsmutimeer/migrax/migrax`) or with
+  Scoop on Windows (`scoop bucket add migrax https://github.com/fsmutimeer/scoop-migrax`, then
+  `scoop install migrax`). Every stable release updates both.
+
 ## [0.7.0] - 2026-10-15
 
 The 0.7 release removes three more limitations: `--schemas` works on SQL Server, `--keep-data`

@@ -93,3 +93,30 @@ jobs:
         run: gh workflow run docs.yml --ref main --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  packages:
+    name: Update Homebrew and Scoop
+    needs: release
+    # Package managers only get stable versions.
+    if: ${{ !contains(github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Point the tap and the bucket at this release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          SCOOP_BUCKET_DEPLOY_KEY: ${{ secrets.SCOOP_BUCKET_DEPLOY_KEY }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # The checksum of the file users download, not of a local build.
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --pattern "migrax-$VERSION.zip" --dir "$RUNNER_TEMP"
+          SHA256=$(sha256sum "$RUNNER_TEMP/migrax-$VERSION.zip" | cut -d' ' -f1)
+          install -m 600 /dev/null "$RUNNER_TEMP/tap-key"
+          install -m 600 /dev/null "$RUNNER_TEMP/bucket-key"
+          printf '%s\n' "$HOMEBREW_TAP_DEPLOY_KEY" > "$RUNNER_TEMP/tap-key"
+          printf '%s\n' "$SCOOP_BUCKET_DEPLOY_KEY" > "$RUNNER_TEMP/bucket-key"
+          HOMEBREW_TAP_KEY="$RUNNER_TEMP/tap-key" SCOOP_BUCKET_KEY="$RUNNER_TEMP/bucket-key" \
+            bash scripts/update-packages.sh "$VERSION" "$SHA256" "$RUNNER_TEMP/packages"
+          rm -f "$RUNNER_TEMP/tap-key" "$RUNNER_TEMP/bucket-key"
