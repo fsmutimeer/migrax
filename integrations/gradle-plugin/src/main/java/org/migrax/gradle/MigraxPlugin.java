@@ -109,6 +109,6 @@ public class MigraxPlugin implements Plugin<Project> {
     } catch (IOException ignored) {
       // Fall back below.
     }
-    return properties.getProperty("version", "0.12.1-SNAPSHOT");
+    return properties.getProperty("version", "0.13.0");
   }
 }
