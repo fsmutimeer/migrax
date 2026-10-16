@@ -16,20 +16,38 @@ import java.sql.Statement;
 final class TableMigrationLock {
   private TableMigrationLock() {}
 
+  /** The lock on databases with PostgreSQL's SQL (CockroachDB, YugabyteDB). */
   static AutoCloseable acquire(Connection connection, String resource)
+      throws SQLException {
+    return acquire(connection, resource, "timestamptz");
+  }
+
+  /**
+   * @param timestampType the SQL type of {@code locked_at}
+   */
+  static AutoCloseable acquire(Connection connection, String resource, String timestampType)
       throws SQLException {
     boolean autoCommit = connection.getAutoCommit();
     try (Statement statement = connection.createStatement()) {
       statement.execute("CREATE TABLE IF NOT EXISTS migrax_lock (lock_name varchar(64) NOT NULL "
-          + "PRIMARY KEY, locked_by varchar(255), locked_at timestamptz NOT NULL)");
+          + "PRIMARY KEY, locked_by varchar(255), locked_at " + timestampType + " NOT NULL)");
     }
     commitIfManual(connection, autoCommit);
     int inserted;
     try (PreparedStatement insert = connection.prepareStatement("INSERT INTO migrax_lock "
-        + "(lock_name, locked_by, locked_at) VALUES (?, ?, now()) ON CONFLICT DO NOTHING")) {
+        + "(lock_name, locked_by, locked_at) VALUES (?, ?, CURRENT_TIMESTAMP)")) {
       insert.setString(1, resource);
       insert.setString(2, owner());
       inserted = insert.executeUpdate();
+    } catch (SQLException e) {
+      // The row is there: another process holds the lock.
+      if (e.getSQLState() == null || !e.getSQLState().startsWith("23")) {
+        throw e;
+      }
+      if (!autoCommit) {
+        connection.rollback();
+      }
+      inserted = 0;
     }
     commitIfManual(connection, autoCommit);
     if (inserted == 0) {

@@ -46,17 +46,18 @@ import org.eclipse.persistence.tools.schemaframework.UniqueKeyConstraint;
  */
 public final class EclipseLinkSchemaReader {
   /** EclipseLink's platform per Migrax dialect, for the database's default types. */
-  private static final Map<String, String> PLATFORMS = Map.of(
-      "postgresql", "org.eclipse.persistence.platform.database.PostgreSQLPlatform",
-      "cockroachdb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform",
-      "yugabytedb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform",
-      "mysql", "org.eclipse.persistence.platform.database.MySQLPlatform",
-      "mariadb", "org.eclipse.persistence.platform.database.MySQLPlatform",
-      "tidb", "org.eclipse.persistence.platform.database.MySQLPlatform",
-      "sqlserver", "org.eclipse.persistence.platform.database.SQLServerPlatform",
-      "oracle", "org.eclipse.persistence.platform.database.OraclePlatform",
-      "h2", "org.eclipse.persistence.platform.database.H2Platform",
-      "sqlite", "org.eclipse.persistence.platform.database.DatabasePlatform");
+  private static final Map<String, String> PLATFORMS = Map.ofEntries(
+      Map.entry("postgresql", "org.eclipse.persistence.platform.database.PostgreSQLPlatform"),
+      Map.entry("cockroachdb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform"),
+      Map.entry("yugabytedb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform"),
+      Map.entry("mysql", "org.eclipse.persistence.platform.database.MySQLPlatform"),
+      Map.entry("mariadb", "org.eclipse.persistence.platform.database.MySQLPlatform"),
+      Map.entry("tidb", "org.eclipse.persistence.platform.database.MySQLPlatform"),
+      Map.entry("sqlserver", "org.eclipse.persistence.platform.database.SQLServerPlatform"),
+      Map.entry("oracle", "org.eclipse.persistence.platform.database.OraclePlatform"),
+      Map.entry("h2", "org.eclipse.persistence.platform.database.H2Platform"),
+      Map.entry("sqlite", "org.eclipse.persistence.platform.database.DatabasePlatform"),
+      Map.entry("hsqldb", "org.eclipse.persistence.platform.database.HSQLPlatform"));
   /** The sequence name EclipseLink gives GenerationType.IDENTITY. */
   private static final String IDENTITY = "SEQ_GEN_IDENTITY";
 

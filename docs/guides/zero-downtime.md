@@ -123,8 +123,8 @@ generate without `--zero-downtime` during a maintenance window.
 ## Renamed tables
 
 The expand migration renames the table and creates a view with the old name. The old version
-reads and writes through the view. This works on PostgreSQL, MySQL, MariaDB, SQL Server and
-Oracle, whose simple views accept writes.
+reads and writes through the view. This works on PostgreSQL, YugabyteDB, MySQL, MariaDB, SQL
+Server, Oracle and HSQLDB, whose simple views accept writes.
 
 ## New NOT NULL columns
 
