@@ -42,7 +42,7 @@ jobs:
           & "$env:RUNNER_TEMP\migrax\bin\migrax.cmd" help
 
   integrations:
-    name: Spring Boot, Quarkus, Micronaut, Helidon and Gradle integrations
+    name: Spring Boot, Quarkus, Micronaut, Helidon, JUnit and Gradle integrations
     runs-on: ubuntu-latest
     needs: build
     steps:

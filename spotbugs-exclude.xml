@@ -29,6 +29,12 @@
       <Class name="org.migrax.runner.ClasspathMigrations"/>
     </Or>
   </Match>
+  <!-- The Java API keeps the data source and class loader it is given: they are shared on
+       purpose, not copied. -->
+  <Match>
+    <Class name="~org\.migrax\.api\.Migrax(\$Builder)?"/>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
   <!-- doPrivileged belongs to the SecurityManager, which is deprecated for removal. -->
   <Match>
     <Bug pattern="DP_CREATE_CLASSLOADER_INSIDE_DO_PRIVILEGED"/>

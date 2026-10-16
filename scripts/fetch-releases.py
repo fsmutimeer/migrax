@@ -30,6 +30,7 @@ DESCRIPTIONS = [
     ("migrax-micronaut-", "Micronaut startup integration"),
     ("migrax-helidon-", "Helidon MP startup integration"),
     ("migrax-jakarta-ee-", "Jakarta EE startup integration (WildFly, Payara, ...)"),
+    ("migrax-junit-", "JUnit 5 extension: @MigraxTest checks migrations against the entities"),
     ("migrax-gradle-plugin-", "Gradle plugin"),
 ]
 

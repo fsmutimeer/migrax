@@ -39,6 +39,8 @@ Successfully applied migration '0002_add_customers_phone.sql'.
   works.
 - **Checked before production.** `lint` finds statements that lock tables or break running
   instances, `verify` checks the result against your mapping, and `drift` catches manual changes.
+- **Tested in your unit tests.** `@MigraxTest` (JUnit 5) migrates a test database and fails
+  the tests when your migrations no longer match the entities.
 - **Zero setup.** Run it in your service folder; it builds the project and reads the database
   settings your application already has.
 
@@ -49,7 +51,7 @@ Successfully applied migration '0002_add_customers_phone.sql'.
 | Frameworks | Spring Boot, Quarkus, Micronaut 4 and 5, Helidon 4, Jakarta EE and plain Hibernate |
 | JPA providers | Hibernate 4.0 to 7.4, EclipseLink 2.7 to 4.0, OpenJPA 3.2 and 4.1, each read through its own mapping |
 | Databases | PostgreSQL, CockroachDB, MySQL 8, MariaDB, SQL Server, Oracle 12c+, H2, SQLite |
-| Ways to run | Command line, Maven plugin, Gradle plugin, at application startup, container image, GitHub Action |
+| Ways to run | Command line, Maven plugin, Gradle plugin, at application startup, Java API, JUnit 5 extension, container image, GitHub Action |
 | AI assistants | `migrax mcp` (Model Context Protocol server), `llms.txt` docs |
 
 ## Install

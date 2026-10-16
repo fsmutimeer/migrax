@@ -163,6 +163,7 @@ class DatabaseEngineIT {
       HibernateValidationTest.persistAndQuery(factory, !validate);
     }
     exerciseClean(container);
+    exerciseApi(container);
   }
 
   /** migrax clean leaves nothing behind: tables, foreign keys, views, sequences, history. */
@@ -171,14 +172,7 @@ class DatabaseEngineIT {
          Statement statement = connection.createStatement()) {
       statement.execute("CREATE VIEW customer_names AS SELECT full_name FROM customer");
     }
-    Path project = Files.createTempDirectory("migrax-clean-it");
-    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-    java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
-    int code = org.migrax.cli.Main.run(new String[] {"clean", "--yes", "--url", database.url(),
-        "--user", database.user(), "--password", database.password(), "--dir",
-        project.toString(), "--no-build"}, new java.io.PrintStream(out, true),
-        new java.io.PrintStream(err, true));
-    assertEquals(0, code, out + "\n" + err);
+    String out = clean(database);
     try (Connection connection = database.connect()) {
       assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, null,
           "TABLE"), "tables after clean: " + out);
@@ -187,6 +181,54 @@ class DatabaseEngineIT {
       assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.sequencesIn(connection, null),
           "sequences after clean");
     }
+  }
+
+  /** Runs migrax clean; returns its output. */
+  private static String clean(Database database) throws Exception {
+    Path project = Files.createTempDirectory("migrax-clean-it");
+    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+    java.io.ByteArrayOutputStream err = new java.io.ByteArrayOutputStream();
+    int code = org.migrax.cli.Main.run(new String[] {"clean", "--yes", "--url", database.url(),
+        "--user", database.user(), "--password", database.password(), "--dir",
+        project.toString(), "--no-build"}, new java.io.PrintStream(out, true),
+        new java.io.PrintStream(err, true));
+    assertEquals(0, code, out + "\n" + err);
+    return out.toString();
+  }
+
+  /**
+   * The Java API on each engine: applies the generated migration, finds that the entities match
+   * (read through Hibernate's mapping), tests the rollback script and rolls back.
+   */
+  private static void exerciseApi(Database database) throws Exception {
+    Path folder = Files.createTempDirectory("migrax-api-it");
+    org.migrax.dialect.Dialect dialect;
+    try (Connection connection = database.connect()) {
+      dialect = org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
+    }
+    var model = HibernateValidationTest.model(org.migrax.model.NamingStrategy.SPRING, dialect,
+        org.migrax.model.ModelExtractor.Mode.HIBERNATE);
+    Files.writeString(folder.resolve("0001_entities.sql"),
+        HibernateValidationTest.generate(org.migrax.model.NamingStrategy.SPRING, dialect,
+            org.migrax.model.ModelExtractor.Mode.HIBERNATE));
+    Files.createDirectories(folder.resolve("rollback"));
+    Files.writeString(folder.resolve("rollback/0001_entities.sql"),
+        new org.migrax.diff.DiffEngine().diff(model, org.migrax.model.SchemaModel.empty())
+            .stream().map(dialect::render).map(statement -> statement + ";")
+            .collect(java.util.stream.Collectors.joining("\n")));
+    org.migrax.api.Migrax migrax = org.migrax.api.Migrax.configure()
+        .url(database.url(), database.user(), database.password())
+        .locations("filesystem:" + folder).javaPackage(null).projectDirectory(folder)
+        .entities("org.migrax.hibernate.fixtures").naming("spring").load();
+    assertEquals(1, migrax.migrate().applied(), dialect.id());
+    var validation = migrax.validate();
+    assertEquals(List.of(), validation.problems(), dialect.id());
+    assertEquals("Hibernate", validation.entities().split(" ")[0], dialect.id());
+    var rollbacks = migrax.testRollbacks();
+    assertEquals("ok (1 rolled back and re-applied)", rollbacks.summary(), dialect.id());
+    assertEquals(List.of("0001_entities.sql"), migrax.rollback(1), dialect.id());
+    assertEquals(1, migrax.status().pending(), dialect.id());
+    clean(database);
   }
 
   /**
