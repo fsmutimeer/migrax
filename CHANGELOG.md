@@ -6,6 +6,8 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-16
+
 ### Added
 
 - Metrics and tracing of migrations at startup: Micrometer metrics (`migrax.run`,
@@ -17,9 +19,9 @@ All notable changes to Migrax are listed here. The format follows
   takes listeners with `listener(...)`. See Guides > Metrics and tracing.
 - Preconditions: a `-- migrax:require` line makes a migration check the database before it
   runs (`table-exists`, `table-missing`, `column-exists`, `column-missing`, or `sql <query>`).
-  An unmet condition stops the run, or with `else skip` records the migration without running
-  it. `status` and `migrate --dry-run` show the conditions of pending migrations; `migrate --sql`
-  checks them for the first migration and stops before later ones.
+  An unmet condition stops the run (MXE114), or with `else skip` records the migration without
+  running it. `status` and `migrate --dry-run` show the conditions of pending migrations;
+  `migrate --sql` checks them for the first migration and stops before later ones.
 
 ## [0.12.0] - 2026-10-16
 
@@ -643,7 +645,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/fsmutimeer/migrax/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/fsmutimeer/migrax/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/fsmutimeer/migrax/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/fsmutimeer/migrax/compare/v0.9.0...v0.10.0

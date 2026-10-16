@@ -13,7 +13,7 @@ Add `migrax-junit` as a test dependency:
 <dependency>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-junit</artifactId>
-  <version>0.12.0</version>
+  <version>0.13.0</version>
   <scope>test</scope>
 </dependency>
 ```
