@@ -1,10 +1,10 @@
 package org.migrax.spring;
 
 import org.migrax.api.JavaMigration;
+import org.migrax.api.Migrax;
 import org.migrax.cli.Main;
 import org.migrax.runner.Migration;
 import org.migrax.runner.MigrationLoader;
-import org.migrax.runner.MigrationRunner;
 import org.migrax.util.Log;
 
 import java.io.ByteArrayOutputStream;
@@ -13,11 +13,9 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import javax.sql.DataSource;
 
@@ -57,11 +55,9 @@ public class MigraxMigrator implements InitializingBean {
    * without changing anything; the health indicator reports it.
    */
   public org.migrax.runner.StartupMigrations.Status status() throws Exception {
-    Map<String, Migration> byVersion = new LinkedHashMap<>();
-    loadPackaged().forEach(m -> byVersion.put(m.version(), m));
-    javaMigrationBeans.forEach(bean -> byVersion.put(bean.version(), Migration.ofJava(bean)));
-    return org.migrax.runner.StartupMigrations.status(dataSource,
-        new ArrayList<>(byVersion.values()), properties.getSchemas(), properties.getEnv());
+    Migrax.Status status = migrax(loadPackaged()).status();
+    return new org.migrax.runner.StartupMigrations.Status(status.applied(), status.pending(),
+        status.problems());
   }
 
   @Override
@@ -80,29 +76,12 @@ public class MigraxMigrator implements InitializingBean {
         migrations.addAll(MigrationLoader.load(devFolder, classLoader(),
             properties.getJavaPackage()));
       }
-      Map<String, Migration> byVersion = new LinkedHashMap<>();
-      migrations.forEach(m -> byVersion.put(m.version(), m));
-      javaMigrationBeans.forEach(bean -> byVersion.put(bean.version(), Migration.ofJava(bean)));
-      List<Migration> all = new ArrayList<>(byVersion.values());
-      if (all.isEmpty()) {
+      if (migrations.isEmpty() && javaMigrationBeans.isEmpty()) {
         LOG.info("Migrax: no migrations found in " + properties.getLocations());
         return;
       }
-      MigrationRunner.Options options =
-          new MigrationRunner.Options(properties.isResume(), properties.getPlaceholders());
-      try (Connection connection = dataSource.getConnection()) {
-        List<String> schemas = properties.getSchemas();
-        if (schemas.isEmpty()) {
-          report(new MigrationRunner().withLockTimeout(properties.getLockTimeout())
-              .withEnvironment(properties.getEnv()).migrateAll(connection, all, options), null);
-        } else {
-          for (String schema : schemas) {
-            useSchema(connection, schema);
-            report(new MigrationRunner().withLockTimeout(properties.getLockTimeout())
-                .withEnvironment(properties.getEnv()).migrateAll(connection, all, options),
-                schema);
-          }
-        }
+      for (Migrax.SchemaResult result : migrax(migrations).migrate().schemas()) {
+        report(result.applied(), result.schema());
       }
     } finally {
       Log.setSink(previous);
@@ -112,6 +91,30 @@ public class MigraxMigrator implements InitializingBean {
   private void report(int applied, String schema) {
     LOG.info("Migrax: " + (applied == 0 ? "schema is up to date"
         : "applied " + applied + " migration(s)") + (schema == null ? "" : " in " + schema));
+  }
+
+  /**
+   * The API over the given migrations plus the JavaMigration beans; a bean replaces a
+   * migration with the same version.
+   */
+  private Migrax migrax(List<Migration> migrations) throws Exception {
+    Migrax.Builder builder = Migrax.configure().dataSource(dataSource)
+        .classLoader(classLoader()).locations(List.of()).javaPackage(null)
+        .schemas(properties.getSchemas()).environment(properties.getEnv())
+        .lockTimeout(properties.getLockTimeout() == null ? java.time.Duration.ZERO
+            : properties.getLockTimeout()).resume(properties.isResume())
+        .placeholders(properties.getPlaceholders());
+    Map<String, Migration> byVersion = new LinkedHashMap<>();
+    migrations.forEach(m -> byVersion.put(m.version(), m));
+    javaMigrationBeans.forEach(bean -> byVersion.put(bean.version(), Migration.ofJava(bean)));
+    for (Migration migration : byVersion.values()) {
+      if (migration.isJava()) {
+        builder.javaMigrations(migration.java());
+      } else {
+        builder.sqlMigration(migration.version(), migration.sql());
+      }
+    }
+    return builder.load();
   }
 
   private ClassLoader classLoader() {
@@ -216,15 +219,6 @@ public class MigraxMigrator implements InitializingBean {
         }
       }
     }, true, StandardCharsets.UTF_8);
-  }
-
-  private static void useSchema(Connection connection, String schema) throws Exception {
-    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-    if (product.contains("mysql") || product.contains("mariadb")) {
-      connection.setCatalog(schema);
-    } else {
-      connection.setSchema(schema);
-    }
   }
 
   /** Sends Migrax core messages to Spring's logging. */

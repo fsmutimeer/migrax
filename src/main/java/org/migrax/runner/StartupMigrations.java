@@ -1,10 +1,9 @@
 package org.migrax.runner;
 
+import org.migrax.api.Migrax;
 import org.migrax.util.Log;
 
 import java.sql.Connection;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -34,40 +33,7 @@ public final class StartupMigrations {
    */
   public static int migrate(DataSource dataSource, Map<String, String> settings,
                             ClassLoader loader) throws Exception {
-    String location = setting(settings, "migrax.locations", "db/migration");
-    String javaPackage = setting(settings, "migrax.java-package",
-        MigrationLoader.DEFAULT_JAVA_PACKAGE);
-    boolean resume = Boolean.parseBoolean(setting(settings, "migrax.resume", "false"));
-    List<String> schemas = schemas(settings);
-    Map<String, String> placeholders = new LinkedHashMap<>();
-    settings.forEach((key, value) -> {
-      if (key.startsWith("migrax.placeholders.") && value != null) {
-        placeholders.put(key.substring("migrax.placeholders.".length()), value);
-      }
-    });
-
-    List<Migration> migrations = migrations(location, javaPackage, loader);
-    if (migrations.isEmpty()) {
-      Log.info("No migrations found in {}.", location);
-      return 0;
-    }
-    String lockTimeout = setting(settings, "migrax.lock-timeout", "");
-    MigrationRunner runner = new MigrationRunner().withLockTimeout(lockTimeout.isBlank()
-        ? DatabaseMigrationLock.configuredTimeout()
-        : DatabaseMigrationLock.parseTimeout(lockTimeout))
-        .withEnvironment(setting(settings, "migrax.env", ""));
-    try (Connection connection = dataSource.getConnection()) {
-      MigrationRunner.Options options = new MigrationRunner.Options(resume, placeholders);
-      if (schemas.isEmpty()) {
-        return runner.migrateAll(connection, migrations, options);
-      }
-      int applied = 0;
-      for (String schema : schemas) {
-        TargetSchema.use(connection, schema);
-        applied += runner.migrateAll(connection, migrations, options);
-      }
-      return applied;
-    }
+    return configure(dataSource, settings, loader).migrate().applied();
   }
 
   /**
@@ -94,9 +60,14 @@ public final class StartupMigrations {
    */
   public static Status status(DataSource dataSource, Map<String, String> settings,
                               ClassLoader loader) throws Exception {
-    List<Migration> migrations = migrations(setting(settings, "migrax.locations", "db/migration"),
-        setting(settings, "migrax.java-package", MigrationLoader.DEFAULT_JAVA_PACKAGE), loader);
-    return status(dataSource, migrations, schemas(settings), setting(settings, "migrax.env", ""));
+    Migrax.Status status = configure(dataSource, settings, loader).status();
+    return new Status(status.applied(), status.pending(), status.problems());
+  }
+
+  private static Migrax configure(DataSource dataSource, Map<String, String> settings,
+                                  ClassLoader loader) throws Exception {
+    return Migrax.configure().dataSource(dataSource).classLoader(loader).settings(settings)
+        .load();
   }
 
   /**
@@ -143,25 +114,6 @@ public final class StartupMigrations {
     return new Status(applied, pending, problems);
   }
 
-  private static List<Migration> migrations(String locations, String javaPackage,
-                                            ClassLoader loader) throws Exception {
-    List<Migration> migrations = new ArrayList<>(ClasspathMigrations.load(loader,
-        List.of(locations.split(","))));
-    migrations.addAll(MigrationLoader.javaMigrations(loader, javaPackage));
-    return migrations;
-  }
-
-  private static List<String> schemas(Map<String, String> settings) {
-    List<String> schemas = new ArrayList<>();
-    for (String schema : setting(settings, "migrax.schemas", "").split(",")) {
-      if (!schema.isBlank()) {
-        schemas.add(schema.trim());
-      }
-    }
-    return schemas;
-  }
-
-
   /**
    * The (jta-)data-source the first persistence unit in META-INF/persistence.xml names, or
    * null. Lets Helidon and Jakarta EE integrations migrate the data source JPA uses.
@@ -187,10 +139,5 @@ public final class StartupMigrations {
       Log.warn("Could not read META-INF/persistence.xml: {}", e.getMessage());
       return null;
     }
-  }
-
-  private static String setting(Map<String, String> settings, String key, String fallback) {
-    String value = settings.get(key);
-    return value == null || value.isBlank() ? fallback : value.trim();
   }
 }

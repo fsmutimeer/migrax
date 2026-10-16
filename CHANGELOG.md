@@ -6,6 +6,16 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A Java API, `org.migrax.api.Migrax`: `Migrax.configure().dataSource(ds).load()`, then
+  `migrate()`, `status()`, `rollback(steps)`, `rollbackTo(version)`, `validate()` (do the
+  entities match the database?) and `testRollbacks()`. The startup integrations run on it.
+- `migrax-junit`, a JUnit 5 extension: `@MigraxTest` migrates a test database (H2, a
+  `DataSource` or a Testcontainers container) before the tests and fails them when the
+  entities don't match the migrated schema. With `rollbacks = true` it also tests every
+  rollback script. See Guides > Java API and JUnit tests.
+
 ## [0.9.0] - 2026-10-15
 
 Every rollback script tested on its own, and Oracle 23ai support.
