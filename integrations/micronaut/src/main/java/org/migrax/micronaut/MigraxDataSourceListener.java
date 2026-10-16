@@ -55,6 +55,11 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
     }
     warnAboutSchemaGeneration();
     Map<String, String> settings = settings(environment);
+    if (!StartupMigrations.migratesAtStartup(settings)) {
+      LOG.info("Migrax: {}", StartupMigrations.notMigrating(unwrap(dataSource), settings,
+          environment.getClassLoader()));
+      return dataSource;
+    }
     Log.Sink previous = Log.setSink(new Slf4jSink());
     try {
       int applied = StartupMigrations.migrate(unwrap(dataSource), settings,

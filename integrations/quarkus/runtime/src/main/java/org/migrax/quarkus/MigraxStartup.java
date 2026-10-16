@@ -44,6 +44,10 @@ public final class MigraxStartup {
   public static int migrate(DataSource dataSource, Config config, ClassLoader loader)
       throws Exception {
     Map<String, String> settings = settings(config);
+    if (!StartupMigrations.migratesAtStartup(settings)) {
+      LOG.info("Migrax: " + StartupMigrations.notMigrating(dataSource, settings, loader));
+      return 0;
+    }
     Log.Sink previous = Log.setSink(new JbossSink());
     try {
       int applied = StartupMigrations.migrate(dataSource, settings, loader,

@@ -13,12 +13,14 @@ import jakarta.enterprise.inject.Produces;
 /** A MeterRegistry and an OpenTelemetry that keeps its spans in memory. */
 @ApplicationScoped
 public class Observability {
-  public static final SimpleMeterRegistry REGISTRY = new SimpleMeterRegistry();
+  /** The registry of the running container; each test class starts its own. */
+  public static SimpleMeterRegistry REGISTRY;
   public static final InMemorySpanExporter SPANS = InMemorySpanExporter.create();
 
   @Produces
   @ApplicationScoped
   MeterRegistry registry() {
+    REGISTRY = new SimpleMeterRegistry();
     return REGISTRY;
   }
 

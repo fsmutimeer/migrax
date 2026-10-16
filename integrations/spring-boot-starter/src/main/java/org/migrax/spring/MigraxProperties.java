@@ -48,6 +48,20 @@ public class MigraxProperties {
     this.enabled = enabled;
   }
 
+  /**
+   * Apply migrations at startup; false leaves them to a pipeline or a DBA while health and
+   * metrics still report them.
+   */
+  private boolean migrateAtStartup = true;
+
+  public boolean isMigrateAtStartup() {
+    return migrateAtStartup;
+  }
+
+  public void setMigrateAtStartup(boolean migrateAtStartup) {
+    this.migrateAtStartup = migrateAtStartup;
+  }
+
   public String getLocations() {
     return locations;
   }

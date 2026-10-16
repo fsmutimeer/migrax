@@ -37,5 +37,6 @@ class MigraxMetricsTest {
   void theStartsMigrationsAreMeasured() {
     assertEquals(2.0, registry.get("migrax.migrations.applied").counter().count());
     assertEquals(1, registry.get("migrax.run").tag("outcome", "success").timer().count());
+    assertEquals(0.0, registry.get("migrax.migrations.pending").gauge().value());
   }
 }
