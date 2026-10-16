@@ -24,6 +24,7 @@
       <Class name="~org\.migrax\.cli\.\w+Command"/>
       <Class name="org.migrax.cli.DuplicateMigrations"/>
       <Class name="org.migrax.cli.MigrationFiles"/>
+      <Class name="org.migrax.cli.PendingContracts"/>
       <Class name="org.migrax.importer.Importer"/>
       <Class name="org.migrax.runner.Migration"/>
       <Class name="org.migrax.runner.ClasspathMigrations"/>

@@ -247,7 +247,7 @@ public final class SqlLinter {
         found.add(finding("MX007", Severity.WARNING, file, number, text,
             "This deletes data, and running application instances that still use it will fail.",
             "Deploy code that no longer uses it first, then drop it in a later release "
-                + "(expand/contract)."));
+                + "(expand/contract: 'migrax generate --zero-downtime' does this)."));
       }
       boolean rebuildCopy = REBUILD_RENAME.matcher(text).find();
       if (!rebuildCopy && (upper.matches("^(RENAME TABLE|EXEC SP_RENAME).*")
@@ -255,7 +255,8 @@ public final class SqlLinter {
         found.add(finding("MX008", Severity.WARNING, file, number, text,
             "Application instances still running the old code use the old name and will fail.",
             "Rename in steps: add the new name, write to both, switch reads, then remove the "
-                + "old name. Or deploy during a maintenance window."));
+                + "old name ('migrax generate --zero-downtime' does this). Or deploy during a "
+                + "maintenance window."));
       }
       if (upper.matches("^(UPDATE|DELETE FROM|DELETE) .*") && !upper.contains(" WHERE ")) {
         found.add(finding("MX009", Severity.WARNING, file, number, text,

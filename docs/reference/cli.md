@@ -140,9 +140,11 @@ For a database whose tables already exist (created by hand, by a script or by an
 
 ```
 migrax generate [--name <name>] [--allow-destructive [--keep-data]] [--safe]
+migrax generate --zero-downtime [--name <name>] [--allow-destructive]
+migrax generate --contract
 ```
 
-Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`; with `--keep-data`, dropped tables and columns go to `migrax_backup_*` tables and the rollback script restores them (`migrax backups` lists and drops those tables). `--safe` (PostgreSQL, CockroachDB) builds indexes and constraints on existing tables without blocking writes, in a second migration. Always review the generated SQL; Migrax lints it for you.
+Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`; with `--keep-data`, dropped tables and columns go to `migrax_backup_*` tables and the rollback script restores them (`migrax backups` lists and drops those tables). `--safe` (PostgreSQL, CockroachDB) builds indexes and constraints on existing tables without blocking writes, in a second migration. `--zero-downtime` splits the change so the old and new application versions can run at the same time: an expand migration now (new columns and tables, a renamed column kept equal to its old name by a trigger, a renamed table's old name as a view) and a contract migration for the next release (drops, NOT NULL, narrower types, new constraints). The contract migration waits in `.migrax/pending/`; `generate --contract` adds it to the migration folder. Always review the generated SQL; Migrax lints it for you.
 
 | Option | Meaning |
 |---|---|
@@ -150,6 +152,8 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--allow-destructive` | Allow drops and narrowing type changes |
 | `--keep-data` | Keep dropped data in backup tables the rollback restores |
 | `--safe` | Non-blocking indexes and constraints (PostgreSQL, CockroachDB) |
+| `--zero-downtime` | Split into an expand migration now and a contract one later |
+| `--contract` | Add the waiting contract migrations to the migration folder |
 | `--rename t.old=new` | Treat a column change as a rename (comma-separated) |
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--no-input` | Never ask questions |

@@ -254,4 +254,60 @@ public interface Dialect {
   default String scratchImage() {
     return null;
   }
+
+  /**
+   * Statements that keep two columns of a table equal while both exist, for a column renamed
+   * with {@code generate --zero-downtime}: the old application version writes the old column,
+   * the new version the new one, and the other column gets the value.
+   *
+   * @param table the table
+   * @param oldColumn the column the old version uses
+   * @param newColumn the column the new version uses
+   * @return the statements, or an empty list when this database can't keep them equal
+   * @since 0.11.0
+   */
+  default java.util.List<String> syncColumns(String table, String oldColumn, String newColumn) {
+    return java.util.List.of();
+  }
+
+  /**
+   * Statements that remove what {@link #syncColumns} created.
+   *
+   * @since 0.11.0
+   */
+  default java.util.List<String> dropSyncColumns(String table, String oldColumn,
+                                                 String newColumn) {
+    return java.util.List.of();
+  }
+
+  /**
+   * Whether a view that selects some columns of one table accepts inserts, updates and
+   * deletes. {@code generate --zero-downtime} keeps a renamed table's old name as such a view
+   * while the old application version still runs.
+   *
+   * @since 0.11.0
+   */
+  default boolean updatableViews() {
+    return false;
+  }
+
+  /**
+   * The name of the trigger that {@link #syncColumns} creates: {@code migrax_sync_<table>_<new
+   * column>}, or, when that is longer than {@code maxLength}, the start of the table name and a
+   * hash.
+   *
+   * @param maxLength the database's limit for the name (30 on Oracle before 12.2)
+   * @since 0.11.0
+   */
+  static String syncTriggerName(String table, String newColumn, int maxLength) {
+    String name = "migrax_sync_" + table + "_" + newColumn;
+    if (name.length() <= maxLength) {
+      return name.toLowerCase(java.util.Locale.ROOT);
+    }
+    String hash = String.format(java.util.Locale.ROOT, "%08x",
+        (table + "." + newColumn).toLowerCase(java.util.Locale.ROOT).hashCode());
+    int room = maxLength - "migrax_sync_".length() - hash.length() - 1;
+    String start = table.length() > room ? table.substring(0, room) : table;
+    return ("migrax_sync_" + start + "_" + hash).toLowerCase(java.util.Locale.ROOT);
+  }
 }

@@ -61,6 +61,8 @@ Options are `-Dmigrax.*` properties (or `<configuration>` elements of the same n
 | `migrax.renameTables=client=customer` | `--rename-table` | generate |
 | `migrax.name=split_name` | `--name` | generate, new |
 | `migrax.safe=true` | `--safe` | generate |
+| `migrax.zeroDowntime=true` | `--zero-downtime` | generate |
+| `migrax.contract=true` | `--contract` | generate |
 | `migrax.dryRun=true` | `--dry-run` | migrate, rollback, clean, baseline |
 | `migrax.resume=true` | `--resume` | migrate |
 | `migrax.sql=true` | `--sql` | migrate |

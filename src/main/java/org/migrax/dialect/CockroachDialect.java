@@ -247,4 +247,22 @@ public final class CockroachDialect extends PostgresDialect {
     }
     return "process " + ProcessHandle.current().pid() + " on " + host;
   }
+
+  /** CockroachDB has no triggers that change the row being written. */
+  @Override
+  public java.util.List<String> syncColumns(String table, String oldColumn, String newColumn) {
+    return java.util.List.of();
+  }
+
+  @Override
+  public java.util.List<String> dropSyncColumns(String table, String oldColumn,
+                                                String newColumn) {
+    return java.util.List.of();
+  }
+
+  /** CockroachDB views don't accept writes. */
+  @Override
+  public boolean updatableViews() {
+    return false;
+  }
 }

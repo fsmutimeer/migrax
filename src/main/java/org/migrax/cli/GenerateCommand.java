@@ -8,6 +8,7 @@ import org.migrax.diff.DiffEngine;
 import org.migrax.diff.Migrations;
 import org.migrax.diff.Renames;
 import org.migrax.diff.SnapshotStore;
+import org.migrax.diff.ZeroDowntime;
 import org.migrax.lint.SqlLinter;
 import org.migrax.model.SchemaModel;
 import org.migrax.ops.AddCheck;
@@ -62,7 +63,9 @@ final class GenerateCommand implements Command {
 
   @Override
   public String usage() {
-    return "migrax generate [--name <name>] [--allow-destructive [--keep-data]] [--safe]";
+    return "migrax generate [--name <name>] [--allow-destructive [--keep-data]] [--safe]\n"
+        + "       migrax generate --zero-downtime [--name <name>] [--allow-destructive]\n"
+        + "       migrax generate --contract";
   }
 
   @Override
@@ -78,12 +81,19 @@ final class GenerateCommand implements Command {
         ('migrax backups' lists and drops those tables). --safe (PostgreSQL, CockroachDB)
         builds indexes and constraints on existing tables without blocking writes, in a second
         migration.
+        --zero-downtime splits the change so the old and new application versions can run at
+        the same time: an expand migration now (new columns and tables, a renamed column kept
+        equal to its old name by a trigger, a renamed table's old name as a view) and a
+        contract migration for the next release (drops, NOT NULL, narrower types, new
+        constraints). The contract migration waits in .migrax/pending/; generate --contract
+        adds it to the migration folder.
         Always review the generated SQL; Migrax lints it for you.""";
   }
 
   @Override
   public List<String> options() {
-    return List.of("--name", "--allow-destructive", "--keep-data", "--safe", "--rename",
+    return List.of("--name", "--allow-destructive", "--keep-data", "--safe", "--zero-downtime",
+        "--contract", "--rename",
         "--rename-table",
         "--no-input", "--lock-timeout", "--dialect", "--package", "--naming", "--extractor",
         "--url", "--user", "--password", "--password-file", "--schema", "--locations",
@@ -97,6 +107,14 @@ final class GenerateCommand implements Command {
     PrintStream out = context.out();
     Path migrations = project.migrations();
     DuplicateMigrations.requireNone(project, context.migrationRunner());
+    if (args.flag("--contract")) {
+      return releaseContracts(project, out);
+    }
+    if (args.flag("--zero-downtime") && (args.flag("--keep-data") || args.flag("--safe"))) {
+      throw new UsageException("--zero-downtime can't be combined with "
+          + (args.flag("--keep-data") ? "--keep-data" : "--safe") + ".",
+          "Generate the zero-downtime change on its own.");
+    }
     boolean hasSnapshot = Files.exists(project.snapshot());
     if (!hasSnapshot && !project.hasUrl()) {
       throw new UsageException(ErrorCode.NO_DATABASE_URL,
@@ -132,6 +150,7 @@ final class GenerateCommand implements Command {
         out.println("Saved the entity schema as the baseline snapshot: "
             + project.display(project.snapshot()));
       }
+      remindContracts(project, out);
       return OK;
     }
     List<Operation> destructive = operations.stream().filter(Operation::destructive).toList();
@@ -143,6 +162,18 @@ final class GenerateCommand implements Command {
               + "was renamed, pass --rename table.old=new or --rename-table old=new instead.");
     }
     Migrations.warnings(operations, changes.previous()).forEach(Log::warn);
+    if (args.flag("--zero-downtime")) {
+      ZeroDowntime.Plan plan = ZeroDowntime.plan(changes.previous(), changes.current(),
+          changes.tableRenames(), changes.columnRenames(), dialect);
+      if (!plan.problems().isEmpty()) {
+        throw new UsageException(String.join(System.lineSeparator(), plan.problems()),
+            "Generate this change without --zero-downtime, or split it into smaller steps.");
+      }
+      if (!plan.contract().isEmpty()) {
+        return zeroDowntime(context, dialect, changes, plan, baseline);
+      }
+      out.println("Nothing has to wait for the old version: writing a normal migration.");
+    }
 
     // --safe on PostgreSQL: indexes and constraints on existing tables go to a second,
     // non-transactional migration that builds them without blocking writes.
@@ -262,7 +293,134 @@ final class GenerateCommand implements Command {
               !project.schemas().isEmpty()));
     }
     out.println("Review the SQL, then run 'migrax migrate'.");
+    remindContracts(project, out);
     return OK;
+  }
+
+  /**
+   * Writes the expand migration and keeps the contract migration in .migrax/pending/ until
+   * {@code generate --contract}.
+   */
+  private static int zeroDowntime(CommandContext context, Dialect dialect, EntityChanges changes,
+                                  ZeroDowntime.Plan plan, boolean baseline) throws Exception {
+    Project project = context.project();
+    PrintStream out = context.out();
+    Path migrations = project.migrations();
+    Files.createDirectories(migrations);
+    Path baselineFile = baseline ? writeBaseline(project, dialect, changes.previous()) : null;
+    String name = migrationName(context.args(), project, changes.previous(),
+        changes.operations());
+    String expandName = name + "_expand.sql";
+    String contractName = name + "_contract.sql";
+    Path file = migrations.resolve(expandName);
+    if (Files.exists(file)) {
+      if (baselineFile != null) {
+        Files.deleteIfExists(baselineFile);
+        Files.deleteIfExists(SnapshotStore.historySnapshot(project.root(), BASELINE));
+      }
+      throw new UsageException("Migration already exists: " + project.display(file),
+          "Choose another --name.");
+    }
+    if (baselineFile != null) {
+      recordBaseline(context, baselineFile);
+      printBaseline(out, project, baselineFile, changes.previous());
+    }
+    StringBuilder notes = new StringBuilder();
+    plan.notes().forEach(note -> notes.append("-- Note: ").append(note).append('\n'));
+    String expandHeader = "-- Expand step of a zero-downtime change: safe while instances of "
+        + "the old version still run.\n-- The contract step (" + contractName + ") waits in "
+        + ".migrax/pending/ for the next release.\n" + notes;
+    Files.writeString(file, MigrationSql.render(dialect, plan.expand(), expandHeader,
+        changes.previous(), plan.middle()));
+    MigrationSql.writeRollback(migrations, expandName, dialect, plan.expandReverse(),
+        unsynced(plan.expand(), changes), plan.middle(), plan.rolledBack());
+    SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), name + "_expand"),
+        plan.middle(), dialect.id());
+
+    Path pending = PendingContracts.folder(project);
+    Files.createDirectories(pending);
+    Path contract = pending.resolve(contractName);
+    String contractHeader = "-- Contract step of a zero-downtime change: runs once no instance "
+        + "of the version\n-- before " + expandName + " is left.\n" + notes;
+    Files.writeString(contract, MigrationSql.render(dialect, plan.contract(), contractHeader,
+        plan.middle(), changes.current()));
+    MigrationSql.writeRollback(pending, contractName, dialect, plan.contractReverse(),
+        unsynced(plan.contract(), changes), changes.current(), plan.middle());
+    SnapshotStore.save(PendingContracts.schema(contract), changes.current(), dialect.id());
+    SnapshotStore.save(project.snapshot(), changes.current(), dialect.id(),
+        project.recordedNaming(), dialect.serverVersion());
+
+    out.println("Created " + project.display(file) + " (expand: safe while the old version "
+        + "runs):");
+    describe(out, plan.expand(), changes, true);
+    out.println("Waiting in " + project.display(contract) + " (contract: for the next "
+        + "release):");
+    describe(out, plan.contract(), changes, false);
+    plan.notes().forEach(note -> out.println("Note: " + note));
+    out.println("Rollback scripts written to "
+        + project.display(migrations.resolve(MigrationLoader.ROLLBACK_FOLDER)) + " and "
+        + project.display(pending.resolve(MigrationLoader.ROLLBACK_FOLDER)) + ".");
+    Reports.printFindings(out, SqlLinter.lint(project.display(file), Files.readString(file),
+        dialect.id(), !project.schemas().isEmpty()));
+    out.println("Review the SQL, then run 'migrax migrate'. When every instance runs this "
+        + "release, run 'migrax generate --contract' for the next one.");
+    return OK;
+  }
+
+  /**
+   * The operations whose data a rollback script can lose: not the two columns of a rename,
+   * which the trigger keeps equal.
+   */
+  private static List<Operation> unsynced(List<Operation> operations, EntityChanges changes) {
+    return operations.stream().filter(o -> changes.columnRenames().stream().noneMatch(r ->
+        o instanceof org.migrax.ops.AddColumn add && add.table().equals(r.table())
+            && add.column().name().equals(r.to())
+        || o instanceof org.migrax.ops.DropColumn drop && drop.table().equals(r.table())
+            && drop.column().equals(r.from()))).toList();
+  }
+
+  /** The operations of one step, with the triggers and views in words. */
+  private static void describe(PrintStream out, List<Operation> operations,
+                               EntityChanges changes, boolean expand) {
+    for (Operation operation : operations) {
+      if (!(operation instanceof org.migrax.ops.RunSql)) {
+        out.println("  - " + Migrations.summary(operation));
+      }
+    }
+    for (org.migrax.diff.Renames.ColumnRename rename : changes.columnRenames()) {
+      out.println("  - " + (expand ? "copy " + rename.table() + "." + rename.from() + " to "
+          + rename.to() + " and keep both equal (trigger)"
+          : "remove the trigger that keeps " + rename.table() + "." + rename.from() + " and "
+              + rename.to() + " equal"));
+    }
+    for (org.migrax.diff.Renames.TableRename rename : changes.tableRenames()) {
+      out.println("  - " + (expand ? "keep " + rename.from() + " as a view on " + rename.to()
+          : "drop the view " + rename.from()));
+    }
+  }
+
+  /** {@code generate --contract}: the waiting contract migrations join the migrations. */
+  private static int releaseContracts(Project project, PrintStream out) throws Exception {
+    List<Path> written = PendingContracts.release(project);
+    if (written.isEmpty()) {
+      out.println("No contract migrations are waiting.");
+      return OK;
+    }
+    for (Path path : written) {
+      out.println("Created " + project.display(path) + ".");
+    }
+    out.println("Release them only when no instance of the version before their expand "
+        + "migration is left.");
+    return OK;
+  }
+
+  private static void remindContracts(Project project, PrintStream out) throws Exception {
+    List<Path> pending = PendingContracts.list(project);
+    if (!pending.isEmpty()) {
+      out.println(pending.size() + " contract migration(s) wait in "
+          + project.display(PendingContracts.folder(project)) + ": add them to the release "
+          + "after their expand migration with 'migrax generate --contract'.");
+    }
   }
 
   /**

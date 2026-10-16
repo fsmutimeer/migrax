@@ -105,6 +105,7 @@ nav:
       - Working in a team: guides/team-workflow.md
       - Continuous integration: guides/ci.md
       - Production safety: guides/production-safety.md
+      - Zero-downtime changes: guides/zero-downtime.md
       - Advanced migrations: guides/advanced-migrations.md
       - Java API and JUnit tests: guides/java-api-and-tests.md
       - Switching from Flyway or Liquibase: guides/switching-tools.md

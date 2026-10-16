@@ -6,6 +6,21 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `generate --zero-downtime` splits a change so the old and the new application version can
+  use the database at the same time: an expand migration for this release (new columns still
+  nullable, a renamed column copied and kept equal to the old one by a trigger, a renamed
+  table's old name kept as a view, wider types) and a contract migration for the next release
+  (drops, NOT NULL, narrower types, new constraints). The contract migration waits in
+  `.migrax/pending/` until `generate --contract` adds it to the migration folder. Column
+  renames need PostgreSQL, MySQL, MariaDB or Oracle; table renames also work on SQL Server.
+  See Guides > Zero-downtime changes.
+
+### Changed
+
+- Lint rules MX007 (drops) and MX008 (renames) name `generate --zero-downtime` as the fix.
+
 ## [0.10.0] - 2026-10-16
 
 A Java API, and a JUnit 5 extension that checks migrations against the entities.
