@@ -15,7 +15,7 @@ or build is needed.
 ghcr.io/fsmutimeer/migrax:0.11.0
 ```
 
-It has Java, Migrax and these JDBC drivers: PostgreSQL (also for CockroachDB), MariaDB (also
+It has Java, Migrax and these JDBC drivers: PostgreSQL (also for CockroachDB and YugabyteDB), MariaDB (also
 for MySQL servers), SQL Server, SQLite and H2. It runs as a non-root user, for `amd64` and
 `arm64`. Migrations are read from `/migrations`.
 

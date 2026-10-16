@@ -77,6 +77,7 @@ public final class HibernateSchemaReader {
       "oracle", "org.hibernate.dialect.OracleDialect",
       "h2", "org.hibernate.dialect.H2Dialect",
       "cockroachdb", "org.hibernate.dialect.CockroachDialect",
+      "yugabytedb", "org.hibernate.dialect.PostgreSQLDialect",
       // In hibernate-community-dialects, which SQLite projects add.
       "sqlite", "org.hibernate.community.dialect.SQLiteDialect");
 
@@ -91,7 +92,8 @@ public final class HibernateSchemaReader {
       "sqlserver", "org.hibernate.dialect.SQLServer2012Dialect",
       "oracle", "org.hibernate.dialect.Oracle12cDialect",
       "h2", "org.hibernate.dialect.H2Dialect",
-      "cockroachdb", "org.hibernate.dialect.CockroachDB201Dialect");
+      "cockroachdb", "org.hibernate.dialect.CockroachDB201Dialect",
+      "yugabytedb", "org.hibernate.dialect.PostgreSQL10Dialect");
 
   private static final String CAMEL_CASE_TO_UNDERSCORES =
       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy";

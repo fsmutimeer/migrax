@@ -192,7 +192,9 @@ public final class ScratchDatabase implements AutoCloseable {
         "jdbc:oracle:thin:@localhost:{port}/FREEPDB1", "migrax", "migrax", 300,
         "ORACLE_PASSWORD=migrax", "APP_USER=migrax", "APP_USER_PASSWORD=migrax"),
     COCKROACHDB("cockroachdb/cockroach:v24.3.11", 26257,
-        "jdbc:postgresql://localhost:{port}/defaultdb?sslmode=disable", "root", "", 180);
+        "jdbc:postgresql://localhost:{port}/defaultdb?sslmode=disable", "root", "", 180),
+    YUGABYTEDB("yugabytedb/yugabyte:2026.1.2.0-b137", 5433,
+        "jdbc:postgresql://localhost:{port}/yugabyte", "yugabyte", "yugabyte", 240);
 
     final String image;
     final int port;
@@ -229,9 +231,11 @@ public final class ScratchDatabase implements AutoCloseable {
       }
     }
 
-    /** Arguments after the image name: CockroachDB's image needs a start command. */
+    /** Arguments after the image name: CockroachDB's and YugabyteDB's images need a command. */
     List<String> command() {
-      return this == COCKROACHDB ? List.of("start-single-node", "--insecure") : List.of();
+      return this == COCKROACHDB ? List.of("start-single-node", "--insecure")
+          : this == YUGABYTEDB ? List.of("bin/yugabyted", "start", "--background=false")
+          : List.of();
     }
 
     static Engine of(String dialect) {
@@ -242,6 +246,7 @@ public final class ScratchDatabase implements AutoCloseable {
         case "sqlserver" -> SQLSERVER;
         case "oracle" -> ORACLE;
         case "cockroachdb" -> COCKROACHDB;
+        case "yugabytedb" -> YUGABYTEDB;
         default -> throw new IllegalArgumentException("No scratch database for " + dialect);
       };
     }

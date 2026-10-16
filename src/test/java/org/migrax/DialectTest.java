@@ -63,12 +63,16 @@ class DialectTest {
     assertEquals("postgresql", Dialects.fromJdbcUrl("jdbc:postgresql://localhost:26257/db").id());
     assertEquals("mysql", Dialects.byName("mysql").id());
     assertEquals("sqlite", Dialects.fromJdbcUrl("jdbc:sqlite:data/shop.db").id());
+    // YugabyteDB's own driver; with the PostgreSQL driver, the server tells.
+    assertEquals("yugabytedb", Dialects.fromJdbcUrl("jdbc:yugabytedb://localhost:5433/db").id());
     assertThrows(IllegalArgumentException.class, () -> Dialects.byName("db2"));
   }
 
   @Test void registeredDialectsAreFoundByNameAndAlias() {
-    assertEquals(List.of("postgresql", "cockroachdb", "mysql", "mariadb", "sqlserver", "oracle",
-        "h2", "sqlite"), Dialects.NAMES);
+    assertEquals(List.of("postgresql", "cockroachdb", "yugabytedb", "mysql", "mariadb",
+        "sqlserver", "oracle", "h2", "sqlite"), Dialects.NAMES);
+    assertEquals("yugabytedb", Dialects.byName("yb").id());
+    assertEquals("yugabytedb", Dialects.byName("yugabyte").id());
     assertEquals("postgresql", Dialects.byName("pg").id());
     assertEquals("cockroachdb", Dialects.byName("crdb").id());
     assertEquals("postgresql", Dialects.byName(" Postgres ").id());
@@ -84,6 +88,7 @@ class DialectTest {
     assertEquals("oracle", Dialects.forProduct("Oracle").orElseThrow().id());
     assertEquals("h2", Dialects.forProduct("H2").orElseThrow().id());
     assertEquals("cockroachdb", Dialects.forProduct("CockroachDB").orElseThrow().id());
+    assertEquals("yugabytedb", Dialects.forProduct("YugabyteDB").orElseThrow().id());
     assertEquals("sqlite", Dialects.forProduct("SQLite").orElseThrow().id());
     assertTrue(Dialects.forProduct("DB2/LINUXX8664").isEmpty());
   }
@@ -386,5 +391,23 @@ class DialectTest {
         new SqlServerDialect().inSchema("tenant_a").render(new org.migrax.ops.DropTable("book")));
     assertEquals("DROP TABLE book",
         new SqlServerDialect().render(new org.migrax.ops.DropTable("book")));
+  }
+
+  @Test void yugabyteWritesThePostgresqlSql() {
+    Dialect yugabyte = Dialects.byName("yugabytedb");
+    Dialect postgres = Dialects.byName("postgresql");
+    SchemaModel.Column email = new SchemaModel.Column("email", "varchar", false, 120, null, null,
+        null, true, false, null, "varchar");
+    for (Operation operation : List.<Operation>of(
+        new org.migrax.ops.CreateTable(new SchemaModel.Table("customer", List.of(email),
+            new SchemaModel.PrimaryKey(List.of("email"), "customer_pkey"), List.of(),
+            List.of())),
+        new org.migrax.ops.AddColumn("customer", email),
+        new AlterColumn("customer", email, new SchemaModel.Column("email", "varchar", true, 200,
+            null, null, null, true, false, null, "varchar")))) {
+      assertEquals(postgres.render(operation), yugabyte.render(operation));
+    }
+    assertFalse(yugabyte.transactionalDdl());
+    assertEquals(postgres.syncColumns("t", "a", "b"), yugabyte.syncColumns("t", "a", "b"));
   }
 }

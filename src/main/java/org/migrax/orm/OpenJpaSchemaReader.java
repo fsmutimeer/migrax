@@ -42,7 +42,8 @@ import org.apache.openjpa.meta.ValueStrategies;
 public final class OpenJpaSchemaReader {
   /** OpenJPA's dictionary per Migrax dialect. */
   private static final Map<String, String> DICTIONARIES = Map.of(
-      "postgresql", "postgres", "cockroachdb", "postgres", "mysql", "mysql",
+      "postgresql", "postgres", "cockroachdb", "postgres", "yugabytedb", "postgres",
+      "mysql", "mysql",
       "mariadb", "mariadb", "sqlserver", "sqlserver", "oracle", "oracle", "h2", "h2",
       "sqlite", "org.apache.openjpa.jdbc.sql.DBDictionary");
 
@@ -67,7 +68,7 @@ public final class OpenJpaSchemaReader {
     properties.put("openjpa.DynamicEnhancementAgent", "false");
     caseSensitiveTables = dialect.id().equals("mysql") || dialect.id().equals("mariadb");
     ownLobTypes = caseSensitiveTables || dialect.id().equals("postgresql")
-        || dialect.id().equals("cockroachdb");
+        || dialect.id().equals("cockroachdb") || dialect.id().equals("yugabytedb");
 
     Object factory = createFactory(classes, properties, loader);
     try {

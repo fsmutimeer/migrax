@@ -180,7 +180,10 @@ final class GenerateCommand implements Command {
     List<Operation> main = new ArrayList<>(operations);
     List<Operation> online = new ArrayList<>();
     if (args.flag("--safe")) {
-      if (!(dialect instanceof PostgresDialect)) {
+      if (dialect instanceof org.migrax.dialect.YugabyteDialect) {
+        Log.warn("--safe is not needed on YugabyteDB: it builds indexes without blocking "
+            + "writes anyway. Generating a normal migration.");
+      } else if (!(dialect instanceof PostgresDialect)) {
         Log.warn("--safe applies to PostgreSQL and CockroachDB only; generating a normal "
             + "migration.");
       } else {

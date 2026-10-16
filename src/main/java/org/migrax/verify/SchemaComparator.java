@@ -216,13 +216,13 @@ public final class SchemaComparator {
     }
     return switch (logical) {
       case "varchar", "nvarchar", "text", "json" -> "text";
-      case "clob" -> "postgresql".equals(dialect) ? "unknown" : "text";
+      case "clob" -> postgres(dialect) ? "unknown" : "text";
       case "integer", "bigint" -> "integer";
       case "decimal", "double", "float" -> "number";
       case "boolean" -> "boolean";
       case "date", "time", "timestamp", "timestamptz" -> "time";
       case "varbinary" -> "binary";
-      case "blob" -> "postgresql".equals(dialect) ? "unknown" : "binary";
+      case "blob" -> postgres(dialect) ? "unknown" : "binary";
       default -> "unknown";
     };
   }
@@ -291,5 +291,10 @@ public final class SchemaComparator {
 
   private static String key(String name) {
     return name.toLowerCase(Locale.ROOT);
+  }
+
+  /** PostgreSQL and YugabyteDB keep large objects as oid, which can hold text or bytes. */
+  private static boolean postgres(String dialect) {
+    return "postgresql".equals(dialect) || "yugabytedb".equals(dialect);
   }
 }

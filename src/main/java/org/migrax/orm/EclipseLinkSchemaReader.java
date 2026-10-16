@@ -49,6 +49,7 @@ public final class EclipseLinkSchemaReader {
   private static final Map<String, String> PLATFORMS = Map.of(
       "postgresql", "org.eclipse.persistence.platform.database.PostgreSQLPlatform",
       "cockroachdb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform",
+      "yugabytedb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform",
       "mysql", "org.eclipse.persistence.platform.database.MySQLPlatform",
       "mariadb", "org.eclipse.persistence.platform.database.MySQLPlatform",
       "sqlserver", "org.eclipse.persistence.platform.database.SQLServerPlatform",
@@ -87,7 +88,7 @@ public final class EclipseLinkSchemaReader {
       boolean caseSensitiveTables = dialect.id().equals("mysql") || dialect.id().equals("mariadb");
       EclipseLinkSchemaReader reader = new EclipseLinkSchemaReader();
       reader.ownLobTypes = caseSensitiveTables || dialect.id().equals("postgresql")
-          || dialect.id().equals("cockroachdb");
+          || dialect.id().equals("cockroachdb") || dialect.id().equals("yugabytedb");
       return reader.convert(session, types, caseSensitiveTables);
     } finally {
       factory.getClass().getMethod("close").invoke(factory);

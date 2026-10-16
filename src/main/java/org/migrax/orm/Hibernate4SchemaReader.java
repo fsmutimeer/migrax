@@ -37,6 +37,8 @@ public final class Hibernate4SchemaReader {
           "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect"),
       "cockroachdb", List.of("org.hibernate.dialect.PostgreSQL9Dialect",
           "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect"),
+      "yugabytedb", List.of("org.hibernate.dialect.PostgreSQL9Dialect",
+          "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect"),
       "mysql", List.of("org.hibernate.dialect.MySQL5InnoDBDialect"),
       "mariadb", List.of("org.hibernate.dialect.MySQL5InnoDBDialect"),
       "sqlserver", List.of("org.hibernate.dialect.SQLServer2012Dialect",

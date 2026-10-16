@@ -183,11 +183,15 @@ final class DoctorCommand implements Command {
       try (Connection connection = project.connect()) {
         DatabaseMetaData metadata = connection.getMetaData();
         String product = metadata.getDatabaseProductName();
-        // CockroachDB answers through the PostgreSQL driver, which reports "PostgreSQL 13".
-        boolean cockroach = Dialects.forConnection(connection)
-            .filter(d -> d.id().equals("cockroachdb")).isPresent();
-        doctor.ok("Connected: " + (cockroach ? "CockroachDB (PostgreSQL protocol)" : product
-            + " " + metadata.getDatabaseProductVersion())
+        // CockroachDB and YugabyteDB answer through the PostgreSQL driver, which reports
+        // "PostgreSQL".
+        String version = metadata.getDatabaseProductVersion();
+        String server = Dialects.forConnection(connection).map(d -> switch (d.id()) {
+          case "cockroachdb" -> "CockroachDB (PostgreSQL protocol)";
+          case "yugabytedb" -> "YugabyteDB, PostgreSQL " + version + " protocol";
+          default -> null;
+        }).orElse(null);
+        doctor.ok("Connected: " + (server != null ? server : product + " " + version)
             + " (driver " + metadata.getDriverVersion() + ")");
         if (entitiesHaveChecks && ignoresChecks(product, metadata.getDatabaseProductVersion())) {
           doctor.warn("Check constraints: MySQL before 8.0.16 accepts them but doesn't enforce "

@@ -25,8 +25,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class DatabaseEngineIT {
+  /**
+   * Every engine, or with {@code -Dmigrax.it.engines=PostgreSQL,Oracle} only those whose name
+   * contains one of the given words.
+   */
   @TestFactory
   Stream<DynamicTest> appliesAndTracksMigrationsOnSupportedEngines() {
+    String only = System.getProperty("migrax.it.engines", "");
+    return engines().filter(test -> only.isBlank() || java.util.Arrays.stream(only.split(","))
+        .anyMatch(word -> test.getDisplayName().toLowerCase(java.util.Locale.ROOT)
+            .contains(word.trim().toLowerCase(java.util.Locale.ROOT))));
+  }
+
+  private Stream<DynamicTest> engines() {
     return Stream.of(
         database("MySQL 8", () -> new MySQLContainer<>("mysql:8.4")
             .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
@@ -46,6 +57,14 @@ class DatabaseEngineIT {
             "gvenzl/oracle-free:23-slim-faststart")),
         database("CockroachDB 24.3", () -> new CockroachContainer(
             "cockroachdb/cockroach:v24.3.11")),
+        // Reached with the PostgreSQL driver, as most applications do.
+        database("YugabyteDB 2026.1", () -> new YugabyteWithPostgresDriver(
+            "yugabytedb/yugabyte:2026.1.2.0-b137")
+            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+        // The 2024.2 long-term line: PostgreSQL 11 based, no advisory locks.
+        database("YugabyteDB 2024.2", () -> new YugabyteWithPostgresDriver(
+            "yugabytedb/yugabyte:2024.2.11.0-b36")
+            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
         DynamicTest.dynamicTest("SQLite", () -> {
           Path file = Files.createTempFile("migrax-it-", ".db");
           try {
@@ -62,6 +81,24 @@ class DatabaseEngineIT {
             Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
           }
         }));
+  }
+
+  /** YugabyteDB through the PostgreSQL driver instead of its own. */
+  private static final class YugabyteWithPostgresDriver
+      extends org.testcontainers.containers.YugabyteDBYSQLContainer {
+    YugabyteWithPostgresDriver(String image) {
+      super(image);
+    }
+
+    @Override
+    public String getDriverClassName() {
+      return "org.postgresql.Driver";
+    }
+
+    @Override
+    public String getJdbcUrl() {
+      return super.getJdbcUrl().replaceFirst("^jdbc:yugabytedb:", "jdbc:postgresql:");
+    }
   }
 
   /** Where a test database is reached. */
@@ -176,7 +213,7 @@ class DatabaseEngineIT {
     boolean validate = !container.url().startsWith("jdbc:sqlite:");
     try (org.hibernate.SessionFactory factory = HibernateValidationTest.hibernate(
         container.url(), container.user(), container.password(), true, validate)) {
-      HibernateValidationTest.persistAndQuery(factory, !validate);
+      HibernateValidationTest.persistAndQuery(factory, !validate, !yugabyte(container));
     }
     exerciseClean(container);
     exerciseApi(container);
@@ -196,6 +233,13 @@ class DatabaseEngineIT {
           "VIEW"), "views after clean");
       assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.sequencesIn(connection, null),
           "sequences after clean");
+    }
+  }
+
+  private static boolean yugabyte(Database database) throws SQLException {
+    try (Connection connection = database.connect()) {
+      return org.migrax.dialect.Dialects.forConnection(connection)
+          .filter(d -> d.id().equals("yugabytedb")).isPresent();
     }
   }
 
