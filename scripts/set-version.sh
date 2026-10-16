@@ -41,13 +41,16 @@ if [[ $NEW != *-* ]]; then
   if [[ $RELEASED != "$NEW" ]]; then
     echo "Docs version: $RELEASED -> $NEW"
     old=${RELEASED//./\\.}
+    # Lines saying when something arrived ("New in Migrax 0.13.0.", "From Migrax 0.3.0 on",
+    # "published with Migrax 0.3.0 and newer") keep their version.
+    history="(New in|[Ff]rom|[Ss]ince) Migrax $old|Migrax $old (and newer|or newer|and later|on\b)"
     { find docs README.md -name '*.md' -print0; find examples -type f -print0; } \
       | xargs -0 sed -i -E \
       -e "s/(<version>)$old(<\/version>)/\1$NEW\2/g" \
       -e "s/(org\.migrax:[a-z-]+:)$old/\1$NEW/g" \
       -e "s/(id\(\"org\.migrax\"\) version \")$old/\1$NEW/g" \
       -e "s/(fsmutimeer\/migrax@v)$old/\1$NEW/g" \
-      -e "s/(migrax |Migrax )$old/\1$NEW/g" \
+      -e "/$history/!s/(migrax |Migrax )$old/\1$NEW/g" \
       -e "s/(migrax-)$old/\1$NEW/g" \
       -e "s/(ghcr\.io\/fsmutimeer\/migrax:)$old/\1$NEW/g"
   fi
