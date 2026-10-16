@@ -153,4 +153,38 @@ public class PostgresDialect extends AbstractDialect {
       }
     };
   }
+
+  @Override
+  public List<String> syncColumns(String table, String oldColumn, String newColumn) {
+    String name = Dialect.syncTriggerName(table, newColumn, 63);
+    String a = identifier(oldColumn);
+    String b = identifier(newColumn);
+    return List.of("CREATE FUNCTION " + name + "() RETURNS trigger AS $$\n"
+        + "BEGIN\n"
+        + "  IF TG_OP = 'INSERT' THEN\n"
+        + "    IF NEW." + b + " IS NULL THEN NEW." + b + " := NEW." + a + "; END IF;\n"
+        + "    IF NEW." + a + " IS NULL THEN NEW." + a + " := NEW." + b + "; END IF;\n"
+        + "  ELSIF NEW." + b + " IS DISTINCT FROM OLD." + b + " THEN\n"
+        + "    NEW." + a + " := NEW." + b + ";\n"
+        + "  ELSIF NEW." + a + " IS DISTINCT FROM OLD." + a + " THEN\n"
+        + "    NEW." + b + " := NEW." + a + ";\n"
+        + "  END IF;\n"
+        + "  RETURN NEW;\n"
+        + "END\n"
+        + "$$ LANGUAGE plpgsql",
+        "CREATE TRIGGER " + name + " BEFORE INSERT OR UPDATE ON " + tableName(table)
+            + " FOR EACH ROW EXECUTE FUNCTION " + name + "()");
+  }
+
+  @Override
+  public List<String> dropSyncColumns(String table, String oldColumn, String newColumn) {
+    String name = Dialect.syncTriggerName(table, newColumn, 63);
+    return List.of("DROP TRIGGER " + name + " ON " + tableName(table),
+        "DROP FUNCTION " + name + "()");
+  }
+
+  @Override
+  public boolean updatableViews() {
+    return true;
+  }
 }

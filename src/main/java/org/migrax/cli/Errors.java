@@ -26,6 +26,13 @@ final class Errors {
             + "'migrax doctor'. Without a project, pass --classpath <driver.jar> or put the jar "
             + "in the drivers folder (MIGRAX_DRIVERS).";
       }
+      if (current instanceof java.sql.SQLException sql && sql.getMessage() != null
+          && sql.getMessage().contains("log_bin_trust_function_creators")) {
+        return "MySQL with binary logging lets only users with the SUPER privilege create "
+            + "triggers, unless log_bin_trust_function_creators is 1. Set it (SET GLOBAL "
+            + "log_bin_trust_function_creators = 1, or in the parameter group on Amazon RDS), "
+            + "then run migrate again.";
+      }
       if (current.getCause() == current) {
         break;
       }

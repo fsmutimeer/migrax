@@ -56,6 +56,7 @@ class DatabaseEngineIT {
             exerciseCheckAndCommentChanges(sqlite);
             exerciseUnnamedCheck(sqlite);
             exerciseKeepData(sqlite);
+            exerciseZeroDowntime(sqlite);
           } finally {
             Files.deleteIfExists(file);
             Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
@@ -83,6 +84,9 @@ class DatabaseEngineIT {
         if (container.getDockerImageName().contains("gvenzl/oracle")) {
           grantOracleLockPermission(container);
         }
+        if (container instanceof MySQLContainer<?> mysql) {
+          allowMySqlTriggers(mysql);
+        }
         exerciseRunner(Database.of(container));
         exerciseGeneratedSchema(Database.of(container));
         exerciseProcedures(Database.of(container));
@@ -90,10 +94,22 @@ class DatabaseEngineIT {
         exerciseUnnamedCheck(Database.of(container));
         exerciseCockroachTypeChange(Database.of(container));
         exerciseKeepData(Database.of(container));
+        exerciseZeroDowntime(Database.of(container));
         exerciseScriptTimestamps(Database.of(container));
         exerciseSchemas(Database.of(container));
       }
     });
+  }
+
+  /**
+   * MySQL with binary logging (its default) lets only SUPER users create triggers, unless
+   * log_bin_trust_function_creators is set, as on most managed servers that allow triggers.
+   */
+  private static void allowMySqlTriggers(MySQLContainer<?> container) throws Exception {
+    try (Connection root = DriverManager.getConnection(container.getJdbcUrl(), "root",
+        container.getPassword()); Statement statement = root.createStatement()) {
+      statement.execute("SET GLOBAL log_bin_trust_function_creators = 1");
+    }
   }
 
   private static void grantOracleLockPermission(JdbcDatabaseContainer<?> container)
@@ -854,6 +870,14 @@ class DatabaseEngineIT {
         connection.commit();
       }
       org.migrax.cli.KeepDataScenario.run(connection,
+          org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
+    }
+  }
+
+  /** generate --zero-downtime: both application versions between expand and contract. */
+  private static void exerciseZeroDowntime(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      org.migrax.cli.ZeroDowntimeScenario.run(connection,
           org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
     }
   }

@@ -21,8 +21,8 @@ ALTER TABLE customers DROP COLUMN legacy_code;
 | MX004 | warning | PostgreSQL | `SET NOT NULL` scans the table under an exclusive lock | `CHECK (col IS NOT NULL) NOT VALID`, then `VALIDATE CONSTRAINT` later |
 | MX005 | warning | PostgreSQL | Adding a foreign key checks every row while blocking writes to both tables | Add it `NOT VALID`, validate in a later migration (`generate --safe`) |
 | MX006 | warning | PostgreSQL | Adding a unique constraint builds its index while blocking writes | `CREATE UNIQUE INDEX CONCURRENTLY`, then `ADD CONSTRAINT ... UNIQUE USING INDEX` (`generate --safe`) |
-| MX007 | warning | all | Dropping a table or column deletes data and breaks instances still using it | Deploy code that no longer uses it, then drop in a later release |
-| MX008 | warning | all | Renaming breaks instances still running the old code | Rename in steps (add, write both, switch reads, remove) or use a maintenance window |
+| MX007 | warning | all | Dropping a table or column deletes data and breaks instances still using it | Deploy code that no longer uses it, then drop in a later release (`generate --zero-downtime`) |
+| MX008 | warning | all | Renaming breaks instances still running the old code | Rename in steps (add, write both, switch reads, remove; `generate --zero-downtime`) or use a maintenance window |
 | MX009 | warning | all | `UPDATE` or `DELETE` without `WHERE` changes every row in one transaction | Add a `WHERE`, or update large tables in batches |
 | MX010 | warning | all | `TRUNCATE` deletes all rows and cannot be undone by a rollback script | Make sure it is intended and backed up |
 | MX011 | warning | PostgreSQL | A volatile default rewrites every row under an exclusive lock | Add the column without a default, set the default separately, backfill in batches |

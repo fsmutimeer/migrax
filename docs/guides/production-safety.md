@@ -12,7 +12,7 @@ $ migrax lint
 src/main/resources/db/migration/0007_add_orders_notes_and_more.sql, statement 3: warning MX007
   ALTER TABLE test_table DROP COLUMN numberOfItems
   This deletes data, and running application instances that still use it will fail.
-  Fix: Deploy code that no longer uses it first, then drop it in a later release (expand/contract).
+  Fix: Deploy code that no longer uses it first, then drop it in a later release (expand/contract: 'migrax generate --zero-downtime' does this).
 1 file(s) checked, 1 finding(s).
 ```
 
@@ -24,6 +24,12 @@ See all [lint rules](../reference/lint-rules.md). To accept a finding deliberate
 `migrax generate --safe` moves index and constraint creation on existing tables into a second,
 non-transactional migration that uses `CREATE INDEX CONCURRENTLY`, `NOT VALID` and
 `VALIDATE CONSTRAINT`, so writes keep flowing while they build.
+
+### Changes while the old version still runs
+
+During a rolling deployment, instances of the old and the new version use the database at the
+same time. `migrax generate --zero-downtime` splits a change so that both work: see
+[Zero-downtime changes](zero-downtime.md).
 
 ## Verify before you ship
 

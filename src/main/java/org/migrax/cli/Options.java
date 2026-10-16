@@ -22,7 +22,8 @@ final class Options {
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
       "--refresh", "--yes", "-y", "--help", "-h", "--version", "-V", "--json", "--safe",
       "--impact", "--strict", "--no-input", "--optimize", "--java", "--entities",
-      "--skip-rollbacks", "--all", "--allow-generate", "--sql", "--keep-data", "--drop");
+      "--skip-rollbacks", "--all", "--allow-generate", "--sql", "--keep-data", "--drop",
+      "--zero-downtime", "--contract");
 
   private static final Map<String, String> HELP = new LinkedHashMap<>();
 
@@ -36,6 +37,10 @@ final class Options {
         "--keep-data             Keep dropped data in backup tables the rollback restores");
     HELP.put("--safe",
         "--safe                  Non-blocking indexes and constraints (PostgreSQL, CockroachDB)");
+    HELP.put("--zero-downtime",
+        "--zero-downtime         Split into an expand migration now and a contract one later");
+    HELP.put("--contract",
+        "--contract              Add the waiting contract migrations to the migration folder");
     HELP.put("--rename", "--rename t.old=new      Treat a column change as a rename (comma-separated)");
     HELP.put("--rename-table", "--rename-table old=new  Treat a table change as a rename");
     HELP.put("--no-input", "--no-input              Never ask questions");

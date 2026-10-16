@@ -202,4 +202,39 @@ public class MySqlDialect extends AbstractDialect {
       }
     };
   }
+
+  /** Two triggers: MySQL has one trigger per event and timing. */
+  @Override
+  public java.util.List<String> syncColumns(String table, String oldColumn, String newColumn) {
+    String name = Dialect.syncTriggerName(table, newColumn, 62);
+    String a = identifier(oldColumn);
+    String b = identifier(newColumn);
+    return java.util.List.of("CREATE TRIGGER " + name + "_i BEFORE INSERT ON "
+        + tableName(table) + " FOR EACH ROW\n"
+        + "BEGIN\n"
+        + "  IF NEW." + b + " IS NULL THEN SET NEW." + b + " = NEW." + a + "; END IF;\n"
+        + "  IF NEW." + a + " IS NULL THEN SET NEW." + a + " = NEW." + b + "; END IF;\n"
+        + "END",
+        "CREATE TRIGGER " + name + "_u BEFORE UPDATE ON " + tableName(table)
+            + " FOR EACH ROW\n"
+            + "BEGIN\n"
+            + "  IF NOT (NEW." + b + " <=> OLD." + b + ") THEN SET NEW." + a + " = NEW." + b
+            + ";\n"
+            + "  ELSEIF NOT (NEW." + a + " <=> OLD." + a + ") THEN SET NEW." + b + " = NEW." + a
+            + ";\n"
+            + "  END IF;\n"
+            + "END");
+  }
+
+  @Override
+  public java.util.List<String> dropSyncColumns(String table, String oldColumn,
+                                                String newColumn) {
+    String name = Dialect.syncTriggerName(table, newColumn, 62);
+    return java.util.List.of("DROP TRIGGER " + name + "_i", "DROP TRIGGER " + name + "_u");
+  }
+
+  @Override
+  public boolean updatableViews() {
+    return true;
+  }
 }

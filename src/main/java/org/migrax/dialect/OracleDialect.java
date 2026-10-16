@@ -205,4 +205,44 @@ public final class OracleDialect extends AbstractDialect {
   protected String commentValue(String comment) {
     return comment == null ? "''" : literal(comment);
   }
+
+  /**
+   * One trigger; an update copies the column the statement sets, so large objects, which
+   * can't be compared, work too.
+   */
+  @Override
+  public java.util.List<String> syncColumns(String table, String oldColumn, String newColumn) {
+    String name = Dialect.syncTriggerName(table, newColumn, 30);
+    String a = identifier(oldColumn);
+    String b = identifier(newColumn);
+    return java.util.List.of("CREATE TRIGGER " + name + " BEFORE INSERT OR UPDATE ON "
+        + tableName(table) + " FOR EACH ROW\n"
+        + "BEGIN\n"
+        + "  IF INSERTING THEN\n"
+        + "    IF :NEW." + b + " IS NULL THEN :NEW." + b + " := :NEW." + a + "; END IF;\n"
+        + "    IF :NEW." + a + " IS NULL THEN :NEW." + a + " := :NEW." + b + "; END IF;\n"
+        + "  ELSIF UPDATING('" + storedName(newColumn) + "') THEN\n"
+        + "    :NEW." + a + " := :NEW." + b + ";\n"
+        + "  ELSIF UPDATING('" + storedName(oldColumn) + "') THEN\n"
+        + "    :NEW." + b + " := :NEW." + a + ";\n"
+        + "  END IF;\n"
+        + "END");
+  }
+
+  /** A column's name as Oracle stores it: upper case unless it is written quoted. */
+  private String storedName(String column) {
+    return identifier(column).startsWith("\"") ? column
+        : column.toUpperCase(java.util.Locale.ROOT);
+  }
+
+  @Override
+  public java.util.List<String> dropSyncColumns(String table, String oldColumn,
+                                                String newColumn) {
+    return java.util.List.of("DROP TRIGGER " + Dialect.syncTriggerName(table, newColumn, 30));
+  }
+
+  @Override
+  public boolean updatableViews() {
+    return true;
+  }
 }

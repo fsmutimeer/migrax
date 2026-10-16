@@ -266,4 +266,9 @@ public final class SqlServerDialect extends AbstractDialect {
   private static String nLiteral(String value) {
     return "N" + literal(value);
   }
+
+  @Override
+  public boolean updatableViews() {
+    return true;
+  }
 }

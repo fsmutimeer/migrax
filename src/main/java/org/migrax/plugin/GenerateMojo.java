@@ -36,6 +36,17 @@ public final class GenerateMojo extends AbstractMigraxMojo {
   @Parameter(property = "migrax.safe", defaultValue = "false")
   private boolean safe;
 
+  /**
+   * Split into an expand migration now and a contract migration for the next release, so the
+   * old and new application versions can run at the same time.
+   */
+  @Parameter(property = "migrax.zeroDowntime", defaultValue = "false")
+  private boolean zeroDowntime;
+
+  /** Add the waiting contract migrations to the migration folder. */
+  @Parameter(property = "migrax.contract", defaultValue = "false")
+  private boolean contract;
+
   /** Database schema to read the first baseline from. */
   @Parameter(property = "migrax.schema")
   private String schema;
@@ -50,6 +61,8 @@ public final class GenerateMojo extends AbstractMigraxMojo {
     flag(args, "--allow-destructive", allowDestructive);
     flag(args, "--keep-data", keepData);
     flag(args, "--safe", safe);
+    flag(args, "--zero-downtime", zeroDowntime);
+    flag(args, "--contract", contract);
     option(args, "--name", name);
     option(args, "--rename", renames);
     option(args, "--rename-table", renameTables);
