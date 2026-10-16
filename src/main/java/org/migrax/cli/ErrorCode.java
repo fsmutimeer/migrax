@@ -22,7 +22,8 @@ enum ErrorCode {
   NO_ENTITIES("MXE110", "No entities found"),
   NO_DOCKER("MXE111", "Docker is needed for verify"),
   CLEAN_DISABLED("MXE112", "clean is disabled"),
-  NO_DATABASE_URL("MXE113", "No database URL configured");
+  NO_DATABASE_URL("MXE113", "No database URL configured"),
+  PRECONDITION_NOT_MET("MXE114", "A migration's precondition is not met");
 
   final String code;
   final String title;
@@ -54,6 +55,12 @@ enum ErrorCode {
       }
       if (message.startsWith("Applied migration file(s) are missing")) {
         return APPLIED_FILE_MISSING;
+      }
+      if (message.contains(", which is not met here.")) {
+        return PRECONDITION_NOT_MET;
+      }
+      if (message.toLowerCase(java.util.Locale.ROOT).contains(" in '-- migrax:require")) {
+        return USAGE;
       }
       if (message.contains("No JDBC driver")) {
         return NO_DRIVER;

@@ -15,6 +15,11 @@ All notable changes to Migrax are listed here. The format follows
   a `MeterRegistry` or an `OpenTelemetry`. Turn them off with `migrax.metrics.enabled=false` or
   `migrax.tracing.enabled=false`. `MigrationListener` beans hear every run too, and the Java API
   takes listeners with `listener(...)`. See Guides > Metrics and tracing.
+- Preconditions: a `-- migrax:require` line makes a migration check the database before it
+  runs (`table-exists`, `table-missing`, `column-exists`, `column-missing`, or `sql <query>`).
+  An unmet condition stops the run, or with `else skip` records the migration without running
+  it. `status` and `migrate --dry-run` show the conditions of pending migrations; `migrate --sql`
+  checks them for the first migration and stops before later ones.
 
 ## [0.12.0] - 2026-10-16
 

@@ -249,6 +249,7 @@ public final class MigrationRunner {
       Map<String, Migration> callbacks = callbacks(migrations);
       // Parse every script before running anything, so a broken file changes nothing.
       Map<String, List<String>> statements = parse(migrations, options, connection);
+      Map<String, List<Precondition>> preconditions = preconditions(migrations);
 
       Map<String, AppliedMigration> history = readHistory(connection);
       verifyAppliedExist(connection, history, migrations, true);
@@ -258,6 +259,17 @@ public final class MigrationRunner {
       runCallback(connection, callbacks.get("beforeMigrate.sql"), statements);
       for (Step step : plan(migrations, history, options)) {
         if (step instanceof Apply apply) {
+          Precondition unmet = unmet(connection, apply.migration(),
+              preconditions.get(apply.migration().version()), options);
+          if (unmet != null) {
+            // An unmet 'else skip' condition: recorded, so it is not checked again.
+            recordApplied(connection, apply.migration().version(),
+                apply.migration().checksum(), apply.replaceHistory());
+            connection.commit();
+            Log.info("Skipped migration '{}': {} is not met; recorded as applied without "
+                + "running it.", apply.migration().version(), unmet.describe());
+            continue;
+          }
           applyMigration(connection, apply.migration(), statements, callbacks, options.resume(),
               apply.replaceHistory());
           applied[0]++;
@@ -272,6 +284,51 @@ public final class MigrationRunner {
       runCallback(connection, callbacks.get("afterMigrate.sql"), statements);
       return null;
     }, waited -> tell(listener -> listener.lockAcquired(waited)));
+  }
+
+  /** The preconditions of every versioned and repeatable migration, read before anything runs. */
+  private static Map<String, List<Precondition>> preconditions(List<Migration> migrations) {
+    Map<String, List<Precondition>> preconditions = new HashMap<>();
+    for (Migration migration : migrations) {
+      if (migration.kind() != Migration.Kind.CALLBACK) {
+        preconditions.put(migration.version(), Precondition.of(migration));
+      }
+    }
+    return preconditions;
+  }
+
+  /**
+   * The first unmet 'else skip' precondition of a migration, or null when all hold.
+   *
+   * @throws IllegalStateException when an 'else fail' precondition is not met
+   */
+  private static Precondition unmet(Connection connection, Migration migration,
+                                    List<Precondition> preconditions, Options options)
+      throws SQLException {
+    if (preconditions == null || preconditions.isEmpty()) {
+      return null;
+    }
+    Map<String, String> placeholders = placeholders(connection, options);
+    for (Precondition precondition : preconditions) {
+      boolean holds;
+      try {
+        holds = precondition.holds(connection, placeholders);
+      } catch (SQLException e) {
+        throw new SQLException("Checking '" + precondition.describe() + "' for migration '"
+            + migration.version() + "' failed: " + e.getMessage(), e);
+      }
+      if (holds) {
+        continue;
+      }
+      if (precondition.skip()) {
+        return precondition;
+      }
+      throw new IllegalStateException("Migration '" + migration.version() + "' requires "
+          + precondition.describe() + ", which is not met here. Nothing of it ran. Fix the "
+          + "database, or add 'else skip' to the line to record the migration without "
+          + "running it.");
+    }
+    return null;
   }
 
   /**
@@ -317,22 +374,50 @@ public final class MigrationRunner {
       if (failureTable) {
         verifyFailedAttempts(connection, migrations, false);
       }
-      List<Step> plan = plan(migrations, history, options);
+      List<Step> plan = new ArrayList<>(plan(migrations, history, options));
+      Map<String, List<Precondition>> preconditions = preconditions(migrations);
       String stoppedAt = null;
+      String stoppedBecause = null;
+      boolean first = true;
       for (int i = 0; i < plan.size(); i++) {
-        if (plan.get(i) instanceof Apply apply && apply.migration().isJava()) {
-          stoppedAt = apply.migration().version();
-          plan = plan.subList(0, i);
+        if (!(plan.get(i) instanceof Apply apply)) {
+          continue;
+        }
+        Migration migration = apply.migration();
+        List<Precondition> required = preconditions.get(migration.version());
+        if (migration.isJava()) {
+          stoppedAt = migration.version();
+          stoppedBecause = "a Java migration can't be written as SQL.";
           Log.warn("The script stops before Java migration '" + stoppedAt + "'"
               + (schema == null ? "" : " in schema " + schema) + ": Java migrations can't be "
               + "written as SQL. Run it with 'migrax migrate --to " + stoppedAt + "' after "
               + "the script.");
+        } else if (!required.isEmpty() && !first) {
+          // Its conditions depend on the migrations before it, which haven't run yet.
+          stoppedAt = migration.version();
+          stoppedBecause = "its preconditions can only be checked\n-- after the migrations "
+              + "before it ran.";
+          Log.warn("The script stops before '" + stoppedAt + "'"
+              + (schema == null ? "" : " in schema " + schema) + ": its preconditions can "
+              + "only be checked after the migrations before it ran. Run the script, then "
+              + "write the next one with 'migrax migrate --sql'.");
+        } else {
+          Precondition unmet = unmet(connection, migration, required, options);
+          if (unmet != null) {
+            plan.set(i, new Skip(migration, unmet.describe(), apply.replaceHistory()));
+          }
+        }
+        if (stoppedAt != null) {
+          plan = plan.subList(0, i);
           break;
         }
+        // A skipped migration changes nothing, so the next one can still be checked now.
+        first = first && plan.get(i) instanceof Skip;
       }
       parts.add(new MigrationScript.Part(schema, plan,
           historyTable ? null : historyTableDdl(connection),
-          failureTable ? null : failureTableDdl(connection), stoppedAt, history(connection),
+          failureTable ? null : failureTableDdl(connection), stoppedAt, stoppedBecause,
+          history(connection),
           TargetSchema.named(connection) != null, parse(migrations, options, connection)));
     }
     return new MigrationScript(connection.getMetaData().getDatabaseProductName(),
@@ -340,13 +425,16 @@ public final class MigrationRunner {
   }
 
   /** One step of a migration run. */
-  sealed interface Step permits Apply, Record {}
+  sealed interface Step permits Apply, Record, Skip {}
 
   /** Run a migration and record it; {@code replaceHistory} for a changed repeatable one. */
   record Apply(Migration migration, boolean replaceHistory) implements Step {}
 
   /** Record a migration as applied without running it (squashed migrations). */
   record Record(String version, String checksum, String note) implements Step {}
+
+  /** Record a migration without running it: its 'else skip' precondition is not met. */
+  record Skip(Migration migration, String unmet, boolean replaceHistory) implements Step {}
 
   /**
    * What a migration run does, in order. It depends only on the history and the migrations,
@@ -709,8 +797,13 @@ public final class MigrationRunner {
       } else if (applied == null) {
         List<String> replaces = migration.replaces();
         boolean replaced = !replaces.isEmpty() && history.keySet().containsAll(replaces);
+        List<String> required = Precondition.of(migration).stream()
+            .map(precondition -> "requires " + precondition.describe()
+                + (precondition.skip() ? ", else skipped" : ""))
+            .toList();
         rows.add(new MigrationStatus(version, State.PENDING,
-            replaced ? "replaces applied migrations; will be recorded without running" : ""));
+            replaced ? "replaces applied migrations; will be recorded without running"
+                : String.join("; ", required)));
       } else if (applied.checksum().equals(migration.checksum())) {
         rows.add(new MigrationStatus(version, State.APPLIED, "applied " + applied.appliedAt()));
       } else if (migration.kind() == Migration.Kind.REPEATABLE) {

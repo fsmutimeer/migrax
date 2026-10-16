@@ -65,4 +65,16 @@ class CommandRegistryTest {
           docs.contains("| " + code.code + " | " + code.title + " |"), code.code);
     }
   }
+
+  /** An unmet precondition and a mistyped require line get their own codes. */
+  @org.junit.jupiter.api.Test
+  void preconditionErrorsHaveCodes() {
+    org.junit.jupiter.api.Assertions.assertEquals(ErrorCode.PRECONDITION_NOT_MET,
+        ErrorCode.of(new IllegalStateException("Migration '0002_a.sql' requires table-exists "
+            + "x, which is not met here. Nothing of it ran.")));
+    org.junit.jupiter.api.Assertions.assertEquals(ErrorCode.USAGE, ErrorCode.of(
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+            () -> org.migrax.runner.Precondition.of(org.migrax.runner.Migration.ofSql(
+                "0002_a.sql", "-- MIGRAX:REQUIRE table-there x\nSELECT 1;")))));
+  }
 }

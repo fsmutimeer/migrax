@@ -37,14 +37,16 @@ final class MigrationScript {
    * @param schema the schema, or null for the connection's own
    * @param historyTable the history table's DDL when it doesn't exist there yet, else null
    * @param failureTable the failure table's DDL when it doesn't exist there yet, else null
-   * @param stoppedAt the Java migration the plan stops before, or null
+   * @param stoppedAt the migration the plan stops before, or null
+   * @param stoppedBecause why it stops there (a sentence), or null
    * @param history the history table's name in SQL
    * @param qualified whether the statements name the schema themselves (SQL Server), so the
    *     script doesn't switch to it
    * @param statements each SQL migration's statements, placeholders filled in for this schema
    */
   record Part(String schema, List<MigrationRunner.Step> plan, String historyTable,
-              String failureTable, String stoppedAt, String history, boolean qualified,
+              String failureTable, String stoppedAt, String stoppedBecause, String history,
+              boolean qualified,
               Map<String, List<String>> statements) {}
 
   String write(List<Part> parts, Map<String, Migration> callbacks) {
@@ -107,6 +109,17 @@ final class MigrationScript {
     for (MigrationRunner.Step step : plan) {
       if (step instanceof MigrationRunner.Apply apply) {
         migration(apply, part.history(), statements, callbacks);
+      } else if (step instanceof MigrationRunner.Skip skip) {
+        out.append("-- ").append(skip.migration().version()).append(": skipped, ")
+            .append(skip.unmet()).append(" is not met; recorded without running\n");
+        if (skip.replaceHistory()) {
+          out.append(terminated("DELETE FROM " + part.history() + " WHERE version="
+              + literal(skip.migration().version())));
+        }
+        out.append(terminated(insert(part.history(), skip.migration().version(),
+            skip.migration().checksum())));
+        commitForOracle();
+        out.append('\n');
       } else if (step instanceof MigrationRunner.Record record) {
         out.append("-- ").append(record.version())
             .append(": replaced by a squashed migration, recorded without running\n");
@@ -117,12 +130,16 @@ final class MigrationScript {
       }
     }
     section("afterMigrate.sql", callbacks.get("afterMigrate.sql"), statements);
-    if (part.stoppedAt() != null) {
+    if (part.stoppedAt() != null && part.stoppedBecause().startsWith("a Java")) {
       out.append("-- Stopped before ").append(part.stoppedAt())
           .append(": a Java migration can't be written as SQL.\n")
           .append("-- After this script, run it with 'migrax migrate --to ")
           .append(part.stoppedAt()).append("',\n")
           .append("-- then write the script for the rest with 'migrax migrate --sql'.\n\n");
+    } else if (part.stoppedAt() != null) {
+      out.append("-- Stopped before ").append(part.stoppedAt()).append(": ")
+          .append(part.stoppedBecause()).append('\n')
+          .append("-- After this script, write the next one with 'migrax migrate --sql'.\n\n");
     }
   }
 
@@ -144,6 +161,10 @@ final class MigrationScript {
         && tool != Tool.MYSQL && tool != Tool.ORACLE;
     out.append("-- ").append(migration.version())
         .append(transaction ? "" : " (runs without a transaction)").append('\n');
+    for (Precondition precondition : Precondition.of(migration)) {
+      out.append("-- requires ").append(precondition.describe())
+          .append(": met when this script was written\n");
+    }
     if (transaction) {
       out.append(tool == Tool.SQLSERVER ? "BEGIN TRANSACTION\nGO\n" : "BEGIN;\n");
     }

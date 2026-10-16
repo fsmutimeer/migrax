@@ -84,6 +84,7 @@ Directives are comment lines in a migration:
 | `-- migrax:resume-safe` | Allow `migrate --resume` to re-run it after a failure |
 | `-- migrax:lint-ignore MX001` | Silence a lint rule for the next statement |
 | `-- migrax:no-split` | Send the whole file to the database as one statement |
+| `-- migrax:require table-exists customer` | Run only when the condition holds; see [Preconditions](#preconditions) |
 
 ## Procedures, functions and triggers
 
@@ -231,6 +232,72 @@ Applied 1 migration(s); 2 total in src/main/resources/db/migration.
 
 Skipped migrations are not pending: health checks stay up. A folder per environment
 ([several migration folders](#several-migration-folders)) works too.
+
+## Preconditions
+
+New in Migrax 0.13.0.
+
+A migration can check the database before it runs. Add `require` lines anywhere in the file:
+
+```sql title="0002_add_email.sql"
+-- migrax:require table-exists customer
+-- migrax:require column-missing customer.email
+ALTER TABLE customer ADD COLUMN email VARCHAR(200);
+```
+
+| Check | Holds when |
+|---|---|
+| `table-exists <table>` | the table exists (`table` or `schema.table`) |
+| `table-missing <table>` | the table does not exist |
+| `column-exists <table>.<column>` | the column exists |
+| `column-missing <table>.<column>` | the column does not exist |
+| `sql <query>` | the query returns a row whose first value is not NULL, false or 0 |
+
+Names are found whatever case the database stores them in. A query may use
+`${placeholders}`.
+
+When a condition does not hold, `migrate` stops before that migration, runs nothing of it and
+fails with `MXE114`. Fix the database and run `migrate` again:
+
+```console
+$ migrax migrate
+error[MXE114]: Migration '0004_email_required.sql' requires sql select count(*) = 0 from customer where email is null, which is not met here. Nothing of it ran. Fix the database, or add 'else skip' to the line to record the migration without running it.
+Run again with --verbose for details.
+```
+
+End the line with `else skip` when the migration is not needed where the condition does not
+hold. Migrax then records the migration as applied without running it, and doesn't check it
+again:
+
+```sql title="0003_move_legacy_customers.sql"
+-- migrax:require table-exists legacy_customer else skip
+INSERT INTO customer (id, name) SELECT id, name FROM legacy_customer;
+DROP TABLE legacy_customer;
+```
+
+`status` and `migrate --dry-run` show the conditions of pending migrations:
+
+```console
+$ migrax status
+Migrations in db/migrations for jdbc:postgresql://localhost:5432/shop
+  [ ] 0001_create_customer.sql        pending
+  [ ] 0002_add_email.sql              pending: requires table-exists customer; requires column-missing customer.email
+  [ ] 0003_move_legacy_customers.sql  pending: requires table-exists legacy_customer, else skipped
+3 pending.
+
+$ migrax migrate
+Applying migration '0001_create_customer.sql'...
+Successfully applied migration '0001_create_customer.sql'.
+Applying migration '0002_add_email.sql'...
+Successfully applied migration '0002_add_email.sql'.
+Skipped migration '0003_move_legacy_customers.sql': table-exists legacy_customer is not met; recorded as applied without running it.
+Applied 2 migration(s); 3 total in db/migrations.
+```
+
+Each condition is checked right before its migration, so it sees what the migrations before it
+did. `migrate --sql` can only check the database as it is now: it checks the conditions of the
+first pending migration and stops before a later migration that has conditions. Run the
+script, then write the next one with `migrate --sql`.
 
 ## Several schemas (multi-tenant)
 

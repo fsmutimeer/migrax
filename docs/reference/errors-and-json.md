@@ -67,3 +67,4 @@ meaning; new situations get new codes.
 | MXE111 | Docker is needed for verify | Start Docker, or pass `--url` with an empty scratch database |
 | MXE112 | clean is disabled | `MIGRAX_CLEAN_DISABLED` is set; clean only development databases |
 | MXE113 | No database URL configured | Set it in the application config, `MIGRAX_DATABASE_URL`, or `--url` |
+| MXE114 | A migration's precondition is not met | Change the database so the `-- migrax:require` line holds, or end the line with `else skip` |
