@@ -73,7 +73,8 @@ above) and give it to Migrax in one of three ways:
 
 Without a driver, Migrax stops with error `MXE106` ("No JDBC driver ... accepts URL").
 
-The container image already has the drivers for PostgreSQL, CockroachDB, MariaDB, SQL Server,
+The container image already has the drivers for PostgreSQL (also for CockroachDB and
+YugabyteDB), MariaDB, SQL Server,
 SQLite and H2; for MySQL Connector/J and Oracle see
 [Other drivers](containers-and-kubernetes.md#other-drivers).
 

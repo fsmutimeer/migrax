@@ -34,10 +34,11 @@ public class PostgresDialect extends AbstractDialect {
     return java.util.List.of("postgres", "pg");
   }
 
-  /** PostgreSQL itself; CockroachDB reports the same product name. */
+  /** PostgreSQL itself; CockroachDB and YugabyteDB report the same product name. */
   @Override
   public boolean acceptsConnection(Connection connection) throws SQLException {
-    return super.acceptsConnection(connection) && !CockroachDialect.isCockroach(connection);
+    return super.acceptsConnection(connection) && !CockroachDialect.isCockroach(connection)
+        && !YugabyteDialect.isYugabyte(connection);
   }
 
   @Override

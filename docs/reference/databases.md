@@ -4,6 +4,7 @@
 |---|---|---|
 | PostgreSQL | `postgresql` | Transactional DDL; `generate --safe` for non-blocking indexes and constraints |
 | CockroachDB | `cockroachdb` | Through the PostgreSQL driver; recognized from the server ([details](#cockroachdb)) |
+| YugabyteDB 2024.2 and newer | `yugabytedb` | PostgreSQL's SQL; DDL commits immediately ([details](#yugabytedb)) |
 | MySQL 8 | `mysql` | DDL commits immediately; sequences are `next_val` tables |
 | MariaDB | `mariadb` | Like MySQL |
 | SQL Server | `sqlserver` | Lock through `sp_getapplock` |
@@ -36,6 +37,29 @@ change needs its experimental setting and can't run inside a transaction, so a m
 one starts with `-- migrax:no-transaction` and
 `SET enable_experimental_alter_column_type_general = true`. Its statements then commit one by
 one: if one fails, the earlier ones stay applied.
+
+## YugabyteDB
+
+YugabyteDB (its YSQL API) runs PostgreSQL's own SQL layer, so Migrax writes the same SQL as for
+PostgreSQL. Use the PostgreSQL driver with a `jdbc:postgresql://host:5433/database` URL, or
+YugabyteDB's own driver (`jdbc:yugabytedb://`). With the PostgreSQL driver, Migrax asks the
+server which database it is and the first `generate` records `yugabytedb` in the snapshot.
+Without a reachable database, pass `--dialect yugabytedb`.
+
+What is different from PostgreSQL:
+
+- DDL commits immediately, as on MySQL: a migration that fails halfway leaves its earlier
+  statements applied.
+- The migration lock is PostgreSQL's advisory lock where YugabyteDB has it (2025.1 and newer).
+  On older versions it is a row in the `migrax_lock` table, as on CockroachDB.
+- There are no large objects, which Hibernate's PostgreSQL mapping uses for `@Lob`, so saving a
+  `@Lob` value fails on YugabyteDB. Leave out `@Lob`: a `byte[]` field is then `bytea`, and a
+  long `String` can be `@Column(columnDefinition = "text")`.
+- `generate --safe` isn't needed: YugabyteDB builds indexes without blocking writes.
+- `verify` starts a throwaway `yugabytedb/yugabyte` container in Docker (about a minute).
+
+Zero-downtime changes (`generate --zero-downtime`) work as on PostgreSQL, with triggers for
+renamed columns and views for renamed tables.
 
 ## Oracle
 
@@ -98,8 +122,8 @@ a `boolean` is `bit` on MySQL. Migrax records the exact type, so `generate`, `ve
 ## Transactions
 
 Each migration runs in a transaction with its history record. On PostgreSQL, CockroachDB, SQL
-Server, H2 and SQLite, a failed migration leaves nothing behind. MySQL, MariaDB and Oracle commit DDL statements
-immediately, so a migration that fails halfway leaves the earlier statements applied; see
+Server, H2 and SQLite, a failed migration leaves nothing behind. MySQL, MariaDB, Oracle and
+YugabyteDB commit DDL statements immediately, so a migration that fails halfway leaves the earlier statements applied; see
 [Rollbacks and recovery](../guides/rollbacks-and-recovery.md#when-a-migration-fails).
 
 Statements that cannot run in a transaction, such as PostgreSQL's `CREATE INDEX CONCURRENTLY`,
@@ -108,8 +132,8 @@ need `-- migrax:no-transaction` at the top of the migration.
 ## Testing against real engines
 
 The Migrax build includes a suite that runs migrations and Hibernate validation against real
-MySQL, MariaDB, PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai) and CockroachDB containers,
-and on SQLite:
+MySQL, MariaDB, PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai), CockroachDB and YugabyteDB
+(2024.2 and 2026.1) containers, and on SQLite:
 
 ```bash
 mvn verify -Pdatabase-integration    # needs Docker

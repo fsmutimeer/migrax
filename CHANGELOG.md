@@ -6,6 +6,14 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- YugabyteDB (2024.2 and newer), the 9th database: dialect `yugabytedb`, reached with the
+  PostgreSQL driver (recognized from the server) or YugabyteDB's own driver. It writes
+  PostgreSQL's SQL; the migration lock is PostgreSQL's advisory lock from 2025.1 on and a row
+  in `migrax_lock` before. `verify` starts a throwaway YugabyteDB container, and
+  `--zero-downtime` works as on PostgreSQL.
+
 ## [0.11.0] - 2026-10-16
 
 Zero-downtime changes and an HTML report.

@@ -223,6 +223,14 @@ class HibernateValidationTest {
    *     transaction that already inserted an identity row.
    */
   static void persistAndQuery(SessionFactory factory, boolean oneTransactionEach) {
+    persistAndQuery(factory, oneTransactionEach, true);
+  }
+
+  /**
+   * @param lobs fill the {@code @Lob} field; YugabyteDB has no large objects, which Hibernate's
+   *     PostgreSQL mapping uses for it
+   */
+  static void persistAndQuery(SessionFactory factory, boolean oneTransactionEach, boolean lobs) {
     List<Object> entities = new java.util.ArrayList<>();
     {
       Customer customer = new Customer();
@@ -248,7 +256,7 @@ class HibernateValidationTest {
       PurchaseOrder order = new PurchaseOrder();
       order.customer = customer;
       order.placedAt = LocalDateTime.now();
-      order.notes = "Leave at the door";
+      order.notes = lobs ? "Leave at the door" : null;
       order.tags.add(tag);
       entities.add(order);
 

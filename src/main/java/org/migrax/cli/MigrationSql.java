@@ -66,6 +66,10 @@ final class MigrationSql {
     if ("cockroachdb".equals(dialect.id()) && !plan.restores().isEmpty()) {
       header += "-- CockroachDB can't fill a column in the transaction that added it, so each "
           + "statement\n-- commits on its own:\n-- migrax:no-transaction\n";
+    } else if ("yugabytedb".equals(dialect.id()) && !plan.restores().isEmpty()) {
+      header += "-- YugabyteDB runs DDL outside the transaction, so SET NOT NULL wouldn't see "
+          + "the restored\n-- values: each statement commits on its own.\n"
+          + "-- migrax:no-transaction\n";
     }
     StringBuilder sql = new StringBuilder(render(dialect, plan.reverse(), header, before,
         plan.middle()));
