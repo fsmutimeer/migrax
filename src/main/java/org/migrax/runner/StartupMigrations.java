@@ -50,6 +50,43 @@ public final class StartupMigrations {
   }
 
   /**
+   * Whether the application migrates at startup: yes, unless {@code migrax.migrate-at-startup}
+   * is false (a pipeline or a DBA runs the migrations; health and metrics still report them).
+   *
+   * @since 0.14.0
+   */
+  public static boolean migratesAtStartup(Map<String, String> settings) {
+    return !"false".equalsIgnoreCase(settings.get("migrax.migrate-at-startup"));
+  }
+
+  /**
+   * The log line of an application that doesn't migrate at startup, with what waits to run.
+   * Never fails: a database that can't be read is part of the message.
+   *
+   * @since 0.14.0
+   */
+  public static String notMigrating(DataSource dataSource, Map<String, String> settings,
+                                    ClassLoader loader) {
+    return notMigrating(() -> status(dataSource, settings, loader));
+  }
+
+  /** The same line, from a status read by the caller. */
+  public static String notMigrating(java.util.concurrent.Callable<Status> status) {
+    String line = "not migrating at startup (migrax.migrate-at-startup=false); ";
+    try {
+      Status now = status.call();
+      if (now.problems() > 0) {
+        return line + now.problems() + " migration(s) failed, changed or missing, "
+            + now.pending() + " pending";
+      }
+      return line + (now.pending() == 0 ? "the schema is up to date"
+          : now.pending() + " migration(s) pending");
+    } catch (Exception e) {
+      return line + "could not read the migration status: " + e.getMessage();
+    }
+  }
+
+  /**
    * Whether the database is up to date with the application's migrations, for health checks.
    *
    * @param applied migrations applied (in every schema)

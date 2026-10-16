@@ -20,6 +20,7 @@ an `OpenTelemetry` bean. Without them, nothing changes.
 | `migrax.migrations.applied` | `migrax_migrations_applied_total` | | Migrations applied |
 | `migrax.migrations.failed` | `migrax_migrations_failed_total` | | Migrations that failed |
 | `migrax.lock.wait` | `migrax_lock_wait_seconds` | | How long the migration lock took to get |
+| `migrax.migrations.pending` | `migrax_migrations_pending` | | Migrations that wait to run (from Migrax 0.14.0) |
 
 A Prometheus alert on failed migrations, for example:
 
@@ -30,6 +31,34 @@ A Prometheus alert on failed migrations, for example:
 
 With several instances starting together and `migrax.lock-timeout` set, `migrax_lock_wait_seconds`
 shows how long they waited for each other.
+
+`migrax_migrations_pending` is the count the health check reports. An application that
+migrates at startup only starts when nothing is pending, so there it stays 0; it shows what
+waits when a pipeline migrates (below). Migrax asks the database at most every 10 seconds;
+when the database can't be reached, the gauge has no value (NaN).
+
+## When a pipeline migrates
+
+New in Migrax 0.14.0.
+
+Some teams run the migrations in a deployment pipeline or have a DBA run them, and the
+application must never change the schema. Set `migrax.migrate-at-startup=false`: the
+application then starts without migrating and logs what waits:
+
+```text
+Migrax: not migrating at startup (migrax.migrate-at-startup=false); 3 migration(s) pending
+```
+
+The health check and `migrax_migrations_pending` keep reporting, so a release whose
+migrations haven't run yet shows up: readiness is DOWN, and an alert can fire:
+
+```yaml
+- alert: MigraxMigrationsPending
+  expr: migrax_migrations_pending > 0
+  for: 30m
+```
+
+`migrax.enabled=false` instead turns Migrax off completely, health check and metrics included.
 
 ## Traces
 

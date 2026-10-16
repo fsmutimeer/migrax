@@ -53,6 +53,23 @@ class MigraxAutoConfigurationTest {
     }
   }
 
+  /** A pipeline migrates: the application starts as it is, and reports what waits. */
+  @Test
+  void reportsWithoutMigratingWhenMigrateAtStartupIsFalse() {
+    try (ConfigurableApplicationContext context = start("starter_report_only",
+        "spring.jpa.hibernate.ddl-auto=none", "migrax.migrate-at-startup=false")) {
+      JdbcTemplate jdbc = new JdbcTemplate(context.getBean(javax.sql.DataSource.class));
+      assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
+          + "WHERE TABLE_NAME = 'BOOK'", Integer.class));
+      var health = context.getBean("migraxHealthIndicator",
+          org.springframework.boot.actuate.health.HealthIndicator.class).health();
+      assertEquals(org.springframework.boot.actuate.health.Status.DOWN, health.getStatus());
+      assertEquals(3, health.getDetails().get("pending"));
+      assertEquals(3.0, context.getBean(io.micrometer.core.instrument.MeterRegistry.class)
+          .get("migrax.migrations.pending").gauge().value());
+    }
+  }
+
   @Test
   void reportsHealthWhenActuatorIsPresent() throws Exception {
     try (ConfigurableApplicationContext context = start("starter_health")) {
@@ -114,6 +131,7 @@ class MigraxAutoConfigurationTest {
       var registry = context.getBean(io.micrometer.core.instrument.MeterRegistry.class);
       assertEquals(3.0, registry.get("migrax.migrations.applied").counter().count());
       assertEquals(1, registry.get("migrax.run").tag("outcome", "success").timer().count());
+      assertEquals(0.0, registry.get("migrax.migrations.pending").gauge().value());
       var spans = InMemoryTracing.SPANS.getFinishedSpanItems();
       assertEquals(1, spans.stream().filter(s -> s.getName().equals("migrax migrate")).count(),
           spans.toString());
@@ -134,6 +152,8 @@ class MigraxAutoConfigurationTest {
       var registry = context.getBean(io.micrometer.core.instrument.MeterRegistry.class);
       org.junit.jupiter.api.Assertions.assertNull(
           registry.find("migrax.migrations.applied").counter());
+      org.junit.jupiter.api.Assertions.assertNull(
+          registry.find("migrax.migrations.pending").gauge());
       assertEquals(0, InMemoryTracing.SPANS.getFinishedSpanItems().size());
     }
   }

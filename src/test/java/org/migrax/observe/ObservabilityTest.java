@@ -101,4 +101,28 @@ class ObservabilityTest {
     assertEquals(1, Migrax.configure().dataSource(database("listener"))
         .locations("filesystem:" + folder).listener(broken).load().migrate().applied());
   }
+
+  @Test
+  void theGaugeCountsPendingMigrations() throws Exception {
+    Files.writeString(folder.resolve("0001_note.sql"), "CREATE TABLE note (id INT);\n");
+    Files.writeString(folder.resolve("0002_tag.sql"), "CREATE TABLE tag (id INT);\n");
+    Migrax migrax = Migrax.configure().dataSource(database("gauge"))
+        .locations("filesystem:" + folder).load();
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    new PendingGauge(() -> migrax.status().pending(), Duration.ZERO).bindTo(registry);
+    assertEquals(2.0, registry.get("migrax.migrations.pending").gauge().value());
+    migrax.migrate();
+    assertEquals(0.0, registry.get("migrax.migrations.pending").gauge().value());
+
+    // Read at most once per cache period; NaN while the database can't be reached.
+    int[] reads = {0};
+    SimpleMeterRegistry cached = new SimpleMeterRegistry();
+    new PendingGauge(() -> {
+      reads[0]++;
+      throw new java.sql.SQLException("down");
+    }).bindTo(cached);
+    assertTrue(Double.isNaN(cached.get("migrax.migrations.pending").gauge().value()));
+    cached.get("migrax.migrations.pending").gauge().value();
+    assertEquals(1, reads[0]);
+  }
 }

@@ -6,6 +6,15 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `migrax.migrate-at-startup=false` in the Spring Boot, Quarkus, Micronaut, Helidon and Jakarta
+  EE integrations: the application starts without migrating, for teams whose pipeline or DBA
+  runs the migrations, and logs what is pending; the health check keeps reporting.
+- Gauge `migrax.migrations.pending` (`migrax_migrations_pending`): how many migrations wait to
+  run, in the same integrations when the application has Micrometer. Off with
+  `migrax.metrics.enabled=false`. See Guides > Metrics and tracing.
+
 ## [0.13.0] - 2026-10-16
 
 ### Added

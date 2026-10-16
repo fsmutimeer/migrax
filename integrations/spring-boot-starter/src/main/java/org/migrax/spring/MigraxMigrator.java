@@ -73,6 +73,10 @@ public class MigraxMigrator implements InitializingBean {
 
   @Override
   public void afterPropertiesSet() throws Exception {
+    if (!properties.isMigrateAtStartup()) {
+      LOG.info("Migrax: " + org.migrax.runner.StartupMigrations.notMigrating(this::status));
+      return;
+    }
     Log.Sink previous = Log.setSink(new CommonsSink());
     try {
       Path devFolder = properties.getDev().isGenerate() ? generateForDevelopment() : null;

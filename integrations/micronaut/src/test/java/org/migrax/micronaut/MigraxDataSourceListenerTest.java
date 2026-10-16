@@ -34,6 +34,7 @@ class MigraxDataSourceListenerTest {
   @Test
   void recordsMetricsAndSpans() {
     assertEquals(1.0, registry.get("migrax.migrations.applied").counter().count());
+    assertEquals(0.0, registry.get("migrax.migrations.pending").gauge().value());
     var spans = org.migrax.micronaut.app.InMemoryTracing.SPANS.getFinishedSpanItems();
     assertEquals(1, spans.stream().filter(s -> s.getName().equals("migrax migrate")).count(),
         spans.toString());

@@ -53,6 +53,7 @@ Migrations are applied when the application starts, **before** JPA starts, so
 | Setting | Default | Meaning |
 |---|---|---|
 | `migrax.enabled` | `true` | Apply migrations at startup |
+| `migrax.migrate-at-startup` | `true` | `false`: start without migrating, when a pipeline or a DBA runs the migrations; the health check and the pending gauge still report them ([details](../guides/observability.md#when-a-pipeline-migrates)) |
 | `migrax.locations` | `classpath:db/migration` | Migration folders, comma-separated |
 | `migrax.java-package` | `db.migration` | Package of `JavaMigration` classes |
 | `migrax.env` | | Environment: migrations marked `-- migrax:env <name>` run only there |

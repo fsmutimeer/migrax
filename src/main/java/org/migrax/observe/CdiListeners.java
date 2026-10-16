@@ -45,6 +45,26 @@ public final class CdiListeners {
     return listeners;
   }
 
+  /**
+   * Binds the gauge of pending migrations ({@link PendingGauge}) to the application's
+   * MeterRegistry, when it has one and {@code migrax.metrics.enabled} isn't false; also when
+   * the application doesn't migrate at startup.
+   *
+   * @since 0.14.0
+   */
+  public static void pendingGauge(Map<String, String> settings, ClassLoader loader,
+                                  PendingGauge.Source pending) {
+    if ("false".equalsIgnoreCase(settings.get("migrax.metrics.enabled"))
+        || !present("io.micrometer.core.instrument.MeterRegistry", loader)) {
+      return;
+    }
+    try {
+      Metrics.gauge(CDI.current(), pending);
+    } catch (IllegalStateException e) {
+      // No CDI container: no registry to bind to.
+    }
+  }
+
   private static boolean present(String name, ClassLoader loader) {
     try {
       Class.forName(name, false, loader);
@@ -61,6 +81,14 @@ public final class CdiListeners {
           cdi.select(io.micrometer.core.instrument.MeterRegistry.class);
       if (registry.isResolvable()) {
         listeners.add(new MicrometerListener(registry.get()));
+      }
+    }
+
+    static void gauge(CDI<Object> cdi, PendingGauge.Source pending) {
+      Instance<io.micrometer.core.instrument.MeterRegistry> registry =
+          cdi.select(io.micrometer.core.instrument.MeterRegistry.class);
+      if (registry.isResolvable()) {
+        new PendingGauge(pending).bindTo(registry.get());
       }
     }
   }

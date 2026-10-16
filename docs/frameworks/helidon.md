@@ -46,6 +46,7 @@ so `hibernate.hbm2ddl.auto=validate` works. Settings go in `microprofile-config.
 | Setting | Default | Meaning |
 |---|---|---|
 | `migrax.enabled` | `true` | Apply migrations at startup |
+| `migrax.migrate-at-startup` | `true` | `false`: start without migrating, when a pipeline or a DBA runs the migrations; the health check and the pending gauge still report them ([details](../guides/observability.md#when-a-pipeline-migrates)) |
 | `migrax.datasource` | the one `persistence.xml` names, or the only one | Data source to migrate |
 | `migrax.locations` | `db/migration` | Migration folders on the classpath, comma-separated |
 | `migrax.java-package` | `db.migration` | Package of `JavaMigration` classes |
