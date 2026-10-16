@@ -48,7 +48,7 @@ Data is on the classpath it uses Micronaut's own naming class.
 <dependency>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-micronaut</artifactId>
-  <version>0.11.0</version>
+  <version>0.12.0</version>
 </dependency>
 ```
 
