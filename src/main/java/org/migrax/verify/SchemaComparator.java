@@ -38,7 +38,7 @@ public final class SchemaComparator {
     List<Difference> differences = new ArrayList<>();
     Set<String> sequenceTables = new HashSet<>();
     // Databases without sequences, where Hibernate keeps the next value in a table.
-    if ("mysql".equals(dialect) || "sqlite".equals(dialect)) {
+    if ("mysql".equals(dialect) || "tidb".equals(dialect) || "sqlite".equals(dialect)) {
       expected.sequences().forEach(s -> sequenceTables.add(key(s.name())));
     }
     for (SchemaModel.Table table : expected.tables()) {

@@ -61,6 +61,11 @@ class DatabaseEngineIT {
         database("YugabyteDB 2026.1", () -> new YugabyteWithPostgresDriver(
             "yugabytedb/yugabyte:2026.1.2.0-b137")
             .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+        database("TiDB 8.5", () -> new org.testcontainers.tidb.TiDBContainer(
+            "pingcap/tidb:v8.5.3")),
+        // The 7.5 long-term line.
+        database("TiDB 7.5", () -> new org.testcontainers.tidb.TiDBContainer(
+            "pingcap/tidb:v7.5.6")),
         // The 2024.2 long-term line: PostgreSQL 11 based, no advisory locks.
         database("YugabyteDB 2024.2", () -> new YugabyteWithPostgresDriver(
             "yugabytedb/yugabyte:2024.2.11.0-b36")
@@ -123,6 +128,13 @@ class DatabaseEngineIT {
         }
         if (container instanceof MySQLContainer<?> mysql) {
           allowMySqlTriggers(mysql);
+        }
+        if (container instanceof org.testcontainers.tidb.TiDBContainer) {
+          // Off by default: TiDB parses check constraints and ignores them.
+          try (Connection root = Database.of(container).connect();
+               Statement statement = root.createStatement()) {
+            statement.execute("SET GLOBAL tidb_enable_check_constraint = ON");
+          }
         }
         exerciseRunner(Database.of(container));
         exerciseGeneratedSchema(Database.of(container));
@@ -233,6 +245,13 @@ class DatabaseEngineIT {
           "VIEW"), "views after clean");
       assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.sequencesIn(connection, null),
           "sequences after clean");
+    }
+  }
+
+  private static boolean tidb(Database database) throws SQLException {
+    try (Connection connection = database.connect()) {
+      return org.migrax.dialect.Dialects.forConnection(connection)
+          .filter(d -> d.id().equals("tidb")).isPresent();
     }
   }
 
@@ -372,6 +391,9 @@ class DatabaseEngineIT {
    * trigger is used.
    */
   private static void exerciseProcedures(Database database) throws Exception {
+    if (tidb(database)) {
+      return; // TiDB has no stored procedures.
+    }
     String url = database.url();
     String script;
     String call;

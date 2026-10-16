@@ -30,6 +30,9 @@ class SchemaGenerationAdviceTest {
     org.junit.jupiter.api.Assertions.assertTrue(DoctorCommand.ignoresChecks("MySQL", "8.0.15"));
     org.junit.jupiter.api.Assertions.assertTrue(DoctorCommand.ignoresChecks("MySQL", "5.7.44-log"));
     org.junit.jupiter.api.Assertions.assertFalse(DoctorCommand.ignoresChecks("MySQL", "8.0.16"));
+    // TiDB reports MySQL 8.0.11; its own setting decides (doctor asks it separately).
+    org.junit.jupiter.api.Assertions.assertFalse(DoctorCommand.ignoresChecks("MySQL",
+        "8.0.11-TiDB-v8.5.3"));
     org.junit.jupiter.api.Assertions.assertFalse(DoctorCommand.ignoresChecks("MySQL", "8.4.3"));
     org.junit.jupiter.api.Assertions.assertFalse(
         DoctorCommand.ignoresChecks("MySQL", "5.5.5-10.11.6-MariaDB"));

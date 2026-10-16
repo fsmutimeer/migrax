@@ -43,6 +43,18 @@ public class MySqlDialect extends AbstractDialect {
     return RESERVED;
   }
 
+  /** MySQL itself (or MariaDB); TiDB reports the same product name. */
+  @Override
+  public boolean acceptsConnection(Connection connection) throws SQLException {
+    return super.acceptsConnection(connection) && !TidbDialect.isTidb(connection);
+  }
+
+  /** DDL statements commit at once. */
+  @Override
+  public boolean transactionalDdl() {
+    return false;
+  }
+
   @Override
   protected String logicalType(SchemaModel.Column c, String logical) {
     return switch (logical) {

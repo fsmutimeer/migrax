@@ -245,4 +245,10 @@ public final class OracleDialect extends AbstractDialect {
   public boolean updatableViews() {
     return true;
   }
+
+  /** DDL statements commit at once. */
+  @Override
+  public boolean transactionalDdl() {
+    return false;
+  }
 }

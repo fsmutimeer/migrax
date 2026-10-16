@@ -101,7 +101,7 @@ and remove Flyway or Liquibase from the project. See
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -158,7 +158,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--no-input` | Never ask questions |
 | `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
@@ -240,7 +240,7 @@ Shows the operations and SQL for current entity changes without writing files. `
 |---|---|
 | `--impact` | Show affected table sizes (needs the database) |
 | `--json` | Machine-readable output |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--rename t.old=new` | Treat a column change as a rename (comma-separated) |
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
@@ -328,7 +328,7 @@ Checks pending migrations (or the given files, or `--all`) for statements that b
 | `--all` | Lint every migration, not only pending ones |
 | `--strict` | Fail on warnings too |
 | `--json` | Machine-readable output |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -351,7 +351,7 @@ Starts a throwaway database (H2 in memory, or Docker for other engines), applies
 | `--skip-rollbacks` | Do not test rollback scripts |
 | `--json` | Machine-readable output |
 | `--env <name>` | Environment for migrations marked '-- migrax:env' |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
@@ -398,7 +398,7 @@ Writes one HTML page (default `migrax-report.html`) for reviews and CI artifacts
 | `--html <file>` | Where to write the page (default: migrax-report.html) |
 | `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
@@ -429,7 +429,7 @@ Writes one migration that replaces all migrations up to `--to`. Databases that a
 | `--to <migration>` | Last migration to apply, keep or squash up to |
 | `--name <name>` | Migration file name (default: next number + description) |
 | `--optimize` | Squash to the resulting schema only |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--dir <path>` | Project folder (default: current folder) |
 
@@ -444,7 +444,7 @@ Renumbers migrations that share a number after a git merge (the one added later 
 | Option | Meaning |
 |---|---|
 | `--json` | Machine-readable output |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
@@ -550,7 +550,7 @@ Prints the schema model Migrax builds from the entities.
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
-| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, sqlite |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |

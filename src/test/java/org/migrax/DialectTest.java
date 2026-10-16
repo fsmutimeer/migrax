@@ -63,13 +63,15 @@ class DialectTest {
     assertEquals("postgresql", Dialects.fromJdbcUrl("jdbc:postgresql://localhost:26257/db").id());
     assertEquals("mysql", Dialects.byName("mysql").id());
     assertEquals("sqlite", Dialects.fromJdbcUrl("jdbc:sqlite:data/shop.db").id());
+    // TiDB uses the MySQL driver: the server, not the URL, tells them apart.
+    assertEquals("mysql", Dialects.fromJdbcUrl("jdbc:mysql://localhost:4000/db").id());
     // YugabyteDB's own driver; with the PostgreSQL driver, the server tells.
     assertEquals("yugabytedb", Dialects.fromJdbcUrl("jdbc:yugabytedb://localhost:5433/db").id());
     assertThrows(IllegalArgumentException.class, () -> Dialects.byName("db2"));
   }
 
   @Test void registeredDialectsAreFoundByNameAndAlias() {
-    assertEquals(List.of("postgresql", "cockroachdb", "yugabytedb", "mysql", "mariadb",
+    assertEquals(List.of("postgresql", "cockroachdb", "yugabytedb", "mysql", "mariadb", "tidb",
         "sqlserver", "oracle", "h2", "sqlite"), Dialects.NAMES);
     assertEquals("yugabytedb", Dialects.byName("yb").id());
     assertEquals("yugabytedb", Dialects.byName("yugabyte").id());
@@ -89,6 +91,7 @@ class DialectTest {
     assertEquals("h2", Dialects.forProduct("H2").orElseThrow().id());
     assertEquals("cockroachdb", Dialects.forProduct("CockroachDB").orElseThrow().id());
     assertEquals("yugabytedb", Dialects.forProduct("YugabyteDB").orElseThrow().id());
+    assertEquals("tidb", Dialects.forProduct("TiDB").orElseThrow().id());
     assertEquals("sqlite", Dialects.forProduct("SQLite").orElseThrow().id());
     assertTrue(Dialects.forProduct("DB2/LINUXX8664").isEmpty());
   }
@@ -409,5 +412,24 @@ class DialectTest {
     }
     assertFalse(yugabyte.transactionalDdl());
     assertEquals(postgres.syncColumns("t", "a", "b"), yugabyte.syncColumns("t", "a", "b"));
+  }
+
+  @Test void tidbWritesTheMysqlSqlAndCopiesBackupsWithoutCreateTableAsSelect() {
+    Dialect tidb = Dialects.byName("tidb");
+    Dialect mysql = Dialects.byName("mysql");
+    SchemaModel.Column name = new SchemaModel.Column("name", "varchar", false, 100, null, null,
+        null, false, false, null, "varchar");
+    for (Operation operation : List.<Operation>of(
+        new org.migrax.ops.AddColumn("item", name),
+        new AlterColumn("item", name, new SchemaModel.Column("name", "varchar", true, 200,
+            null, null, null, false, false, null, "varchar")))) {
+      assertEquals(mysql.render(operation), tidb.render(operation));
+    }
+    assertEquals("CREATE TABLE backup LIKE item;\nINSERT INTO backup SELECT * FROM item",
+        tidb.copyTable("backup", "item", List.of("id", "name")));
+    assertTrue(tidb.syncColumns("t", "a", "b").isEmpty());
+    assertFalse(tidb.updatableViews());
+    assertFalse(tidb.transactionalDdl());
+    assertFalse(mysql.transactionalDdl());
   }
 }
