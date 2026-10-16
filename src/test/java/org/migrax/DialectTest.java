@@ -64,6 +64,7 @@ class DialectTest {
     assertEquals("mysql", Dialects.byName("mysql").id());
     assertEquals("sqlite", Dialects.fromJdbcUrl("jdbc:sqlite:data/shop.db").id());
     assertEquals("hsqldb", Dialects.fromJdbcUrl("jdbc:hsqldb:mem:test").id());
+    assertEquals("derby", Dialects.fromJdbcUrl("jdbc:derby:memory:test;create=true").id());
     // TiDB uses the MySQL driver: the server, not the URL, tells them apart.
     assertEquals("mysql", Dialects.fromJdbcUrl("jdbc:mysql://localhost:4000/db").id());
     // YugabyteDB's own driver; with the PostgreSQL driver, the server tells.
@@ -73,7 +74,7 @@ class DialectTest {
 
   @Test void registeredDialectsAreFoundByNameAndAlias() {
     assertEquals(List.of("postgresql", "cockroachdb", "yugabytedb", "mysql", "mariadb", "tidb",
-        "sqlserver", "oracle", "h2", "hsqldb", "sqlite"), Dialects.NAMES);
+        "sqlserver", "oracle", "h2", "hsqldb", "derby", "sqlite"), Dialects.NAMES);
     assertEquals("hsqldb", Dialects.byName("hsql").id());
     assertEquals("yugabytedb", Dialects.byName("yb").id());
     assertEquals("yugabytedb", Dialects.byName("yugabyte").id());
@@ -95,6 +96,7 @@ class DialectTest {
     assertEquals("yugabytedb", Dialects.forProduct("YugabyteDB").orElseThrow().id());
     assertEquals("tidb", Dialects.forProduct("TiDB").orElseThrow().id());
     assertEquals("hsqldb", Dialects.forProduct("HSQL Database Engine").orElseThrow().id());
+    assertEquals("derby", Dialects.forProduct("Apache Derby").orElseThrow().id());
     assertEquals("sqlite", Dialects.forProduct("SQLite").orElseThrow().id());
     assertTrue(Dialects.forProduct("DB2/LINUXX8664").isEmpty());
   }
@@ -451,5 +453,39 @@ class DialectTest {
         hsqldb.render(new org.migrax.ops.AddColumn("item", id)));
     assertTrue(hsqldb.updatableViews());
     assertTrue(hsqldb.syncColumns("t", "a", "b").isEmpty());
+  }
+
+  private static SchemaModel.Column varchar(String name, int length, boolean nullable) {
+    return new SchemaModel.Column(name, "varchar", nullable, length, null, null, null, false,
+        false, null, "varchar");
+  }
+
+  @Test void derbyRebuildsAColumnItCantChangeInPlace() {
+    Dialect derby = Dialects.byName("derby");
+    SchemaModel.Column wide = varchar("grade", 100, false);
+    SchemaModel.Column narrow = varchar("grade", 10, false);
+    SchemaModel after = new SchemaModel(List.of(new SchemaModel.Table("item", List.of(
+        new SchemaModel.Column("id", "bigint", false, null, null, null, null, false, false,
+            null, "bigint"), narrow), new SchemaModel.PrimaryKey(List.of("id"), "item_pkey"),
+        List.of(new SchemaModel.Index("idx_item_grade", List.of("grade"), false)), List.of())));
+    List<String> sql = derby.prepare(List.of(new AlterColumn("item", wide, narrow)),
+        SchemaModel.empty(), after).stream().map(derby::render).toList();
+    assertEquals(List.of(
+        "ALTER TABLE item ADD COLUMN migrax_new_grade varchar(10)",
+        "UPDATE item SET migrax_new_grade = CAST(grade AS varchar(10))",
+        "ALTER TABLE item DROP COLUMN grade",
+        "RENAME COLUMN item.migrax_new_grade TO grade",
+        "ALTER TABLE item ALTER COLUMN grade NOT NULL",
+        "CREATE INDEX idx_item_grade ON item (grade)"), sql);
+    // Lengthening stays in place.
+    assertEquals(List.of("ALTER TABLE item ALTER COLUMN grade SET DATA TYPE varchar(200)"),
+        derby.prepare(List.of(new AlterColumn("item", wide, varchar("grade", 200, false))),
+            SchemaModel.empty(), after).stream().map(derby::render).toList());
+    assertEquals("DROP SEQUENCE item_seq RESTRICT",
+        derby.render(new org.migrax.ops.DropSequence("item_seq", null)));
+    assertEquals("RENAME TABLE item TO product",
+        derby.render(new org.migrax.ops.RenameTable("item", "product")));
+    assertEquals("-- Derby keeps no comments",
+        derby.render(new org.migrax.ops.SetComment("item", null, "Things")));
   }
 }

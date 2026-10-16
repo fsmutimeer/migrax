@@ -52,7 +52,8 @@ public final class OpenJpaSchemaReader {
       Map.entry("oracle", "oracle"),
       Map.entry("h2", "h2"),
       Map.entry("sqlite", "org.apache.openjpa.jdbc.sql.DBDictionary"),
-      Map.entry("hsqldb", "hsql"));
+      Map.entry("hsqldb", "hsql"),
+      Map.entry("derby", "derby"));
 
   private boolean caseSensitiveTables;
   private boolean ownLobTypes;

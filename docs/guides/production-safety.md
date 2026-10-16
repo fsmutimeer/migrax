@@ -43,7 +43,7 @@ Verified.
 
 `verify`:
 
-1. starts a throwaway database: in-memory H2 or HSQLDB, a Docker container of your engine, or the empty
+1. starts a throwaway database: in-memory H2, HSQLDB or Derby, a Docker container of your engine, or the empty
    database you pass with `--url`;
 2. applies every migration from scratch;
 3. starts **your** Hibernate version with schema validation against the result (without

@@ -70,6 +70,18 @@ class DatabaseEngineIT {
         database("YugabyteDB 2024.2", () -> new YugabyteWithPostgresDriver(
             "yugabytedb/yugabyte:2024.2.11.0-b36")
             .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+        DynamicTest.dynamicTest("Derby 10.16", () -> {
+          Database derby = new Database("jdbc:derby:memory:migrax_it;create=true", "", "");
+          exerciseRunner(derby);
+          exerciseGeneratedSchema(derby);
+          exerciseProcedures(derby);
+          exerciseCheckAndCommentChanges(derby);
+          exerciseUnnamedCheck(derby);
+          exerciseKeepData(derby);
+          exerciseZeroDowntime(derby);
+          exerciseScriptTimestamps(derby);
+          exerciseSchemas(derby);
+        }),
         // In memory: every connection of this JVM shares the database by its name.
         DynamicTest.dynamicTest("HSQLDB 2.7", () -> {
           Database hsqldb = new Database("jdbc:hsqldb:mem:migrax_it", "SA", "");
@@ -410,8 +422,8 @@ class DatabaseEngineIT {
    * trigger is used.
    */
   private static void exerciseProcedures(Database database) throws Exception {
-    if (tidb(database)) {
-      return; // TiDB has no stored procedures.
+    if (tidb(database) || database.url().startsWith("jdbc:derby:")) {
+      return; // TiDB has no stored procedures; Derby's are Java methods.
     }
     String url = database.url();
     String script;
@@ -599,7 +611,7 @@ class DatabaseEngineIT {
     try (Connection connection = database.connect()) {
       org.migrax.dialect.Dialect dialect =
           org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
-      boolean comments = !dialect.id().equals("sqlite");
+      boolean comments = !dialect.id().equals("sqlite") && !dialect.id().equals("derby");
       // Start from a clean history; the steps above recorded their own files (CockroachDB
       // skips the procedures, so after clean it has no history tables).
       for (String table : List.of("migrax_history", "migrax_failures")) {

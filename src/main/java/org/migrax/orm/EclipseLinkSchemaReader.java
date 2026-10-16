@@ -57,7 +57,8 @@ public final class EclipseLinkSchemaReader {
       Map.entry("oracle", "org.eclipse.persistence.platform.database.OraclePlatform"),
       Map.entry("h2", "org.eclipse.persistence.platform.database.H2Platform"),
       Map.entry("sqlite", "org.eclipse.persistence.platform.database.DatabasePlatform"),
-      Map.entry("hsqldb", "org.eclipse.persistence.platform.database.HSQLPlatform"));
+      Map.entry("hsqldb", "org.eclipse.persistence.platform.database.HSQLPlatform"),
+      Map.entry("derby", "org.eclipse.persistence.platform.database.DerbyPlatform"));
   /** The sequence name EclipseLink gives GenerationType.IDENTITY. */
   private static final String IDENTITY = "SEQ_GEN_IDENTITY";
 

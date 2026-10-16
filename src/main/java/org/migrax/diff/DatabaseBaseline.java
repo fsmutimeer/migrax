@@ -33,8 +33,9 @@ public final class DatabaseBaseline {
     if (DatabaseSchemaReader.foldsNames(connection)) {
       database = database.withNameCaseFrom(entities);
     }
-    boolean keepsComments = !connection.getMetaData().getDatabaseProductName()
-        .toLowerCase(java.util.Locale.ROOT).contains("sqlite");
+    String product = connection.getMetaData().getDatabaseProductName()
+        .toLowerCase(java.util.Locale.ROOT);
+    boolean keepsComments = !product.contains("sqlite") && !product.contains("derby");
     return withEntityChecks(withSequenceDefaults(database, entities), entities, keepsComments);
   }
 
@@ -164,6 +165,13 @@ public final class DatabaseBaseline {
     try {
       if ("uuid".equals(existing.logicalType()) && ("uuid".equals(wanted.logicalType())
           || List.of("binary(16)", "raw(16)", "uniqueidentifier", "uuid")
+              .contains(normalize(dialect.columnType(wanted))))) {
+        return true;
+      }
+      // Without a UUID type (Derby), the database reports the 16 bytes as binary.
+      if ("varbinary".equals(existing.logicalType())
+          && Integer.valueOf(16).equals(existing.length())
+          && ("uuid".equals(wanted.logicalType()) || List.of("char(16)forbitdata", "binary(16)")
               .contains(normalize(dialect.columnType(wanted))))) {
         return true;
       }

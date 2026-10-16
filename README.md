@@ -50,7 +50,7 @@ Successfully applied migration '0002_add_customers_phone.sql'.
 |---|---|
 | Frameworks | Spring Boot, Quarkus, Micronaut 4 and 5, Helidon 4, Jakarta EE and plain Hibernate |
 | JPA providers | Hibernate 4.0 to 7.4, EclipseLink 2.7 to 4.0, OpenJPA 3.2 and 4.1, each read through its own mapping |
-| Databases | PostgreSQL, CockroachDB, YugabyteDB, MySQL 8, MariaDB, TiDB, SQL Server, Oracle 12c+, H2, HSQLDB, SQLite |
+| Databases | PostgreSQL, CockroachDB, YugabyteDB, MySQL 8, MariaDB, TiDB, SQL Server, Oracle 12c+, H2, HSQLDB, Derby, SQLite |
 | Ways to run | Command line, Maven plugin, Gradle plugin, at application startup, Java API, JUnit 5 extension, container image, GitHub Action |
 | AI assistants | `migrax mcp` (Model Context Protocol server), `llms.txt` docs |
 
