@@ -19,6 +19,9 @@ inputs:
   comment:
     description: Post or update a pull request comment with the results.
     default: 'true'
+  report:
+    description: Write the HTML report (migrax report) and upload it as the artifact migrax-report.
+    default: 'true'
   github-token:
     description: Token used to comment.
     default: ${{ github.token }}
@@ -47,6 +50,8 @@ runs:
       id: migrax
       shell: bash
       working-directory: ${{ inputs.working-directory }}
+      env:
+        MIGRAX_REPORT: ${{ inputs.report }}
       run: |
         set +e
         MIGRAX="$GITHUB_ACTION_PATH/bin/migrax"
@@ -73,6 +78,11 @@ runs:
         fi
         LINT=$?
 
+        if [ "$MIGRAX_REPORT" = "true" ]; then
+          sh "$MIGRAX" report --html "$OUT/migrax-report.html" > "$OUT/report.out" 2> "$OUT/report.err"
+          cat "$OUT/report.out" "$OUT/report.err"
+        fi
+
         CHANGES=$(grep -o '"changes":\[[^]]*\]' "$OUT/check.json" | grep -o '"[^"]*"' | grep -vc changes)
         FINDINGS=$(grep -o '"code":' "$OUT/lint.json" | wc -l | tr -d ' ')
         ERRORS=$(grep -o '"severity":"error"' "$OUT/lint.json" | wc -l | tr -d ' ')
@@ -85,11 +95,21 @@ runs:
         cat "$OUT/check.err" "$OUT/lint.err" 2>/dev/null
         exit 0
 
+    - name: Upload the report
+      id: report
+      if: inputs.report == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: migrax-report
+        path: ${{ steps.migrax.outputs.out }}/migrax-report.html
+        if-no-files-found: ignore
+
     - name: Comment on the pull request
       if: inputs.comment == 'true' && github.event_name == 'pull_request'
       uses: actions/github-script@v8
       env:
         MIGRAX_OUT: ${{ steps.migrax.outputs.out }}
+        MIGRAX_REPORT_URL: ${{ steps.report.outputs.artifact-url }}
       with:
         github-token: ${{ inputs.github-token }}
         script: |
@@ -127,6 +147,9 @@ runs:
             }
           } else if (lint) {
             body += `Lint: no findings in ${lint.files} changed migration file(s).\n`;
+          }
+          if (process.env.MIGRAX_REPORT_URL) {
+            body += `\n[HTML report](${process.env.MIGRAX_REPORT_URL}): schema, migrations, lint findings and drift.\n`;
           }
           const { owner, repo } = context.repo;
           const issue_number = context.issue.number;

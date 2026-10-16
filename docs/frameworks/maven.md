@@ -39,6 +39,7 @@ mvn migrax:status
 | `migrax:lint` | `migrax lint` |
 | `migrax:verify` | `migrax verify` |
 | `migrax:drift` | `migrax drift` |
+| `migrax:report` | `migrax report` |
 | `migrax:rollback` | `migrax rollback` |
 | `migrax:repair` | `migrax repair` |
 | `migrax:baseline` | `migrax baseline` (`-Dmigrax.version=<migration>`) |
@@ -74,6 +75,7 @@ Options are `-Dmigrax.*` properties (or `<configuration>` elements of the same n
 | `migrax.all=true`, `migrax.strict=true` | `--all`, `--strict` | lint |
 | `migrax.verifyUrl=<jdbc-url>`, `migrax.skipRollbacks=true` | `--url`, `--skip-rollbacks` | verify |
 | `migrax.entities=true` | `--entities` | drift |
+| `migrax.html=target/migrax-report.html` | `--html` | report |
 | `migrax.java=true` | `--java` | new |
 | `migrax.url`, `migrax.user`, `migrax.password` | `--url`, `--user`, `--password` | all |
 | `migrax.package`, `migrax.naming`, `migrax.dialect`, `migrax.locations`, `migrax.schemas` | same names | all |
