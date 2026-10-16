@@ -37,7 +37,8 @@ import javax.sql.DataSource;
 public class MigraxStartup {
   private static final Logger LOG = Logger.getLogger("org.migrax");
   private static final List<String> KEYS = List.of("enabled", "datasource", "locations",
-      "java-package", "env", "resume", "lock-timeout", "schemas");
+      "java-package", "env", "resume", "lock-timeout", "schemas", "metrics.enabled",
+      "tracing.enabled");
 
   void onStart(@Observes @Priority(Interceptor.Priority.PLATFORM_BEFORE)
                @Initialized(ApplicationScoped.class) Object event) throws Exception {
@@ -58,7 +59,8 @@ public class MigraxStartup {
     DataSource dataSource = lookup(name);
     Log.Sink previous = Log.setSink(new JulSink());
     try {
-      int applied = StartupMigrations.migrate(dataSource, settings, loader);
+      int applied = StartupMigrations.migrate(dataSource, settings, loader,
+          org.migrax.observe.CdiListeners.find(settings, loader));
       LOG.info("Migrax: " + (applied == 0 ? "schema is up to date"
           : "applied " + applied + " migration(s) to data source '" + name + "'"));
     } finally {
@@ -99,7 +101,8 @@ public class MigraxStartup {
     }
     settings.putAll(microProfileConfig(loader));
     for (String key : KEYS) {
-      String value = environment.get("MIGRAX_" + key.toUpperCase(Locale.ROOT).replace('-', '_'));
+      String value = environment.get("MIGRAX_" + key.toUpperCase(Locale.ROOT).replace('-', '_')
+          .replace('.', '_'));
       if (value != null) {
         settings.put("migrax." + key, value);
       }

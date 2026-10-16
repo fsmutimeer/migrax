@@ -56,7 +56,8 @@ public class MigraxStartup {
     Map<String, String> settings = settings(config);
     Log.Sink previous = Log.setSink(new JulSink());
     try {
-      int applied = StartupMigrations.migrate(dataSource, settings, loader);
+      int applied = StartupMigrations.migrate(dataSource, settings, loader,
+          org.migrax.observe.CdiListeners.find(settings, loader));
       LOG.info("Migrax: " + (applied == 0 ? "schema is up to date"
           : "applied " + applied + " migration(s)"
               + (name == null ? "" : " to data source '" + name + "'")));

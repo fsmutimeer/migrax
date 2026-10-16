@@ -108,6 +108,33 @@ public class MigraxProperties {
     return dev;
   }
 
+  /** Micrometer metrics of migration runs, when the application has a MeterRegistry. */
+  private final Toggle metrics = new Toggle();
+
+  /** OpenTelemetry spans of migration runs, when the application has an OpenTelemetry. */
+  private final Toggle tracing = new Toggle();
+
+  public Toggle getMetrics() {
+    return metrics;
+  }
+
+  public Toggle getTracing() {
+    return tracing;
+  }
+
+  /** A feature that is on unless turned off. */
+  public static class Toggle {
+    private boolean enabled = true;
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+  }
+
   /** Settings for local development. */
   public static class Dev {
     /**

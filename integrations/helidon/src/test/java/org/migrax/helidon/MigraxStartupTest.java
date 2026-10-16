@@ -49,4 +49,13 @@ class MigraxStartupTest {
         response.getStatus(), String.valueOf(response.getData()));
     assertEquals(0L, response.getData().orElseThrow().get("pending"));
   }
+
+  @Test
+  void recordsMetricsAndSpans() {
+    assertEquals(1.0, org.migrax.helidon.app.Observability.REGISTRY
+        .get("migrax.migrations.applied").counter().count());
+    var spans = org.migrax.helidon.app.Observability.SPANS.getFinishedSpanItems();
+    assertEquals(1, spans.stream().filter(s -> s.getName().equals("migrax migrate")).count(),
+        spans.toString());
+  }
 }

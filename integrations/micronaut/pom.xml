@@ -47,6 +47,27 @@
       <artifactId>micronaut-management</artifactId>
       <scope>provided</scope>
     </dependency>
+    <!-- Only when the application has them: metrics and spans of migration runs. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.micronaut.micrometer</groupId>
+      <artifactId>micronaut-micrometer-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-testing</artifactId>
+      <scope>test</scope>
+    </dependency>
 
     <dependency>
       <groupId>io.micronaut.test</groupId>

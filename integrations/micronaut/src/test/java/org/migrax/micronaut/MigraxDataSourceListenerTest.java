@@ -28,6 +28,17 @@ class MigraxDataSourceListenerTest {
   @Inject
   MigraxHealthIndicator health;
 
+  @Inject
+  io.micrometer.core.instrument.MeterRegistry registry;
+
+  @Test
+  void recordsMetricsAndSpans() {
+    assertEquals(1.0, registry.get("migrax.migrations.applied").counter().count());
+    var spans = org.migrax.micronaut.app.InMemoryTracing.SPANS.getFinishedSpanItems();
+    assertEquals(1, spans.stream().filter(s -> s.getName().equals("migrax migrate")).count(),
+        spans.toString());
+  }
+
   @Test
   void reportsHealth() throws Exception {
     java.util.concurrent.CompletableFuture<io.micronaut.management.health.indicator.HealthResult>

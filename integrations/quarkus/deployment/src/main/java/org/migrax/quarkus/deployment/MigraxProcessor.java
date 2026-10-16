@@ -45,6 +45,31 @@ class MigraxProcessor {
   }
 
   /**
+   * Keeps the beans Migrax looks up when the migrations run, which nothing injects: the
+   * application's MigrationListeners, its MeterRegistry and its OpenTelemetry.
+   */
+  @BuildStep
+  io.quarkus.arc.deployment.UnremovableBeanBuildItem listeners() {
+    return io.quarkus.arc.deployment.UnremovableBeanBuildItem.beanTypes(
+        DotName.createSimple("org.migrax.api.MigrationListener"),
+        DotName.createSimple("io.micrometer.core.instrument.MeterRegistry"),
+        DotName.createSimple("io.opentelemetry.api.OpenTelemetry"));
+  }
+
+  /** Replays the startup migrations' metrics, only in applications with Micrometer. */
+  @BuildStep
+  void metricsReplay(BuildProducer<AdditionalBeanBuildItem> beans,
+                     BuildProducer<ExcludedTypeBuildItem> excluded) {
+    String replay = "org.migrax.quarkus.MigraxMetricsReplay";
+    if (io.quarkus.bootstrap.classloading.QuarkusClassLoader
+        .isClassPresentAtRuntime("io.micrometer.core.instrument.MeterRegistry")) {
+      beans.produce(AdditionalBeanBuildItem.unremovableOf(replay));
+    } else {
+      excluded.produce(new ExcludedTypeBuildItem(replay));
+    }
+  }
+
+  /**
    * The migrax readiness check, only in applications with the health extension. Elsewhere its
    * health API classes are missing, so it is kept out of bean discovery.
    */

@@ -79,6 +79,8 @@ migrations. Validate in CI with `migrax verify` instead.
 | `migrax.resume` | `false` | Re-run a failed migration marked `-- migrax:resume-safe` |
 | `migrax.lock-timeout` | `0` | How long to wait while another instance migrates, for example `2m` |
 | `migrax.placeholders.<name>` | | Values for `${name}` placeholders |
+| `migrax.metrics.enabled` | `true` | Micrometer metrics of the migrations, when the application has a `MeterRegistry` ([Metrics and tracing](../guides/observability.md)) |
+| `migrax.tracing.enabled` | `true` | OpenTelemetry spans of the migrations, when the application has an `OpenTelemetry` |
 | `migrax.schemas` | | Schemas to migrate one after another |
 
 Jakarta EE has no standard place for application settings, so Migrax reads them from

@@ -28,6 +28,17 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-agroal</artifactId>
     </dependency>
+    <!-- Only when the application has quarkus-micrometer or quarkus-opentelemetry. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
     <!-- Only when the application has quarkus-smallrye-health: the migrax readiness check. -->
     <dependency>
       <groupId>org.eclipse.microprofile.health</groupId>
