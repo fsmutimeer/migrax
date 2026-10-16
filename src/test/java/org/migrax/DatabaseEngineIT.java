@@ -1,5 +1,6 @@
 package org.migrax;
 
+import org.migrax.runner.Migration;
 import org.migrax.runner.MigrationRunner;
 import org.migrax.runner.DatabaseMigrationLock;
 import org.junit.jupiter.api.DynamicTest;
@@ -393,6 +394,7 @@ class DatabaseEngineIT {
             () -> DatabaseMigrationLock.acquire(competingConnection));
       }
       waitsForTheLock(container);
+      exercisePreconditions(connection);
       MigrationRunner runner = new MigrationRunner();
       runner.migrate(connection, List.of(initial));
       runner.migrate(connection, List.of(initial));
@@ -412,6 +414,51 @@ class DatabaseEngineIT {
           INSERT INTO migration_probe (id, content) VALUES (1, 'semicolon; inside');
           """);
       assertThrows(IllegalStateException.class, () -> runner.migrate(connection, List.of(initial)));
+    }
+  }
+
+  /**
+   * {@code -- migrax:require} lines find tables and columns however the database folds names,
+   * run queries, and skip a migration whose 'else skip' condition is not met. Leaves the
+   * database as it found it.
+   */
+  private static void exercisePreconditions(Connection connection) throws Exception {
+    List<Migration> migrations = List.of(
+        Migration.ofSql("0001_pre_probe.sql", """
+            CREATE TABLE pre_probe (id INTEGER PRIMARY KEY, note VARCHAR(10));
+            INSERT INTO pre_probe (id, note) VALUES (1, 'one');
+            """),
+        Migration.ofSql("0002_pre_second.sql", """
+            -- migrax:require table-exists pre_probe
+            -- migrax:require table-exists PRE_PROBE
+            -- migrax:require column-exists pre_probe.note
+            -- migrax:require column-missing pre_probe.email
+            -- migrax:require table-missing pre_absent
+            -- migrax:require sql select count(*) from pre_probe where note = 'one'
+            CREATE TABLE pre_second (id INTEGER PRIMARY KEY);
+            """),
+        Migration.ofSql("0003_pre_skipped.sql", """
+            -- migrax:require table-exists pre_absent else skip
+            DROP TABLE pre_absent;
+            """));
+    MigrationRunner runner = new MigrationRunner();
+    assertEquals(2, runner.migrateAll(connection, migrations, MigrationRunner.Options.defaults()));
+    assertEquals(List.of("0001_pre_probe.sql", "0002_pre_second.sql", "0003_pre_skipped.sql"),
+        runner.applied(connection).stream().map(MigrationRunner.AppliedMigration::version)
+            .toList());
+    Migration unmet = Migration.ofSql("0004_pre_unmet.sql",
+        "-- migrax:require column-exists pre_probe.email\nDROP TABLE pre_second;\n");
+    List<Migration> withUnmet = new java.util.ArrayList<>(migrations);
+    withUnmet.add(unmet);
+    assertThrows(IllegalStateException.class,
+        () -> runner.migrateAll(connection, withUnmet, MigrationRunner.Options.defaults()));
+    try (Statement statement = connection.createStatement()) {
+      statement.execute("DROP TABLE pre_second");
+      statement.execute("DROP TABLE pre_probe");
+      statement.execute("DELETE FROM migrax_history");
+    }
+    if (!connection.getAutoCommit()) {
+      connection.commit();
     }
   }
 

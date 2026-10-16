@@ -114,7 +114,8 @@ final class MigrateCommand implements Command {
             continue;
           }
           out.println(pending.size() + " migration(s) would be applied:");
-          pending.forEach(row -> out.println("  " + row.version()));
+          pending.forEach(row -> out.println("  " + row.version()
+              + (row.detail().startsWith("requires ") ? " (" + row.detail() + ")" : "")));
           String dialect = project.dialect(false, out).id();
           for (MigrationRunner.MigrationStatus row : pending) {
             Path file = project.migrationFile(row.version());
