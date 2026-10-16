@@ -27,10 +27,27 @@ final class TableMigrationLock {
    */
   static AutoCloseable acquire(Connection connection, String resource, String timestampType)
       throws SQLException {
+    return acquire(connection, resource, timestampType, true);
+  }
+
+  /**
+   * @param ifNotExists whether the database has {@code CREATE TABLE IF NOT EXISTS}; without
+   *     it, a table that is already there (SQLState X0Y32 on Derby) is fine
+   */
+  static AutoCloseable acquire(Connection connection, String resource, String timestampType,
+                               boolean ifNotExists) throws SQLException {
     boolean autoCommit = connection.getAutoCommit();
     try (Statement statement = connection.createStatement()) {
-      statement.execute("CREATE TABLE IF NOT EXISTS migrax_lock (lock_name varchar(64) NOT NULL "
-          + "PRIMARY KEY, locked_by varchar(255), locked_at " + timestampType + " NOT NULL)");
+      statement.execute("CREATE TABLE " + (ifNotExists ? "IF NOT EXISTS " : "")
+          + "migrax_lock (lock_name varchar(64) NOT NULL PRIMARY KEY, locked_by varchar(255), "
+          + "locked_at " + timestampType + " NOT NULL)");
+    } catch (SQLException e) {
+      if (ifNotExists || !"X0Y32".equals(e.getSQLState())) {
+        throw e;
+      }
+      if (!autoCommit) {
+        connection.rollback();
+      }
     }
     commitIfManual(connection, autoCommit);
     int inserted;

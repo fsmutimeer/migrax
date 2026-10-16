@@ -79,11 +79,11 @@ With Maven: `mvn migrax:report -Dmigrax.html=target/migrax-report.html`.
 ```bash
 migrax check --no-input
 migrax lint --strict
-migrax verify          # H2 or HSQLDB in memory, or Docker for other engines
+migrax verify          # H2, HSQLDB or Derby in memory, or Docker for other engines
 migrax report --html migrax-report.html   # keep it as a build artifact
 ```
 
-`verify` starts a throwaway database: in memory for H2 and HSQLDB projects, or a container of your engine
+`verify` starts a throwaway database: in memory for H2, HSQLDB and Derby projects, or a container of your engine
 when Docker is available. Without Docker, point it at an empty scratch database:
 
 ```bash

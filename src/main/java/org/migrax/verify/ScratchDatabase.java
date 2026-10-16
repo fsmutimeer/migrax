@@ -71,6 +71,10 @@ public final class ScratchDatabase implements AutoCloseable {
       return new ScratchDatabase("jdbc:h2:mem:migrax_verify_" + UUID.randomUUID()
           .toString().replace("-", "") + ";DB_CLOSE_DELAY=-1", "sa", "", null);
     }
+    if ("derby".equals(dialect)) {
+      return new ScratchDatabase("jdbc:derby:memory:migrax_verify_" + UUID.randomUUID()
+          .toString().replace("-", "") + ";create=true", "", "", null);
+    }
     if ("hsqldb".equals(dialect)) {
       return new ScratchDatabase("jdbc:hsqldb:mem:migrax_verify_" + UUID.randomUUID()
           .toString().replace("-", ""), "SA", "", null);

@@ -51,11 +51,11 @@ final class VerifyCommand implements Command {
   @Override
   public String description() {
     return """
-        Starts a throwaway database (H2 and HSQLDB in memory, Docker for other engines),
-        applies every migration, then checks the result: Hibernate's schema validation when
-        Hibernate is in the project, otherwise a structural comparison with the entities. It
-        also tests every rollback script on its own: it rolls the migration back, applies it
-        again and checks that the schema is the same, so a broken script is named.""";
+        Starts a throwaway database (H2, HSQLDB and Derby in memory, Docker for other
+        engines), applies every migration, then checks the result: Hibernate's schema
+        validation when Hibernate is in the project, otherwise a structural comparison with the
+        entities. It also tests every rollback script on its own: it rolls the migration back,
+        applies it again and checks that the schema is the same, so a broken script is named.""";
   }
 
   @Override

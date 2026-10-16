@@ -279,6 +279,15 @@ public final class DatabaseSchemaReader {
           owner, owner)) {
         addComment(comments, row);
       }
+    } else if (product.contains("derby")) {
+      // Derby keeps no comments.
+      for (String[] row : query(connection, "SELECT t.TABLENAME, c.CONSTRAINTNAME, "
+          + "k.CHECKDEFINITION FROM SYS.SYSCONSTRAINTS c JOIN SYS.SYSCHECKS k ON "
+          + "k.CONSTRAINTID = c.CONSTRAINTID JOIN SYS.SYSTABLES t ON t.TABLEID = c.TABLEID "
+          + "JOIN SYS.SYSSCHEMAS s ON s.SCHEMAID = t.SCHEMAID WHERE s.SCHEMANAME = "
+          + (owner == null ? "CURRENT SCHEMA" : "?"), owner)) {
+        addCheck(checks, row[0], row[1], row[2]);
+      }
     } else if (product.contains("hsql")) {
       String namespace = owner == null ? "CURRENT_SCHEMA" : "?";
       for (String[] row : query(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
@@ -602,7 +611,9 @@ public final class DatabaseSchemaReader {
             + "UPPER(?)",
         "SELECT table_name FROM information_schema.tables WHERE table_type = 'SEQUENCE' "
             + "AND table_schema = DATABASE()",
-        "SELECT sequence_name FROM user_sequences WHERE sequence_name NOT LIKE 'ISEQ$$%'")) {
+        "SELECT sequence_name FROM user_sequences WHERE sequence_name NOT LIKE 'ISEQ$$%'",
+        "SELECT q.SEQUENCENAME FROM SYS.SYSSEQUENCES q JOIN SYS.SYSSCHEMAS s ON s.SCHEMAID = "
+            + "q.SCHEMAID WHERE UPPER(s.SCHEMANAME) = UPPER(?)")) {
       if (sql.contains("?") && resolved == null) {
         continue;
       }
@@ -638,7 +649,8 @@ public final class DatabaseSchemaReader {
         "SELECT sequence_name FROM information_schema.sequences",
         "SELECT table_name FROM information_schema.tables WHERE table_type = 'SEQUENCE' "
             + "AND table_schema = DATABASE()",
-        "SELECT sequence_name FROM user_sequences")) {
+        "SELECT sequence_name FROM user_sequences",
+        "SELECT SEQUENCENAME FROM SYS.SYSSEQUENCES")) {
       try (java.sql.Statement statement = connection.createStatement();
            ResultSet result = statement.executeQuery(sql)) {
         while (result.next()) {
@@ -690,6 +702,33 @@ public final class DatabaseSchemaReader {
         .toList(), constraintName);
   }
 
+  /**
+   * The indexes Derby makes for a table's constraints of a type: {@code U} for unique keys (on
+   * a nullable column the constraint does the checking and its index reports itself as not
+   * unique), {@code F} for foreign keys (indexes the entities don't declare).
+   */
+  private static java.util.Set<String> derbyConstraintIndexes(DatabaseMetaData metadata,
+                                                              String schema, String table,
+                                                              String type)
+      throws SQLException {
+    if (!String.valueOf(metadata.getDatabaseProductName()).toLowerCase(Locale.ROOT)
+        .contains("derby")) {
+      return java.util.Set.of();
+    }
+    java.util.Set<String> names = new java.util.HashSet<>();
+    for (String[] row : query(metadata.getConnection(), "SELECT g.CONGLOMERATENAME FROM "
+        + "SYS.SYSCONSTRAINTS c JOIN " + (type.equals("F") ? "SYS.SYSFOREIGNKEYS" : "SYS.SYSKEYS")
+        + " k ON k.CONSTRAINTID = c.CONSTRAINTID "
+        + "JOIN SYS.SYSCONGLOMERATES g ON g.CONGLOMERATEID = k.CONGLOMERATEID "
+        + "JOIN SYS.SYSTABLES t ON t.TABLEID = c.TABLEID "
+        + "JOIN SYS.SYSSCHEMAS s ON s.SCHEMAID = t.SCHEMAID "
+        + "WHERE c.TYPE = '" + type + "' AND t.TABLENAME = ? AND s.SCHEMANAME = "
+        + (schema == null ? "CURRENT SCHEMA" : "?"), table, schema)) {
+      names.add(row[0]);
+    }
+    return names;
+  }
+
   private static List<SchemaModel.Index> readIndexes(
       DatabaseMetaData metadata, String catalog, String schema, String table) throws SQLException {
     Map<String, List<IndexedColumn>> grouped = new LinkedHashMap<>();
@@ -709,16 +748,20 @@ public final class DatabaseSchemaReader {
         .sorted(Map.Entry.comparingByKey())
         .map(Map.Entry::getValue)
         .toList();
+    java.util.Set<String> uniqueKeys = derbyConstraintIndexes(metadata, schema, table, "U");
+    java.util.Set<String> foreignKeyIndexes =
+        derbyConstraintIndexes(metadata, schema, table, "F");
     try (ResultSet result = metadata.getIndexInfo(catalog, schema, table, false, false)) {
       while (result.next()) {
         String name = result.getString("INDEX_NAME");
         String column = result.getString("COLUMN_NAME");
-        if (name == null || column == null || primaryKeyIndexes.contains(name)) {
+        if (name == null || column == null || primaryKeyIndexes.contains(name)
+            || foreignKeyIndexes.contains(name)) {
           continue;
         }
         grouped.computeIfAbsent(name, ignored -> new ArrayList<>())
             .add(new IndexedColumn(result.getShort("ORDINAL_POSITION"), column));
-        unique.put(name, !result.getBoolean("NON_UNIQUE"));
+        unique.put(name, !result.getBoolean("NON_UNIQUE") || uniqueKeys.contains(name));
       }
     }
     List<SchemaModel.Index> indexes = new ArrayList<>();
@@ -815,6 +858,8 @@ public final class DatabaseSchemaReader {
       if (type.contains("time zone") || type.contains("datetimeoffset")
           || type.equals("timestamptz")) return "timestamptz";
       if (type.contains("clob")) return "clob";
+      // Derby's binary strings: VARCHAR () FOR BIT DATA.
+      if (type.contains("for bit data")) return "varbinary";
       if (type.contains("text")) return "text";
       if (type.equals("oid")) return "blob";
       if (type.startsWith("datetime")) return "timestamp";

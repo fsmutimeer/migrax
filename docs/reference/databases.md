@@ -12,6 +12,7 @@
 | Oracle 12c and newer | `oracle` | Lock needs `EXECUTE` on `DBMS_LOCK`; booleans follow the version ([details](#oracle)) |
 | H2 | `h2` | For development and tests; `verify` uses it in memory |
 | HSQLDB (HyperSQL) 2.7 and newer | `hsqldb` | In memory, files or server; `verify` uses it in memory ([details](#hsqldb)) |
+| Apache Derby 10.16 and newer | `derby` | Embedded or network server; `verify` uses it in memory ([details](#derby)) |
 | SQLite 3.35 and newer | `sqlite` | Changes SQLite can't make in place rebuild the table ([details](#sqlite)) |
 
 The dialect comes from the JDBC URL. When there is no database URL (for example in a CI step that
@@ -102,6 +103,30 @@ What is different from H2:
 - `generate --zero-downtime` keeps a renamed table's old name as a view (HyperSQL's simple
   views accept writes). Column renames can't be split: Migrax writes no triggers for HyperSQL.
 
+## Derby
+
+Apache Derby is recognized from `jdbc:derby:` URLs, embedded (`jdbc:derby:memory:` or a folder)
+or through its network server. `verify` replays the migrations on a new in-memory database,
+without Docker. Derby 10.16 runs on Java 17; 10.17 needs Java 21.
+
+What is different:
+
+- Derby keeps no comments: `@Comment` texts are left out of the migrations.
+- Derby changes a column's type in place only to lengthen a `VARCHAR`, `CLOB` or `BLOB`. Any
+  other type change rebuilds the column: a new column of the new type, the values copied, the
+  old column dropped and the new one renamed, then NOT NULL and the indexes, keys and checks
+  on it come back. The column moves to the end of the table. A primary key column can't be
+  rebuilt this way.
+- Sequence ids have no column default (Derby has none); Hibernate takes the next value from the
+  sequence itself. Decimals have at most 31 digits.
+- `UUID` fields are `char(16) for bit data`, as Hibernate stores them on Derby.
+- The migration lock is a row in the `migrax_lock` table, so processes that share a network
+  server don't migrate at once.
+- Stored procedures are Java methods in Derby, so migrations can't define them in SQL.
+- With Hibernate 7, Derby's Hibernate dialect is in `hibernate-community-dialects`, which the
+  project then needs (Hibernate 6 has it built in).
+- `generate --zero-downtime` can't split renames on Derby (no triggers or writable views).
+
 ## Oracle
 
 Migrax's migration lock uses `DBMS_LOCK`, so the account that runs the migrations needs
@@ -163,7 +188,7 @@ a `boolean` is `bit` on MySQL. Migrax records the exact type, so `generate`, `ve
 ## Transactions
 
 Each migration runs in a transaction with its history record. On PostgreSQL, CockroachDB, SQL
-Server, H2 and SQLite, a failed migration leaves nothing behind. MySQL, MariaDB, TiDB, Oracle,
+Server, H2, Derby and SQLite, a failed migration leaves nothing behind. MySQL, MariaDB, TiDB, Oracle,
 YugabyteDB and HSQLDB commit DDL statements immediately, so a migration that fails halfway leaves the earlier statements applied; see
 [Rollbacks and recovery](../guides/rollbacks-and-recovery.md#when-a-migration-fails).
 
@@ -174,7 +199,7 @@ need `-- migrax:no-transaction` at the top of the migration.
 
 The Migrax build includes a suite that runs migrations and Hibernate validation against real
 MySQL, MariaDB, TiDB (7.5 and 8.5), PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai),
-CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, and on HSQLDB and SQLite:
+CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, and on HSQLDB, Derby and SQLite:
 
 ```bash
 mvn verify -Pdatabase-integration    # needs Docker

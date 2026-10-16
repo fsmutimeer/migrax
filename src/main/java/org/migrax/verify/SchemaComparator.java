@@ -140,7 +140,8 @@ public final class SchemaComparator {
             + check.name() + " (" + check.expression() + ") is missing"));
       }
     }
-    if ("sqlite".equals(dialect)) {
+    // SQLite and Derby keep no comments.
+    if ("sqlite".equals(dialect) || "derby".equals(dialect)) {
       return;
     }
     if (expected.comment() != null

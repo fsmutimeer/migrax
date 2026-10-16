@@ -31,22 +31,24 @@ import static org.migrax.orm.HibernateMapping.text;
  * loader, like {@link HibernateSchemaReader}.
  */
 public final class Hibernate4SchemaReader {
+  /** Hibernate 4's PostgreSQL dialects, newest first. */
+  private static final List<String> POSTGRES = List.of("org.hibernate.dialect.PostgreSQL9Dialect",
+      "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect");
+
   /** Hibernate 4 dialects per Migrax dialect id, newest first; the first one present is used. */
-  private static final Map<String, List<String>> DIALECTS = Map.of(
-      "postgresql", List.of("org.hibernate.dialect.PostgreSQL9Dialect",
-          "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect"),
-      "cockroachdb", List.of("org.hibernate.dialect.PostgreSQL9Dialect",
-          "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect"),
-      "yugabytedb", List.of("org.hibernate.dialect.PostgreSQL9Dialect",
-          "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect"),
-      "mysql", List.of("org.hibernate.dialect.MySQL5InnoDBDialect"),
-      "mariadb", List.of("org.hibernate.dialect.MySQL5InnoDBDialect"),
-      "tidb", List.of("org.hibernate.dialect.MySQL5InnoDBDialect"),
-      "sqlserver", List.of("org.hibernate.dialect.SQLServer2012Dialect",
-          "org.hibernate.dialect.SQLServer2008Dialect"),
-      "oracle", List.of("org.hibernate.dialect.Oracle10gDialect"),
-      "h2", List.of("org.hibernate.dialect.H2Dialect"),
-      "hsqldb", List.of("org.hibernate.dialect.HSQLDialect"));
+  private static final Map<String, List<String>> DIALECTS = Map.ofEntries(
+      Map.entry("postgresql", POSTGRES),
+      Map.entry("cockroachdb", POSTGRES),
+      Map.entry("yugabytedb", POSTGRES),
+      Map.entry("mysql", List.of("org.hibernate.dialect.MySQL5InnoDBDialect")),
+      Map.entry("mariadb", List.of("org.hibernate.dialect.MySQL5InnoDBDialect")),
+      Map.entry("tidb", List.of("org.hibernate.dialect.MySQL5InnoDBDialect")),
+      Map.entry("sqlserver", List.of("org.hibernate.dialect.SQLServer2012Dialect",
+          "org.hibernate.dialect.SQLServer2008Dialect")),
+      Map.entry("oracle", List.of("org.hibernate.dialect.Oracle10gDialect")),
+      Map.entry("h2", List.of("org.hibernate.dialect.H2Dialect")),
+      Map.entry("hsqldb", List.of("org.hibernate.dialect.HSQLDialect")),
+      Map.entry("derby", List.of("org.hibernate.dialect.DerbyTenSevenDialect")));
 
   /** A sequence in Hibernate's own DDL: name, then optional start and increment. */
   private static final Pattern CREATE_SEQUENCE = Pattern.compile("(?i)create sequence (\\S+)"

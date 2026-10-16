@@ -21,6 +21,9 @@ All notable changes to Migrax are listed here. The format follows
 - HSQLDB (HyperSQL 2.7 and newer), the 11th database: dialect `hsqldb`, recognized from
   `jdbc:hsqldb:` URLs. The migration lock is a row in `migrax_lock`, so it also holds across
   processes for file and server databases; `verify` replays the migrations in memory.
+- Apache Derby (10.16 and newer), the 12th database: dialect `derby`, recognized from
+  `jdbc:derby:` URLs. Type changes Derby can't make in place rebuild the column, comments are
+  left out (Derby keeps none), and `verify` replays the migrations in memory.
 
 ## [0.11.0] - 2026-10-16
 

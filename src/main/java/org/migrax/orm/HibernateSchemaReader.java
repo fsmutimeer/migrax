@@ -81,7 +81,9 @@ public final class HibernateSchemaReader {
       Map.entry("yugabytedb", "org.hibernate.dialect.PostgreSQLDialect"),
       // In hibernate-community-dialects, which SQLite projects add.
       Map.entry("sqlite", "org.hibernate.community.dialect.SQLiteDialect"),
-      Map.entry("hsqldb", "org.hibernate.dialect.HSQLDialect"));
+      Map.entry("hsqldb", "org.hibernate.dialect.HSQLDialect"),
+      // From Hibernate 7 on (Hibernate 6 has its own, see read).
+      Map.entry("derby", "org.hibernate.community.dialect.DerbyDialect"));
 
   /**
    * Hibernate 5 dialects, as its resolver picks them for current database versions; its
@@ -97,7 +99,8 @@ public final class HibernateSchemaReader {
       Map.entry("h2", "org.hibernate.dialect.H2Dialect"),
       Map.entry("cockroachdb", "org.hibernate.dialect.CockroachDB201Dialect"),
       Map.entry("yugabytedb", "org.hibernate.dialect.PostgreSQL10Dialect"),
-      Map.entry("hsqldb", "org.hibernate.dialect.HSQLDialect"));
+      Map.entry("hsqldb", "org.hibernate.dialect.HSQLDialect"),
+      Map.entry("derby", "org.hibernate.dialect.DerbyTenSevenDialect"));
 
   private static final String CAMEL_CASE_TO_UNDERSCORES =
       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy";
@@ -150,6 +153,11 @@ public final class HibernateSchemaReader {
     boolean hibernate5 = org.hibernate.Version.getVersionString().startsWith("5.");
     // Hibernate 5 has no SQLite dialect: the project's own hibernate.dialect setting applies.
     String hibernateDialect = (hibernate5 ? HIBERNATE5_DIALECTS : DIALECTS).get(dialect.id());
+    // Derby's dialect is in Hibernate 6 itself and in hibernate-community-dialects from 7 on.
+    if ("derby".equals(dialect.id()) && !hibernate5
+        && loads(loader, "org.hibernate.dialect.DerbyDialect")) {
+      hibernateDialect = "org.hibernate.dialect.DerbyDialect";
+    }
     if (hibernateDialect != null) {
       config.put("hibernate.dialect", hibernateDialect);
     }
@@ -764,6 +772,15 @@ public final class HibernateSchemaReader {
       return annotation.annotationType().getMethod(attribute).invoke(annotation);
     } catch (ReflectiveOperationException e) {
       return null;
+    }
+  }
+
+  private static boolean loads(ClassLoader loader, String name) {
+    try {
+      Class.forName(name, false, loader);
+      return true;
+    } catch (ClassNotFoundException | LinkageError e) {
+      return false;
     }
   }
 }
