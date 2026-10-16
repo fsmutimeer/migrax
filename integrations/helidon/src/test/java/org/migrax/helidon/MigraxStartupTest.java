@@ -54,6 +54,8 @@ class MigraxStartupTest {
   void recordsMetricsAndSpans() {
     assertEquals(1.0, org.migrax.helidon.app.Observability.REGISTRY
         .get("migrax.migrations.applied").counter().count());
+    assertEquals(0.0, org.migrax.helidon.app.Observability.REGISTRY
+        .get("migrax.migrations.pending").gauge().value());
     var spans = org.migrax.helidon.app.Observability.SPANS.getFinishedSpanItems();
     assertEquals(1, spans.stream().filter(s -> s.getName().equals("migrax migrate")).count(),
         spans.toString());

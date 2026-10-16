@@ -38,7 +38,7 @@ public class MigraxStartup {
   private static final Logger LOG = Logger.getLogger("org.migrax");
   private static final List<String> KEYS = List.of("enabled", "datasource", "locations",
       "java-package", "env", "resume", "lock-timeout", "schemas", "metrics.enabled",
-      "tracing.enabled");
+      "tracing.enabled", "migrate-at-startup");
 
   void onStart(@Observes @Priority(Interceptor.Priority.PLATFORM_BEFORE)
                @Initialized(ApplicationScoped.class) Object event) throws Exception {
@@ -57,6 +57,12 @@ public class MigraxStartup {
       return;
     }
     DataSource dataSource = lookup(name);
+    org.migrax.observe.CdiListeners.pendingGauge(settings, loader,
+        () -> StartupMigrations.status(dataSource, settings, loader).pending());
+    if (!StartupMigrations.migratesAtStartup(settings)) {
+      LOG.info("Migrax: " + StartupMigrations.notMigrating(dataSource, settings, loader));
+      return;
+    }
     Log.Sink previous = Log.setSink(new JulSink());
     try {
       int applied = StartupMigrations.migrate(dataSource, settings, loader,

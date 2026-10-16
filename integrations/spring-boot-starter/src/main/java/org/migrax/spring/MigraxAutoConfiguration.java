@@ -65,6 +65,22 @@ public class MigraxAutoConfiguration {
     }
   }
 
+  /**
+   * The gauge of pending migrations, only when the application has Micrometer; Spring Boot binds
+   * it to the application's registries.
+   */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnClass(name = "io.micrometer.core.instrument.binder.MeterBinder")
+  @ConditionalOnProperty(prefix = "migrax.metrics", name = "enabled", matchIfMissing = true)
+  static class MigraxMetrics {
+    @Bean
+    @ConditionalOnMissingBean(name = "migraxPendingGauge")
+    io.micrometer.core.instrument.binder.MeterBinder migraxPendingGauge(
+        MigraxMigrator migrator) {
+      return new org.migrax.observe.PendingGauge(() -> migrator.status().pending());
+    }
+  }
+
   /** Makes JPA wait for migrations, so Hibernate validation sees the migrated schema. */
   @Configuration(proxyBeanMethods = false)
   @ConditionalOnClass(name = "org.springframework.orm.jpa.AbstractEntityManagerFactoryBean")

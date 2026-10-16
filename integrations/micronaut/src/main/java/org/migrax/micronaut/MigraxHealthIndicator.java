@@ -36,12 +36,7 @@ public class MigraxHealthIndicator implements HealthIndicator {
   public Publisher<HealthResult> getResult() {
     HealthResult result;
     try {
-      String name = environment.getProperty("migrax.datasource", String.class)
-          .orElse("default");
-      DataSource dataSource = beanContext.getBean(DataSource.class, Qualifiers.byName(name));
-      StartupMigrations.Status status = StartupMigrations.status(
-          MigraxDataSourceListener.unwrap(dataSource),
-          MigraxDataSourceListener.settings(environment), environment.getClassLoader());
+      StartupMigrations.Status status = status(environment, beanContext);
       Map<String, Object> details = new LinkedHashMap<>();
       details.put("applied", status.applied());
       details.put("pending", status.pending());
@@ -52,5 +47,14 @@ public class MigraxHealthIndicator implements HealthIndicator {
       result = HealthResult.builder("migrax", HealthStatus.DOWN).exception(e).build();
     }
     return Publishers.just(result);
+  }
+
+  /** The status of the migrated data source ({@code migrax.datasource}, else the default). */
+  static StartupMigrations.Status status(Environment environment, BeanContext beanContext)
+      throws Exception {
+    String name = environment.getProperty("migrax.datasource", String.class).orElse("default");
+    DataSource dataSource = beanContext.getBean(DataSource.class, Qualifiers.byName(name));
+    return StartupMigrations.status(MigraxDataSourceListener.unwrap(dataSource),
+        MigraxDataSourceListener.settings(environment), environment.getClassLoader());
   }
 }

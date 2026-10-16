@@ -54,6 +54,12 @@ public class MigraxStartup {
       return;
     }
     Map<String, String> settings = settings(config);
+    org.migrax.observe.CdiListeners.pendingGauge(settings, loader,
+        () -> StartupMigrations.status(dataSource, settings, loader).pending());
+    if (!StartupMigrations.migratesAtStartup(settings)) {
+      LOG.info("Migrax: " + StartupMigrations.notMigrating(dataSource, settings, loader));
+      return;
+    }
     Log.Sink previous = Log.setSink(new JulSink());
     try {
       int applied = StartupMigrations.migrate(dataSource, settings, loader,
