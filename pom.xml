@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.migrax</groupId>
   <artifactId>migrax</artifactId>
-  <version>0.9.1-SNAPSHOT</version>
+  <version>0.10.0</version>
   <packaging>maven-plugin</packaging>
 
   <properties>

@@ -131,7 +131,7 @@ With the container image, mount the folder at `/migrations`:
 $ docker run --rm -v "$PWD/db/migrations:/migrations:ro" \
     -e MIGRAX_DATABASE_URL=jdbc:postgresql://db:5432/shop \
     -e MIGRAX_DATABASE_USER=shop -e MIGRAX_DATABASE_PASSWORD=secret \
-    ghcr.io/fsmutimeer/migrax:0.9.0 migrate
+    ghcr.io/fsmutimeer/migrax:0.10.0 migrate
 ```
 
 ## A database that already has tables
