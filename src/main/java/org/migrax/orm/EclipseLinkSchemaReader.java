@@ -52,6 +52,7 @@ public final class EclipseLinkSchemaReader {
       "yugabytedb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform",
       "mysql", "org.eclipse.persistence.platform.database.MySQLPlatform",
       "mariadb", "org.eclipse.persistence.platform.database.MySQLPlatform",
+      "tidb", "org.eclipse.persistence.platform.database.MySQLPlatform",
       "sqlserver", "org.eclipse.persistence.platform.database.SQLServerPlatform",
       "oracle", "org.eclipse.persistence.platform.database.OraclePlatform",
       "h2", "org.eclipse.persistence.platform.database.H2Platform",
@@ -85,7 +86,8 @@ public final class EclipseLinkSchemaReader {
       session.initializeDescriptors();
       DatabasePlatform types = (DatabasePlatform) Class.forName(platform, true, loader)
           .getConstructor().newInstance();
-      boolean caseSensitiveTables = dialect.id().equals("mysql") || dialect.id().equals("mariadb");
+      boolean caseSensitiveTables = dialect.id().equals("mysql") || dialect.id().equals("mariadb")
+          || dialect.id().equals("tidb");
       EclipseLinkSchemaReader reader = new EclipseLinkSchemaReader();
       reader.ownLobTypes = caseSensitiveTables || dialect.id().equals("postgresql")
           || dialect.id().equals("cockroachdb") || dialect.id().equals("yugabytedb");

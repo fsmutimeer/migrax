@@ -7,6 +7,7 @@
 | YugabyteDB 2024.2 and newer | `yugabytedb` | PostgreSQL's SQL; DDL commits immediately ([details](#yugabytedb)) |
 | MySQL 8 | `mysql` | DDL commits immediately; sequences are `next_val` tables |
 | MariaDB | `mariadb` | Like MySQL |
+| TiDB 7.5 and newer | `tidb` | Through the MySQL driver; recognized from the server ([details](#tidb)) |
 | SQL Server | `sqlserver` | Lock through `sp_getapplock` |
 | Oracle 12c and newer | `oracle` | Lock needs `EXECUTE` on `DBMS_LOCK`; booleans follow the version ([details](#oracle)) |
 | H2 | `h2` | For development and tests; `verify` uses it in memory |
@@ -60,6 +61,25 @@ What is different from PostgreSQL:
 
 Zero-downtime changes (`generate --zero-downtime`) work as on PostgreSQL, with triggers for
 renamed columns and views for renamed tables.
+
+## TiDB
+
+TiDB speaks MySQL's protocol, so the project uses the MySQL driver and a
+`jdbc:mysql://host:4000/database` URL. Migrax asks the server which database it is, and the
+first `generate` records `tidb` in the snapshot. Without a reachable database, pass
+`--dialect tidb`. Migrax writes the SQL it writes for MySQL, as Hibernate's MySQL dialect maps
+the entities for TiDB.
+
+What is different from MySQL:
+
+- Check constraints (`@Check`, and enum checks with `migrax.enum-checks`) are only kept with
+  `SET GLOBAL tidb_enable_check_constraint = ON`; otherwise TiDB ignores them. `migrax doctor` warns when the entities have checks and the setting is off.
+- `--keep-data` backs up dropped columns with `CREATE TABLE ... LIKE` and `INSERT ... SELECT`,
+  because TiDB has no `CREATE TABLE ... AS SELECT`.
+- There are no triggers and no writable views, so `generate --zero-downtime` can't split
+  column or table renames on TiDB. Drops, NOT NULL and type changes split as usual.
+- There are no stored procedures.
+- `verify` starts a throwaway `pingcap/tidb` container in Docker.
 
 ## Oracle
 
@@ -122,8 +142,8 @@ a `boolean` is `bit` on MySQL. Migrax records the exact type, so `generate`, `ve
 ## Transactions
 
 Each migration runs in a transaction with its history record. On PostgreSQL, CockroachDB, SQL
-Server, H2 and SQLite, a failed migration leaves nothing behind. MySQL, MariaDB, Oracle and
-YugabyteDB commit DDL statements immediately, so a migration that fails halfway leaves the earlier statements applied; see
+Server, H2 and SQLite, a failed migration leaves nothing behind. MySQL, MariaDB, TiDB, Oracle
+and YugabyteDB commit DDL statements immediately, so a migration that fails halfway leaves the earlier statements applied; see
 [Rollbacks and recovery](../guides/rollbacks-and-recovery.md#when-a-migration-fails).
 
 Statements that cannot run in a transaction, such as PostgreSQL's `CREATE INDEX CONCURRENTLY`,
@@ -132,8 +152,8 @@ need `-- migrax:no-transaction` at the top of the migration.
 ## Testing against real engines
 
 The Migrax build includes a suite that runs migrations and Hibernate validation against real
-MySQL, MariaDB, PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai), CockroachDB and YugabyteDB
-(2024.2 and 2026.1) containers, and on SQLite:
+MySQL, MariaDB, TiDB (7.5 and 8.5), PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai),
+CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, and on SQLite:
 
 ```bash
 mvn verify -Pdatabase-integration    # needs Docker

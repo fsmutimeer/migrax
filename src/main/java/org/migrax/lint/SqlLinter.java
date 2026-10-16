@@ -106,7 +106,8 @@ public final class SqlLinter {
     List<Finding> findings = new ArrayList<>();
     List<String> statements;
     try {
-      statements = SqlScript.split(sql, "mysql".equals(dialect) || "mariadb".equals(dialect));
+      statements = SqlScript.split(sql, "mysql".equals(dialect) || "mariadb".equals(dialect)
+          || "tidb".equals(dialect));
     } catch (IllegalArgumentException e) {
       findings.add(new Finding("MX000", Severity.ERROR, file, 0, "", e.getMessage(),
           "Close the quote or comment."));

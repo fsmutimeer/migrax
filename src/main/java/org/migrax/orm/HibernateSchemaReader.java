@@ -73,6 +73,7 @@ public final class HibernateSchemaReader {
       "postgresql", "org.hibernate.dialect.PostgreSQLDialect",
       "mysql", "org.hibernate.dialect.MySQLDialect",
       "mariadb", "org.hibernate.dialect.MariaDBDialect",
+      "tidb", "org.hibernate.dialect.MySQLDialect",
       "sqlserver", "org.hibernate.dialect.SQLServerDialect",
       "oracle", "org.hibernate.dialect.OracleDialect",
       "h2", "org.hibernate.dialect.H2Dialect",
@@ -89,6 +90,7 @@ public final class HibernateSchemaReader {
       "postgresql", "org.hibernate.dialect.PostgreSQL10Dialect",
       "mysql", "org.hibernate.dialect.MySQL8Dialect",
       "mariadb", "org.hibernate.dialect.MariaDB103Dialect",
+      "tidb", "org.hibernate.dialect.MySQL8Dialect",
       "sqlserver", "org.hibernate.dialect.SQLServer2012Dialect",
       "oracle", "org.hibernate.dialect.Oracle12cDialect",
       "h2", "org.hibernate.dialect.H2Dialect",
@@ -209,7 +211,8 @@ public final class HibernateSchemaReader {
     derivedCheckColumns(metadata);
     List<SchemaModel.Table> tables = new ArrayList<>();
     List<SchemaModel.Sequence> sequences = new ArrayList<>();
-    boolean tableSequences = "mysql".equals(dialect.id()) || "sqlite".equals(dialect.id());
+    boolean tableSequences = "mysql".equals(dialect.id()) || "tidb".equals(dialect.id())
+        || "sqlite".equals(dialect.id());
     for (Namespace namespace : metadata.getDatabase().getNamespaces()) {
       for (Table table : namespace.getTables()) {
         if (!table.isPhysicalTable() || isView(table) || table.getSubselect() != null

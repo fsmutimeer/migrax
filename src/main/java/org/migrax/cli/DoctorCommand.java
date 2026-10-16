@@ -189,6 +189,7 @@ final class DoctorCommand implements Command {
         String server = Dialects.forConnection(connection).map(d -> switch (d.id()) {
           case "cockroachdb" -> "CockroachDB (PostgreSQL protocol)";
           case "yugabytedb" -> "YugabyteDB, PostgreSQL " + version + " protocol";
+          case "tidb" -> "TiDB " + version.replaceFirst(".*-TiDB-", "") + " (MySQL protocol)";
           default -> null;
         }).orElse(null);
         doctor.ok("Connected: " + (server != null ? server : product + " " + version)
@@ -196,6 +197,11 @@ final class DoctorCommand implements Command {
         if (entitiesHaveChecks && ignoresChecks(product, metadata.getDatabaseProductVersion())) {
           doctor.warn("Check constraints: MySQL before 8.0.16 accepts them but doesn't enforce "
               + "them; the entities' @Check conditions are not checked on this server");
+        }
+        if (entitiesHaveChecks && version.contains("TiDB") && !tidbChecksEnabled(connection)) {
+          doctor.warn("Check constraints: TiDB ignores them while tidb_enable_check_constraint "
+              + "is OFF; the entities' @Check conditions are not checked on this server. Set it "
+              + "with SET GLOBAL tidb_enable_check_constraint = ON");
         }
         // Take and release the migration lock, as migrate does.
         try (AutoCloseable lock = DatabaseMigrationLock.acquire(connection)) {
@@ -246,7 +252,7 @@ final class DoctorCommand implements Command {
   /** MySQL before 8.0.16 parses check constraints and ignores them. MariaDB enforces them. */
   static boolean ignoresChecks(String product, String version) {
     if (!product.toLowerCase(Locale.ROOT).contains("mysql") || version == null
-        || version.toLowerCase(Locale.ROOT).contains("mariadb")) {
+        || version.toLowerCase(Locale.ROOT).contains("mariadb") || version.contains("TiDB")) {
       return false;
     }
     java.util.regex.Matcher matcher =
@@ -258,6 +264,17 @@ final class DoctorCommand implements Command {
     int minor = Integer.parseInt(matcher.group(2));
     int patch = Integer.parseInt(matcher.group(3));
     return major < 8 || major == 8 && minor == 0 && patch < 16;
+  }
+
+  /** TiDB enforces check constraints only with tidb_enable_check_constraint (7.2 and newer). */
+  private static boolean tidbChecksEnabled(Connection connection) {
+    try (java.sql.Statement statement = connection.createStatement();
+         java.sql.ResultSet result = statement.executeQuery(
+             "SELECT @@tidb_enable_check_constraint")) {
+      return result.next() && result.getInt(1) == 1;
+    } catch (java.sql.SQLException e) {
+      return false;
+    }
   }
 
   private static void adviseSchemaGeneration(Report doctor, Project project,

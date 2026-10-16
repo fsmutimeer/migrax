@@ -43,7 +43,7 @@ public final class OpenJpaSchemaReader {
   /** OpenJPA's dictionary per Migrax dialect. */
   private static final Map<String, String> DICTIONARIES = Map.of(
       "postgresql", "postgres", "cockroachdb", "postgres", "yugabytedb", "postgres",
-      "mysql", "mysql",
+      "mysql", "mysql", "tidb", "mysql",
       "mariadb", "mariadb", "sqlserver", "sqlserver", "oracle", "oracle", "h2", "h2",
       "sqlite", "org.apache.openjpa.jdbc.sql.DBDictionary");
 
@@ -66,7 +66,8 @@ public final class OpenJpaSchemaReader {
     // Only the mapping is read: the classes don't have to be enhanced.
     properties.put("openjpa.RuntimeUnenhancedClasses", "supported");
     properties.put("openjpa.DynamicEnhancementAgent", "false");
-    caseSensitiveTables = dialect.id().equals("mysql") || dialect.id().equals("mariadb");
+    caseSensitiveTables = dialect.id().equals("mysql") || dialect.id().equals("mariadb")
+        || dialect.id().equals("tidb");
     ownLobTypes = caseSensitiveTables || dialect.id().equals("postgresql")
         || dialect.id().equals("cockroachdb") || dialect.id().equals("yugabytedb");
 

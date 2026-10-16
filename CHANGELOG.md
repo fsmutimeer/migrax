@@ -13,6 +13,11 @@ All notable changes to Migrax are listed here. The format follows
   PostgreSQL's SQL; the migration lock is PostgreSQL's advisory lock from 2025.1 on and a row
   in `migrax_lock` before. `verify` starts a throwaway YugabyteDB container, and
   `--zero-downtime` works as on PostgreSQL.
+- TiDB (7.5 and newer), the 10th database: dialect `tidb`, reached with the MySQL driver and
+  recognized from the server. It writes MySQL's SQL; check constraints need
+  `tidb_enable_check_constraint` (`migrax doctor` warns when it is off), `--keep-data` backs up
+  with `CREATE TABLE ... LIKE`, and `--zero-downtime` can't split renames (no triggers or
+  writable views). `verify` starts a throwaway TiDB container.
 
 ## [0.11.0] - 2026-10-16
 

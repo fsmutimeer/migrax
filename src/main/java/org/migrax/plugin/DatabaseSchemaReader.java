@@ -160,6 +160,9 @@ public final class DatabaseSchemaReader {
 
   // ------------------------------------------------------------------ checks and comments
 
+  /** A check in TiDB's SHOW CREATE TABLE: {@code CONSTRAINT `name` CHECK ((condition))}. */
+  private static final Pattern TIDB_CHECK = Pattern.compile(
+      "(?m)CONSTRAINT `([^`]+)` CHECK \\((.*)\\)(?: /\\*.*\\*/)?(?: NOT ENFORCED)?,?$");
   private static final Pattern SQLITE_CHECK = Pattern.compile(
       "(?i)CONSTRAINT\\s+[\"`\\[]?([A-Za-z0-9_$]+)[\"`\\]]?\\s+CHECK\\s*\\(");
   private static final Pattern SQLITE_UNNAMED_CHECK = Pattern.compile("(?i)\\bCHECK\\s*\\(");
@@ -195,7 +198,28 @@ public final class DatabaseSchemaReader {
       }
     } else if (product.contains("mysql") || product.contains("mariadb")) {
       owner = catalog;
-      for (String[] row : query(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
+      // TiDB doesn't list checks in TABLE_CONSTRAINTS; its own view has their tables.
+      boolean tidb = String.valueOf(connection.getMetaData().getDatabaseProductVersion())
+          .contains("TiDB");
+      if (tidb && query(connection, "SELECT 1 FROM information_schema.TABLES WHERE "
+          + "TABLE_SCHEMA = 'INFORMATION_SCHEMA' AND TABLE_NAME = 'TIDB_CHECK_CONSTRAINTS'")
+          .isEmpty()) {
+        // Older TiDB versions tell which table a check belongs to only in SHOW CREATE TABLE.
+        for (SchemaModel.Table table : tables) {
+          for (String[] row : query(connection, "SHOW CREATE TABLE `"
+              + table.name().replace("`", "``") + "`")) {
+            java.util.regex.Matcher check = TIDB_CHECK.matcher(row.length > 1 ? row[1] : "");
+            while (check.find()) {
+              addCheck(checks, table.name(), check.group(1), unwrapCheck(check.group(2)));
+            }
+          }
+        }
+        tidb = false;
+      }
+      for (String[] row : query(connection, tidb
+          ? "SELECT TABLE_NAME, CONSTRAINT_NAME, CHECK_CLAUSE FROM "
+              + "information_schema.TIDB_CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ?"
+          : "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
           + "cc.CHECK_CLAUSE FROM information_schema.TABLE_CONSTRAINTS tc JOIN "
           + "information_schema.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = "
           + "tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME WHERE "

@@ -68,7 +68,7 @@ it; see [Rollbacks and recovery](rollbacks-and-recovery.md).
 | PostgreSQL | `pg_advisory_lock` |
 | YugabyteDB | `pg_advisory_lock` (2025.1 and newer), else a row in `migrax_lock` |
 | CockroachDB | A row in `migrax_lock` (CockroachDB has no session locks) |
-| MySQL, MariaDB | `GET_LOCK` |
+| MySQL, MariaDB, TiDB | `GET_LOCK` |
 | SQL Server | `sp_getapplock` |
 | Oracle | `DBMS_LOCK` (needs `EXECUTE` on `DBMS_LOCK`) |
 | H2 | Single-process database, no lock needed |

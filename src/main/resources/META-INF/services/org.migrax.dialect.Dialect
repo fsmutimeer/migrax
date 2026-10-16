@@ -4,6 +4,7 @@ org.migrax.dialect.CockroachDialect
 org.migrax.dialect.YugabyteDialect
 org.migrax.dialect.MySqlDialect
 org.migrax.dialect.MariaDbDialect
+org.migrax.dialect.TidbDialect
 org.migrax.dialect.SqlServerDialect
 org.migrax.dialect.OracleDialect
 org.migrax.dialect.H2Dialect

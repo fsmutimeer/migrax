@@ -115,7 +115,8 @@ On MySQL with binary logging (the default), only users with the SUPER privilege 
 triggers unless `log_bin_trust_function_creators` is 1. Set it before the expand migration runs:
 `SET GLOBAL log_bin_trust_function_creators = 1`, or in the parameter group on Amazon RDS.
 
-The trigger is written for PostgreSQL, MySQL, MariaDB and Oracle. On other databases,
+The trigger is written for PostgreSQL, YugabyteDB, MySQL, MariaDB and Oracle (TiDB has no
+triggers). On other databases,
 `--zero-downtime` stops with an explanation; rename the column in two releases by hand, or
 generate without `--zero-downtime` during a maintenance window.
 

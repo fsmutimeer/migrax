@@ -194,7 +194,9 @@ public final class ScratchDatabase implements AutoCloseable {
     COCKROACHDB("cockroachdb/cockroach:v24.3.11", 26257,
         "jdbc:postgresql://localhost:{port}/defaultdb?sslmode=disable", "root", "", 180),
     YUGABYTEDB("yugabytedb/yugabyte:2026.1.2.0-b137", 5433,
-        "jdbc:postgresql://localhost:{port}/yugabyte", "yugabyte", "yugabyte", 240);
+        "jdbc:postgresql://localhost:{port}/yugabyte", "yugabyte", "yugabyte", 240),
+    TIDB("pingcap/tidb:v8.5.3", 4000, "jdbc:mysql://localhost:{port}/test?useSSL=false", "root",
+        "", 120);
 
     final String image;
     final int port;
@@ -247,6 +249,7 @@ public final class ScratchDatabase implements AutoCloseable {
         case "oracle" -> ORACLE;
         case "cockroachdb" -> COCKROACHDB;
         case "yugabytedb" -> YUGABYTEDB;
+        case "tidb" -> TIDB;
         default -> throw new IllegalArgumentException("No scratch database for " + dialect);
       };
     }

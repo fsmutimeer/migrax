@@ -48,8 +48,8 @@ COPY .migrax/snapshot.json /workspace/.migrax/snapshot.json
 
 ### Other drivers
 
-MySQL Connector/J and Oracle's driver aren't included, because their licenses differ from
-Migrax's. Add them in your image:
+MySQL Connector/J (also for TiDB) and Oracle's driver aren't included, because their licenses
+differ from Migrax's. Add them in your image:
 
 ```dockerfile
 FROM ghcr.io/fsmutimeer/migrax:0.11.0
