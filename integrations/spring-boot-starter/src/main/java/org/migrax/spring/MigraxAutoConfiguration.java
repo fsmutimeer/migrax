@@ -44,8 +44,12 @@ public class MigraxAutoConfiguration {
                                        Environment environment, BeanFactory beanFactory) {
     List<String> packages = AutoConfigurationPackages.has(beanFactory)
         ? AutoConfigurationPackages.get(beanFactory) : List.of();
-    return new MigraxMigrator(dataSource, properties, resources,
+    MigraxMigrator migrator = new MigraxMigrator(dataSource, properties, resources,
         javaMigrations.orderedStream().toList(), environment, packages);
+    if (beanFactory instanceof org.springframework.beans.factory.ListableBeanFactory beans) {
+      migrator.setBeanFactory(beans);
+    }
+    return migrator;
   }
 
   /** The migrax health indicator, only when the application has Actuator. */

@@ -54,6 +54,33 @@
       <!-- Compile-only: the org.migrax.orm adapter runs against the application's own Hibernate. -->
       <scope>provided</scope>
     </dependency>
+    <!-- Compile-only: org.migrax.observe records metrics and spans with the application's own
+         Micrometer and OpenTelemetry, when it has them. -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+      <version>1.15.4</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-api</artifactId>
+      <version>1.46.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <!-- Compile-only: CdiListeners looks the listeners up in Helidon and Jakarta EE servers. -->
+    <dependency>
+      <groupId>jakarta.enterprise</groupId>
+      <artifactId>jakarta.enterprise.cdi-api</artifactId>
+      <version>4.0.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.opentelemetry</groupId>
+      <artifactId>opentelemetry-sdk-testing</artifactId>
+      <version>1.46.0</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.eclipse.persistence</groupId>
       <artifactId>eclipselink</artifactId>

@@ -38,6 +38,7 @@ public class MigraxMigrator implements InitializingBean {
   private final List<JavaMigration> javaMigrationBeans;
   private final Environment environment;
   private final List<String> basePackages;
+  private org.springframework.beans.factory.ListableBeanFactory beans;
 
   public MigraxMigrator(DataSource dataSource, MigraxProperties properties,
                         ResourcePatternResolver resources, List<JavaMigration> javaMigrationBeans,
@@ -51,11 +52,21 @@ public class MigraxMigrator implements InitializingBean {
   }
 
   /**
+   * Where the migration listeners come from (MigrationListener beans, Micrometer,
+   * OpenTelemetry); without it, migrations run without listeners.
+   *
+   * @since 0.13.0
+   */
+  public void setBeanFactory(org.springframework.beans.factory.ListableBeanFactory beans) {
+    this.beans = beans;
+  }
+
+  /**
    * Whether the database is up to date with the packaged migrations and JavaMigration beans,
    * without changing anything; the health indicator reports it.
    */
   public org.migrax.runner.StartupMigrations.Status status() throws Exception {
-    Migrax.Status status = migrax(loadPackaged()).status();
+    Migrax.Status status = migrax(loadPackaged(), List.of()).status();
     return new org.migrax.runner.StartupMigrations.Status(status.applied(), status.pending(),
         status.problems());
   }
@@ -80,7 +91,9 @@ public class MigraxMigrator implements InitializingBean {
         LOG.info("Migrax: no migrations found in " + properties.getLocations());
         return;
       }
-      for (Migrax.SchemaResult result : migrax(migrations).migrate().schemas()) {
+      List<org.migrax.api.MigrationListener> listeners = beans == null ? List.of()
+          : MigraxListeners.find(beans, properties, classLoader());
+      for (Migrax.SchemaResult result : migrax(migrations, listeners).migrate().schemas()) {
         report(result.applied(), result.schema());
       }
     } finally {
@@ -97,13 +110,14 @@ public class MigraxMigrator implements InitializingBean {
    * The API over the given migrations plus the JavaMigration beans; a bean replaces a
    * migration with the same version.
    */
-  private Migrax migrax(List<Migration> migrations) throws Exception {
+  private Migrax migrax(List<Migration> migrations,
+                        List<org.migrax.api.MigrationListener> listeners) throws Exception {
     Migrax.Builder builder = Migrax.configure().dataSource(dataSource)
         .classLoader(classLoader()).locations(List.of()).javaPackage(null)
         .schemas(properties.getSchemas()).environment(properties.getEnv())
         .lockTimeout(properties.getLockTimeout() == null ? java.time.Duration.ZERO
             : properties.getLockTimeout()).resume(properties.isResume())
-        .placeholders(properties.getPlaceholders());
+        .placeholders(properties.getPlaceholders()).listeners(listeners);
     Map<String, Migration> byVersion = new LinkedHashMap<>();
     migrations.forEach(m -> byVersion.put(m.version(), m));
     javaMigrationBeans.forEach(bean -> byVersion.put(bean.version(), Migration.ofJava(bean)));

@@ -163,6 +163,7 @@ The builder takes the same settings as the startup integrations:
 | `resume(true)` | Re-run a failed migration marked `-- migrax:resume-safe` |
 | `entities(package)`, `naming(name)` | For `validate()`: the entity package and naming |
 | `classLoader(loader)` | Where migrations and JDBC drivers are found |
+| `listener(...)` | Listeners for metrics and tracing ([Metrics and tracing](observability.md)) |
 | `settings(map)` | `migrax.*` settings, as in `application.properties` |
 
 Each method call opens its own connection and closes it again.

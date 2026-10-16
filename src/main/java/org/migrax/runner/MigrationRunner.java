@@ -51,14 +51,19 @@ public final class MigrationRunner {
   /** The environment migrations run in, or null; see {@link #appliesHere}. */
   private final String environment;
 
+  /** Listeners told about each run of {@link #migrateAll}. */
+  private final List<org.migrax.api.MigrationListener> listeners;
+
   /** A runner that fails at once when another process holds the migration lock. */
   public MigrationRunner() {
-    this(java.time.Duration.ZERO, null);
+    this(java.time.Duration.ZERO, null, List.of());
   }
 
-  private MigrationRunner(java.time.Duration lockTimeout, String environment) {
+  private MigrationRunner(java.time.Duration lockTimeout, String environment,
+                          List<org.migrax.api.MigrationListener> listeners) {
     this.lockTimeout = lockTimeout;
     this.environment = environment == null || environment.isBlank() ? null : environment.trim();
+    this.listeners = List.copyOf(listeners);
   }
 
   /**
@@ -67,7 +72,8 @@ public final class MigrationRunner {
    * @since 0.3.0
    */
   public MigrationRunner withLockTimeout(java.time.Duration timeout) {
-    return new MigrationRunner(timeout == null ? java.time.Duration.ZERO : timeout, environment);
+    return new MigrationRunner(timeout == null ? java.time.Duration.ZERO : timeout, environment,
+        listeners);
   }
 
   /**
@@ -78,7 +84,31 @@ public final class MigrationRunner {
    * @since 0.5.0
    */
   public MigrationRunner withEnvironment(String environment) {
-    return new MigrationRunner(lockTimeout, environment);
+    return new MigrationRunner(lockTimeout, environment, listeners);
+  }
+
+  /**
+   * A runner that tells these listeners about each run of {@link #migrateAll}, besides the
+   * ones it has.
+   *
+   * @since 0.13.0
+   */
+  public MigrationRunner withListeners(List<? extends org.migrax.api.MigrationListener> more) {
+    List<org.migrax.api.MigrationListener> all = new ArrayList<>(listeners);
+    all.addAll(more);
+    return new MigrationRunner(lockTimeout, environment, all);
+  }
+
+  /** Tells every listener; a listener's failure is logged and never stops the migration. */
+  private void tell(java.util.function.Consumer<org.migrax.api.MigrationListener> event) {
+    for (org.migrax.api.MigrationListener listener : listeners) {
+      try {
+        event.accept(listener);
+      } catch (RuntimeException | LinkageError e) {
+        Log.warn("Migration listener {} failed: {}", listener.getClass().getName(),
+            e.getMessage());
+      }
+    }
   }
 
   /**
@@ -196,7 +226,24 @@ public final class MigrationRunner {
   public int migrateAll(Connection connection, List<Migration> migrations, Options options)
       throws Exception {
     validateVersions(migrations);
-    return withTransactionAndLock(connection, () -> {
+    long started = System.nanoTime();
+    int[] applied = {0};
+    tell(org.migrax.api.MigrationListener::runStarted);
+    try {
+      migrateAll(connection, migrations, options, applied);
+      java.time.Duration took = java.time.Duration.ofNanos(System.nanoTime() - started);
+      tell(listener -> listener.runFinished(applied[0], took, null));
+      return applied[0];
+    } catch (Exception e) {
+      java.time.Duration took = java.time.Duration.ofNanos(System.nanoTime() - started);
+      tell(listener -> listener.runFinished(applied[0], took, e));
+      throw e;
+    }
+  }
+
+  private void migrateAll(Connection connection, List<Migration> migrations, Options options,
+                          int[] applied) throws Exception {
+    withTransactionAndLock(connection, () -> {
       ensureHistory(connection);
       ensureFailureTable(connection);
       Map<String, Migration> callbacks = callbacks(migrations);
@@ -208,13 +255,12 @@ public final class MigrationRunner {
       verifyAppliedChecksums(history, versioned(migrations));
       verifyFailedAttempts(connection, migrations, options.resume());
 
-      int applied = 0;
       runCallback(connection, callbacks.get("beforeMigrate.sql"), statements);
       for (Step step : plan(migrations, history, options)) {
         if (step instanceof Apply apply) {
           applyMigration(connection, apply.migration(), statements, callbacks, options.resume(),
               apply.replaceHistory());
-          applied++;
+          applied[0]++;
         } else if (step instanceof Record record) {
           recordApplied(connection, record.version(), record.checksum(), false);
           connection.commit();
@@ -224,8 +270,8 @@ public final class MigrationRunner {
         }
       }
       runCallback(connection, callbacks.get("afterMigrate.sql"), statements);
-      return applied;
-    });
+      return null;
+    }, waited -> tell(listener -> listener.lockAcquired(waited)));
   }
 
   /**
@@ -443,6 +489,8 @@ public final class MigrationRunner {
     connection.commit();
 
     Log.info("Applying migration '{}'...", version);
+    long started = System.nanoTime();
+    tell(listener -> listener.migrationStarted(version));
     try {
       execute(connection, callbacks.get("beforeEachMigrate.sql"), statements);
       if (migration.isJava()) {
@@ -464,8 +512,12 @@ public final class MigrationRunner {
       deleteFailure(connection, version);
       connection.commit();
       Log.info("Successfully applied migration '{}'.", version);
+      java.time.Duration took = java.time.Duration.ofNanos(System.nanoTime() - started);
+      tell(listener -> listener.migrationApplied(version, took));
     } catch (Exception e) {
       Log.error("Failed executing migration '{}': {}", version, e.getMessage());
+      java.time.Duration took = java.time.Duration.ofNanos(System.nanoTime() - started);
+      tell(listener -> listener.migrationFailed(version, took, e));
       try {
         connection.rollback();
       } catch (SQLException rollbackFailure) {
@@ -1087,11 +1139,22 @@ public final class MigrationRunner {
   /** Runs work with auto-commit off and the migration lock held, restoring state afterwards. */
   private <T> T withTransactionAndLock(Connection connection, Work<T> work)
       throws Exception {
+    return withTransactionAndLock(connection, work, waited -> { });
+  }
+
+  /**
+   * @param locked hears how long taking the lock took
+   */
+  private <T> T withTransactionAndLock(Connection connection, Work<T> work,
+                                       java.util.function.Consumer<java.time.Duration> locked)
+      throws Exception {
     boolean oldAutoCommit = connection.getAutoCommit();
     Exception failure = null;
     try {
       connection.setAutoCommit(false);
+      long waiting = System.nanoTime();
       try (AutoCloseable ignored = DatabaseMigrationLock.acquire(connection, lockTimeout)) {
+        locked.accept(java.time.Duration.ofNanos(System.nanoTime() - waiting));
         return work.run();
       }
     } catch (Exception e) {

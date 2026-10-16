@@ -33,7 +33,20 @@ public final class StartupMigrations {
    */
   public static int migrate(DataSource dataSource, Map<String, String> settings,
                             ClassLoader loader) throws Exception {
-    return configure(dataSource, settings, loader).migrate().applied();
+    return migrate(dataSource, settings, loader, List.of());
+  }
+
+  /**
+   * Runs the pending migrations, telling the listeners (metrics, tracing) about them.
+   *
+   * @since 0.13.0
+   */
+  public static int migrate(DataSource dataSource, Map<String, String> settings,
+                            ClassLoader loader,
+                            List<? extends org.migrax.api.MigrationListener> listeners)
+      throws Exception {
+    return Migrax.configure().dataSource(dataSource).classLoader(loader).settings(settings)
+        .listeners(listeners).load().migrate().applied();
   }
 
   /**

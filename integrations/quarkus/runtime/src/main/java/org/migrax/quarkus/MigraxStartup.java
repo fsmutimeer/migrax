@@ -46,7 +46,8 @@ public final class MigraxStartup {
     Map<String, String> settings = settings(config);
     Log.Sink previous = Log.setSink(new JbossSink());
     try {
-      int applied = StartupMigrations.migrate(dataSource, settings, loader);
+      int applied = StartupMigrations.migrate(dataSource, settings, loader,
+          MigraxListeners.find(settings));
       LOG.info("Migrax: " + (applied == 0 ? "schema is up to date"
           : "applied " + applied + " migration(s)"));
       return applied;

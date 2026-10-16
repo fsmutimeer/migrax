@@ -37,9 +37,12 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
       "io.micronaut.transaction.jdbc.DelegatingDataSource");
 
   private final Environment environment;
+  private final io.micronaut.context.BeanContext context;
 
-  public MigraxDataSourceListener(Environment environment) {
+  public MigraxDataSourceListener(Environment environment,
+                                  io.micronaut.context.BeanContext context) {
     this.environment = environment;
+    this.context = context;
   }
 
   @Override
@@ -55,7 +58,8 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
     Log.Sink previous = Log.setSink(new Slf4jSink());
     try {
       int applied = StartupMigrations.migrate(unwrap(dataSource), settings,
-          environment.getClassLoader());
+          environment.getClassLoader(),
+          MigraxListeners.find(context, settings, environment.getClassLoader()));
       LOG.info("Migrax: {}", applied == 0 ? "schema is up to date"
           : "applied " + applied + " migration(s) to data source '" + name + "'");
     } catch (Exception e) {

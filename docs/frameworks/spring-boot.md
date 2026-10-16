@@ -59,6 +59,8 @@ Migrations are applied when the application starts, **before** JPA starts, so
 | `migrax.resume` | `false` | Re-run a failed migration marked `-- migrax:resume-safe` |
 | `migrax.lock-timeout` | `0` | How long to wait while another instance migrates, for example `2m` when several start together |
 | `migrax.placeholders.<name>` | | Values for `${name}` placeholders |
+| `migrax.metrics.enabled` | `true` | Micrometer metrics of the migrations, when the application has a `MeterRegistry` ([Metrics and tracing](../guides/observability.md)) |
+| `migrax.tracing.enabled` | `true` | OpenTelemetry spans of the migrations, when the application has an `OpenTelemetry` |
 | `migrax.schemas` | | Schemas to migrate one after another |
 
 ### Development mode

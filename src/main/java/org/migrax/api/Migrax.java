@@ -77,6 +77,7 @@ public final class Migrax {
   private final String entityPackage;
   private final String naming;
   private final Path projectDirectory;
+  private final List<MigrationListener> listeners;
 
   private Migrax(Builder builder) throws Exception {
     if (builder.dataSource == null && (builder.url == null || builder.url.isBlank())) {
@@ -102,6 +103,7 @@ public final class Migrax {
     this.naming = builder.naming;
     this.projectDirectory = builder.projectDirectory != null ? builder.projectDirectory
         : Path.of("").toAbsolutePath();
+    this.listeners = List.copyOf(builder.listeners);
     this.migrations = load(builder);
   }
 
@@ -462,7 +464,8 @@ public final class Migrax {
 
   private MigrationRunner runner() {
     return new MigrationRunner().withLockTimeout(lockTimeout != null ? lockTimeout
-        : DatabaseMigrationLock.configuredTimeout()).withEnvironment(environment);
+        : DatabaseMigrationLock.configuredTimeout()).withEnvironment(environment)
+        .withListeners(listeners);
   }
 
   private Connection connect() throws SQLException {
@@ -547,8 +550,29 @@ public final class Migrax {
     private String entityPackage;
     private String naming;
     private Path projectDirectory;
+    private final List<MigrationListener> listeners = new ArrayList<>();
 
     private Builder() {}
+
+    /**
+     * Listeners for metrics and tracing of {@link Migrax#migrate}, such as
+     * {@code new org.migrax.observe.MicrometerListener(meterRegistry)}.
+     *
+     * @since 0.13.0
+     */
+    public Builder listener(MigrationListener... listeners) {
+      return listeners(List.of(listeners));
+    }
+
+    /**
+     * Listeners for metrics and tracing of {@link Migrax#migrate}.
+     *
+     * @since 0.13.0
+     */
+    public Builder listeners(Collection<? extends MigrationListener> listeners) {
+      this.listeners.addAll(listeners);
+      return this;
+    }
 
     /** The database, as a data source. */
     public Builder dataSource(DataSource dataSource) {

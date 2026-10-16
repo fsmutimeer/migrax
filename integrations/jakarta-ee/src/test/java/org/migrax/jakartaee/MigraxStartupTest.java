@@ -28,8 +28,10 @@ class MigraxStartupTest {
           Map.of("MIGRAX_DATASOURCE", "java:app/FromEnvironment",
               "MIGRAX_JAVA_PACKAGE", "app.migrations",
               "MIGRAX_PLACEHOLDERS_GREETING", "hello",
+              "MIGRAX_METRICS_ENABLED", "false",
               "PATH", "/bin"), system);
       assertEquals(Map.of(
+          "migrax.metrics.enabled", "false",
           "migrax.locations", "db/from-file",
           "migrax.datasource", "java:app/FromEnvironment",
           "migrax.java-package", "app.migrations",

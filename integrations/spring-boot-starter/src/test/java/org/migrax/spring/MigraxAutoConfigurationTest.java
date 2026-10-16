@@ -85,4 +85,56 @@ class MigraxAutoConfigurationTest {
   void canBeDisabled() {
     assertThrows(Exception.class, () -> start("starter_disabled", "migrax.enabled=false").close());
   }
+
+  /**
+   * An OpenTelemetry that keeps its spans in memory, in place of Spring Boot's. Each test gets a
+   * new exporter: closing a context shuts its exporter down.
+   */
+  @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
+  static class InMemoryTracing {
+    static io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter SPANS;
+
+    @org.springframework.context.annotation.Bean
+    io.opentelemetry.api.OpenTelemetry openTelemetry() {
+      return io.opentelemetry.sdk.OpenTelemetrySdk.builder().setTracerProvider(
+          io.opentelemetry.sdk.trace.SdkTracerProvider.builder().addSpanProcessor(
+              io.opentelemetry.sdk.trace.export.SimpleSpanProcessor.create(SPANS)).build())
+          .build();
+    }
+  }
+
+  @Test
+  void recordsMetricsAndSpansWhenTheApplicationHasThem() {
+    InMemoryTracing.SPANS = io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter.create();
+    try (ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class,
+        InMemoryTracing.class).properties(
+            "spring.datasource.url=jdbc:h2:mem:starter_observe;DB_CLOSE_DELAY=-1",
+            "spring.jpa.hibernate.ddl-auto=validate",
+            "spring.main.web-application-type=none").run()) {
+      var registry = context.getBean(io.micrometer.core.instrument.MeterRegistry.class);
+      assertEquals(3.0, registry.get("migrax.migrations.applied").counter().count());
+      assertEquals(1, registry.get("migrax.run").tag("outcome", "success").timer().count());
+      var spans = InMemoryTracing.SPANS.getFinishedSpanItems();
+      assertEquals(1, spans.stream().filter(s -> s.getName().equals("migrax migrate")).count(),
+          spans.toString());
+      assertEquals(3, spans.stream().filter(s -> s.getName().equals("migrax migration"))
+          .count(), spans.toString());
+    }
+  }
+
+  @Test
+  void metricsAndTracingCanBeTurnedOff() {
+    InMemoryTracing.SPANS = io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter.create();
+    try (ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class,
+        InMemoryTracing.class).properties(
+            "spring.datasource.url=jdbc:h2:mem:starter_quiet;DB_CLOSE_DELAY=-1",
+            "spring.jpa.hibernate.ddl-auto=validate",
+            "spring.main.web-application-type=none",
+            "migrax.metrics.enabled=false", "migrax.tracing.enabled=false").run()) {
+      var registry = context.getBean(io.micrometer.core.instrument.MeterRegistry.class);
+      org.junit.jupiter.api.Assertions.assertNull(
+          registry.find("migrax.migrations.applied").counter());
+      assertEquals(0, InMemoryTracing.SPANS.getFinishedSpanItems().size());
+    }
+  }
 }

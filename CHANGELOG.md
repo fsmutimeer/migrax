@@ -6,6 +6,16 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Metrics and tracing of migrations at startup: Micrometer metrics (`migrax.run`,
+  `migrax.migration`, `migrax.migrations.applied`/`failed`, `migrax.lock.wait`) and
+  OpenTelemetry spans (`migrax migrate` with a `migrax migration` span each), recorded by the
+  Spring Boot, Quarkus, Micronaut, Helidon and Jakarta EE integrations when the application has
+  a `MeterRegistry` or an `OpenTelemetry`. Turn them off with `migrax.metrics.enabled=false` or
+  `migrax.tracing.enabled=false`. `MigrationListener` beans hear every run too, and the Java API
+  takes listeners with `listener(...)`. See Guides > Metrics and tracing.
+
 ## [0.12.0] - 2026-10-16
 
 Four more databases: YugabyteDB, TiDB, HSQLDB and Apache Derby.

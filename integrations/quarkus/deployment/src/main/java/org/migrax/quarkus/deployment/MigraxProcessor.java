@@ -45,6 +45,42 @@ class MigraxProcessor {
   }
 
   /**
+   * Keeps the beans Migrax looks up when the migrations run, which nothing injects: the
+   * application's MigrationListeners, its MeterRegistry and its OpenTelemetry.
+   */
+  @BuildStep
+  io.quarkus.arc.deployment.UnremovableBeanBuildItem listeners() {
+    return io.quarkus.arc.deployment.UnremovableBeanBuildItem.beanTypes(
+        DotName.createSimple("org.migrax.api.MigrationListener"),
+        DotName.createSimple("io.micrometer.core.instrument.MeterRegistry"),
+        DotName.createSimple("io.opentelemetry.api.OpenTelemetry"));
+  }
+
+  /**
+   * Metrics (replayed after startup) and spans of the migrations, only in applications with
+   * Micrometer or OpenTelemetry. Elsewhere their classes are kept out of the application, or a
+   * native build would fail on the missing types.
+   */
+  @BuildStep
+  void observability(BuildProducer<AdditionalBeanBuildItem> beans,
+                     BuildProducer<ExcludedTypeBuildItem> excluded) {
+    optionalBean("org.migrax.quarkus.MigraxMetricsReplay",
+        "io.micrometer.core.instrument.MeterRegistry", beans, excluded);
+    optionalBean("org.migrax.quarkus.MigraxTracing", "io.opentelemetry.api.OpenTelemetry",
+        beans, excluded);
+  }
+
+  private static void optionalBean(String bean, String needs,
+                                   BuildProducer<AdditionalBeanBuildItem> beans,
+                                   BuildProducer<ExcludedTypeBuildItem> excluded) {
+    if (io.quarkus.bootstrap.classloading.QuarkusClassLoader.isClassPresentAtRuntime(needs)) {
+      beans.produce(AdditionalBeanBuildItem.unremovableOf(bean));
+    } else {
+      excluded.produce(new ExcludedTypeBuildItem(bean));
+    }
+  }
+
+  /**
    * The migrax readiness check, only in applications with the health extension. Elsewhere its
    * health API classes are missing, so it is kept out of bean discovery.
    */
