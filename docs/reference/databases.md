@@ -11,6 +11,7 @@
 | SQL Server | `sqlserver` | Lock through `sp_getapplock` |
 | Oracle 12c and newer | `oracle` | Lock needs `EXECUTE` on `DBMS_LOCK`; booleans follow the version ([details](#oracle)) |
 | H2 | `h2` | For development and tests; `verify` uses it in memory |
+| HSQLDB (HyperSQL) 2.7 and newer | `hsqldb` | In memory, files or server; `verify` uses it in memory ([details](#hsqldb)) |
 | SQLite 3.35 and newer | `sqlite` | Changes SQLite can't make in place rebuild the table ([details](#sqlite)) |
 
 The dialect comes from the JDBC URL. When there is no database URL (for example in a CI step that
@@ -81,6 +82,26 @@ What is different from MySQL:
 - There are no stored procedures.
 - `verify` starts a throwaway `pingcap/tidb` container in Docker.
 
+## HSQLDB
+
+HyperSQL is recognized from `jdbc:hsqldb:` URLs, in memory (`jdbc:hsqldb:mem:`), in files or as
+a server. `verify` replays the migrations on a new in-memory database, without Docker.
+
+What is different from H2:
+
+- DDL commits immediately, as on MySQL: a migration that fails halfway leaves its earlier
+  statements applied.
+- The migration lock is a row in the `migrax_lock` table, so two processes that share a file
+  or server database don't migrate at once. If a Migrax process is killed while migrating, the
+  row stays and the next `migrate` says how to remove it.
+- Sequence ids have no column default (HyperSQL has no sequence default); Hibernate takes the
+  next value from the sequence itself.
+- Hibernate stores `Instant` as `timestamp` on HyperSQL. Projects read by annotation scanning
+  (without a JPA provider) get `timestamp with time zone` for it, so prefer reading the
+  entities through Hibernate there.
+- `generate --zero-downtime` keeps a renamed table's old name as a view (HyperSQL's simple
+  views accept writes). Column renames can't be split: Migrax writes no triggers for HyperSQL.
+
 ## Oracle
 
 Migrax's migration lock uses `DBMS_LOCK`, so the account that runs the migrations needs
@@ -142,8 +163,8 @@ a `boolean` is `bit` on MySQL. Migrax records the exact type, so `generate`, `ve
 ## Transactions
 
 Each migration runs in a transaction with its history record. On PostgreSQL, CockroachDB, SQL
-Server, H2 and SQLite, a failed migration leaves nothing behind. MySQL, MariaDB, TiDB, Oracle
-and YugabyteDB commit DDL statements immediately, so a migration that fails halfway leaves the earlier statements applied; see
+Server, H2 and SQLite, a failed migration leaves nothing behind. MySQL, MariaDB, TiDB, Oracle,
+YugabyteDB and HSQLDB commit DDL statements immediately, so a migration that fails halfway leaves the earlier statements applied; see
 [Rollbacks and recovery](../guides/rollbacks-and-recovery.md#when-a-migration-fails).
 
 Statements that cannot run in a transaction, such as PostgreSQL's `CREATE INDEX CONCURRENTLY`,
@@ -153,7 +174,7 @@ need `-- migrax:no-transaction` at the top of the migration.
 
 The Migrax build includes a suite that runs migrations and Hibernate validation against real
 MySQL, MariaDB, TiDB (7.5 and 8.5), PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai),
-CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, and on SQLite:
+CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, and on HSQLDB and SQLite:
 
 ```bash
 mvn verify -Pdatabase-integration    # needs Docker

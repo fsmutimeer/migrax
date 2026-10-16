@@ -160,6 +160,10 @@ public final class DatabaseSchemaReader {
 
   // ------------------------------------------------------------------ checks and comments
 
+  /** The schema and table HyperSQL puts before each column in a check: {@code PUBLIC.T.}. */
+  private static final Pattern HSQLDB_QUALIFIER = Pattern.compile(
+      "\"?[A-Za-z_][A-Za-z0-9_$]*\"?\\.\"?[A-Za-z_][A-Za-z0-9_$]*\"?\\.(?=[\"A-Za-z_])");
+
   /** A check in TiDB's SHOW CREATE TABLE: {@code CONSTRAINT `name` CHECK ((condition))}. */
   private static final Pattern TIDB_CHECK = Pattern.compile(
       "(?m)CONSTRAINT `([^`]+)` CHECK \\((.*)\\)(?: /\\*.*\\*/)?(?: NOT ENFORCED)?,?$");
@@ -273,6 +277,25 @@ public final class DatabaseSchemaReader {
           + "INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? UNION ALL SELECT TABLE_NAME, "
           + "COLUMN_NAME, REMARKS FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ?",
           owner, owner)) {
+        addComment(comments, row);
+      }
+    } else if (product.contains("hsql")) {
+      String namespace = owner == null ? "CURRENT_SCHEMA" : "?";
+      for (String[] row : query(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
+          + "cc.CHECK_CLAUSE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc JOIN "
+          + "INFORMATION_SCHEMA.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = "
+          + "tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME WHERE "
+          + "tc.CONSTRAINT_TYPE = 'CHECK' AND tc.TABLE_SCHEMA = " + namespace, owner)) {
+        // NOT NULL columns are checks of their own (SYS_CT_...: COLUMN IS NOT NULL).
+        if (row[2] != null && !(row[1].startsWith("SYS_CT_")
+            && row[2].toUpperCase(Locale.ROOT).endsWith(" IS NOT NULL"))) {
+          // HyperSQL names every column with its schema and table: PUBLIC.CUSTOMER.BALANCE>=0.
+          addCheck(checks, row[0], row[1], HSQLDB_QUALIFIER.matcher(row[2]).replaceAll(""));
+        }
+      }
+      for (String[] row : query(connection, "SELECT OBJECT_NAME, COLUMN_NAME, COMMENT FROM "
+          + "INFORMATION_SCHEMA.SYSTEM_COMMENTS WHERE OBJECT_TYPE IN ('TABLE', 'COLUMN') AND "
+          + "OBJECT_SCHEMA = " + namespace, owner)) {
         addComment(comments, row);
       }
     } else if (product.contains("sqlite")) {

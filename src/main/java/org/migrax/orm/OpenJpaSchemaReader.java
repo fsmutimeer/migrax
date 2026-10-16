@@ -41,11 +41,18 @@ import org.apache.openjpa.meta.ValueStrategies;
  */
 public final class OpenJpaSchemaReader {
   /** OpenJPA's dictionary per Migrax dialect. */
-  private static final Map<String, String> DICTIONARIES = Map.of(
-      "postgresql", "postgres", "cockroachdb", "postgres", "yugabytedb", "postgres",
-      "mysql", "mysql", "tidb", "mysql",
-      "mariadb", "mariadb", "sqlserver", "sqlserver", "oracle", "oracle", "h2", "h2",
-      "sqlite", "org.apache.openjpa.jdbc.sql.DBDictionary");
+  private static final Map<String, String> DICTIONARIES = Map.ofEntries(
+      Map.entry("postgresql", "postgres"),
+      Map.entry("cockroachdb", "postgres"),
+      Map.entry("yugabytedb", "postgres"),
+      Map.entry("mysql", "mysql"),
+      Map.entry("tidb", "mysql"),
+      Map.entry("mariadb", "mariadb"),
+      Map.entry("sqlserver", "sqlserver"),
+      Map.entry("oracle", "oracle"),
+      Map.entry("h2", "h2"),
+      Map.entry("sqlite", "org.apache.openjpa.jdbc.sql.DBDictionary"),
+      Map.entry("hsqldb", "hsql"));
 
   private boolean caseSensitiveTables;
   private boolean ownLobTypes;

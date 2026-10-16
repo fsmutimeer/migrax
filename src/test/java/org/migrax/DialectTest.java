@@ -63,6 +63,7 @@ class DialectTest {
     assertEquals("postgresql", Dialects.fromJdbcUrl("jdbc:postgresql://localhost:26257/db").id());
     assertEquals("mysql", Dialects.byName("mysql").id());
     assertEquals("sqlite", Dialects.fromJdbcUrl("jdbc:sqlite:data/shop.db").id());
+    assertEquals("hsqldb", Dialects.fromJdbcUrl("jdbc:hsqldb:mem:test").id());
     // TiDB uses the MySQL driver: the server, not the URL, tells them apart.
     assertEquals("mysql", Dialects.fromJdbcUrl("jdbc:mysql://localhost:4000/db").id());
     // YugabyteDB's own driver; with the PostgreSQL driver, the server tells.
@@ -72,7 +73,8 @@ class DialectTest {
 
   @Test void registeredDialectsAreFoundByNameAndAlias() {
     assertEquals(List.of("postgresql", "cockroachdb", "yugabytedb", "mysql", "mariadb", "tidb",
-        "sqlserver", "oracle", "h2", "sqlite"), Dialects.NAMES);
+        "sqlserver", "oracle", "h2", "hsqldb", "sqlite"), Dialects.NAMES);
+    assertEquals("hsqldb", Dialects.byName("hsql").id());
     assertEquals("yugabytedb", Dialects.byName("yb").id());
     assertEquals("yugabytedb", Dialects.byName("yugabyte").id());
     assertEquals("postgresql", Dialects.byName("pg").id());
@@ -92,6 +94,7 @@ class DialectTest {
     assertEquals("cockroachdb", Dialects.forProduct("CockroachDB").orElseThrow().id());
     assertEquals("yugabytedb", Dialects.forProduct("YugabyteDB").orElseThrow().id());
     assertEquals("tidb", Dialects.forProduct("TiDB").orElseThrow().id());
+    assertEquals("hsqldb", Dialects.forProduct("HSQL Database Engine").orElseThrow().id());
     assertEquals("sqlite", Dialects.forProduct("SQLite").orElseThrow().id());
     assertTrue(Dialects.forProduct("DB2/LINUXX8664").isEmpty());
   }
@@ -431,5 +434,22 @@ class DialectTest {
     assertFalse(tidb.updatableViews());
     assertFalse(tidb.transactionalDdl());
     assertFalse(mysql.transactionalDdl());
+  }
+
+  @Test void hsqldbWritesItsOwnRenamesCommentsAndCopies() {
+    Dialect hsqldb = Dialects.byName("hsqldb");
+    assertEquals("ALTER TABLE item ALTER COLUMN name RENAME TO title",
+        hsqldb.render(new org.migrax.ops.RenameColumn("item", "name", "title")));
+    assertEquals("COMMENT ON TABLE item IS ''",
+        hsqldb.render(new org.migrax.ops.SetComment("item", null, null)));
+    assertEquals("CREATE TABLE backup AS (SELECT id, name FROM item) WITH DATA",
+        hsqldb.copyTable("backup", "item", List.of("id", "name")));
+    SchemaModel.Column id = new SchemaModel.Column("id", "bigint", false, null, null, null, null,
+        false, false, "item_seq", "bigint");
+    // No sequence default: HyperSQL has none, Hibernate draws ids itself.
+    assertTrue(hsqldb.render(new org.migrax.ops.AddColumn("item", id)).endsWith("id bigint NOT NULL"),
+        hsqldb.render(new org.migrax.ops.AddColumn("item", id)));
+    assertTrue(hsqldb.updatableViews());
+    assertTrue(hsqldb.syncColumns("t", "a", "b").isEmpty());
   }
 }

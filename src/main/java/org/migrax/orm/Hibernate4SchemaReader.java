@@ -45,7 +45,8 @@ public final class Hibernate4SchemaReader {
       "sqlserver", List.of("org.hibernate.dialect.SQLServer2012Dialect",
           "org.hibernate.dialect.SQLServer2008Dialect"),
       "oracle", List.of("org.hibernate.dialect.Oracle10gDialect"),
-      "h2", List.of("org.hibernate.dialect.H2Dialect"));
+      "h2", List.of("org.hibernate.dialect.H2Dialect"),
+      "hsqldb", List.of("org.hibernate.dialect.HSQLDialect"));
 
   /** A sequence in Hibernate's own DDL: name, then optional start and increment. */
   private static final Pattern CREATE_SEQUENCE = Pattern.compile("(?i)create sequence (\\S+)"

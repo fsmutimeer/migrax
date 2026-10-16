@@ -69,33 +69,35 @@ public final class HibernateSchemaReader {
       java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
   /** Hibernate dialect class per Migrax dialect id. */
-  private static final Map<String, String> DIALECTS = Map.of(
-      "postgresql", "org.hibernate.dialect.PostgreSQLDialect",
-      "mysql", "org.hibernate.dialect.MySQLDialect",
-      "mariadb", "org.hibernate.dialect.MariaDBDialect",
-      "tidb", "org.hibernate.dialect.MySQLDialect",
-      "sqlserver", "org.hibernate.dialect.SQLServerDialect",
-      "oracle", "org.hibernate.dialect.OracleDialect",
-      "h2", "org.hibernate.dialect.H2Dialect",
-      "cockroachdb", "org.hibernate.dialect.CockroachDialect",
-      "yugabytedb", "org.hibernate.dialect.PostgreSQLDialect",
+  private static final Map<String, String> DIALECTS = Map.ofEntries(
+      Map.entry("postgresql", "org.hibernate.dialect.PostgreSQLDialect"),
+      Map.entry("mysql", "org.hibernate.dialect.MySQLDialect"),
+      Map.entry("mariadb", "org.hibernate.dialect.MariaDBDialect"),
+      Map.entry("tidb", "org.hibernate.dialect.MySQLDialect"),
+      Map.entry("sqlserver", "org.hibernate.dialect.SQLServerDialect"),
+      Map.entry("oracle", "org.hibernate.dialect.OracleDialect"),
+      Map.entry("h2", "org.hibernate.dialect.H2Dialect"),
+      Map.entry("cockroachdb", "org.hibernate.dialect.CockroachDialect"),
+      Map.entry("yugabytedb", "org.hibernate.dialect.PostgreSQLDialect"),
       // In hibernate-community-dialects, which SQLite projects add.
-      "sqlite", "org.hibernate.community.dialect.SQLiteDialect");
+      Map.entry("sqlite", "org.hibernate.community.dialect.SQLiteDialect"),
+      Map.entry("hsqldb", "org.hibernate.dialect.HSQLDialect"));
 
   /**
    * Hibernate 5 dialects, as its resolver picks them for current database versions; its
    * unversioned MySQLDialect and PostgreSQLDialect describe very old servers.
    */
-  private static final Map<String, String> HIBERNATE5_DIALECTS = Map.of(
-      "postgresql", "org.hibernate.dialect.PostgreSQL10Dialect",
-      "mysql", "org.hibernate.dialect.MySQL8Dialect",
-      "mariadb", "org.hibernate.dialect.MariaDB103Dialect",
-      "tidb", "org.hibernate.dialect.MySQL8Dialect",
-      "sqlserver", "org.hibernate.dialect.SQLServer2012Dialect",
-      "oracle", "org.hibernate.dialect.Oracle12cDialect",
-      "h2", "org.hibernate.dialect.H2Dialect",
-      "cockroachdb", "org.hibernate.dialect.CockroachDB201Dialect",
-      "yugabytedb", "org.hibernate.dialect.PostgreSQL10Dialect");
+  private static final Map<String, String> HIBERNATE5_DIALECTS = Map.ofEntries(
+      Map.entry("postgresql", "org.hibernate.dialect.PostgreSQL10Dialect"),
+      Map.entry("mysql", "org.hibernate.dialect.MySQL8Dialect"),
+      Map.entry("mariadb", "org.hibernate.dialect.MariaDB103Dialect"),
+      Map.entry("tidb", "org.hibernate.dialect.MySQL8Dialect"),
+      Map.entry("sqlserver", "org.hibernate.dialect.SQLServer2012Dialect"),
+      Map.entry("oracle", "org.hibernate.dialect.Oracle12cDialect"),
+      Map.entry("h2", "org.hibernate.dialect.H2Dialect"),
+      Map.entry("cockroachdb", "org.hibernate.dialect.CockroachDB201Dialect"),
+      Map.entry("yugabytedb", "org.hibernate.dialect.PostgreSQL10Dialect"),
+      Map.entry("hsqldb", "org.hibernate.dialect.HSQLDialect"));
 
   private static final String CAMEL_CASE_TO_UNDERSCORES =
       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy";

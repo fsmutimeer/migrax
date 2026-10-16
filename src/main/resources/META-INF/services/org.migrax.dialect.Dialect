@@ -8,4 +8,5 @@ org.migrax.dialect.TidbDialect
 org.migrax.dialect.SqlServerDialect
 org.migrax.dialect.OracleDialect
 org.migrax.dialect.H2Dialect
+org.migrax.dialect.HsqldbDialect
 org.migrax.dialect.SqliteDialect

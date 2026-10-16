@@ -18,6 +18,9 @@ All notable changes to Migrax are listed here. The format follows
   `tidb_enable_check_constraint` (`migrax doctor` warns when it is off), `--keep-data` backs up
   with `CREATE TABLE ... LIKE`, and `--zero-downtime` can't split renames (no triggers or
   writable views). `verify` starts a throwaway TiDB container.
+- HSQLDB (HyperSQL 2.7 and newer), the 11th database: dialect `hsqldb`, recognized from
+  `jdbc:hsqldb:` URLs. The migration lock is a row in `migrax_lock`, so it also holds across
+  processes for file and server databases; `verify` replays the migrations in memory.
 
 ## [0.11.0] - 2026-10-16
 

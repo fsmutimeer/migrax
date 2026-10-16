@@ -70,6 +70,19 @@ class DatabaseEngineIT {
         database("YugabyteDB 2024.2", () -> new YugabyteWithPostgresDriver(
             "yugabytedb/yugabyte:2024.2.11.0-b36")
             .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+        // In memory: every connection of this JVM shares the database by its name.
+        DynamicTest.dynamicTest("HSQLDB 2.7", () -> {
+          Database hsqldb = new Database("jdbc:hsqldb:mem:migrax_it", "SA", "");
+          exerciseRunner(hsqldb);
+          exerciseGeneratedSchema(hsqldb);
+          exerciseProcedures(hsqldb);
+          exerciseCheckAndCommentChanges(hsqldb);
+          exerciseUnnamedCheck(hsqldb);
+          exerciseKeepData(hsqldb);
+          exerciseZeroDowntime(hsqldb);
+          exerciseScriptTimestamps(hsqldb);
+          exerciseSchemas(hsqldb);
+        }),
         DynamicTest.dynamicTest("SQLite", () -> {
           Path file = Files.createTempFile("migrax-it-", ".db");
           try {
@@ -196,12 +209,18 @@ class DatabaseEngineIT {
       // From the server, not the URL: CockroachDB is reached with the PostgreSQL driver.
       org.migrax.dialect.Dialect dialect =
           org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
+      // HyperSQL: Hibernate keeps Instant as timestamp, while annotation scanning (for
+      // projects without a JPA provider) writes timestamp with time zone, so the schema comes
+      // from Hibernate's mapping there, as it does in a Hibernate project.
+      org.migrax.model.ModelExtractor.Mode mode = dialect.id().equals("hsqldb")
+          ? org.migrax.model.ModelExtractor.Mode.HIBERNATE
+          : org.migrax.model.ModelExtractor.Mode.ANNOTATIONS;
       HibernateValidationTest.generateAndApply(connection, org.migrax.model.NamingStrategy.SPRING,
-          dialect, migrations.resolve("0100_entities.sql"));
+          dialect, migrations.resolve("0100_entities.sql"), mode);
       // The schema reader (used by drift and the first generate) must see exactly the
       // schema Migrax created on this engine.
       var expected = HibernateValidationTest.model(org.migrax.model.NamingStrategy.SPRING,
-          dialect, org.migrax.model.ModelExtractor.Mode.ANNOTATIONS);
+          dialect, mode);
       var actual = org.migrax.plugin.DatabaseSchemaReader.read(connection);
       assertEquals(List.of(), org.migrax.verify.SchemaComparator.compare(expected, actual,
           dialect.id()).stream().map(Object::toString).toList(), dialect.id());
@@ -432,6 +451,16 @@ class DatabaseEngineIT {
           /
           """;
       call = "BEGIN add_note('a; b'); END;";
+    } else if (url.startsWith("jdbc:hsqldb:")) {
+      script = """
+          CREATE TABLE note_log (id INT PRIMARY KEY, note VARCHAR(100));
+          CREATE PROCEDURE add_note(IN p_note VARCHAR(100))
+          MODIFIES SQL DATA
+          BEGIN ATOMIC
+            INSERT INTO note_log (id, note) SELECT COALESCE(MAX(id), 0) + 1, p_note FROM note_log;
+          END;
+          """;
+      call = "CALL add_note('a; b')";
     } else if (url.startsWith("jdbc:sqlite:")) {
       script = """
           CREATE TABLE note_log (id INTEGER PRIMARY KEY, note VARCHAR(100));
