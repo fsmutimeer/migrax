@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # main, and work branches so they are tested before they are merged.
+    branches: [main, 'feature/**', 'fix/**', 'refactor/**', 'chore/**', 'ci/**', 'test/**',
+      'release/**', 'hotfix/**']
   pull_request:
 
 jobs:
