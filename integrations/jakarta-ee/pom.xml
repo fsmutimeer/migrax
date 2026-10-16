@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-jakarta-ee</artifactId>
-  <version>0.12.0</version>
+  <version>0.12.1-SNAPSHOT</version>
   <name>Migrax for Jakarta EE</name>
   <description>
     Applies Migrax migrations when an application starts on a Jakarta EE server, using the data
@@ -20,7 +20,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.12.0</version>
+      <version>0.12.1-SNAPSHOT</version>
     </dependency>
     <!-- The server provides these. -->
     <dependency>

@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-junit</artifactId>
-  <version>0.12.0</version>
+  <version>0.12.1-SNAPSHOT</version>
   <name>Migrax for JUnit 5</name>
   <description>
     @MigraxTest migrates a test database before the tests and fails them when the entities
@@ -22,7 +22,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.12.0</version>
+      <version>0.12.1-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
