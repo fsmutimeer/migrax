@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migrax report: shop</title>
+<style>
+:root { --bg: #ffffff; --fg: #1f2328; --muted: #59636e; --line: #d1d9e0;
+  --card: #f6f8fa; --good: #1a7f37; --warn: #9a6700; --bad: #cf222e; --accent: #0969da;
+  color-scheme: light dark; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --line: #3d444d;
+    --card: #151b23; --good: #3fb950; --warn: #d29922; --bad: #f85149; --accent: #4493f8; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 26px; margin: 0; } h1 span { color: var(--muted); font-weight: 400; }
+h2 { font-size: 20px; margin: 40px 0 8px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--line); }
+h3 { font-size: 16px; margin: 24px 0 8px; }
+code, pre { font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px 12px; overflow-x: auto; white-space: pre-wrap; }
+a { color: var(--accent); }
+.meta { color: var(--muted); margin: 4px 0; }
+.note { color: var(--warn); } .good { color: var(--good); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px; margin: 24px 0 8px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 14px; border-top: 3px solid var(--line); }
+.card.good { border-top-color: var(--good); } .card.warn { border-top-color: var(--warn); }
+.card.bad { border-top-color: var(--bad); }
+.card .label { color: var(--muted); font-size: 13px; }
+.card .value { font-size: 26px; font-weight: 600; }
+.card .note { color: var(--muted); font-size: 13px; }
+nav { display: flex; gap: 16px; flex-wrap: wrap; margin: 16px 0;
+  border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+nav a { text-decoration: none; font-weight: 500; }
+table { width: 100%; border-collapse: collapse; margin: 8px 0; display: block;
+  overflow-x: auto; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line);
+  vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 13px; }
+.badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px;
+  font-weight: 600; border: 1px solid currentColor; white-space: nowrap; }
+.badge.applied, .badge.info { color: var(--good); }
+.badge.pending, .badge.outdated, .badge.warning { color: var(--warn); }
+.badge.failed, .badge.changed, .badge.missing, .badge.error { color: var(--bad); }
+.badge.skipped, .badge.unknown { color: var(--muted); }
+.finding { border: 1px solid var(--line); border-left: 4px solid var(--warn);
+  border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+.finding.error { border-left-color: var(--bad); }
+.finding.info { border-left-color: var(--good); }
+.finding p { margin: 6px 0; }
+.alert { border: 1px solid var(--bad); border-radius: 8px; padding: 4px 16px;
+  margin-top: 24px; } .alert h2 { border: 0; margin-top: 12px; }
+details.table { border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px;
+  margin: 12px 0; }
+details.table summary { cursor: pointer; font-size: 15px; }
+.comment { color: var(--muted); font-style: italic; }
+.extras { color: var(--muted); margin: 4px 0 0; padding-left: 20px; }
+pre.mermaid { background: transparent; border: 1px dashed var(--line); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+<header>
+<h1>Migrax report <span>shop</span></h1>
+<p class="meta">postgresql &middot; <code>jdbc:postgresql://localhost:5432/shop</code> &middot; 2026-10-16 08:00 UTC &middot; Migrax 0.11.0</p>
+</header>
+<div class="cards">
+<div class="card "><div class="label">Tables</div><div class="value">2</div><div class="note">from the entities</div></div>
+<div class="card warn"><div class="label">Migrations</div><div class="value">2</div><div class="note">1 applied, 1 pending</div></div>
+<div class="card warn"><div class="label">Lint findings</div><div class="value">1</div><div class="note">0 error(s), 1 warning(s)</div></div>
+<div class="card bad"><div class="label">Without a migration</div><div class="value">1</div><div class="note">entity change(s)</div></div>
+<div class="card warn"><div class="label">Drift</div><div class="value">1</div><div class="note">difference(s), migrations pending</div></div>
+</div>
+<nav><a href="#migrations">Migrations</a><a href="#lint">Lint</a><a href="#drift">Drift</a><a href="#schema">Schema</a></nav>
+<section id="changes" class="alert">
+<h2>Entity changes without a migration</h2>
+<p>Run <code>migrax generate</code> and commit the result.</p>
+<ul>
+<li>add column customer.phone</li>
+</ul>
+</section>
+<section id="migrations">
+<h2>Migrations</h2>
+<p class="meta">In <code>src/main/resources/db/migration</code></p>
+<table>
+<thead><tr><th>Migration</th><th>State</th><th>Detail</th><th>Lint</th></tr></thead>
+<tbody>
+<tr><td><code>0001_initial.sql</code></td><td><span class="badge applied">applied</span></td><td>applied 2026-10-16 08:00:00</td><td></td></tr>
+<tr><td><code>0002_drop_notes.sql</code></td><td><span class="badge pending">pending</span></td><td></td><td><a href="#lint">1</a></td></tr>
+</tbody>
+</table>
+</section>
+<section id="lint">
+<h2>Lint findings</h2>
+<p class="meta">Every migration file is checked. Silence a finding with <code>-- migrax:lint-ignore MX001</code> before the statement.</p>
+<div class="finding warning">
+<div class="head"><span class="badge warning">warning MX007</span> <code>src/main/resources/db/migration/0002_drop_notes.sql</code>, statement 1 <span class="badge pending">pending</span></div>
+<pre>ALTER TABLE customer DROP COLUMN notes</pre>
+<p>This deletes data.</p>
+<p><b>Fix:</b> Drop it later.</p>
+</div>
+</section>
+<section id="drift">
+<h2>Drift</h2>
+<p class="meta">1 migration(s) are pending; differences they cover are expected.</p>
+<p>Apply the pending migrations, then check again: what remains was changed outside the migrations.</p>
+<table>
+<thead><tr><th>Object</th><th>Difference</th></tr></thead>
+<tbody>
+<tr><td><code>customer.nickname</code></td><td>column exists in the database but not in the expected schema</td></tr>
+</tbody>
+</table>
+</section>
+<section id="schema">
+<h2>Schema</h2>
+<p class="meta">From the entities (Hibernate 7.2.0.Final mapping).</p>
+<pre class="mermaid">
+erDiagram
+  customer {
+    bigint id PK
+    varchar email UK
+  }
+  purchase_order {
+    bigint id PK
+    bigint customer_id FK
+    decimal total
+  }
+  customer |o--o{ purchase_order : &quot;customer_id&quot;
+</pre>
+<details class="table" id="table-customer" open>
+<summary><code>customer</code> <span class="meta">2 column(s)</span> <span class="comment">People who &lt;order&gt;</span></summary>
+<table>
+<thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Comment</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td><code>bigint</code></td><td><b>no</b></td><td></td><td>PK identity</td><td></td></tr>
+<tr><td><code>email</code></td><td><code>varchar(120)</code></td><td><b>no</b></td><td></td><td>UK</td><td>Where receipts go</td></tr>
+</tbody>
+</table>
+</details>
+<details class="table" id="table-purchase_order" open>
+<summary><code>purchase_order</code> <span class="meta">3 column(s)</span></summary>
+<table>
+<thead><tr><th>Column</th><th>Type</th><th>Null</th><th>Default</th><th>Key</th><th>Comment</th></tr></thead>
+<tbody>
+<tr><td><code>id</code></td><td><code>bigint</code></td><td><b>no</b></td><td></td><td>PK</td><td></td></tr>
+<tr><td><code>customer_id</code></td><td><code>bigint</code></td><td>yes</td><td></td><td>FK</td><td></td></tr>
+<tr><td><code>total</code></td><td><code>numeric(38,2)</code></td><td><b>no</b></td><td></td><td></td><td></td></tr>
+</tbody>
+</table>
+<ul class="extras">
+<li>Index <code>idx_order_customer</code> (customer_id)</li>
+<li>Foreign key <code>fk_order_customer</code> (customer_id) &rarr; <a href="#table-customer"><code>customer</code></a> (id)</li>
+<li>Check <code>chk_total</code>: <code>total &gt;= 0</code></li>
+</ul>
+</details>
+</section>
+</main>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: true, theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'neutral' });
+</script>
+</body>
+</html>

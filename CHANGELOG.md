@@ -16,6 +16,10 @@ All notable changes to Migrax are listed here. The format follows
   `.migrax/pending/` until `generate --contract` adds it to the migration folder. Column
   renames need PostgreSQL, MySQL, MariaDB or Oracle; table renames also work on SQL Server.
   See Guides > Zero-downtime changes.
+- `migrax report` (and `mvn migrax:report`) writes one HTML page for reviews and CI
+  artifacts: the schema with a diagram, entity changes without a migration, every migration
+  with its status and lint findings, and drift. The GitHub Action uploads it as the artifact
+  `migrax-report` and links it from its pull request comment (`report: false` turns it off).
 
 ### Changed
 

@@ -385,6 +385,32 @@ Reads the database schema and reports manual changes: missing or extra tables, c
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |
 
+### report
+
+```
+migrax report [--html <file>]
+```
+
+Writes one HTML page (default `migrax-report.html`) for reviews and CI artifacts: the schema with a diagram, entity changes that have no migration yet, every migration with its status and lint findings, and drift between the database and the snapshot. Parts that need the database are skipped when it can't be reached.
+
+| Option | Meaning |
+|---|---|
+| `--html <file>` | Where to write the page (default: migrax-report.html) |
+| `--env <name>` | Environment for migrations marked '-- migrax:env' |
+| `--schemas <a,b>` | Run for each schema (multi-tenant) |
+| `--dialect <name>` | postgresql, cockroachdb, mysql, mariadb, sqlserver, oracle, h2, sqlite |
+| `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
+| `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--url <jdbc-url>` | Database URL (default: application config) |
+| `--user <name>` | Database user |
+| `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
+| `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
+| `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--dir <path>` | Project folder (default: current folder) |
+
 ## Maintenance
 
 ### squash

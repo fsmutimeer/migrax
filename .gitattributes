@@ -8,6 +8,7 @@
 *.md text eol=lf
 *.sql text eol=lf
 *.sh text eol=lf
+*.html text eol=lf
 bin/migrax text eol=lf
 .github/ci/mvn text eol=lf
 *.cmd text eol=crlf

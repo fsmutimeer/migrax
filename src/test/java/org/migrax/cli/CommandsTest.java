@@ -936,4 +936,28 @@ class CommandsTest {
     assertTrue(combined.err().contains("--zero-downtime can't be combined with --keep-data."),
         combined.all());
   }
+
+  @Test
+  void reportWritesOnePageWithEverything() throws Exception {
+    setUp();
+    generateAndMigrate();
+    Path page = project.resolve("out/report.html");
+    Result report = cli("report", "--html", page.toString());
+    assertEquals(0, report.code(), report.all());
+    assertTrue(report.out().contains("1 table(s), 1 migration(s), 0 lint finding(s), "
+        + "no drift."), report.out());
+    String html = Files.readString(page);
+    assertTrue(html.contains("<code>0001_initial.sql</code></td><td><span class=\"badge "
+        + "applied\">applied</span>"), html);
+    assertTrue(html.contains("No drift: the database matches the snapshot."), html);
+    assertTrue(html.contains("erDiagram\n  sample_entity {"), html);
+
+    // Without a database, the page still has the schema and the migrations.
+    Files.writeString(project.resolve("src/main/resources/application.properties"), "");
+    Result offline = cli("report", "--html", page.toString());
+    assertEquals(0, offline.code(), offline.all());
+    html = Files.readString(page);
+    assertTrue(html.contains("No database URL is configured"), html);
+    assertTrue(html.contains("<span class=\"badge unknown\">not checked</span>"), html);
+  }
 }

@@ -16,7 +16,7 @@ final class Options {
       "--package", "--dir", "--locations", "--dialect", "--url", "--user", "--password",
       "--classpath", "--name", "--schema", "--action", "--naming", "--extractor", "--rename",
       "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table",
-      "--lock-timeout", "--password-file", "--env");
+      "--lock-timeout", "--password-file", "--env", "--html");
   /** Options without a value. */
   static final Set<String> FLAGS = Set.of(
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
@@ -31,6 +31,7 @@ final class Options {
     HELP.put("--dir", "--dir <path>            Project folder (default: current folder)");
     HELP.put("--package", "--package <name>        Entity package (default: MIGRAX_PACKAGE or pom groupId)");
     HELP.put("--name", "--name <name>           Migration file name (default: next number + description)");
+    HELP.put("--html", "--html <file>           Where to write the page (default: migrax-report.html)");
     HELP.put("--allow-destructive", "--allow-destructive     Allow drops and narrowing type changes");
     HELP.put("--drop", "--drop [<migration>]    Drop the backup tables (all, or one migration's)");
     HELP.put("--keep-data",
