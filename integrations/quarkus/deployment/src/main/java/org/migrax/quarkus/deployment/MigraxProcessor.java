@@ -56,16 +56,27 @@ class MigraxProcessor {
         DotName.createSimple("io.opentelemetry.api.OpenTelemetry"));
   }
 
-  /** Replays the startup migrations' metrics, only in applications with Micrometer. */
+  /**
+   * Metrics (replayed after startup) and spans of the migrations, only in applications with
+   * Micrometer or OpenTelemetry. Elsewhere their classes are kept out of the application, or a
+   * native build would fail on the missing types.
+   */
   @BuildStep
-  void metricsReplay(BuildProducer<AdditionalBeanBuildItem> beans,
+  void observability(BuildProducer<AdditionalBeanBuildItem> beans,
                      BuildProducer<ExcludedTypeBuildItem> excluded) {
-    String replay = "org.migrax.quarkus.MigraxMetricsReplay";
-    if (io.quarkus.bootstrap.classloading.QuarkusClassLoader
-        .isClassPresentAtRuntime("io.micrometer.core.instrument.MeterRegistry")) {
-      beans.produce(AdditionalBeanBuildItem.unremovableOf(replay));
+    optionalBean("org.migrax.quarkus.MigraxMetricsReplay",
+        "io.micrometer.core.instrument.MeterRegistry", beans, excluded);
+    optionalBean("org.migrax.quarkus.MigraxTracing", "io.opentelemetry.api.OpenTelemetry",
+        beans, excluded);
+  }
+
+  private static void optionalBean(String bean, String needs,
+                                   BuildProducer<AdditionalBeanBuildItem> beans,
+                                   BuildProducer<ExcludedTypeBuildItem> excluded) {
+    if (io.quarkus.bootstrap.classloading.QuarkusClassLoader.isClassPresentAtRuntime(needs)) {
+      beans.produce(AdditionalBeanBuildItem.unremovableOf(bean));
     } else {
-      excluded.produce(new ExcludedTypeBuildItem(replay));
+      excluded.produce(new ExcludedTypeBuildItem(bean));
     }
   }
 
