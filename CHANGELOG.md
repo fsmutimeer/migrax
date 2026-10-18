@@ -22,6 +22,11 @@ All notable changes to Migrax are listed here. The format follows
   HTML report as an artifact, and a comment on the merge or pull request (updated on each
   pipeline). See Guides > Continuous integration.
 
+### Changed
+
+- Migrax is now licensed under the Apache License 2.0 (with a `NOTICE` file). Releases up to
+  0.13.0 keep the MIT License they were published with.
+
 ### Fixed
 
 - `generate` no longer drops and re-adds a check constraint whose condition differs only in

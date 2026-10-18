@@ -17,7 +17,7 @@ LABEL org.opencontainers.image.title="Migrax" \
       org.opencontainers.image.description="Migrations for JPA and Hibernate projects" \
       org.opencontainers.image.source="https://github.com/fsmutimeer/migrax" \
       org.opencontainers.image.url="https://migrax.org/" \
-      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.version="${VERSION}"
 
 COPY bin/migrax /opt/migrax/bin/migrax

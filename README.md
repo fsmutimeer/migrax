@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/fsmutimeer/migrax?sort=semver)](https://github.com/fsmutimeer/migrax/releases)
 [![Docs](https://img.shields.io/badge/docs-migrax.org-e53935)](https://migrax.org/)
 ![Java 17+](https://img.shields.io/badge/java-17%2B-orange)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
 
 **Your entities change. Migrax writes the migration.**
 
@@ -95,4 +95,5 @@ Versions follow [Semantic Versioning](https://semver.org); changes are listed in
 
 ## License
 
-Migrax is released under the [MIT License](LICENSE).
+Migrax is released under the [Apache License 2.0](LICENSE). Releases up to 0.13.0 were published
+under the MIT License and keep it.
