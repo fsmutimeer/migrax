@@ -19,6 +19,11 @@ All notable changes to Migrax are listed here. The format follows
   `--sql` prints them as a script, `--json` for tools, exit code 2 when they differ. Also
   `mvn migrax:diff`. See Guides > Comparing databases.
 
+### Changed
+
+- Migrax is now licensed under the Apache License 2.0 (with a `NOTICE` file). Releases up to
+  0.13.0 keep the MIT License they were published with.
+
 ### Fixed
 
 - `generate` no longer drops and re-adds a check constraint whose condition differs only in

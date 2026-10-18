@@ -38,5 +38,13 @@
       <source>${project.basedir}/README.md</source>
       <outputDirectory>.</outputDirectory>
     </file>
+    <file>
+      <source>${project.basedir}/LICENSE</source>
+      <outputDirectory>.</outputDirectory>
+    </file>
+    <file>
+      <source>${project.basedir}/NOTICE</source>
+      <outputDirectory>.</outputDirectory>
+    </file>
   </files>
 </assembly>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The JDBC drivers the Migrax container image includes (copied to /opt/migrax/drivers).
-     Only drivers whose licenses allow bundling them with MIT-licensed Migrax; the docs show how
-     to add others (MySQL Connector/J, Oracle) in a derived image. -->
+     Only drivers whose licenses allow bundling them with Apache-2.0-licensed Migrax; the docs
+     show how to add others (MySQL Connector/J, Oracle) in a derived image. -->
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.migrax.docker</groupId>
