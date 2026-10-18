@@ -1,4 +1,6 @@
 ---
+seo_title: "Download Migrax"
+description: "Download the Migrax command line tool for Windows, macOS and Linux, with checksums for every release. Needs Java 17 or newer."
 hide:
   - navigation
 ---

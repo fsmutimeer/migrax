@@ -1,3 +1,7 @@
+---
+seo_title: "Zero-downtime database migrations"
+description: "Change the schema while the old and new application versions run together: expand and contract migrations generated from your entities."
+---
 # Zero-downtime changes
 
 New in Migrax 0.11.0.

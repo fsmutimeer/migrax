@@ -1,3 +1,7 @@
+---
+seo_title: "Database migrations with AI coding assistants (MCP)"
+description: "Let AI coding assistants inspect entity changes and preview migrations through the Migrax MCP server, in Claude Code, Codex, Gemini CLI, Copilot and Cursor."
+---
 # Using Migrax with AI assistants
 
 AI coding assistants can use Migrax directly: they read what changed, preview the SQL with its

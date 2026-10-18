@@ -1,3 +1,7 @@
+---
+seo_title: "Migration metrics and tracing"
+description: "Micrometer metrics and OpenTelemetry traces for database migrations, plus a pending-migrations gauge, in Spring Boot, Quarkus, Micronaut, Helidon and Jakarta EE."
+---
 # Metrics and tracing
 
 New in Migrax 0.13.0.

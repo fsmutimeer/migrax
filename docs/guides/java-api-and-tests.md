@@ -1,3 +1,7 @@
+---
+seo_title: "Java API and JUnit tests for database migrations"
+description: "Run Migrax from Java code, and test your migrations with JUnit 5: @MigraxTest gives each test a database with the migrations applied."
+---
 # Java API and JUnit tests
 
 New in Migrax 0.10.0.

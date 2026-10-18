@@ -1,3 +1,7 @@
+---
+seo_title: "Supported databases"
+description: "Migrax supports PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, CockroachDB, YugabyteDB, TiDB, SQLite, H2, HSQLDB and Derby."
+---
 # Databases
 
 | Database | Dialect name | Notes |

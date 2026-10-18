@@ -1,6 +1,11 @@
 {#- Landing page: used by docs/index.md through "template: home.html". -#}
 {% extends "main.html" %}
 
+{#- The page's own title only: the theme would add " - Migrax" to it. -#}
+{% block htmltitle %}
+  <title>{{ page.meta.seo_title }}</title>
+{% endblock %}
+
 {% block extrahead %}
   {{ super() }}
   {#- Before the first paint, so scroll-reveal elements don't flash. -#}

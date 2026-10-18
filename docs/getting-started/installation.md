@@ -1,3 +1,7 @@
+---
+seo_title: "Install Migrax"
+description: "Install the Migrax CLI on Windows, macOS or Linux with the installer, Homebrew, Scoop or the container image. Only Java 17 or newer is needed."
+---
 # Installation
 
 Migrax is a command line tool. It needs **Java 17 or newer**; nothing else has to be installed,

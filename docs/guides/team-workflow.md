@@ -1,3 +1,7 @@
+---
+seo_title: "Database migrations in a team"
+description: "Work on schema changes in parallel: what to commit, merging snapshots in git, migrations that share a number, and reviews of generated SQL."
+---
 # Working in a team
 
 ## What to commit

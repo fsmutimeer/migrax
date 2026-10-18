@@ -1,3 +1,7 @@
+---
+seo_title: "Naming strategies for tables and columns"
+description: "How Migrax matches Hibernate's table and column names: Spring, JPA, Micronaut and custom naming strategies."
+---
 # Naming strategies
 
 Hibernate turns entity and field names into table and column names, and each framework

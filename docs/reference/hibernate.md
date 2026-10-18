@@ -1,3 +1,7 @@
+---
+seo_title: "Supported JPA providers: Hibernate, EclipseLink, OpenJPA"
+description: "Migrax reads the mapping of Hibernate 4.0 to 7.4, EclipseLink and OpenJPA, so generated SQL matches what your provider expects."
+---
 # JPA providers
 
 With Hibernate 4 or newer in your project, Migrax asks **your Hibernate version itself** for

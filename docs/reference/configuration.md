@@ -1,3 +1,7 @@
+---
+seo_title: "Migrax configuration"
+description: "Migrax reads your application's own settings. All environment variables, migrax.properties keys and framework properties in one place."
+---
 # Configuration
 
 Most projects need no configuration: Migrax reads the settings your application already has.

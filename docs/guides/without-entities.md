@@ -1,3 +1,7 @@
+---
+seo_title: "SQL migrations without Java entities"
+description: "Apply hand-written SQL migrations in any project, such as Python, Node.js, Go or PHP, with history, checksums, locking and rollbacks."
+---
 # Using Migrax without Java entities
 
 Migrax can apply migrations you write yourself, in any project: Python, Node.js, Go, PHP, or a

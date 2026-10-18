@@ -1,3 +1,7 @@
+---
+seo_title: "Quarkus database migrations from Hibernate entities"
+description: "Generate and apply database migrations in Quarkus: the extension migrates before Hibernate ORM starts, in JVM and native mode, with health checks."
+---
 # Quarkus
 
 ## Command line

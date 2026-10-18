@@ -1,5 +1,5 @@
 site_name: Migrax
-site_description: Database migrations generated from your JPA entities, checked before they reach production.
+site_description: Database migrations generated from your JPA and Hibernate entities, with rollback scripts, lint checks and verification before they reach production.
 site_url: https://migrax.org/
 repo_url: https://github.com/fsmutimeer/migrax
 repo_name: fsmutimeer/migrax
@@ -54,6 +54,13 @@ theme:
 extra:
   # No "Made with Material for MkDocs" line in the footer.
   generator: false
+  # The keywords meta tag (overrides/main.html). Search engines rank on titles, descriptions and
+  # page text; this list only helps the few that still read it.
+  keywords: >-
+    database migrations, schema migrations, JPA migrations, Hibernate migrations, automatic
+    migrations, Java database migration tool, Spring Boot migrations, Quarkus migrations,
+    Micronaut, Helidon, Jakarta EE, SQL migration generator, rollback scripts, Maven plugin,
+    Gradle plugin, PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, zero-downtime migrations
 
 extra_css:
   - stylesheets/extra.css

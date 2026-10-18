@@ -1,3 +1,7 @@
+---
+seo_title: "Versioning and releases"
+description: "How Migrax versions are numbered, what changes between versions, and how releases and release candidates are published."
+---
 # Versioning and releases
 
 ## Semantic versioning

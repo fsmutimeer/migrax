@@ -1,3 +1,6 @@
+---
+description: "Java migrations, repeatable migrations, placeholders, environments, preconditions and other ways to shape migrations beyond the generated SQL."
+---
 # Advanced migrations
 
 ## Java migrations
