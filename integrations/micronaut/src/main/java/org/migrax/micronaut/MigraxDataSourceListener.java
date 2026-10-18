@@ -5,6 +5,7 @@ import io.micronaut.context.env.Environment;
 import io.micronaut.context.event.BeanCreatedEvent;
 import io.micronaut.context.event.BeanCreatedEventListener;
 import io.micronaut.core.naming.conventions.StringConvention;
+import org.migrax.runner.Databases;
 import org.migrax.runner.StartupMigrations;
 import org.migrax.util.Log;
 import jakarta.inject.Singleton;
@@ -26,7 +27,9 @@ import org.slf4j.LoggerFactory;
  * <p>Settings: {@code migrax.enabled} (default true), {@code migrax.datasource} (default
  * {@code default}), {@code migrax.locations} (default {@code db/migration}),
  * {@code migrax.java-package}, {@code migrax.resume}, {@code migrax.schemas} and
- * {@code migrax.placeholders.<name>}.
+ * {@code migrax.placeholders.<name>}. Further databases are data sources
+ * ({@code datasources.<name>.*}) with a block {@code migrax.databases.<name>.*} (see
+ * {@link org.migrax.runner.Databases}).
  */
 @Singleton
 @Requires(property = "migrax.enabled", notEquals = "false")
@@ -49,14 +52,17 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
   public DataSource onCreated(BeanCreatedEvent<DataSource> event) {
     DataSource dataSource = event.getBean();
     String name = event.getBeanIdentifier().getName();
-    String wanted = environment.getProperty("migrax.datasource", String.class).orElse("default");
-    if (!wanted.equals(name)) {
+    String database = databaseOf(name, environment);
+    if (database == null) {
       return dataSource;
     }
-    warnAboutSchemaGeneration();
-    Map<String, String> settings = settings(environment);
+    if (Databases.DEFAULT.equals(database)) {
+      warnAboutSchemaGeneration();
+    }
+    Map<String, String> settings = Databases.settings(database, settings(environment));
+    String prefix = Databases.DEFAULT.equals(database) ? "Migrax: " : "Migrax (" + database + "): ";
     if (!StartupMigrations.migratesAtStartup(settings)) {
-      LOG.info("Migrax: {}", StartupMigrations.notMigrating(unwrap(dataSource), settings,
+      LOG.info("{}{}", prefix, StartupMigrations.notMigrating(unwrap(dataSource), settings,
           environment.getClassLoader()));
       return dataSource;
     }
@@ -64,8 +70,8 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
     try {
       int applied = StartupMigrations.migrate(unwrap(dataSource), settings,
           environment.getClassLoader(),
-          MigraxListeners.find(context, settings, environment.getClassLoader()));
-      LOG.info("Migrax: {}", applied == 0 ? "schema is up to date"
+          MigraxListeners.find(context, settings, environment.getClassLoader(), database));
+      LOG.info("{}{}", prefix, applied == 0 ? "schema is up to date"
           : "applied " + applied + " migration(s) to data source '" + name + "'");
     } catch (Exception e) {
       throw new IllegalStateException("Migrax could not migrate data source '" + name + "': "
@@ -74,6 +80,38 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
       Log.setSink(previous);
     }
     return dataSource;
+  }
+
+  /**
+   * The database a data source belongs to: {@code default} for migrax.datasource (default
+   * {@code default}), the name of the migrax.databases block whose data source it is, or null.
+   */
+  static String databaseOf(String dataSourceName, Environment environment) {
+    String main = environment.getProperty("migrax.datasource", String.class).orElse("default");
+    if (main.equals(dataSourceName)) {
+      return Databases.DEFAULT;
+    }
+    Map<String, String> settings = settings(environment);
+    for (String database : Databases.names(settings)) {
+      if (Databases.dataSource(database, settings).equals(dataSourceName)) {
+        return database;
+      }
+    }
+    return null;
+  }
+
+  /** The data source name of a database ({@code datasources.<name>}). */
+  static String dataSourceName(String database, Environment environment) {
+    return Databases.DEFAULT.equals(database)
+        ? environment.getProperty("migrax.datasource", String.class).orElse("default")
+        : Databases.dataSource(database, settings(environment));
+  }
+
+  /** The databases: default first, then the migrax.databases blocks by name. */
+  static List<String> databases(Environment environment) {
+    List<String> names = new java.util.ArrayList<>(List.of(Databases.DEFAULT));
+    names.addAll(Databases.names(settings(environment)));
+    return names;
   }
 
   /** The {@code migrax.*} settings, with their full keys. */

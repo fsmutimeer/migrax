@@ -6,6 +6,18 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Several databases per application: a block `migrax.databases.<name>.*` (data source,
+  folders, Java package, schemas, placeholders) migrates a further database at startup, in the
+  Spring Boot, Quarkus (also native), Micronaut, Helidon and Jakarta EE integrations. Health
+  checks report every database. See Guides > Several databases.
+
+### Changed
+
+- Every metric has the tag `database` (`default`, or the name of a further database), and
+  spans the attribute `migrax.database`. Queries without the tag keep working.
+
 ## [0.14.0] - 2026-10-18
 
 ### Added

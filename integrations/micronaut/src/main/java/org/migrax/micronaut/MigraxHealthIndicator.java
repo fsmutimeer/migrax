@@ -16,8 +16,9 @@ import javax.sql.DataSource;
 import org.reactivestreams.Publisher;
 
 /**
- * The {@code migrax} health indicator: UP when every migration is applied and none failed or
- * changed, DOWN otherwise, with the counts as details. Active only when the application has
+ * The {@code migrax} health indicator: UP when every migration of every database is applied and
+ * none failed or changed, DOWN otherwise, with the counts as details ({@code pending}, ...;
+ * {@code billing.pending}, ... for a further database). Active only when the application has
  * micronaut-management.
  */
 @Singleton
@@ -34,27 +35,35 @@ public class MigraxHealthIndicator implements HealthIndicator {
 
   @Override
   public Publisher<HealthResult> getResult() {
-    HealthResult result;
-    try {
-      StartupMigrations.Status status = status(environment, beanContext);
-      Map<String, Object> details = new LinkedHashMap<>();
-      details.put("applied", status.applied());
-      details.put("pending", status.pending());
-      details.put("problems", status.problems());
-      result = HealthResult.builder("migrax", status.upToDate() ? HealthStatus.UP
-          : HealthStatus.DOWN).details(details).build();
-    } catch (Exception e) {
-      result = HealthResult.builder("migrax", HealthStatus.DOWN).exception(e).build();
+    Map<String, Object> details = new LinkedHashMap<>();
+    boolean up = true;
+    Exception failure = null;
+    for (String database : MigraxDataSourceListener.databases(environment)) {
+      String key = org.migrax.runner.Databases.DEFAULT.equals(database) ? "" : database + ".";
+      try {
+        StartupMigrations.Status status = status(database, environment, beanContext);
+        details.put(key + "applied", status.applied());
+        details.put(key + "pending", status.pending());
+        details.put(key + "problems", status.problems());
+        up &= status.upToDate();
+      } catch (Exception e) {
+        details.put(key + "error", String.valueOf(e.getMessage()));
+        failure = failure == null ? e : failure;
+        up = false;
+      }
     }
-    return Publishers.just(result);
+    HealthResult.Builder result = HealthResult.builder("migrax",
+        up ? HealthStatus.UP : HealthStatus.DOWN).details(details);
+    return Publishers.just((failure == null ? result : result.exception(failure)).build());
   }
 
-  /** The status of the migrated data source ({@code migrax.datasource}, else the default). */
-  static StartupMigrations.Status status(Environment environment, BeanContext beanContext)
-      throws Exception {
-    String name = environment.getProperty("migrax.datasource", String.class).orElse("default");
-    DataSource dataSource = beanContext.getBean(DataSource.class, Qualifiers.byName(name));
+  /** The status of one database's data source. */
+  static StartupMigrations.Status status(String database, Environment environment,
+                                         BeanContext beanContext) throws Exception {
+    DataSource dataSource = beanContext.getBean(DataSource.class,
+        Qualifiers.byName(MigraxDataSourceListener.dataSourceName(database, environment)));
     return StartupMigrations.status(MigraxDataSourceListener.unwrap(dataSource),
-        MigraxDataSourceListener.settings(environment), environment.getClassLoader());
+        org.migrax.runner.Databases.settings(database,
+            MigraxDataSourceListener.settings(environment)), environment.getClassLoader());
   }
 }

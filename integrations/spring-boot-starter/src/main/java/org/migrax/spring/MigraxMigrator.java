@@ -38,11 +38,26 @@ public class MigraxMigrator implements InitializingBean {
   private final List<JavaMigration> javaMigrationBeans;
   private final Environment environment;
   private final List<String> basePackages;
+  private final String database;
+  private final List<MigraxMigrator> others = new ArrayList<>();
   private org.springframework.beans.factory.ListableBeanFactory beans;
 
   public MigraxMigrator(DataSource dataSource, MigraxProperties properties,
                         ResourcePatternResolver resources, List<JavaMigration> javaMigrationBeans,
                         Environment environment, List<String> basePackages) {
+    this(dataSource, properties, resources, javaMigrationBeans, environment, basePackages,
+        org.migrax.runner.Databases.DEFAULT);
+  }
+
+  /**
+   * The migrator of one database ({@code migrax.databases.<name>}).
+   *
+   * @since 0.15.0
+   */
+  public MigraxMigrator(DataSource dataSource, MigraxProperties properties,
+                        ResourcePatternResolver resources, List<JavaMigration> javaMigrationBeans,
+                        Environment environment, List<String> basePackages, String database) {
+    this.database = database;
     this.dataSource = dataSource;
     this.properties = properties;
     this.resources = resources;
@@ -61,6 +76,24 @@ public class MigraxMigrator implements InitializingBean {
     this.beans = beans;
   }
 
+  /** The database this migrator migrates: {@code default} or a name from migrax.databases. */
+  public String database() {
+    return database;
+  }
+
+  /**
+   * The further databases, migrated after this one; empty when the application has one.
+   *
+   * @since 0.15.0
+   */
+  public List<MigraxMigrator> others() {
+    return List.copyOf(others);
+  }
+
+  void addOther(MigraxMigrator other) {
+    others.add(other);
+  }
+
   /**
    * Whether the database is up to date with the packaged migrations and JavaMigration beans,
    * without changing anything; the health indicator reports it.
@@ -73,8 +106,15 @@ public class MigraxMigrator implements InitializingBean {
 
   @Override
   public void afterPropertiesSet() throws Exception {
+    migrateThis();
+    for (MigraxMigrator other : others) {
+      other.migrateThis();
+    }
+  }
+
+  private void migrateThis() throws Exception {
     if (!properties.isMigrateAtStartup()) {
-      LOG.info("Migrax: " + org.migrax.runner.StartupMigrations.notMigrating(this::status));
+      LOG.info(prefix() + org.migrax.runner.StartupMigrations.notMigrating(this::status));
       return;
     }
     Log.Sink previous = Log.setSink(new CommonsSink());
@@ -92,11 +132,11 @@ public class MigraxMigrator implements InitializingBean {
             properties.getJavaPackage()));
       }
       if (migrations.isEmpty() && javaMigrationBeans.isEmpty()) {
-        LOG.info("Migrax: no migrations found in " + properties.getLocations());
+        LOG.info(prefix() + "no migrations found in " + properties.getLocations());
         return;
       }
       List<org.migrax.api.MigrationListener> listeners = beans == null ? List.of()
-          : MigraxListeners.find(beans, properties, classLoader());
+          : MigraxListeners.find(beans, properties, classLoader(), database);
       for (Migrax.SchemaResult result : migrax(migrations, listeners).migrate().schemas()) {
         report(result.applied(), result.schema());
       }
@@ -105,8 +145,14 @@ public class MigraxMigrator implements InitializingBean {
     }
   }
 
+  /** "Migrax: ", or "Migrax (billing): " for a further database. */
+  private String prefix() {
+    return org.migrax.runner.Databases.DEFAULT.equals(database) ? "Migrax: "
+        : "Migrax (" + database + "): ";
+  }
+
   private void report(int applied, String schema) {
-    LOG.info("Migrax: " + (applied == 0 ? "schema is up to date"
+    LOG.info(prefix() + (applied == 0 ? "schema is up to date"
         : "applied " + applied + " migration(s)") + (schema == null ? "" : " in " + schema));
   }
 

@@ -1,5 +1,6 @@
 package org.migrax.quarkus;
 
+import org.migrax.runner.Databases;
 import org.migrax.runner.StartupMigrations;
 import org.migrax.util.Log;
 
@@ -18,7 +19,9 @@ import org.jboss.logging.Logger;
  *
  * <p>Settings: {@code migrax.enabled} (default true), {@code migrax.locations} (default
  * {@code db/migration}), {@code migrax.java-package}, {@code migrax.resume},
- * {@code migrax.schemas} and {@code migrax.placeholders.<name>}.
+ * {@code migrax.schemas} and {@code migrax.placeholders.<name>}. Further databases are named
+ * data sources ({@code quarkus.datasource.<name>.*}) with a block
+ * {@code migrax.databases.<name>.*} (see {@link org.migrax.runner.Databases}).
  */
 public final class MigraxStartup {
   private static final Logger LOG = Logger.getLogger("org.migrax");
@@ -40,24 +43,61 @@ public final class MigraxStartup {
     }
   }
 
-  /** Runs the migrations; separate from the event so it can be called directly. */
+  /** Runs the migrations of the default database; separate so it can be called directly. */
   public static int migrate(DataSource dataSource, Config config, ClassLoader loader)
       throws Exception {
-    Map<String, String> settings = settings(config);
+    return migrate(Databases.DEFAULT, dataSource, config, loader);
+  }
+
+  /**
+   * Runs the migrations of one database: {@code default} or a name from migrax.databases.
+   *
+   * @since 0.15.0
+   */
+  public static int migrate(String database, DataSource dataSource, Config config,
+                            ClassLoader loader) throws Exception {
+    Map<String, String> settings = Databases.settings(database, settings(config));
+    String prefix = prefix(database);
     if (!StartupMigrations.migratesAtStartup(settings)) {
-      LOG.info("Migrax: " + StartupMigrations.notMigrating(dataSource, settings, loader));
+      LOG.info(prefix + StartupMigrations.notMigrating(dataSource, settings, loader));
       return 0;
     }
     Log.Sink previous = Log.setSink(new JbossSink());
     try {
       int applied = StartupMigrations.migrate(dataSource, settings, loader,
-          MigraxListeners.find(settings));
-      LOG.info("Migrax: " + (applied == 0 ? "schema is up to date"
+          MigraxListeners.find(settings, database));
+      LOG.info(prefix + (applied == 0 ? "schema is up to date"
           : "applied " + applied + " migration(s)"));
       return applied;
     } finally {
       Log.setSink(previous);
     }
+  }
+
+  /** The databases to migrate: default first, then the migrax.databases blocks by name. */
+  static List<String> databases(Config config) {
+    List<String> names = new java.util.ArrayList<>(List.of(Databases.DEFAULT));
+    names.addAll(Databases.names(settings(config)));
+    return names;
+  }
+
+  /**
+   * The data source of a database: the default one, or the named data source
+   * ({@code quarkus.datasource.<name>.*}) that migrax.databases.<name>.datasource names;
+   * null when there is none.
+   */
+  static DataSource dataSource(String database, Config config) {
+    io.quarkus.arc.InjectableInstance<DataSource> instance = Databases.DEFAULT.equals(database)
+        ? io.quarkus.arc.Arc.container().select(DataSource.class)
+        : io.quarkus.arc.Arc.container().select(DataSource.class,
+            new io.quarkus.agroal.DataSource.DataSourceLiteral(
+                Databases.dataSource(database, settings(config))));
+    return instance.isResolvable() ? instance.get() : null;
+  }
+
+  /** "Migrax: ", or "Migrax (billing): " for a further database. */
+  static String prefix(String database) {
+    return Databases.DEFAULT.equals(database) ? "Migrax: " : "Migrax (" + database + "): ";
   }
 
   /** The {@code migrax.*} settings, with their full keys. */

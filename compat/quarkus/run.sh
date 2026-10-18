@@ -30,10 +30,12 @@ for _ in $(seq 1 60); do
   [[ -n $BODY ]] && break
   sleep 1
 done
+# The second database (migrax.databases.billing).
+BILLING="$(curl -s localhost:8080/billing || true)"
 kill "$PID" 2>/dev/null || true
 
-echo "$MODE: /notes -> ${BODY:-nothing}"
-if [[ $BODY != "from SQL,from Java" ]] || grep -qiE "WARN.*(migrax|MigraxReadinessCheck)" app.log; then
+echo "$MODE: /notes -> ${BODY:-nothing}, /billing -> ${BILLING:-nothing}"
+if [[ $BODY != "from SQL,from Java" || $BILLING != "billing_team,from Java" ]] || grep -qiE "WARN.*(migrax|MigraxReadinessCheck)" app.log; then
   cat app.log
   exit 1
 fi

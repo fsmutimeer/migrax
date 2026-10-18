@@ -21,7 +21,8 @@ public class MigraxMetrics {
   @Singleton
   @Named("migraxPendingGauge")
   MeterBinder migraxPendingGauge(Environment environment, BeanContext beanContext) {
-    return new PendingGauge(
-        () -> MigraxHealthIndicator.status(environment, beanContext).pending());
+    return registry -> MigraxDataSourceListener.databases(environment).forEach(database ->
+        new PendingGauge(() -> MigraxHealthIndicator.status(database, environment, beanContext)
+            .pending(), database).bindTo(registry));
   }
 }

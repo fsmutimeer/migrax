@@ -26,6 +26,16 @@ public final class CdiListeners {
    *     are there
    */
   public static List<MigrationListener> find(Map<String, String> settings, ClassLoader loader) {
+    return find(settings, loader, org.migrax.runner.Databases.DEFAULT);
+  }
+
+  /**
+   * The listeners of one database's run: metrics and spans name the database.
+   *
+   * @since 0.15.0
+   */
+  public static List<MigrationListener> find(Map<String, String> settings, ClassLoader loader,
+                                             String database) {
     List<MigrationListener> listeners = new ArrayList<>();
     CDI<Object> cdi;
     try {
@@ -36,11 +46,11 @@ public final class CdiListeners {
     cdi.select(MigrationListener.class).forEach(listeners::add);
     if (!"false".equalsIgnoreCase(settings.get("migrax.metrics.enabled"))
         && present("io.micrometer.core.instrument.MeterRegistry", loader)) {
-      Metrics.add(cdi, listeners);
+      Metrics.add(cdi, listeners, database);
     }
     if (!"false".equalsIgnoreCase(settings.get("migrax.tracing.enabled"))
         && present("io.opentelemetry.api.OpenTelemetry", loader)) {
-      Tracing.add(cdi, listeners);
+      Tracing.add(cdi, listeners, database);
     }
     return listeners;
   }
@@ -54,12 +64,22 @@ public final class CdiListeners {
    */
   public static void pendingGauge(Map<String, String> settings, ClassLoader loader,
                                   PendingGauge.Source pending) {
+    pendingGauge(settings, loader, pending, org.migrax.runner.Databases.DEFAULT);
+  }
+
+  /**
+   * The gauge of one database.
+   *
+   * @since 0.15.0
+   */
+  public static void pendingGauge(Map<String, String> settings, ClassLoader loader,
+                                  PendingGauge.Source pending, String database) {
     if ("false".equalsIgnoreCase(settings.get("migrax.metrics.enabled"))
         || !present("io.micrometer.core.instrument.MeterRegistry", loader)) {
       return;
     }
     try {
-      Metrics.gauge(CDI.current(), pending);
+      Metrics.gauge(CDI.current(), pending, database);
     } catch (IllegalStateException e) {
       // No CDI container: no registry to bind to.
     }
@@ -76,30 +96,30 @@ public final class CdiListeners {
 
   /** Loaded only when Micrometer is on the class path. */
   private static final class Metrics {
-    static void add(CDI<Object> cdi, List<MigrationListener> listeners) {
+    static void add(CDI<Object> cdi, List<MigrationListener> listeners, String database) {
       Instance<io.micrometer.core.instrument.MeterRegistry> registry =
           cdi.select(io.micrometer.core.instrument.MeterRegistry.class);
       if (registry.isResolvable()) {
-        listeners.add(new MicrometerListener(registry.get()));
+        listeners.add(new MicrometerListener(registry.get(), database));
       }
     }
 
-    static void gauge(CDI<Object> cdi, PendingGauge.Source pending) {
+    static void gauge(CDI<Object> cdi, PendingGauge.Source pending, String database) {
       Instance<io.micrometer.core.instrument.MeterRegistry> registry =
           cdi.select(io.micrometer.core.instrument.MeterRegistry.class);
       if (registry.isResolvable()) {
-        new PendingGauge(pending).bindTo(registry.get());
+        new PendingGauge(pending, database).bindTo(registry.get());
       }
     }
   }
 
   /** Loaded only when the OpenTelemetry API is on the class path. */
   private static final class Tracing {
-    static void add(CDI<Object> cdi, List<MigrationListener> listeners) {
+    static void add(CDI<Object> cdi, List<MigrationListener> listeners, String database) {
       Instance<io.opentelemetry.api.OpenTelemetry> openTelemetry =
           cdi.select(io.opentelemetry.api.OpenTelemetry.class);
       if (openTelemetry.isResolvable()) {
-        listeners.add(new OpenTelemetryListener(openTelemetry.get()));
+        listeners.add(new OpenTelemetryListener(openTelemetry.get(), database));
       }
     }
   }

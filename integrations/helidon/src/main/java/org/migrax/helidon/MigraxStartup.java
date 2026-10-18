@@ -1,5 +1,6 @@
 package org.migrax.helidon;
 
+import org.migrax.runner.Databases;
 import org.migrax.runner.StartupMigrations;
 import org.migrax.util.Log;
 import jakarta.annotation.Priority;
@@ -31,6 +32,8 @@ import org.eclipse.microprofile.config.ConfigProvider;
  * {@code migrax.locations} (default {@code db/migration}), {@code migrax.java-package},
  * {@code migrax.resume}, {@code migrax.schemas} and {@code migrax.placeholders.<name>}. Set
  * {@code hibernate.hbm2ddl.auto} in persistence.xml to none or validate; Migrax owns the schema.
+ * Further databases are data sources ({@code javax.sql.DataSource.<name>.*}) with a block
+ * {@code migrax.databases.<name>.*} (see {@link org.migrax.runner.Databases}).
  */
 @ApplicationScoped
 public class MigraxStartup {
@@ -47,24 +50,32 @@ public class MigraxStartup {
       return;
     }
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    String name = config.getOptionalValue("migrax.datasource", String.class)
-        .orElseGet(() -> StartupMigrations.persistenceUnitDataSource(loader));
-    DataSource dataSource = dataSource(name);
-    if (dataSource == null) {
-      return;
+    for (String database : databases(config)) {
+      String name = dataSourceName(database, config, loader);
+      DataSource dataSource = dataSource(name);
+      if (dataSource == null) {
+        continue;
+      }
+      migrate(database, name, dataSource, config, loader);
     }
-    Map<String, String> settings = settings(config);
+  }
+
+  private void migrate(String database, String name, DataSource dataSource, Config config,
+                       ClassLoader loader) throws Exception {
+    Map<String, String> settings = Databases.settings(database, settings(config));
+    String prefix = Databases.DEFAULT.equals(database) ? "Migrax: "
+        : "Migrax (" + database + "): ";
     org.migrax.observe.CdiListeners.pendingGauge(settings, loader,
-        () -> StartupMigrations.status(dataSource, settings, loader).pending());
+        () -> StartupMigrations.status(dataSource, settings, loader).pending(), database);
     if (!StartupMigrations.migratesAtStartup(settings)) {
-      LOG.info("Migrax: " + StartupMigrations.notMigrating(dataSource, settings, loader));
+      LOG.info(prefix + StartupMigrations.notMigrating(dataSource, settings, loader));
       return;
     }
     Log.Sink previous = Log.setSink(new JulSink());
     try {
       int applied = StartupMigrations.migrate(dataSource, settings, loader,
-          org.migrax.observe.CdiListeners.find(settings, loader));
-      LOG.info("Migrax: " + (applied == 0 ? "schema is up to date"
+          org.migrax.observe.CdiListeners.find(settings, loader, database));
+      LOG.info(prefix + (applied == 0 ? "schema is up to date"
           : "applied " + applied + " migration(s)"
               + (name == null ? "" : " to data source '" + name + "'")));
     } finally {
@@ -73,19 +84,41 @@ public class MigraxStartup {
   }
 
   /**
-   * Whether the database is up to date, without changing anything; the readiness check reports
-   * it. Uses the same data source as the migrations.
+   * Whether each database is up to date, without changing anything; the readiness check
+   * reports it. Uses the same data sources as the migrations.
    */
-  StartupMigrations.Status status() throws Exception {
+  Map<String, StartupMigrations.Status> statuses() throws Exception {
     Config config = ConfigProvider.getConfig();
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    String name = config.getOptionalValue("migrax.datasource", String.class)
-        .orElseGet(() -> StartupMigrations.persistenceUnitDataSource(loader));
-    DataSource dataSource = dataSource(name);
-    if (dataSource == null) {
-      throw new IllegalStateException("no data source to check; set migrax.datasource");
+    Map<String, StartupMigrations.Status> statuses = new LinkedHashMap<>();
+    for (String database : databases(config)) {
+      DataSource dataSource = dataSource(dataSourceName(database, config, loader));
+      if (dataSource == null) {
+        throw new IllegalStateException("no data source to check; set migrax.datasource");
+      }
+      statuses.put(database, StartupMigrations.status(dataSource,
+          Databases.settings(database, settings(config)), loader));
     }
-    return StartupMigrations.status(dataSource, settings(config), loader);
+    return statuses;
+  }
+
+  /** The databases: default first, then the migrax.databases blocks by name. */
+  private static List<String> databases(Config config) {
+    List<String> names = new java.util.ArrayList<>(List.of(Databases.DEFAULT));
+    names.addAll(Databases.names(settings(config)));
+    return names;
+  }
+
+  /**
+   * The data source name of a database: migrax.datasource or the one persistence.xml names for
+   * the default one (null: the only one), migrax.databases.<name>.datasource for the others.
+   */
+  private static String dataSourceName(String database, Config config, ClassLoader loader) {
+    if (!Databases.DEFAULT.equals(database)) {
+      return Databases.dataSource(database, settings(config));
+    }
+    return config.getOptionalValue("migrax.datasource", String.class)
+        .orElseGet(() -> StartupMigrations.persistenceUnitDataSource(loader));
   }
 
   private static Map<String, String> settings(Config config) {

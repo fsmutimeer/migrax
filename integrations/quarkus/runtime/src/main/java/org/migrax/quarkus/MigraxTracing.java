@@ -13,11 +13,12 @@ import java.util.Map;
 @Singleton
 public class MigraxTracing implements MigraxListeners.Source {
   @Override
-  public MigrationListener listener(Map<String, String> settings) {
+  public MigrationListener listener(Map<String, String> settings, String database) {
     if (!MigraxListeners.enabled(settings, "migrax.tracing.enabled")) {
       return null;
     }
     InjectableInstance<OpenTelemetry> openTelemetry = Arc.container().select(OpenTelemetry.class);
-    return openTelemetry.isResolvable() ? new OpenTelemetryListener(openTelemetry.get()) : null;
+    return openTelemetry.isResolvable()
+        ? new OpenTelemetryListener(openTelemetry.get(), database) : null;
   }
 }

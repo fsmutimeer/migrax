@@ -1,5 +1,6 @@
 package org.migrax.jakartaee;
 
+import org.migrax.runner.Databases;
 import org.migrax.runner.StartupMigrations;
 import org.migrax.util.Log;
 import jakarta.annotation.Priority;
@@ -31,7 +32,9 @@ import javax.sql.DataSource;
  * {@code migrax.resume}, {@code migrax.lock-timeout}, {@code migrax.schemas} and
  * {@code migrax.placeholders.<name>}. They are read from {@code migrax.properties} in the
  * application, MicroProfile Config where the server has it, {@code MIGRAX_*} environment
- * variables and system properties; each overrides the one before.
+ * variables and system properties; each overrides the one before. Further databases have a
+ * block {@code migrax.databases.<name>.*} in the same places, whose {@code datasource} is the
+ * JNDI name (see {@link org.migrax.runner.Databases}).
  */
 @ApplicationScoped
 public class MigraxStartup {
@@ -54,20 +57,38 @@ public class MigraxStartup {
     if (name == null) {
       LOG.warning("Migrax: no data source to migrate. Set migrax.datasource to its JNDI name, "
           + "or name one in persistence.xml. Migrations were not applied.");
-      return;
+    } else {
+      migrate(Databases.DEFAULT, name, settings, loader);
     }
-    DataSource dataSource = lookup(name);
+    for (String database : Databases.names(settings)) {
+      migrate(database, Databases.dataSource(database, settings), settings, loader);
+    }
+  }
+
+  private static void migrate(String database, String name, Map<String, String> all,
+                              ClassLoader loader) throws Exception {
+    Map<String, String> settings = Databases.settings(database, all);
+    String prefix = Databases.DEFAULT.equals(database) ? "Migrax: "
+        : "Migrax (" + database + "): ";
+    DataSource dataSource;
+    try {
+      dataSource = lookup(name);
+    } catch (NamingException | RuntimeException e) {
+      throw new IllegalStateException(prefix + "no data source with the JNDI name '" + name
+          + "' (" + e + "). Set migrax." + (Databases.DEFAULT.equals(database) ? ""
+          : "databases." + database + ".") + "datasource to its JNDI name.", e);
+    }
     org.migrax.observe.CdiListeners.pendingGauge(settings, loader,
-        () -> StartupMigrations.status(dataSource, settings, loader).pending());
+        () -> StartupMigrations.status(dataSource, settings, loader).pending(), database);
     if (!StartupMigrations.migratesAtStartup(settings)) {
-      LOG.info("Migrax: " + StartupMigrations.notMigrating(dataSource, settings, loader));
+      LOG.info(prefix + StartupMigrations.notMigrating(dataSource, settings, loader));
       return;
     }
     Log.Sink previous = Log.setSink(new JulSink());
     try {
       int applied = StartupMigrations.migrate(dataSource, settings, loader,
-          org.migrax.observe.CdiListeners.find(settings, loader));
-      LOG.info("Migrax: " + (applied == 0 ? "schema is up to date"
+          org.migrax.observe.CdiListeners.find(settings, loader, database));
+      LOG.info(prefix + (applied == 0 ? "schema is up to date"
           : "applied " + applied + " migration(s) to data source '" + name + "'"));
     } finally {
       Log.setSink(previous);
