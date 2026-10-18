@@ -1,9 +1,20 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.migrax</groupId>
+    <artifactId>migrax-parent</artifactId>
+    <version>0.13.1-SNAPSHOT</version>
+    <relativePath>parent/pom.xml</relativePath>
+  </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax</artifactId>
   <version>0.13.1-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
+  <name>Migrax</name>
+  <description>
+    Generates SQL migrations from JPA entities and applies them: the command line tool, the
+    Java API and the Maven plugin.
+  </description>
 
   <properties>
     <maven.compiler.release>17</maven.compiler.release>

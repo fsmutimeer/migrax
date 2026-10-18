@@ -5,7 +5,7 @@
 ```kotlin title="settings.gradle.kts"
 pluginManagement {
     repositories {
-        mavenLocal()
+        mavenCentral()
         gradlePluginPortal()
     }
 }
@@ -17,13 +17,14 @@ plugins {
     id("org.migrax") version "0.13.0"
 }
 
+repositories {
+    mavenCentral()          // the plugin loads the Migrax library from here
+}
+
 migrax {
     packageName.set("com.example.shop")   // optional; defaults to the project group
 }
 ```
-
-Install the plugin into your local Maven repository first (see
-[Getting the integration libraries](index.md)).
 
 ## Tasks
 

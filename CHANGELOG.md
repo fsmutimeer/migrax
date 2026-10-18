@@ -21,6 +21,9 @@ All notable changes to Migrax are listed here. The format follows
 - GitLab CI and Bitbucket Pipelines templates: `check`, lint of new or changed migrations, the
   HTML report as an artifact, and a comment on the merge or pull request (updated on each
   pipeline). See Guides > Continuous integration.
+- Published on Maven Central: the library and Maven plugin `org.migrax:migrax`, the framework
+  integrations, `migrax-junit` and the Gradle plugin `org.migrax`, with sources, javadoc and
+  signatures. Builds no longer need to install Migrax from the source first.
 
 ### Changed
 
