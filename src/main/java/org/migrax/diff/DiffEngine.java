@@ -87,12 +87,12 @@ public final class DiffEngine {
 
       // A check whose condition changed has a new name: the old one goes, the new one comes.
       for (SchemaModel.Check oldCheck : oldTable.checks()) {
-        if (!newTable.checks().contains(oldCheck)) {
+        if (newTable.checks().stream().noneMatch(c -> SchemaModel.sameCheck(c, oldCheck))) {
           drops.add(new DropCheck(newTable.name(), oldCheck.name()));
         }
       }
       for (SchemaModel.Check newCheck : newTable.checks()) {
-        if (!oldTable.checks().contains(newCheck)) {
+        if (oldTable.checks().stream().noneMatch(c -> SchemaModel.sameCheck(c, newCheck))) {
           adds.add(new AddCheck(newTable.name(), newCheck));
         }
       }

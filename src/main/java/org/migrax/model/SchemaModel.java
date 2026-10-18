@@ -361,6 +361,46 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
         .replace("!=", "<>").replaceAll("[\"`\\[\\]()\\s]", "");
   }
 
+  /**
+   * Whether two checks are the same constraint: the same name and condition, where spacing and
+   * parentheses around the whole condition don't count. Databases store conditions their own
+   * way ({@code (a >= 0)} comes back as {@code ((a >= 0))} on some), so two databases with the
+   * same check can report it differently. Inner parentheses still count:
+   * {@code (a or b) and c} is not {@code a or (b and c)}.
+   *
+   * @since 0.14.0
+   */
+  public static boolean sameCheck(Check a, Check b) {
+    return a.name().equalsIgnoreCase(b.name())
+        && unwrapped(a.expression()).equals(unwrapped(b.expression()));
+  }
+
+  private static String unwrapped(String condition) {
+    String text = condition.strip().replaceAll("\\s+", " ")
+        .replaceAll("\\s*([()])\\s*", "$1");
+    while (text.startsWith("(") && text.endsWith(")") && wrapsAll(text)) {
+      text = text.substring(1, text.length() - 1).strip();
+    }
+    return text;
+  }
+
+  /** Whether the first parenthesis closes at the very end. */
+  private static boolean wrapsAll(String text) {
+    int depth = 0;
+    boolean quoted = false;
+    for (int i = 0; i < text.length(); i++) {
+      char ch = text.charAt(i);
+      if (ch == '\'') {
+        quoted = !quoted;
+      } else if (!quoted && ch == '(') {
+        depth++;
+      } else if (!quoted && ch == ')' && --depth == 0 && i < text.length() - 1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /** Whether a check has the name Migrax gives a check without one. */
   public static boolean hasGeneratedName(String table, Check check) {
     return check.name().equals(checkConstraintName(table, check.expression()));

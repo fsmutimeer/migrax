@@ -425,6 +425,58 @@ class CommandsTest {
   }
 
   @Test
+  void diffComparesTwoDatabasesAndItsSqlMakesThemEqual() throws Exception {
+    setUp();
+    String source = "jdbc:h2:mem:commands_source_" + (++databases) + ";DB_CLOSE_DELAY=-1";
+    try (Connection connection = DriverManager.getConnection(source);
+         var statement = connection.createStatement()) {
+      statement.execute("CREATE TABLE customer (id BIGINT PRIMARY KEY, name VARCHAR(100) "
+          + "NOT NULL, email VARCHAR(200))");
+      statement.execute("CREATE INDEX idx_customer_email ON customer (email)");
+    }
+    execute("CREATE TABLE customer (id BIGINT PRIMARY KEY, name VARCHAR(50) NOT NULL, "
+        + "legacy VARCHAR(10))");
+
+    Result diff = cli("diff", source);
+    assertEquals(ExitCode.CHANGES_DETECTED, diff.code(), diff.all());
+    assertTrue(diff.out().replace("\r\n", "\n").startsWith("To make " + url + " match "
+        + source + ":\n4 change(s) for h2:\n"), diff.out());
+    assertTrue(diff.out().contains("drop column customer.legacy  [DESTRUCTIVE]"), diff.out());
+    assertTrue(diff.out().contains("add index idx_customer_email on customer"), diff.out());
+
+    Result json = cli("diff", source, "--json");
+    assertTrue(json.out().contains("\"kind\":\"add_column\""), json.out());
+
+    Result sql = cli("diff", source, "--sql");
+    assertEquals(ExitCode.CHANGES_DETECTED, sql.code(), sql.all());
+    try (Connection connection = DriverManager.getConnection(url);
+         var statement = connection.createStatement()) {
+      String script = sql.out().replace("\r\n", "\n").replaceAll("(?m)^--.*\n", "");
+      for (String sqlStatement : script.split(";\n")) {
+        if (!sqlStatement.isBlank()) {
+          statement.execute(sqlStatement);
+        }
+      }
+    }
+    Result same = cli("diff", source);
+    assertEquals(0, same.code(), same.all());
+    assertEquals("Same schema: " + url + " matches " + source + ".", same.out().strip());
+
+    Result missing = cli("diff");
+    assertEquals(1, missing.code());
+    assertTrue(missing.all().contains("Name the source database"), missing.all());
+  }
+
+  @Test
+  void diffHidesPasswordsInUrls() {
+    assertEquals("jdbc:postgresql://db/shop?user=a&password=***&ssl=true",
+        DiffCommand.masked("jdbc:postgresql://db/shop?user=a&password=secret&ssl=true"));
+    assertEquals("jdbc:sqlserver://db;user=a;password=***",
+        DiffCommand.masked("jdbc:sqlserver://db;user=a;password=secret"));
+    assertEquals("jdbc:mysql://a:***@db/shop", DiffCommand.masked("jdbc:mysql://a:secret@db/shop"));
+  }
+
+  @Test
   void driftReportsManualChanges() throws Exception {
     setUp();
     generateAndMigrate();

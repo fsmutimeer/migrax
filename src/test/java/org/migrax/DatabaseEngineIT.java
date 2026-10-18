@@ -259,8 +259,40 @@ class DatabaseEngineIT {
         container.url(), container.user(), container.password(), true, validate)) {
       HibernateValidationTest.persistAndQuery(factory, !validate, !yugabyte(container));
     }
+    exerciseDiff(container);
     exerciseClean(container);
     exerciseApi(container);
+  }
+
+  /**
+   * What migrax diff does, on each engine: the generated schema is read, the database emptied
+   * and rebuilt from the changes diff finds, and then diff must find nothing.
+   */
+  private static void exerciseDiff(Database database) throws Exception {
+    org.migrax.dialect.Dialect dialect;
+    org.migrax.model.SchemaModel source;
+    try (Connection connection = database.connect()) {
+      dialect = org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
+      source = org.migrax.plugin.DatabaseSchemaReader.read(connection);
+    }
+    clean(database);
+    Path file = Files.createTempDirectory("migrax-diff-it").resolve("0001_diff.sql");
+    try (Connection connection = database.connect()) {
+      org.migrax.model.SchemaModel empty = org.migrax.plugin.DatabaseSchemaReader.read(connection);
+      String sql = dialect.prepare(new org.migrax.diff.DiffEngine().diff(empty, source), empty,
+              source).stream().map(operation -> dialect.render(operation) + ";\n")
+          .collect(java.util.stream.Collectors.joining());
+      Files.writeString(file, sql);
+      try {
+        new MigrationRunner().migrate(connection, List.of(file));
+      } catch (Exception e) {
+        throw new AssertionError(dialect.id() + ": rebuilding failed:\n" + sql, e);
+      }
+      org.migrax.model.SchemaModel rebuilt =
+          org.migrax.plugin.DatabaseSchemaReader.read(connection);
+      assertEquals(List.of(), new org.migrax.diff.DiffEngine().diff(rebuilt, source).stream()
+          .map(dialect::render).toList(), dialect.id() + ": diff after rebuilding\n" + sql);
+    }
   }
 
   /** migrax clean leaves nothing behind: tables, foreign keys, views, sequences, history. */
