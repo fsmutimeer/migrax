@@ -6,6 +6,8 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-10-18
+
 ### Added
 
 - `migrax.migrate-at-startup=false` in the Spring Boot, Quarkus, Micronaut, Helidon and Jakarta
@@ -678,7 +680,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/fsmutimeer/migrax/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/fsmutimeer/migrax/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/fsmutimeer/migrax/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/fsmutimeer/migrax/compare/v0.10.0...v0.11.0

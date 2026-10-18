@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.13.1-SNAPSHOT</version>
+    <version>0.14.0</version>
     <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-gradle-plugin</artifactId>
-  <version>0.13.1-SNAPSHOT</version>
+  <version>0.14.0</version>
   <name>Migrax Gradle plugin</name>
   <description>Adds migraxGenerate, migraxMigrate and the other Migrax tasks to Gradle builds.</description>
 
