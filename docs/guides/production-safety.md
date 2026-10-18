@@ -1,3 +1,7 @@
+---
+seo_title: "Production-safe database migrations"
+description: "Prove a migration before it reaches production: lint rules for locks and data loss, verification on a throwaway database, drift checks and locking."
+---
 # Production safety
 
 Migrax is built around one idea: a migration should be proven before it runs in production.

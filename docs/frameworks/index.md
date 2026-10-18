@@ -1,3 +1,7 @@
+---
+seo_title: "Frameworks and build tools"
+description: "Migrax works with Spring Boot, Quarkus, Micronaut, Helidon, Jakarta EE and plain Hibernate, and as a Maven or Gradle plugin. Libraries on Maven Central."
+---
 # Frameworks and build tools
 
 Migrax doesn't depend on any framework. It reads your entities and talks to the database over

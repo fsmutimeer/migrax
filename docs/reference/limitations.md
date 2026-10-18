@@ -1,3 +1,7 @@
+---
+seo_title: "Limitations"
+description: "What Migrax doesn't do yet, and what to do instead."
+---
 # Limitations
 
 What Migrax doesn't do yet, and what to do instead.

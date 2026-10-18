@@ -1,3 +1,7 @@
+---
+seo_title: "Maven plugin for database migrations"
+description: "Run every Migrax command as a Maven goal: mvn migrax:generate, migrax:migrate, migrax:check and more, from Maven Central."
+---
 # Maven plugin
 
 Everything the command line does is also available as Maven goals, which is handy in CI or when

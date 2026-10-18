@@ -1,3 +1,7 @@
+---
+seo_title: "Error codes and JSON output"
+description: "Stable error codes MXE000 and up, and the JSON output of every command, for scripts, CI and tools."
+---
 # Errors and JSON output
 
 Every command can report its result as JSON with `--json`, and every error has a stable code.

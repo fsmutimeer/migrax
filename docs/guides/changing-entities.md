@@ -1,3 +1,7 @@
+---
+seo_title: "Changing JPA entities and generating migrations"
+description: "The everyday loop: change an entity, generate the migration, review the SQL, apply it. Renames, drops, type changes and keeping data safe."
+---
 # Changing entities
 
 The everyday loop is short:

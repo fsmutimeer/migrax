@@ -1,3 +1,7 @@
+---
+seo_title: "Micronaut database migrations"
+description: "Generate and apply database migrations in Micronaut 4 and 5, with Micronaut Data or JPA, migrating at startup with health and metrics."
+---
 # Micronaut
 
 Micronaut 4 and 5 are supported.

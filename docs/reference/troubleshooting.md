@@ -1,3 +1,7 @@
+---
+seo_title: "Troubleshooting Migrax"
+description: "Fix common problems: migrax doctor, the build, entities not found, database connections, locks and checksum mismatches."
+---
 # Troubleshooting
 
 Start with `migrax doctor`: it checks Java, the build, the entities, the database connection

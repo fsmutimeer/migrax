@@ -1,3 +1,7 @@
+---
+seo_title: "How Migrax works"
+description: "How Migrax turns JPA entities into SQL migrations: the entity model, the committed snapshot, the diff, rollback scripts, history, checksums and locking."
+---
 # How Migrax works
 
 ## The pieces

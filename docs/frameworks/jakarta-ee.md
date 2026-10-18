@@ -1,3 +1,7 @@
+---
+seo_title: "Jakarta EE and Hibernate database migrations"
+description: "Database migrations for Jakarta EE servers such as WildFly and Payara, and for plain Hibernate projects with persistence.xml."
+---
 # Jakarta EE and plain Hibernate
 
 Any project with JPA entities works, with or without an application framework.

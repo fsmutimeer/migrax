@@ -1,3 +1,7 @@
+---
+seo_title: "Database migration rollbacks and recovery"
+description: "Roll back migrations with their generated rollback scripts, keep dropped data in backup tables, and recover from a failed or interrupted migration."
+---
 # Rollbacks and recovery
 
 ## Rolling back

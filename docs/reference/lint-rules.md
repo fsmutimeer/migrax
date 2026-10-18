@@ -1,3 +1,7 @@
+---
+seo_title: "SQL migration lint rules"
+description: "The lint rules Migrax checks migrations against: table locks, NOT NULL columns, type changes, drops and other risky SQL, each with a safer alternative."
+---
 # Lint rules
 
 Migrax lints every migration it generates, and `migrax lint` checks pending migrations (or

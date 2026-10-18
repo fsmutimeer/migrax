@@ -1,3 +1,7 @@
+---
+seo_title: "Spring Boot database migrations from JPA entities"
+description: "Generate and apply database migrations in Spring Boot: the CLI reads application.properties, and the starter migrates at startup before JPA."
+---
 # Spring Boot
 
 ## Command line

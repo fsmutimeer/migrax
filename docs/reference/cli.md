@@ -1,3 +1,7 @@
+---
+seo_title: "Migrax CLI commands"
+description: "Every migrax command and option: generate, migrate, rollback, status, check, lint, verify, drift, diff, report and more."
+---
 # CLI commands
 
 Run `migrax help <command>` for the same information in the terminal. Run every command from the

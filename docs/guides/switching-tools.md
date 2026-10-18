@@ -1,3 +1,7 @@
+---
+seo_title: "Switching from Flyway or Liquibase to Migrax"
+description: "Move a project from Flyway or Liquibase to Migrax: import the existing migrations and history, then generate new migrations from your entities."
+---
 # Switching from Flyway or Liquibase
 
 A project that already manages its database with Flyway or Liquibase can move to Migrax with

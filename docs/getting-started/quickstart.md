@@ -1,3 +1,7 @@
+---
+seo_title: "Quick start: your first generated migration"
+description: "Generate and apply your first database migration from JPA entities in about five minutes: init, generate, review the SQL and its rollback, migrate."
+---
 # Quick start
 
 This takes about five minutes. You need a service with JPA entities, a `pom.xml` or

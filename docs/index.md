@@ -1,7 +1,8 @@
 ---
-template: home.html
+seo_title: "Migrax: database migrations generated from JPA entities"
 title: Migrax
-description: Database migrations generated from your JPA entities, checked before they reach production.
+description: "Migrax writes SQL migrations from your JPA and Hibernate entities, with rollback scripts, lint checks and verification, for Spring Boot, Quarkus and more."
+template: home.html
 hide:
   - navigation
   - toc

@@ -1,3 +1,7 @@
+---
+seo_title: "Gradle plugin for database migrations"
+description: "The Migrax Gradle plugin: generate, check and apply database migrations from Gradle tasks, with the plugin ID org.migrax."
+---
 # Gradle plugin
 
 ## Setup

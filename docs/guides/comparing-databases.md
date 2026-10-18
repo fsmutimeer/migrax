@@ -1,3 +1,7 @@
+---
+seo_title: "Compare two database schemas"
+description: "Compare the schemas of two databases, such as staging and production, list the differences and print the SQL that makes them match: migrax diff."
+---
 # Comparing databases
 
 New in Migrax 0.14.0.

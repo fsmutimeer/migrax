@@ -1,3 +1,7 @@
+---
+seo_title: "Helidon database migrations"
+description: "Generate and apply database migrations in Helidon MP and SE: the CLI reads MicroProfile Config, and the integration migrates at startup."
+---
 # Helidon
 
 ## Helidon MP

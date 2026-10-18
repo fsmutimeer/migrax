@@ -1,3 +1,7 @@
+---
+seo_title: "Database migration checks in CI: GitHub Actions, GitLab CI, Bitbucket"
+description: "Check migrations in CI: entity changes without a migration, SQL lint, schema verification and an HTML report, with GitHub Actions, GitLab CI or Bitbucket."
+---
 # Continuous integration
 
 Three commands make a good CI gate:

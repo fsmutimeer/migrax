@@ -1,3 +1,7 @@
+---
+seo_title: "Database migrations in containers and Kubernetes"
+description: "Run migrations as their own step with the Migrax container image: Docker, Kubernetes Jobs, init containers, Helm, secrets and drivers."
+---
 # Containers and Kubernetes
 
 In container platforms, migrations usually run as their own step before the new version of
