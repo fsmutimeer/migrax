@@ -140,3 +140,10 @@ scripts/set-version.sh 0.2.0
 # update CHANGELOG.md, open a pull request, merge it, then:
 git tag -a v0.2.0 -m "Migrax 0.2.0" && git push origin v0.2.0
 ```
+
+Every published POM inherits from `parent/pom.xml`: the project details Maven Central requires
+(license, URL, developers, source repository) and the `release` profile (sources, javadoc,
+signatures, upload). The installed and published POMs are flattened, so they don't refer to the
+parent. For a stable version, the release workflow publishes everything to Maven Central with the
+repository secrets `CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY` and
+`GPG_PASSPHRASE`.

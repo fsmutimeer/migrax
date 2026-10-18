@@ -22,14 +22,10 @@ Build tools: [Maven plugin](maven.md) and [Gradle plugin](gradle.md).
 
 !!! info "Getting the integration libraries"
 
-    Migrax 0.13.0 is not published to Maven Central yet. Install the libraries into your local
-    Maven repository from the source:
-
-    ```bash
-    git clone https://github.com/fsmutimeer/migrax.git && cd migrax
-    mvn install                          # core library and Maven plugin
-    mvn install -f integrations/pom.xml  # framework integrations and Gradle plugin
-    ```
+    The libraries and both build plugins are on Maven Central from Migrax 0.14.0 on: add the
+    dependency or plugin shown on each page, and Maven or Gradle downloads it. For 0.13.0 and
+    older, install them from the source instead (`mvn install`, then
+    `mvn install -f integrations/pom.xml`, in a clone of the repository).
 
 !!! note "Upgrading from 0.3 or older"
 

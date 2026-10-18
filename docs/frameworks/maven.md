@@ -17,9 +17,8 @@ you prefer not to install the CLI.
 </build>
 ```
 
-Install it into your local Maven repository first (see
-[Getting the integration libraries](index.md)). Goals compile the project and use its runtime
-classpath, so no other configuration is needed.
+Maven downloads it from Maven Central. Goals compile the project and use its runtime classpath,
+so no other configuration is needed.
 
 ## Goals
 
