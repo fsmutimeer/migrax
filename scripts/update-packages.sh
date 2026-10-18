@@ -4,8 +4,8 @@
 #   scripts/update-packages.sh <version> <zip-sha256> [work-dir]
 #
 # Clones fsmutimeer/homebrew-migrax and fsmutimeer/scoop-migrax over SSH (the release workflow
-# loads their deploy keys), rewrites the version, download URL and checksum, then commits and
-# pushes. Set MIGRAX_PACKAGES_DRY_RUN=1 to change the clones without pushing.
+# loads their deploy keys), rewrites the version, download URL, checksum and license, then
+# commits and pushes. Set MIGRAX_PACKAGES_DRY_RUN=1 to change the clones without pushing.
 set -euo pipefail
 
 VERSION="$1"
@@ -27,13 +27,15 @@ update() {
     git clone -q "${MIGRAX_PACKAGES_REMOTE:-git@github.com:fsmutimeer}/$repo.git" "$dir"
   case "$file" in
     *.rb)
-      sed -i -E "s#^  url \".*\"#  url \"$URL\"#; s#^  sha256 \".*\"#  sha256 \"$SHA256\"#" "$dir/$file"
+      sed -i -E "s#^  url \".*\"#  url \"$URL\"#; s#^  sha256 \".*\"#  sha256 \"$SHA256\"#; \
+s#^  license \".*\"#  license \"Apache-2.0\"#" "$dir/$file"
       ;;
     *.json)
       sed -i -E "s#^    \"version\": \".*\",#    \"version\": \"$VERSION\",#; \
 s#^    \"url\": \".*\",#    \"url\": \"$URL\",#; \
 s#^    \"hash\": \".*\",#    \"hash\": \"$SHA256\",#; \
-s#^    \"extract_dir\": \"migrax-[^\$\"]*\",#    \"extract_dir\": \"migrax-$VERSION\",#" "$dir/$file"
+s#^    \"extract_dir\": \"migrax-[^\$\"]*\",#    \"extract_dir\": \"migrax-$VERSION\",#; \
+s#^    \"license\": \".*\",#    \"license\": \"Apache-2.0\",#" "$dir/$file"
       ;;
   esac
   if ! grep -q "$SHA256" "$dir/$file" || ! grep -q "v$VERSION/migrax-$VERSION.zip" "$dir/$file"; then
