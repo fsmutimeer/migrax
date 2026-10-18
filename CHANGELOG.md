@@ -18,6 +18,9 @@ All notable changes to Migrax are listed here. The format follows
   example staging) with the project's database and lists the changes that would make it match;
   `--sql` prints them as a script, `--json` for tools, exit code 2 when they differ. Also
   `mvn migrax:diff`. See Guides > Comparing databases.
+- GitLab CI and Bitbucket Pipelines templates: `check`, lint of new or changed migrations, the
+  HTML report as an artifact, and a comment on the merge or pull request (updated on each
+  pipeline). See Guides > Continuous integration.
 
 ### Fixed
 

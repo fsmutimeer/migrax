@@ -1,0 +1,29 @@
+# Migrax for GitLab CI: checks that entity changes have migrations, lints the migrations a
+# merge request adds or changes, keeps the HTML report, and comments the results on the merge
+# request. Use it from .gitlab-ci.yml:
+#
+#   include:
+#     - remote: https://raw.githubusercontent.com/fsmutimeer/migrax/v0.14.0/ci/gitlab/migrax.gitlab-ci.yml
+#
+# Change the job by adding a "migrax:" job of your own with the keys to replace (image,
+# variables, stage). For the comment, add the CI/CD variable MIGRAX_COMMENT_TOKEN (masked): a
+# project access token with the api scope and the Reporter role. See
+# https://migrax.org/guides/ci/ for all settings.
+migrax:
+  image: maven:3.9-eclipse-temurin-21   # gradle:8-jdk21 for Gradle projects
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    MIGRAX_VERSION: "0.14.0"
+    MIGRAX_DIR: "."                     # folder with pom.xml or build.gradle
+    MIGRAX_FAIL_ON_LINT_WARNINGS: "false"
+  script:
+    - curl -fsSL --retry 3 -o /tmp/migrax-ci.sh
+      "https://raw.githubusercontent.com/fsmutimeer/migrax/v${MIGRAX_VERSION}/ci/migrax-ci.sh"
+    - sh /tmp/migrax-ci.sh
+  artifacts:
+    when: always
+    expose_as: Migrax report
+    paths:
+      - migrax-ci/migrax-report.html

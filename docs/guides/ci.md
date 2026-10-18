@@ -45,6 +45,89 @@ jobs:
 Outputs: `changes` (entity changes without a migration) and `findings` (lint findings in
 changed migrations).
 
+## GitLab CI
+
+New in Migrax 0.14.0.
+
+Include the Migrax job in `.gitlab-ci.yml`. It runs in merge request pipelines and does what the
+GitHub Action does: `check`, lint of the migrations the merge request adds or changes, the HTML
+report (shown as **Migrax report** on the merge request), and a comment with the results.
+
+```yaml title=".gitlab-ci.yml"
+include:
+  - remote: https://raw.githubusercontent.com/fsmutimeer/migrax/v0.14.0/ci/gitlab/migrax.gitlab-ci.yml
+```
+
+To change a setting, add a `migrax` job of your own with only the keys to replace:
+
+```yaml title=".gitlab-ci.yml"
+migrax:
+  image: gradle:8-jdk21          # the default is maven:3.9-eclipse-temurin-21
+  variables:
+    MIGRAX_DIR: services/orders  # folder with pom.xml or build.gradle
+```
+
+For the comment, Migrax needs a token:
+
+1. In the project, open **Settings > Access tokens** and add a token with the role
+   **Reporter** and the scope **api**.
+2. In **Settings > CI/CD > Variables**, add the variable `MIGRAX_COMMENT_TOKEN` with that token,
+   with **Mask variable** on.
+
+Without the token the job still runs and fails on problems; only the comment is left out. Each
+pipeline updates the same comment instead of adding a new one.
+
+## Bitbucket Pipelines
+
+New in Migrax 0.14.0.
+
+Copy this step into `bitbucket-pipelines.yml`. It runs for pull requests and does the same as
+the GitLab job; the report is in the pipeline's **Artifacts** tab, where Bitbucket keeps it for
+14 days.
+
+```yaml title="bitbucket-pipelines.yml"
+image: maven:3.9-eclipse-temurin-21   # gradle:8-jdk21 for Gradle projects
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Migrax
+          caches:
+            - maven
+          script:
+            - export MIGRAX_VERSION=0.14.0
+            - export MIGRAX_DIR=.       # folder with pom.xml or build.gradle
+            - curl -fsSL --retry 3 -o /tmp/migrax-ci.sh "https://raw.githubusercontent.com/fsmutimeer/migrax/v${MIGRAX_VERSION}/ci/migrax-ci.sh"
+            - sh /tmp/migrax-ci.sh
+          artifacts:
+            - migrax-ci/migrax-report.html
+```
+
+For the comment:
+
+1. In the repository, open **Repository settings > Access tokens** and create a token with the
+   permission **Pull requests: Write**.
+2. In **Repository settings > Repository variables**, add `MIGRAX_COMMENT_TOKEN` with that
+   token, with **Secured** on.
+
+### Settings
+
+Both templates run the same script, `ci/migrax-ci.sh` in the Migrax repository. It needs
+Java 17 or newer, `curl`, `git` and your build tool, so any Maven or Gradle image works. The
+Migrax container image has no build tool, so `check` can't compile the entities there.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MIGRAX_VERSION` | the template's version | Migrax version to download |
+| `MIGRAX_DIR` | `.` | Service folder |
+| `MIGRAX_REPORT` | `true` | Write the HTML report |
+| `MIGRAX_FAIL_ON_LINT_WARNINGS` | `false` | Fail on lint warnings, not only errors |
+| `MIGRAX_COMMENT_TOKEN` | none | Token for the comment; without it, no comment |
+
+The usual `MIGRAX_DATABASE_URL`, `MIGRAX_DATABASE_USER` and `MIGRAX_DATABASE_PASSWORD` work too:
+with a database, the report also shows which migrations are applied, and the drift.
+
 ## An HTML report
 
 `migrax report` writes one page for reviewers: the schema with a diagram of the tables, entity
