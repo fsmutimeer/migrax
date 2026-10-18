@@ -82,7 +82,8 @@ pipeline updates the same comment instead of adding a new one.
 New in Migrax 0.14.0.
 
 Copy this step into `bitbucket-pipelines.yml`. It runs for pull requests and does the same as
-the GitLab job; the report is in the pipeline's **Artifacts** tab.
+the GitLab job; the report is in the pipeline's **Artifacts** tab, where Bitbucket keeps it for
+14 days.
 
 ```yaml title="bitbucket-pipelines.yml"
 image: maven:3.9-eclipse-temurin-21   # gradle:8-jdk21 for Gradle projects
