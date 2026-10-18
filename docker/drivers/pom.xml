@@ -6,7 +6,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.migrax.docker</groupId>
   <artifactId>migrax-image-drivers</artifactId>
-  <version>0.13.1-SNAPSHOT</version>
+  <version>0.14.0</version>
   <packaging>pom</packaging>
 
   <dependencies>

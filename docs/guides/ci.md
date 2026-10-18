@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: fsmutimeer/migrax@v0.13.0
+      - uses: fsmutimeer/migrax@v0.14.0
         with:
           working-directory: .          # folder with pom.xml or build.gradle
           fail-on-lint-warnings: 'false'
