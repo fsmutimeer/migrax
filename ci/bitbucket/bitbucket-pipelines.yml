@@ -1,0 +1,23 @@
+# Migrax for Bitbucket Pipelines: checks that entity changes have migrations, lints the
+# migrations a pull request adds or changes, keeps the HTML report, and comments the results on
+# the pull request. Copy the step into your bitbucket-pipelines.yml.
+#
+# For the comment, add the secured repository variable MIGRAX_COMMENT_TOKEN: a repository
+# access token with the "Pull requests: Write" permission. See https://migrax.org/guides/ci/
+# for all settings.
+image: maven:3.9-eclipse-temurin-21   # gradle:8-jdk21 for Gradle projects
+
+pipelines:
+  pull-requests:
+    '**':
+      - step:
+          name: Migrax
+          caches:
+            - maven
+          script:
+            - export MIGRAX_VERSION=0.14.0
+            - export MIGRAX_DIR=.       # folder with pom.xml or build.gradle
+            - curl -fsSL --retry 3 -o /tmp/migrax-ci.sh "https://raw.githubusercontent.com/fsmutimeer/migrax/v${MIGRAX_VERSION}/ci/migrax-ci.sh"
+            - sh /tmp/migrax-ci.sh
+          artifacts:
+            - migrax-ci/migrax-report.html

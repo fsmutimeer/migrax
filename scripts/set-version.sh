@@ -7,7 +7,8 @@
 # Changes, in every pom.xml: the project's own version and the versions of org.migrax
 # artifacts (matched by an artifactId starting with "migrax", or the Gradle plugin marker
 # "org.migrax.gradle.plugin", so third-party versions are never touched). Also the Gradle plugin's fallback version and the CI Gradle smoke test. For a release,
-# the docs and README are moved from the latest release tag's version to the new one.
+# the docs, README, examples and the CI templates in ci/ are moved from the latest release
+# tag's version to the new one.
 set -euo pipefail
 
 NEW="${1:-}"
@@ -44,8 +45,10 @@ if [[ $NEW != *-* ]]; then
     # Lines saying when something arrived ("New in Migrax 0.13.0.", "From Migrax 0.3.0 on",
     # "published with Migrax 0.3.0 and newer") keep their version.
     history="(New in|[Ff]rom|[Ss]ince) Migrax $old|Migrax $old (and newer|or newer|and later|on\b)"
-    { find docs README.md -name '*.md' -print0; find examples -type f -print0; } \
+    { find docs README.md -name '*.md' -print0; find examples ci -type f -print0; } \
       | xargs -0 sed -i -E \
+      -e "s/(fsmutimeer\/migrax\/v)$old\//\1$NEW\//g" \
+      -e "s/(MIGRAX_VERSION[=: \"-]*)$old/\1$NEW/g" \
       -e "s/(<version>)$old(<\/version>)/\1$NEW\2/g" \
       -e "s/(org\.migrax:[a-z-]+:)$old/\1$NEW/g" \
       -e "s/(id\(\"org\.migrax\"\) version \")$old/\1$NEW/g" \
