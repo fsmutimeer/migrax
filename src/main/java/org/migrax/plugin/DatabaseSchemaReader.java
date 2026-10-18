@@ -230,7 +230,7 @@ public final class DatabaseSchemaReader {
           + "tc.CONSTRAINT_TYPE = 'CHECK' AND tc.TABLE_SCHEMA = ?", owner)) {
         // MariaDB's json type is longtext with a json_valid() check of its own.
         if (row[2] != null && !row[2].toLowerCase(Locale.ROOT).contains("json_valid(")) {
-          addCheck(checks, row[0], row[1], unwrapCheck(row[2]));
+          addCheck(checks, row[0], row[1], unwrapCheck(unescape(row[2])));
         }
       }
       for (String[] row : query(connection, "SELECT TABLE_NAME, NULL, TABLE_COMMENT FROM "
@@ -360,6 +360,25 @@ public final class DatabaseSchemaReader {
       comments.put(row[0].toLowerCase(Locale.ROOT)
           + (row[1] == null ? "" : "." + row[1].toLowerCase(Locale.ROOT)), row[2]);
     }
+  }
+
+  /**
+   * A check condition as MySQL reports it, with its quotes escaped
+   * ({@code email <> _utf8mb4\'\'}), back as SQL. Other databases report no backslashes there.
+   */
+  private static String unescape(String condition) {
+    if (condition.indexOf('\\') < 0) {
+      return condition;
+    }
+    StringBuilder sql = new StringBuilder(condition.length());
+    for (int i = 0; i < condition.length(); i++) {
+      char ch = condition.charAt(i);
+      if (ch == '\\' && i + 1 < condition.length()) {
+        ch = condition.charAt(++i);
+      }
+      sql.append(ch);
+    }
+    return sql.toString();
   }
 
   /** The condition of {@code CHECK (condition)} as databases report it. */
@@ -696,10 +715,11 @@ public final class DatabaseSchemaReader {
     if (columns.isEmpty()) {
       return null;
     }
+    // MySQL, MariaDB and TiDB call every primary key PRIMARY, a name no statement may use.
     return new SchemaModel.PrimaryKey(columns.entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
         .map(Map.Entry::getValue)
-        .toList(), constraintName);
+        .toList(), "PRIMARY".equals(constraintName) ? null : constraintName);
   }
 
   /**

@@ -10,7 +10,7 @@ service folder (the one with `pom.xml` or `build.gradle`), or pass `--dir <path>
 | `--dir <path>` | Project folder (default: current folder) |
 | `--no-build` | Do not run Maven/Gradle; use the classes and dependencies from the last build |
 | `--refresh` | Re-resolve dependencies even if cached |
-| `--json` | Machine-readable output (`plan`, `status`, `check`, `lint`, `drift`, `verify`) |
+| `--json` | Machine-readable output (`plan`, `status`, `check`, `lint`, `drift`, `diff`, `verify`) |
 | `--verbose`, `-v` | Show debug output, Hibernate's own log and stack traces |
 | `--no-input` | Never ask questions (the default when input is not a terminal) |
 
@@ -20,7 +20,7 @@ service folder (the one with `pom.xml` or `build.gradle`), or pass `--dir <path>
 |---|---|
 | `0` | Success |
 | `1` | Error, failed check, or failed migration |
-| `2` | Differences found: `check` (entity changes without a migration), `drift` (database differs) |
+| `2` | Differences found: `check` (entity changes without a migration), `drift` (database differs), `diff` (the two databases differ) |
 
 ## Getting started
 
@@ -185,7 +185,7 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 |---|---|
 | `--to <migration>` | Last migration to apply, keep or squash up to |
 | `--env <name>` | Environment for migrations marked '-- migrax:env' |
-| `--sql` | Print the SQL script instead of applying it (for a DBA) |
+| `--sql` | Print the SQL script without running it (for a DBA) |
 | `--dry-run` | Show what would happen without doing it |
 | `--json` | Machine-readable output |
 | `--resume` | Re-run a failed resume-safe migration |
@@ -381,6 +381,29 @@ Reads the database schema and reports manual changes: missing or extra tables, c
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
+| `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--dir <path>` | Project folder (default: current folder) |
+
+### diff
+
+```
+migrax diff <source-url> [--sql] [--json]
+```
+
+Compares the schema of the source database (for example staging) with the project's database (for example production; set it with `--url`) and lists the changes that would make the project's database match: tables, columns, types, keys, indexes, checks and comments. `--sql` prints them as one SQL script to review. Both must be the same kind of database. Exits with code 2 when they differ. The source's user and password come from `--source-user` and `--source-password-file`, `MIGRAX_SOURCE_USER` and `MIGRAX_SOURCE_PASSWORD`, or the URL itself.
+
+| Option | Meaning |
+|---|---|
+| `--sql` | Print the SQL script without running it (for a DBA) |
+| `--json` | Machine-readable output |
+| `--source-user <name>` | User of the source database |
+| `--source-password-file <path>` | Read the source database's password from a file |
+| `--schema <name>` | Database schema to read |
+| `--url <jdbc-url>` | Database URL (default: application config) |
+| `--user <name>` | Database user |
+| `--password <secret>` | Database password (prefer env vars) |
+| `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--dir <path>` | Project folder (default: current folder) |

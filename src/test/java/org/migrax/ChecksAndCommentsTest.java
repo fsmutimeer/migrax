@@ -70,6 +70,21 @@ class ChecksAndCommentsTest {
     assertEquals(((DropCheck) operations.get(0)).name(), ((AddCheck) back.get(1)).check().name());
   }
 
+  /** Databases store conditions their own way; only a different meaning is a change. */
+  @Test
+  void spacingAndOuterParenthesesAreNotAChange() {
+    SchemaModel.Check stored = new SchemaModel.Check("ck_c", "((balance >= 0))");
+    assertTrue(SchemaModel.sameCheck(stored, new SchemaModel.Check("CK_C", "balance >= 0")));
+    assertTrue(SchemaModel.sameCheck(new SchemaModel.Check("ck_c", "(a > 0) and (b > 0)"),
+        new SchemaModel.Check("ck_c", "(a > 0)  and (b > 0)")));
+    assertFalse(SchemaModel.sameCheck(new SchemaModel.Check("ck_c", "(a > 0) and (b > 0)"),
+        new SchemaModel.Check("ck_c", "a > 0) and (b > 0")));
+    assertFalse(SchemaModel.sameCheck(new SchemaModel.Check("ck_c", "(a or b) and c"),
+        new SchemaModel.Check("ck_c", "a or (b and c)")));
+    assertFalse(SchemaModel.sameCheck(new SchemaModel.Check("ck_c", "name <> 'a b'"),
+        new SchemaModel.Check("ck_c", "name <> 'ab'")));
+  }
+
   @Test
   void eachDatabaseGetsItsOwnSql() {
     SchemaModel.Check check = new SchemaModel.Check("ck_product_1", "price >= 0");

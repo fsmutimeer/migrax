@@ -14,6 +14,19 @@ All notable changes to Migrax are listed here. The format follows
 - Gauge `migrax.migrations.pending` (`migrax_migrations_pending`): how many migrations wait to
   run, in the same integrations when the application has Micrometer. Off with
   `migrax.metrics.enabled=false`. See Guides > Metrics and tracing.
+- `migrax diff <source-url>`: compares the schema of another database of the same kind (for
+  example staging) with the project's database and lists the changes that would make it match;
+  `--sql` prints them as a script, `--json` for tools, exit code 2 when they differ. Also
+  `mvn migrax:diff`. See Guides > Comparing databases.
+
+### Fixed
+
+- `generate` no longer drops and re-adds a check constraint whose condition differs only in
+  spacing or in parentheses around the whole condition (databases store conditions their own
+  way, for example Derby).
+- Check conditions read from MySQL keep valid SQL quotes (MySQL reports `''` as `\'\'`), and
+  MySQL, MariaDB and TiDB primary keys are no longer named `PRIMARY` when Migrax writes them
+  back.
 
 ## [0.13.0] - 2026-10-16
 

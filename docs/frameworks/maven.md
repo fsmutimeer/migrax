@@ -39,6 +39,7 @@ mvn migrax:status
 | `migrax:lint` | `migrax lint` |
 | `migrax:verify` | `migrax verify` |
 | `migrax:drift` | `migrax drift` |
+| `migrax:diff` | `migrax diff` (`-Dmigrax.source=<url>`) |
 | `migrax:report` | `migrax report` |
 | `migrax:rollback` | `migrax rollback` |
 | `migrax:repair` | `migrax repair` |

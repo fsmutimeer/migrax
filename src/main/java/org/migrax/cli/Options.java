@@ -16,7 +16,8 @@ final class Options {
       "--package", "--dir", "--locations", "--dialect", "--url", "--user", "--password",
       "--classpath", "--name", "--schema", "--action", "--naming", "--extractor", "--rename",
       "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table",
-      "--lock-timeout", "--password-file", "--env", "--html");
+      "--lock-timeout", "--password-file", "--env", "--html", "--source-user",
+      "--source-password-file");
   /** Options without a value. */
   static final Set<String> FLAGS = Set.of(
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
@@ -56,13 +57,16 @@ final class Options {
     HELP.put("--password-file",
         "--password-file <path>  Read the database password from a file (mounted secret)");
     HELP.put("--schema", "--schema <name>         Database schema to read");
+    HELP.put("--source-user", "--source-user <name>    User of the source database");
+    HELP.put("--source-password-file",
+        "--source-password-file <path>  Read the source database's password from a file");
     HELP.put("--schemas", "--schemas <a,b>         Run for each schema (multi-tenant)");
     HELP.put("--locations", "--locations <paths>     Migration folders, comma-separated (e.g. filesystem:db/sql)");
     HELP.put("--java-package", "--java-package <pkg>    Package of Java migrations (default: db.migration)");
     HELP.put("--classpath", "--classpath <paths>     Extra classpath; skips Maven/Gradle resolution");
     HELP.put("--no-build", "--no-build              Do not run Maven/Gradle; use compiled classes");
     HELP.put("--refresh", "--refresh               Re-resolve dependencies even if cached");
-    HELP.put("--sql", "--sql                   Print the SQL script instead of applying it (for a DBA)");
+    HELP.put("--sql", "--sql                   Print the SQL script without running it (for a DBA)");
     HELP.put("--dry-run", "--dry-run               Show what would happen without doing it");
     HELP.put("--allow-generate",
         "--allow-generate        Also offer the generate tool (writes migration files)");
