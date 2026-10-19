@@ -9,6 +9,7 @@ watch:
 exclude_docs: |
   requirements.txt
   downloads/releases.md
+  includes/
 copyright: Copyright &copy; 2026 Migrax contributors
 
 theme:

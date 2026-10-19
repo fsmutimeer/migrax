@@ -6,6 +6,17 @@ description: "Generate and apply database migrations in Micronaut 4 and 5, with 
 
 Micronaut 4 and 5 are supported.
 
+## What you need
+
+Migrax comes in two parts, and most projects use both:
+
+| Part | What it's for | How you get it |
+|---|---|---|
+| A tool for your terminal | Writing migrations from your entities (`generate`) and looking after them: `status`, `lint`, `verify`, `rollback` and the other commands | The Maven plugin, the Gradle plugin **or** the `migrax` command-line tool |
+| The startup library `migrax-micronaut` | Applying the pending migrations each time the application starts, before JPA | A dependency: see [Migrate at startup](#migrate-at-startup) |
+
+--8<-- "docs/includes/terminal-tool.md"
+
 ## Command line
 
 Migrax reads `application.yml` / `application.properties` and the environments in

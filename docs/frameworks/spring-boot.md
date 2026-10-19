@@ -4,6 +4,17 @@ description: "Generate and apply database migrations in Spring Boot: the CLI rea
 ---
 # Spring Boot
 
+## What you need
+
+Migrax comes in two parts, and most projects use both:
+
+| Part | What it's for | How you get it |
+|---|---|---|
+| A tool for your terminal | Writing migrations from your entities (`generate`) and looking after them: `status`, `lint`, `verify`, `rollback` and the other commands | The Maven plugin, the Gradle plugin **or** the `migrax` command-line tool |
+| The startup library `migrax-spring-boot-starter` | Applying the pending migrations each time the application starts, before JPA | A dependency: see [Migrate at startup](#migrate-at-startup) |
+
+--8<-- "docs/includes/terminal-tool.md"
+
 ## Command line
 
 Nothing to configure. Migrax reads the database settings from `application.properties` or
