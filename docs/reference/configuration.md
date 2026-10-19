@@ -53,7 +53,9 @@ in values are resolved from the environment.
 | Database to work on | `--database`, `MIGRAX_DATABASE`, `-Dmigrax.database` | the default database; others come from `migrax.databases.<name>.*` ([details](../guides/several-databases.md#the-command-line)) |
 
 Each migration folder is `classpath:<path>` (under `src/main/resources`) or
-`filesystem:<path>` (relative to the project folder). Several folders are separated by commas;
+`filesystem:<path>` (relative to the project folder). A folder without a prefix, such as
+`db/migration`, is a classpath folder, the same as when the application migrates at startup.
+Several folders are separated by commas;
 see [Several migration folders](../guides/advanced-migrations.md#several-migration-folders).
 
 ### Database connection from framework settings

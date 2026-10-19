@@ -90,8 +90,7 @@ public final class ProjectDatabaseConfig {
    * {@code _FILE}), then the block in the application config, then the framework's settings of
    * the data source the block names: Quarkus {@code quarkus.datasource.<ds>.*}, Micronaut
    * {@code datasources.<ds>.*}, Helidon {@code javax.sql.DataSource.<ds>.*}. They never fall
-   * back to the default database's. Folders without a prefix are classpath folders, as at
-   * startup; the default is {@code classpath:db/<name>}.
+   * back to the default database's. The default folder is {@code classpath:db/<name>}.
    *
    * @since 0.15.0
    */
@@ -122,20 +121,8 @@ public final class ProjectDatabaseConfig {
             dataSource, "DATASOURCE_PASSWORD", List.of()),
         prefixed(List.of(own + "password", quarkus + "password", micronaut + "password"),
             helidon, HELIDON_PASSWORD_KEYS), config);
-    String locations = overrides.get("locations");
-    if (locations == null || locations.isBlank()) {
-      String configured = firstNonBlank(databaseSetting(config, name, "locations"),
-          "db/" + name);
-      List<String> folders = new java.util.ArrayList<>();
-      for (String folder : configured.split(",")) {
-        if (!folder.isBlank()) {
-          String trimmed = folder.trim();
-          folders.add(trimmed.startsWith("classpath:") || trimmed.startsWith("filesystem:")
-              ? trimmed : "classpath:" + trimmed);
-        }
-      }
-      locations = String.join(",", folders);
-    }
+    String locations = firstNonBlank(overrides.get("locations"),
+        databaseSetting(config, name, "locations"), "classpath:db/" + name);
     return new Credentials(url, user, password, locations);
   }
 
@@ -732,6 +719,12 @@ public final class ProjectDatabaseConfig {
       throw new IllegalArgumentException(
           "Configure one migration directory in migrax.locations; multiple locations are not supported.");
     }
+    // Without a prefix a folder is on the classpath, as when the application migrates at
+    // startup; an absolute path can only be a folder on disk.
+    if (!configured.startsWith("classpath:") && !configured.startsWith("filesystem:")
+        && !absolute(configured)) {
+      configured = "classpath:" + configured;
+    }
     if (configured.startsWith("classpath:")) {
       String resourcePath = configured.substring("classpath:".length());
       while (resourcePath.startsWith("/")) {
@@ -755,6 +748,14 @@ public final class ProjectDatabaseConfig {
     }
     Path path = Path.of(configured);
     return (path.isAbsolute() ? path : projectDirectory.resolve(path)).normalize();
+  }
+
+  private static boolean absolute(String location) {
+    try {
+      return Path.of(location).isAbsolute();
+    } catch (java.nio.file.InvalidPathException e) {
+      return false;
+    }
   }
 
   /**

@@ -22,6 +22,11 @@ All notable changes to Migrax are listed here. The format follows
 
 - Every metric has the tag `database` (`default`, or the name of a further database), and
   spans the attribute `migrax.database`. Queries without the tag keep working.
+- A migration folder without a prefix (`migrax.locations=db/sql`, `--locations db/sql`) is now
+  a classpath folder (under `src/main/resources`) for the `migrax` command and the Maven and
+  Gradle goals too, the same as when the application migrates at startup. Before, the command
+  looked for it in the project folder. Write `filesystem:db/sql` for a folder outside the
+  resources; absolute paths are unchanged.
 
 ## [0.14.0] - 2026-10-18
 

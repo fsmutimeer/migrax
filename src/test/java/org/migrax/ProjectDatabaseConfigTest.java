@@ -150,6 +150,18 @@ class ProjectDatabaseConfigTest {
   }
 
   @Test
+  void aLocationWithoutPrefixIsAClasspathFolderAsAtStartup() {
+    Path project = resources.getParent();
+    assertEquals(resources.resolve("db/sql"),
+        ProjectDatabaseConfig.resolveMigrationDirectory("db/sql", project, resources));
+    assertEquals(project.resolve("db/sql"),
+        ProjectDatabaseConfig.resolveMigrationDirectory("filesystem:db/sql", project, resources));
+    Path absolute = project.resolve("elsewhere").toAbsolutePath();
+    assertEquals(absolute, ProjectDatabaseConfig.resolveMigrationDirectory(
+        absolute.toString(), project, resources));
+  }
+
+  @Test
   void readsMigraxSettingsFromApplicationProperties() throws Exception {
     Files.writeString(resources.resolve("application.properties"), """
         migrax.url=jdbc:postgresql://localhost:5432/current
