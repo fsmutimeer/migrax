@@ -18,7 +18,7 @@ pluginManagement {
 ```kotlin title="build.gradle.kts"
 plugins {
     java
-    id("org.migrax") version "0.14.0"
+    id("org.migrax") version "0.15.0"
 }
 
 repositories {
