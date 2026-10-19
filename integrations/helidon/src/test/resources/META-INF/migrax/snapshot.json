@@ -1,0 +1,15 @@
+{
+  "dialect": "h2",
+  "tables": [
+    {"name": "expected_only",
+      "columns": [
+        {"name":"id","sqlType":"integer","nullable":false,"length":null,"precision":null,"scale":null,"defaultValue":null,"unique":false,"identity":false,"sequenceName":null,"logicalType":"integer"}
+      ],
+      "primaryKey": {"columns":["id"],"constraintName":"constraint_e"},
+      "indexes": [],
+      "foreignKeys": []
+    }
+  ],
+  "sequences": []
+}
+

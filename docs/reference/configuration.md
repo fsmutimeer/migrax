@@ -38,6 +38,7 @@ in values are resolved from the environment.
 | Database password | `--password`, `MIGRAX_DATABASE_PASSWORD`, `migrax.password` | from the framework settings |
 | Secrets in files | `--password-file`, `MIGRAX_DATABASE_PASSWORD_FILE`, `MIGRAX_DATABASE_USER_FILE`, `MIGRAX_DATABASE_URL_FILE` | the file's content without its last line break; a value set directly wins |
 | Lock timeout | `--lock-timeout`, `MIGRAX_LOCK_TIMEOUT`, `-Dmigrax.lockTimeout`; `migrax.lock-timeout` in the startup integrations | `0` (fail at once); for example `30s`, `2m` |
+| Drift check at startup | `migrax.drift.check` in the startup integrations | `off`; `warn` logs, `fail` stops the start ([details](../guides/production-safety.md#drift-at-startup)) |
 | JDBC drivers without a project | `--classpath`, `MIGRAX_DRIVERS` (a folder of jars) | the `drivers` folder of the installation, if present |
 | Never allow `clean` | `MIGRAX_CLEAN_DISABLED=true` | allowed |
 | Entity package | `--package`, `MIGRAX_PACKAGE`, `migrax.package` | Maven `groupId` or Gradle `group` |

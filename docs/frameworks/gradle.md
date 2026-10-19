@@ -30,6 +30,10 @@ migrax {
 }
 ```
 
+The plugin also adds `.migrax/snapshot.json` to the application's resources as
+`META-INF/migrax/snapshot.json`, so the application can check for
+[drift at startup](../guides/production-safety.md#drift-at-startup).
+
 ## Tasks
 
 | Task | Same as |

@@ -18,6 +18,10 @@
     <finalName>app</finalName>
     <plugins>
       <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-war-plugin</artifactId><version>3.4.0</version></plugin>
+      <!-- Packages .migrax/snapshot.json for migrax.drift.check at startup. -->
+      <plugin><groupId>org.migrax</groupId><artifactId>migrax</artifactId><version>0.15.1-SNAPSHOT</version>
+        <executions><execution><goals><goal>package-snapshot</goal></goals></execution></executions>
+      </plugin>
     </plugins>
   </build>
 </project>

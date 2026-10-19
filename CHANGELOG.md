@@ -6,6 +6,22 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Drift at startup: `migrax.drift.check=warn` or `fail` makes the application compare the
+  database with the schema its migrations produce when it starts, in the Spring Boot, Quarkus,
+  Micronaut, Helidon and Jakarta EE integrations (`migrax.databases.<name>.drift.check` per
+  database). `warn` logs every difference, `fail` stops the start; the default is `off`. The
+  build puts `.migrax/snapshot.json` into the application: the Quarkus extension (also native)
+  and the Gradle plugin do it by themselves, Maven with the new goal `migrax:package-snapshot`.
+  See Guides > Production safety > Drift at startup.
+
+### Changed
+
+- `history` and `pending` can't be names of further databases (`migrax.databases.<name>`): the
+  `migrax` command keeps the default database's files in `.migrax/history/` and
+  `.migrax/pending/`, next to each further database's `.migrax/<name>/`.
+
 ## [0.15.0] - 2026-10-19
 
 ### Added

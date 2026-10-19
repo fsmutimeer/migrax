@@ -1,0 +1,16 @@
+{
+  "dialect": "postgresql",
+  "tables": [
+    {"name": "note",
+      "columns": [
+        {"name":"id","sqlType":"bigint","nullable":false,"length":null,"precision":null,"scale":null,"defaultValue":null,"unique":false,"identity":true,"sequenceName":null,"logicalType":"bigint"},
+        {"name":"body","sqlType":"varchar","nullable":false,"length":null,"precision":null,"scale":null,"defaultValue":null,"unique":false,"identity":false,"sequenceName":null,"logicalType":"varchar"}
+      ],
+      "primaryKey": {"columns":["id"],"constraintName":"note_pkey"},
+      "indexes": [],
+      "foreignKeys": []
+    }
+  ],
+  "sequences": []
+}
+

@@ -53,6 +53,7 @@ mvn migrax:status
 | `migrax:squash` | `migrax squash` |
 | `migrax:merge` | `migrax merge` |
 | `migrax:import` | `migrax import` (`-Dmigrax.from=flyway` or `liquibase`) |
+| `migrax:package-snapshot` | No command: copies `.migrax/snapshot.json` into the application for [drift at startup](../guides/production-safety.md#drift-at-startup) |
 
 ## Options
 

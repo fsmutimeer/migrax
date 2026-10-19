@@ -50,6 +50,38 @@ public final class StartupMigrations {
   }
 
   /**
+   * Compares the database with the schema its migrations produce, as {@code migrax.drift.check}
+   * says: {@code off} (the default) does nothing, {@code warn} logs every difference,
+   * {@code fail} throws so the application doesn't start. The expected schema is the snapshot
+   * the build packages as {@code META-INF/migrax/snapshot.json}
+   * ({@code META-INF/migrax/<database>/snapshot.json} for a further database). Skipped while
+   * migrations are pending or have problems: their changes would show as differences.
+   *
+   * @param database the database's name ({@link Databases}), or null for the default one
+   * @return the differences found; empty when there are none or the check didn't run
+   * @throws IllegalStateException with {@code fail}, when there are differences or no snapshot
+   * @since 0.16.0
+   */
+  public static List<org.migrax.verify.SchemaComparator.Difference> checkDrift(
+      DataSource dataSource, Map<String, String> settings, ClassLoader loader, String database)
+      throws Exception {
+    return DriftCheck.check(dataSource, settings, loader, database,
+        () -> status(dataSource, settings, loader));
+  }
+
+  /**
+   * The same check, with the migration status read by the caller: for integrations that find
+   * the migrations themselves.
+   *
+   * @since 0.16.0
+   */
+  public static List<org.migrax.verify.SchemaComparator.Difference> checkDrift(
+      DataSource dataSource, Map<String, String> settings, ClassLoader loader, String database,
+      java.util.concurrent.Callable<Status> status) throws Exception {
+    return DriftCheck.check(dataSource, settings, loader, database, status);
+  }
+
+  /**
    * Whether the application migrates at startup: yes, unless {@code migrax.migrate-at-startup}
    * is false (a pipeline or a DBA runs the migrations; health and metrics still report them).
    *

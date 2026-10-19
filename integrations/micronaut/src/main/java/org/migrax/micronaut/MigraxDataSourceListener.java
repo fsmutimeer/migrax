@@ -61,21 +61,30 @@ public class MigraxDataSourceListener implements BeanCreatedEventListener<DataSo
     }
     Map<String, String> settings = Databases.settings(database, settings(environment));
     String prefix = Databases.DEFAULT.equals(database) ? "Migrax: " : "Migrax (" + database + "): ";
-    if (!StartupMigrations.migratesAtStartup(settings)) {
-      LOG.info("{}{}", prefix, StartupMigrations.notMigrating(unwrap(dataSource), settings,
-          environment.getClassLoader()));
-      return dataSource;
-    }
     Log.Sink previous = Log.setSink(new Slf4jSink());
     try {
-      int applied = StartupMigrations.migrate(unwrap(dataSource), settings,
-          environment.getClassLoader(),
-          MigraxListeners.find(context, settings, environment.getClassLoader(), database));
-      LOG.info("{}{}", prefix, applied == 0 ? "schema is up to date"
-          : "applied " + applied + " migration(s) to data source '" + name + "'");
+      if (!StartupMigrations.migratesAtStartup(settings)) {
+        LOG.info("{}{}", prefix, StartupMigrations.notMigrating(unwrap(dataSource), settings,
+            environment.getClassLoader()));
+      } else {
+        try {
+          int applied = StartupMigrations.migrate(unwrap(dataSource), settings,
+              environment.getClassLoader(),
+              MigraxListeners.find(context, settings, environment.getClassLoader(), database));
+          LOG.info("{}{}", prefix, applied == 0 ? "schema is up to date"
+              : "applied " + applied + " migration(s) to data source '" + name + "'");
+        } catch (Exception e) {
+          throw new IllegalStateException("Migrax could not migrate data source '" + name
+              + "': " + e.getMessage(), e);
+        }
+      }
+      StartupMigrations.checkDrift(unwrap(dataSource), settings, environment.getClassLoader(),
+          database);
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
-      throw new IllegalStateException("Migrax could not migrate data source '" + name + "': "
-          + e.getMessage(), e);
+      throw new IllegalStateException("Migrax could not check data source '" + name
+          + "' for drift: " + e.getMessage(), e);
     } finally {
       Log.setSink(previous);
     }

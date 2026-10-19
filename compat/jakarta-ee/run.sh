@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Deploys the fixture WAR with the migrax-jakarta-ee integration (from the local Maven
 # repository) to an application server in Docker, and checks that Migrax applied the SQL and
-# the Java migration to the server's own data source before the first request.
+# the Java migration to the server's own data source before the first request, and that the
+# drift check found both databases matching the snapshots the Maven goal packaged.
 #
 #   compat/jakarta-ee/run.sh wildfly|payara
 #
@@ -52,3 +53,10 @@ if [[ $BODY != "from SQL,from Java" || $BILLING != "billing_team" ]]; then
   exit 1
 fi
 grep -E "Migrax: applied" server.log
+# migrax.drift.check=fail: the Maven goal packaged .migrax, and both databases match it.
+if [[ $(grep -c "no drift" server.log) != 2 ]]; then
+  echo "$SERVER: expected a drift check for both databases"
+  grep -iE "migrax" server.log | head -40
+  exit 1
+fi
+grep -E "no drift" server.log

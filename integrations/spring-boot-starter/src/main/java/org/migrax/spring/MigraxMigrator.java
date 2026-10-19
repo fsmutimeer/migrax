@@ -113,35 +113,46 @@ public class MigraxMigrator implements InitializingBean {
   }
 
   private void migrateThis() throws Exception {
-    if (!properties.isMigrateAtStartup()) {
-      LOG.info(prefix() + org.migrax.runner.StartupMigrations.notMigrating(this::status));
-      return;
-    }
     Log.Sink previous = Log.setSink(new CommonsSink());
     try {
-      Path devFolder = properties.getDev().isGenerate() ? generateForDevelopment() : null;
-      List<Migration> migrations = new ArrayList<>();
-      if (devFolder == null || !Files.isDirectory(devFolder)) {
-        migrations.addAll(loadPackaged());
+      if (!properties.isMigrateAtStartup()) {
+        LOG.info(prefix() + org.migrax.runner.StartupMigrations.notMigrating(this::status));
       } else {
-        // The source folder replaces its packaged copy; other locations come as packaged.
-        if (properties.getLocations().contains(",")) {
-          migrations.addAll(loadPackaged());
-        }
-        migrations.addAll(MigrationLoader.load(devFolder, classLoader(),
-            properties.getJavaPackage()));
+        migrateNow();
       }
-      if (migrations.isEmpty() && javaMigrationBeans.isEmpty()) {
-        LOG.info(prefix() + "no migrations found in " + properties.getLocations());
-        return;
+      Map<String, String> settings = new java.util.HashMap<>();
+      if (properties.getDrift().getCheck() != null) {
+        settings.put("migrax.drift.check", properties.getDrift().getCheck());
       }
-      List<org.migrax.api.MigrationListener> listeners = beans == null ? List.of()
-          : MigraxListeners.find(beans, properties, classLoader(), database);
-      for (Migrax.SchemaResult result : migrax(migrations, listeners).migrate().schemas()) {
-        report(result.applied(), result.schema());
-      }
+      settings.put("migrax.schemas", String.join(",", properties.getSchemas()));
+      org.migrax.runner.StartupMigrations.checkDrift(dataSource, settings, classLoader(),
+          database, this::status);
     } finally {
       Log.setSink(previous);
+    }
+  }
+
+  private void migrateNow() throws Exception {
+    Path devFolder = properties.getDev().isGenerate() ? generateForDevelopment() : null;
+    List<Migration> migrations = new ArrayList<>();
+    if (devFolder == null || !Files.isDirectory(devFolder)) {
+      migrations.addAll(loadPackaged());
+    } else {
+      // The source folder replaces its packaged copy; other locations come as packaged.
+      if (properties.getLocations().contains(",")) {
+        migrations.addAll(loadPackaged());
+      }
+      migrations.addAll(MigrationLoader.load(devFolder, classLoader(),
+          properties.getJavaPackage()));
+    }
+    if (migrations.isEmpty() && javaMigrationBeans.isEmpty()) {
+      LOG.info(prefix() + "no migrations found in " + properties.getLocations());
+      return;
+    }
+    List<org.migrax.api.MigrationListener> listeners = beans == null ? List.of()
+        : MigraxListeners.find(beans, properties, classLoader(), database);
+    for (Migrax.SchemaResult result : migrax(migrations, listeners).migrate().schemas()) {
+      report(result.applied(), result.schema());
     }
   }
 

@@ -136,6 +136,13 @@ public class MigraxProperties {
     return tracing;
   }
 
+  /** Comparing the database with the schema its migrations produce, at startup. */
+  private final Drift drift = new Drift();
+
+  public Drift getDrift() {
+    return drift;
+  }
+
   /**
    * Further databases, by name: {@code migrax.databases.billing.datasource=billingDataSource}
    * (the DataSource bean; default: the name itself), {@code locations} (default
@@ -172,6 +179,8 @@ public class MigraxProperties {
         ? database.getMigrateAtStartup() : migrateAtStartup);
     result.getMetrics().setEnabled(metrics.isEnabled());
     result.getTracing().setEnabled(tracing.isEnabled());
+    result.getDrift().setCheck(database.getDrift().getCheck() != null
+        ? database.getDrift().getCheck() : drift.getCheck());
     return result;
   }
 
@@ -274,6 +283,31 @@ public class MigraxProperties {
 
     public void setMigrateAtStartup(Boolean migrateAtStartup) {
       this.migrateAtStartup = migrateAtStartup;
+    }
+
+    /** Drift at startup for this database; default: the shared setting. */
+    private final Drift drift = new Drift();
+
+    public Drift getDrift() {
+      return drift;
+    }
+  }
+
+  /** {@code migrax.drift.check}: off (the default), warn or fail. */
+  public static class Drift {
+    /**
+     * Compare the database with the schema its migrations produce when the application starts:
+     * off, warn (log every difference) or fail (the application doesn't start). Needs the
+     * snapshot in the application as META-INF/migrax/snapshot.json.
+     */
+    private String check;
+
+    public String getCheck() {
+      return check;
+    }
+
+    public void setCheck(String check) {
+      this.check = check;
     }
   }
 

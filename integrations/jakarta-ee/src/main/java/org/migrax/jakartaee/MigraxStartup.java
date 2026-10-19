@@ -80,16 +80,17 @@ public class MigraxStartup {
     }
     org.migrax.observe.CdiListeners.pendingGauge(settings, loader,
         () -> StartupMigrations.status(dataSource, settings, loader).pending(), database);
-    if (!StartupMigrations.migratesAtStartup(settings)) {
-      LOG.info(prefix + StartupMigrations.notMigrating(dataSource, settings, loader));
-      return;
-    }
     Log.Sink previous = Log.setSink(new JulSink());
     try {
-      int applied = StartupMigrations.migrate(dataSource, settings, loader,
-          org.migrax.observe.CdiListeners.find(settings, loader, database));
-      LOG.info(prefix + (applied == 0 ? "schema is up to date"
-          : "applied " + applied + " migration(s) to data source '" + name + "'"));
+      if (!StartupMigrations.migratesAtStartup(settings)) {
+        LOG.info(prefix + StartupMigrations.notMigrating(dataSource, settings, loader));
+      } else {
+        int applied = StartupMigrations.migrate(dataSource, settings, loader,
+            org.migrax.observe.CdiListeners.find(settings, loader, database));
+        LOG.info(prefix + (applied == 0 ? "schema is up to date"
+            : "applied " + applied + " migration(s) to data source '" + name + "'"));
+      }
+      StartupMigrations.checkDrift(dataSource, settings, loader, database);
     } finally {
       Log.setSink(previous);
     }
