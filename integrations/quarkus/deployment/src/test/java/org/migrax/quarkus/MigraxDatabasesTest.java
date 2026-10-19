@@ -3,7 +3,7 @@ package org.migrax.quarkus;
 import db.billing.V0002__SeedInvoice;
 import db.migration.V0002__AddNote;
 import io.agroal.api.AgroalDataSource;
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.quarkus.test.QuarkusUnitTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -43,7 +43,7 @@ class MigraxDatabasesTest {
   MigraxReadinessCheck readiness;
 
   @Inject
-  MeterRegistry registry;
+  SimpleMeterRegistry registry;
 
   @Test
   void eachDatabaseGetsItsOwnMigrations() throws Exception {
