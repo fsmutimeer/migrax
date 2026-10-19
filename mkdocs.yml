@@ -129,6 +129,7 @@ nav:
       - Micronaut: frameworks/micronaut.md
       - Helidon: frameworks/helidon.md
       - Jakarta EE and plain Hibernate: frameworks/jakarta-ee.md
+      - Python, Node.js, Go and others: frameworks/any-language.md
       - Maven plugin: frameworks/maven.md
       - Gradle plugin: frameworks/gradle.md
   - Reference:

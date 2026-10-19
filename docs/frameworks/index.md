@@ -1,11 +1,19 @@
 ---
-seo_title: "Frameworks and build tools"
-description: "Migrax works with Spring Boot, Quarkus, Micronaut, Helidon, Jakarta EE and plain Hibernate, and as a Maven or Gradle plugin. Libraries on Maven Central."
+seo_title: "Frameworks, languages and build tools"
+description: "Migrax works with Spring Boot, Quarkus, Micronaut, Helidon, Jakarta EE and plain Hibernate, and applies hand-written SQL migrations for Python, Node.js, Go, .NET, PHP and Ruby."
 ---
 # Frameworks and build tools
 
-Migrax doesn't depend on any framework. It reads your entities and talks to the database over
-JDBC, so the command line works the same everywhere. What differs per framework is:
+Migrax doesn't depend on any framework, or on Java. It works in two ways:
+
+- **Any language:** you write SQL migrations, Migrax applies them with history, checksums,
+  locking and rollbacks. Python, Node.js, Go, .NET, PHP, Ruby or anything else: see
+  [Any language](any-language.md). The container image needs only Docker.
+- **Java with JPA entities:** Migrax also writes the migrations for you from your entities,
+  with the frameworks below.
+
+For Java applications, Migrax reads your entities and talks to the database over JDBC, so the
+command line works the same everywhere. What differs per framework is:
 
 - **where the database settings are**, which Migrax reads for you;
 - **how Hibernate names tables and columns**, which Migrax must match exactly;
@@ -21,6 +29,7 @@ what it detected.
 | [Micronaut](micronaut.md) | `datasources.default.*` | `micronaut` with Micronaut Data, else `jpa` | `migrax-micronaut` |
 | [Helidon](helidon.md) | `javax.sql.DataSource.<name>.*`, `db.connection.*` (SE) | `jpa` | `migrax-helidon` (MP) |
 | [Jakarta EE, plain Hibernate](jakarta-ee.md) | `persistence.xml` | `jpa` | `migrax-jakarta-ee` |
+| [Any language](any-language.md) | `MIGRAX_DATABASE_URL` and the other `MIGRAX_*` variables | (no entities) | the container image, before the application starts |
 
 Build tools: [Maven plugin](maven.md) and [Gradle plugin](gradle.md).
 
