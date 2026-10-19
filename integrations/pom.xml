@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.15.1-SNAPSHOT</version>
+    <version>0.16.0</version>
     <relativePath>../parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-integrations</artifactId>
-  <version>0.15.1-SNAPSHOT</version>
+  <version>0.16.0</version>
   <packaging>pom</packaging>
   <name>Migrax integrations</name>
   <description>
