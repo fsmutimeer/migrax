@@ -171,7 +171,7 @@ migrax migrate --dry-run
 
 ## Next
 
-- [Using Migrax without Java entities](../guides/without-entities.md): drivers, writing
+- [SQL migrations for any language](../guides/without-entities.md): drivers, writing
   migrations, a database that already has tables, rollbacks and `migrax doctor`, step by step.
 - [Moving existing migrations to Migrax](../guides/switching-tools.md), when your project
   already has a history of applied migrations.

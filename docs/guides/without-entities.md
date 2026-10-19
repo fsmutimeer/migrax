@@ -1,12 +1,12 @@
 ---
-seo_title: "SQL migrations without Java entities"
+seo_title: "SQL migrations for any language, step by step"
 description: "Apply hand-written SQL migrations in any project, such as Python, Node.js, Go or PHP, with history, checksums, locking and rollbacks."
 ---
-# Using Migrax without Java entities
+# SQL migrations for any language
 
-Migrax can apply migrations you write yourself, in any project: Python, Node.js, Go, PHP, or a
-Java application without JPA. It needs only a folder of SQL files and a database connection; it
-doesn't read your application's code.
+Migrax applies SQL migrations you write yourself, in any project: Python, Node.js, Go, .NET,
+PHP, Ruby, or a Java application without JPA. It needs only a folder of SQL files and a
+database connection; it doesn't read your application's code.
 
 What you keep: numbered migrations applied once and in order, repeatable migrations, the
 history table, checksums of applied files, the migration lock, rollback scripts, `status`,
