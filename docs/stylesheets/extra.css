@@ -255,6 +255,16 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
+.mx-hero__meta a {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mx-hero__meta a:hover {
+  color: #fff;
+}
+
 /* buttons used in the hero */
 .mx-btn {
   display: inline-flex;
