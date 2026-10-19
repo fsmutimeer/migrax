@@ -142,9 +142,42 @@ Every metric has the tag `database`: `default`, or the name of a further databas
 
 ## The command line
 
-The `migrax` command works with one database at a time. For a further database, point it at
-that database and its folder:
+The `migrax` command works on one database at a time: the default database, or the one
+`--database` names.
 
 ```bash
-migrax status --url jdbc:postgresql://localhost:5432/billing --locations db/billing
+migrax generate --database billing
+migrax migrate --database billing
+migrax status --database billing
 ```
+
+With Maven, pass `-Dmigrax.database=billing` (for example `mvn migrax:status
+-Dmigrax.database=billing`). In a pipeline, `MIGRAX_DATABASE=billing` does the same for every
+command.
+
+For a further database the command reads:
+
+| What | From |
+|---|---|
+| Connection | `--url`, then `MIGRAX_DATABASES_BILLING_URL` (or `..._URL_FILE`), then `migrax.databases.billing.url`, then the framework's settings of its data source: `quarkus.datasource.billing.*`, `datasources.billing.*` (Micronaut) or `javax.sql.DataSource.billing.*` (Helidon). User and password the same way. Spring Boot has no standard key for a second data source, so set `migrax.databases.billing.url`, `.user` and `.password` |
+| Migration folders | `migrax.databases.billing.locations`, else `db/billing`, under `src/main/resources` |
+| Entities | `migrax.databases.billing.package` (or `--package`), needed by the commands that read entities, such as `generate`, `check` and `plan` |
+| Snapshot | `.migrax/billing/`, next to the default database's `.migrax/snapshot.json` |
+
+```properties title="application.properties"
+migrax.databases.billing.datasource=billingDataSource
+migrax.databases.billing.package=com.shop.billing
+migrax.databases.billing.url=jdbc:postgresql://localhost:5432/billing
+migrax.databases.billing.user=billing
+```
+
+The default database leaves a further database's package out when it sits inside its own: with
+the entity package `com.shop`, the entities in `com.shop.billing` belong to billing only. Keep
+each database's entities in their own package, the same way the application's JPA setup
+separates them.
+
+Each database's settings stay its own: `MIGRAX_LOCATIONS`, `MIGRAX_SCHEMAS` and the default
+database's placeholders never apply to billing. Its own variables start with
+`MIGRAX_DATABASES_BILLING_`, for example `MIGRAX_DATABASES_BILLING_PLACEHOLDERS_OWNER`.
+Settings for the whole application, such as `MIGRAX_ENV`, apply to every database unless the
+block sets them.

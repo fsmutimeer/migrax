@@ -52,7 +52,7 @@ final class BackupsCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--json", "--drop", "--yes", "--url", "--user", "--password",
-        "--password-file", "--schema", "--classpath", "--no-build");
+        "--password-file", "--schema", "--classpath", "--no-build", "--database");
   }
 
   @Override

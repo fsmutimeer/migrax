@@ -51,7 +51,8 @@ final class LintCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--all", "--strict", "--json", "--dialect", "--url", "--locations");
+    return List.of("--all", "--strict", "--json", "--dialect", "--url", "--locations",
+        "--database");
   }
 
   @Override

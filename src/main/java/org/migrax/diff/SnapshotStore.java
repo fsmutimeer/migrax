@@ -21,9 +21,19 @@ public final class SnapshotStore {
 
   /** Model recorded after a generated migration, e.g. for squashing. */
   public static Path historySnapshot(Path root, String migrationName) {
+    return historySnapshotIn(root.resolve(".migrax"), migrationName);
+  }
+
+  /**
+   * Model recorded after a generated migration, in a state folder: {@code .migrax}, or
+   * {@code .migrax/<name>} for a further database.
+   *
+   * @since 0.15.0
+   */
+  public static Path historySnapshotIn(Path state, String migrationName) {
     String name = migrationName.endsWith(".sql")
         ? migrationName.substring(0, migrationName.length() - 4) : migrationName;
-    return root.resolve(".migrax/history").resolve(name + ".json");
+    return state.resolve("history").resolve(name + ".json");
   }
 
   public static void save(Path path, SchemaModel model) throws Exception {

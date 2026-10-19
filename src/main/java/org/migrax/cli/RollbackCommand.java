@@ -55,7 +55,7 @@ final class RollbackCommand implements Command {
   public List<String> options() {
     return List.of("--json", "--steps", "--to", "--dry-run", "--yes", "--schemas", "--lock-timeout",
         "--url", "--user", "--password", "--password-file", "--locations", "--classpath",
-        "--no-build");
+        "--no-build", "--database");
   }
 
   @Override

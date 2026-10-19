@@ -52,7 +52,7 @@ final class RepairCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--json", "--action", "--yes", "--lock-timeout", "--url", "--user", "--password",
-        "--password-file", "--locations", "--classpath", "--no-build");
+        "--password-file", "--locations", "--classpath", "--no-build", "--database");
   }
 
   @Override

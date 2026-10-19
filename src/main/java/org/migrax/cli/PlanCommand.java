@@ -55,7 +55,7 @@ final class PlanCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--impact", "--json", "--dialect", "--rename", "--rename-table", "--package",
-        "--naming", "--extractor", "--url", "--classpath", "--no-build", "--refresh");
+        "--naming", "--extractor", "--url", "--classpath", "--no-build", "--refresh", "--database");
   }
 
   @Override

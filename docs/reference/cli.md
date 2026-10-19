@@ -63,6 +63,7 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### mcp
@@ -108,6 +109,7 @@ and remove Flyway or Liquibase from the project. See
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ## Everyday
@@ -136,6 +138,7 @@ For a database whose tables already exist (created by hand, by a script or by an
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### generate
@@ -175,6 +178,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### migrate
@@ -203,6 +207,7 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### status
@@ -228,6 +233,7 @@ Lists migrations as applied [X], pending [ ] or a problem [!], without changing 
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### plan
@@ -254,6 +260,7 @@ Shows the operations and SQL for current entity changes without writing files. `
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### rollback
@@ -280,6 +287,7 @@ Runs the rollback script of the newest applied migration (or several) and remove
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### new
@@ -296,6 +304,7 @@ Creates the next numbered SQL file for hand-written changes such as data migrati
 | `--java` | Create a Java migration |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ## Safety and CI
@@ -317,6 +326,7 @@ Exits with code 2 when the entities differ from `.migrax/snapshot.json`, and wit
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### lint
@@ -335,6 +345,7 @@ Checks pending migrations (or the given files, or `--all`) for statements that b
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### verify
@@ -362,6 +373,7 @@ Starts a throwaway database (H2, HSQLDB and Derby in memory, Docker for other en
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### drift
@@ -387,6 +399,7 @@ Reads the database schema and reports manual changes: missing or extra tables, c
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### diff
@@ -410,6 +423,7 @@ Compares the schema of the source database (for example staging) with the projec
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### report
@@ -436,6 +450,7 @@ Writes one HTML page (default `migrax-report.html`) for reviews and CI artifacts
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ## Maintenance
@@ -458,6 +473,7 @@ Writes one migration that replaces all migrations up to `--to`. Databases that a
 | `--optimize` | Squash to the resulting schema only |
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### merge
@@ -479,6 +495,7 @@ Renumbers migrations that share a number after a git merge (the one added later 
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### repair
@@ -509,6 +526,7 @@ Use only after inspecting the database.
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### clean
@@ -537,6 +555,7 @@ can't be restored. Migration files and the snapshot are not touched. Asks before
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### backups
@@ -562,6 +581,7 @@ migration back, drop its backups: `--drop` removes them all, or only those of on
 | `--schema <name>` | Database schema to read |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### inspect
@@ -581,6 +601,7 @@ Prints the schema model Migrax builds from the entities.
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### sql
@@ -594,6 +615,7 @@ Prints a migration file from the migration folder.
 | Option | Meaning |
 |---|---|
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### version

@@ -65,7 +65,8 @@ final class SquashCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--json", "--to", "--name", "--optimize", "--dialect", "--locations");
+    return List.of("--json", "--to", "--name", "--optimize", "--dialect", "--locations",
+        "--database");
   }
 
   @Override
@@ -109,7 +110,7 @@ final class SquashCommand implements Command {
       }
     }
     if (args.flag("--optimize")) {
-      Path history = SnapshotStore.historySnapshot(project.root(), target);
+      Path history = project.historySnapshot(target);
       if (!Files.exists(history)) {
         throw new UsageException("--optimize needs " + project.display(history) + ".",
             "It is written by 'migrax generate'. Squash without --optimize instead.");

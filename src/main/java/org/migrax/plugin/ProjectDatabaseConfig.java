@@ -56,18 +56,18 @@ public final class ProjectDatabaseConfig {
     String helidon = helidonDataSource(config);
     String micronaut = micronautDataSource(config);
 
-    String url = setting(overrides, "url", "MIGRAX_DATABASE_URL",
+    String url = setting(overrides, "url", "migrax.url", "MIGRAX_DATABASE_URL",
         environmentKeys(List.of("QUARKUS_DATASOURCE_JDBC_URL", "QUARKUS_DATASOURCE_URL",
             "SPRING_DATASOURCE_URL", "DATASOURCES_DEFAULT_URL"), helidon, "DATASOURCE_URL",
             List.of("DATABASE_URL", "DB_URL")),
         configKeys("migrax.url", URL_KEYS, helidon, HELIDON_URL_KEYS, micronaut, "url"), config);
-    String user = setting(overrides, "user", "MIGRAX_DATABASE_USER",
+    String user = setting(overrides, "user", "migrax.user", "MIGRAX_DATABASE_USER",
         environmentKeys(List.of("QUARKUS_DATASOURCE_USERNAME", "SPRING_DATASOURCE_USERNAME",
             "DATASOURCES_DEFAULT_USERNAME"), helidon, "DATASOURCE_USER",
             List.of("DB_USERNAME", "DB_USER")),
         configKeys("migrax.user", USER_KEYS, helidon, HELIDON_USER_KEYS, micronaut, "username"),
         config);
-    String password = setting(overrides, "password", "MIGRAX_DATABASE_PASSWORD",
+    String password = setting(overrides, "password", "migrax.password", "MIGRAX_DATABASE_PASSWORD",
         environmentKeys(List.of("QUARKUS_DATASOURCE_PASSWORD", "SPRING_DATASOURCE_PASSWORD",
             "DATASOURCES_DEFAULT_PASSWORD"), helidon, "DATASOURCE_PASSWORD",
             List.of("DB_PASSWORD")),
@@ -81,6 +81,80 @@ public final class ProjectDatabaseConfig {
         resolve(config.get("flyway.datasources.default.locations")),
         "classpath:db/migration");
     return new Credentials(url, user, password, locations);
+  }
+
+  /**
+   * The connection and migration folders of a further database ({@code migrax.databases.<name>
+   * .*}). The URL, user and password come from the command line, then
+   * {@code -Dmigrax.databases.<name>.url} or {@code MIGRAX_DATABASES_<NAME>_URL} (or its
+   * {@code _FILE}), then the block in the application config, then the framework's settings of
+   * the data source the block names: Quarkus {@code quarkus.datasource.<ds>.*}, Micronaut
+   * {@code datasources.<ds>.*}, Helidon {@code javax.sql.DataSource.<ds>.*}. They never fall
+   * back to the default database's. The default folder is {@code classpath:db/<name>}.
+   *
+   * @since 0.15.0
+   */
+  public static Credentials loadDatabase(Path resourcesDirectory, String name,
+                                         Map<String, String> overrides) throws IOException {
+    Map<String, String> config = loadConfig(resourcesDirectory);
+    String dataSource = org.migrax.runner.Databases.dataSource(name, config);
+    String own = "migrax.databases." + name + ".";
+    String quarkus = "quarkus.datasource." + dataSource + ".";
+    String micronaut = "datasources." + dataSource + ".";
+    String helidon = HELIDON_PREFIX + dataSource + ".";
+    String quarkusEnv = "QUARKUS_DATASOURCE_" + environmentName(dataSource) + "_";
+    String micronautEnv = "DATASOURCES_" + environmentName(dataSource) + "_";
+
+    String url = setting(overrides, "url", own + "url", databaseEnvironment(name, "url"),
+        environmentKeys(List.of(quarkusEnv + "JDBC_URL", quarkusEnv + "URL",
+            micronautEnv + "URL"), dataSource, "DATASOURCE_URL", List.of()),
+        prefixed(List.of(own + "url", quarkus + "jdbc.url", quarkus + "url",
+            micronaut + "url"), helidon, HELIDON_URL_KEYS), config);
+    String user = setting(overrides, "user", own + "user", databaseEnvironment(name, "user"),
+        environmentKeys(List.of(quarkusEnv + "USERNAME", micronautEnv + "USERNAME"),
+            dataSource, "DATASOURCE_USER", List.of()),
+        prefixed(List.of(own + "user", quarkus + "username", micronaut + "username"), helidon,
+            HELIDON_USER_KEYS), config);
+    String password = setting(overrides, "password", own + "password",
+        databaseEnvironment(name, "password"),
+        environmentKeys(List.of(quarkusEnv + "PASSWORD", micronautEnv + "PASSWORD"),
+            dataSource, "DATASOURCE_PASSWORD", List.of()),
+        prefixed(List.of(own + "password", quarkus + "password", micronaut + "password"),
+            helidon, HELIDON_PASSWORD_KEYS), config);
+    String locations = firstNonBlank(overrides.get("locations"),
+        databaseSetting(config, name, "locations"), "classpath:db/" + name);
+    return new Credentials(url, user, password, locations);
+  }
+
+  /**
+   * A setting of a further database: {@code -Dmigrax.databases.<name>.<key>}, then
+   * {@code MIGRAX_DATABASES_<NAME>_<KEY>}, then {@code migrax.databases.<name>.<key>} in
+   * application config.
+   *
+   * @since 0.15.0
+   */
+  public static String databaseSetting(Map<String, String> config, String name, String key) {
+    String own = "migrax.databases." + name + "." + key;
+    return firstNonBlank(System.getProperty(own),
+        System.getenv(databaseEnvironment(name, key)), resolve(config.get(own)));
+  }
+
+  /** MIGRAX_DATABASES_BILLING_JAVA_PACKAGE for billing's java-package. */
+  private static String databaseEnvironment(String name, String key) {
+    return "MIGRAX_DATABASES_" + environmentName(name) + "_" + environmentName(key);
+  }
+
+  /** A name as environment variables spell it: upper case, other characters as '_'. */
+  private static String environmentName(String name) {
+    return name.toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9]", "_");
+  }
+
+  /** The fixed keys, then the Helidon keys after {@code helidon}. */
+  private static List<String> prefixed(List<String> fixed, String helidon,
+                                       List<String> helidonKeys) {
+    List<String> keys = new java.util.ArrayList<>(fixed);
+    helidonKeys.forEach(key -> keys.add(helidon + key));
+    return keys;
   }
 
   /** Reads application.properties/yml plus the active profile's files into one map. */
@@ -339,6 +413,7 @@ public final class ProjectDatabaseConfig {
   /**
    * Placeholder values for ${name} in migrations: {@code migrax.placeholders.<name>} from
    * config, {@code -Dmigrax.placeholders.<name>} and {@code MIGRAX_PLACEHOLDERS_<NAME>}.
+   * Further databases' placeholders are left out.
    */
   public static Map<String, String> placeholders(Map<String, String> config) {
     Map<String, String> values = new LinkedHashMap<>();
@@ -348,18 +423,42 @@ public final class ProjectDatabaseConfig {
         values.put(key.substring(prefix.length()), value);
       }
     });
+    addPlaceholders(values, prefix, "MIGRAX_PLACEHOLDERS_");
+    return values;
+  }
+
+  /**
+   * The placeholder values of a further database: {@code migrax.databases.<name>.placeholders
+   * .<key>} from config, {@code -D} and {@code MIGRAX_DATABASES_<NAME>_PLACEHOLDERS_<KEY>}. The
+   * default database's placeholders don't apply.
+   *
+   * @since 0.15.0
+   */
+  public static Map<String, String> databasePlaceholders(Map<String, String> config,
+                                                         String name) {
+    Map<String, String> values = new LinkedHashMap<>();
+    String prefix = "migrax.databases." + name + ".placeholders.";
+    config.forEach((key, value) -> {
+      if (key.startsWith(prefix) && value != null) {
+        values.put(key.substring(prefix.length()), value);
+      }
+    });
+    addPlaceholders(values, prefix, databaseEnvironment(name, "placeholders") + "_");
+    return values;
+  }
+
+  /** Placeholders from system properties after {@code prefix} and variables after {@code env}. */
+  private static void addPlaceholders(Map<String, String> values, String prefix, String env) {
     System.getProperties().forEach((key, value) -> {
       if (String.valueOf(key).startsWith(prefix)) {
         values.put(String.valueOf(key).substring(prefix.length()), String.valueOf(value));
       }
     });
     System.getenv().forEach((key, value) -> {
-      if (key.startsWith("MIGRAX_PLACEHOLDERS_")) {
-        values.put(key.substring("MIGRAX_PLACEHOLDERS_".length()).toLowerCase(java.util.Locale.ROOT),
-            value);
+      if (key.startsWith(env)) {
+        values.put(key.substring(env.length()).toLowerCase(java.util.Locale.ROOT), value);
       }
     });
-    return values;
   }
 
   /**
@@ -620,6 +719,12 @@ public final class ProjectDatabaseConfig {
       throw new IllegalArgumentException(
           "Configure one migration directory in migrax.locations; multiple locations are not supported.");
     }
+    // Without a prefix a folder is on the classpath, as when the application migrates at
+    // startup; an absolute path can only be a folder on disk.
+    if (!configured.startsWith("classpath:") && !configured.startsWith("filesystem:")
+        && !absolute(configured)) {
+      configured = "classpath:" + configured;
+    }
     if (configured.startsWith("classpath:")) {
       String resourcePath = configured.substring("classpath:".length());
       while (resourcePath.startsWith("/")) {
@@ -645,6 +750,14 @@ public final class ProjectDatabaseConfig {
     return (path.isAbsolute() ? path : projectDirectory.resolve(path)).normalize();
   }
 
+  private static boolean absolute(String location) {
+    try {
+      return Path.of(location).isAbsolute();
+    } catch (java.nio.file.InvalidPathException e) {
+      return false;
+    }
+  }
+
   /**
    * The content of a secret file without its trailing line break, or null when no file is
    * named. The error names the setting and the path, never the content.
@@ -665,12 +778,13 @@ public final class ProjectDatabaseConfig {
   private static String setting(
       Map<String, String> overrides,
       String overrideKey,
+      String property,
       String migraxEnvironment,
       List<String> environmentKeys,
       List<String> configKeys,
       Map<String, String> config) {
     String value = firstNonBlank(overrides.get(overrideKey),
-        System.getProperty("migrax." + overrideKey), System.getenv(migraxEnvironment));
+        System.getProperty(property), System.getenv(migraxEnvironment));
     if (value != null) {
       return resolve(value);
     }

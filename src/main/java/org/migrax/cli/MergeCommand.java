@@ -61,7 +61,7 @@ final class MergeCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--json", "--dialect", "--package", "--naming", "--extractor", "--url",
-        "--locations", "--classpath", "--no-build");
+        "--locations", "--classpath", "--no-build", "--database");
   }
 
   @Override
@@ -121,9 +121,9 @@ final class MergeCommand implements Command {
         if (rollback != null) {
           Files.move(rollback, rollback.resolveSibling(newName));
         }
-        Path history = SnapshotStore.historySnapshot(project.root(), name);
+        Path history = project.historySnapshot(name);
         if (Files.exists(history)) {
-          Files.move(history, SnapshotStore.historySnapshot(project.root(), newName));
+          Files.move(history, project.historySnapshot(newName));
         }
         out.println("Renamed " + name + " to " + newName + ".");
         context.resultList("renamed").add(JsonOut.object("from", name, "to", newName));

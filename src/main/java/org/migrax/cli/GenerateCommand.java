@@ -97,7 +97,7 @@ final class GenerateCommand implements Command {
         "--rename-table",
         "--no-input", "--lock-timeout", "--dialect", "--package", "--naming", "--extractor",
         "--url", "--user", "--password", "--password-file", "--schema", "--locations",
-        "--classpath", "--no-build", "--refresh");
+        "--classpath", "--no-build", "--refresh", "--database");
   }
 
   @Override
@@ -224,7 +224,7 @@ final class GenerateCommand implements Command {
     } catch (Exception e) {
       if (baselineFile != null) {
         Files.deleteIfExists(baselineFile);
-        Files.deleteIfExists(SnapshotStore.historySnapshot(project.root(), BASELINE));
+        Files.deleteIfExists(project.historySnapshot(BASELINE));
       }
       throw e;
     }
@@ -254,7 +254,7 @@ final class GenerateCommand implements Command {
             mainReverse, main, afterMain, changes.previous());
       }
       written.add(file);
-      SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), name), afterMain,
+      SnapshotStore.save(project.historySnapshot(name), afterMain,
           dialect.id());
     }
     Path onlineFile = null;
@@ -275,7 +275,7 @@ final class GenerateCommand implements Command {
       List<Operation> onlineReverse = reverse.stream().filter(o -> undoesAny(o, online)).toList();
       MigrationSql.writeRollback(migrations, onlineFile.getFileName().toString(), dialect,
           onlineReverse, online, changes.current(), withoutOnline(changes.current(), online));
-      SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), onlineName),
+      SnapshotStore.save(project.historySnapshot(onlineName),
           changes.current(), dialect.id());
     }
     SnapshotStore.save(project.snapshot(), changes.current(), dialect.id(),
@@ -319,7 +319,7 @@ final class GenerateCommand implements Command {
     if (Files.exists(file)) {
       if (baselineFile != null) {
         Files.deleteIfExists(baselineFile);
-        Files.deleteIfExists(SnapshotStore.historySnapshot(project.root(), BASELINE));
+        Files.deleteIfExists(project.historySnapshot(BASELINE));
       }
       throw new UsageException("Migration already exists: " + project.display(file),
           "Choose another --name.");
@@ -332,12 +332,13 @@ final class GenerateCommand implements Command {
     plan.notes().forEach(note -> notes.append("-- Note: ").append(note).append('\n'));
     String expandHeader = "-- Expand step of a zero-downtime change: safe while instances of "
         + "the old version still run.\n-- The contract step (" + contractName + ") waits in "
-        + ".migrax/pending/ for the next release.\n" + notes;
+        + project.root().relativize(PendingContracts.folder(project)).toString()
+            .replace('\\', '/') + "/ for the next release.\n" + notes;
     Files.writeString(file, MigrationSql.render(dialect, plan.expand(), expandHeader,
         changes.previous(), plan.middle()));
     MigrationSql.writeRollback(migrations, expandName, dialect, plan.expandReverse(),
         unsynced(plan.expand(), changes), plan.middle(), plan.rolledBack());
-    SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), name + "_expand"),
+    SnapshotStore.save(project.historySnapshot(name + "_expand"),
         plan.middle(), dialect.id());
 
     Path pending = PendingContracts.folder(project);
@@ -439,7 +440,7 @@ final class GenerateCommand implements Command {
     Files.writeString(file, MigrationSql.render(dialect,
         new DiffEngine().diff(SchemaModel.empty(), database), header, SchemaModel.empty(),
         database));
-    SnapshotStore.save(SnapshotStore.historySnapshot(project.root(), BASELINE), database,
+    SnapshotStore.save(project.historySnapshot(BASELINE), database,
         dialect.id());
     return file;
   }

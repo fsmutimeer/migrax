@@ -25,14 +25,38 @@ public final class ClassScanner {
 
   /**
    * Returns the classes under {@code basePackage} that match {@code filter}, sorted by name.
+   * {@code basePackage} may list several packages separated by commas; a package after
+   * {@code !} is left out with its sub-packages ({@code com.shop,!com.shop.billing}).
    *
    * @throws IllegalStateException if a class cannot be loaded, naming the class and its source,
    *     so a missing dependency never silently drops an entity
    */
   public static List<Class<?>> scan(ClassLoader loader, String basePackage,
                                     Predicate<Class<?>> filter) throws Exception {
-    String path = basePackage.replace('.', '/');
+    List<String> included = new ArrayList<>();
+    List<String> excluded = new ArrayList<>();
+    for (String part : basePackage.split(",")) {
+      String name = part.trim();
+      if (name.startsWith("!")) {
+        excluded.add(name.substring(1).trim() + ".");
+      } else if (!name.isEmpty()) {
+        included.add(name);
+      }
+    }
+    Predicate<Class<?>> kept = candidate -> excluded.stream()
+        .noneMatch(candidate.getName()::startsWith) && filter.test(candidate);
     Set<Class<?>> found = new LinkedHashSet<>();
+    for (String name : included) {
+      scan(loader, name, kept, found);
+    }
+    List<Class<?>> sorted = new ArrayList<>(found);
+    sorted.sort(Comparator.comparing(Class::getName));
+    return sorted;
+  }
+
+  private static void scan(ClassLoader loader, String basePackage, Predicate<Class<?>> filter,
+                           Set<Class<?>> found) throws Exception {
+    String path = basePackage.replace('.', '/');
     Enumeration<URL> urls = loader.getResources(path);
     while (urls.hasMoreElements()) {
       URL url = urls.nextElement();
@@ -52,9 +76,6 @@ public final class ClassScanner {
         }
       }
     }
-    List<Class<?>> sorted = new ArrayList<>(found);
-    sorted.sort(Comparator.comparing(Class::getName));
-    return sorted;
   }
 
   private static void scanDirectory(String pkg, Path root, ClassLoader loader,

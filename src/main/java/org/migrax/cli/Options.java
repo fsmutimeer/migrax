@@ -17,7 +17,7 @@ final class Options {
       "--classpath", "--name", "--schema", "--action", "--naming", "--extractor", "--rename",
       "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table",
       "--lock-timeout", "--password-file", "--env", "--html", "--source-user",
-      "--source-password-file");
+      "--source-password-file", "--database");
   /** Options without a value. */
   static final Set<String> FLAGS = Set.of(
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
@@ -30,6 +30,8 @@ final class Options {
 
   static {
     HELP.put("--dir", "--dir <path>            Project folder (default: current folder)");
+    HELP.put("--database",
+        "--database <name>       Work on migrax.databases.<name> instead of the default database");
     HELP.put("--package", "--package <name>        Entity package (default: MIGRAX_PACKAGE or pom groupId)");
     HELP.put("--name", "--name <name>           Migration file name (default: next number + description)");
     HELP.put("--html", "--html <file>           Where to write the page (default: migrax-report.html)");

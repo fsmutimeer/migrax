@@ -39,7 +39,7 @@ final class InspectCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--package", "--naming", "--extractor", "--dialect", "--classpath", "--no-build",
-        "--refresh");
+        "--refresh", "--database");
   }
 
   @Override

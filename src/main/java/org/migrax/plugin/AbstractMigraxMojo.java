@@ -66,6 +66,10 @@ abstract class AbstractMigraxMojo extends AbstractMojo {
   @Parameter(property = "migrax.javaPackage")
   protected String javaPackage;
 
+  /** A further database from migrax.databases.&lt;name&gt; instead of the default one. */
+  @Parameter(property = "migrax.database")
+  protected String database;
+
   /** Machine-readable output where the command supports it. */
   @Parameter(property = "migrax.json", defaultValue = "false")
   protected boolean json;
@@ -96,6 +100,7 @@ abstract class AbstractMigraxMojo extends AbstractMojo {
     option(args, "--extractor", extractor);
     option(args, "--schemas", schemas);
     option(args, "--java-package", javaPackage);
+    option(args, "--database", database);
     if (usesDialect()) {
       option(args, "--dialect", dialect);
     }

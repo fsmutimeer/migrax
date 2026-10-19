@@ -12,11 +12,21 @@ All notable changes to Migrax are listed here. The format follows
   folders, Java package, schemas, placeholders) migrates a further database at startup, in the
   Spring Boot, Quarkus (also native), Micronaut, Helidon and Jakarta EE integrations. Health
   checks report every database. See Guides > Several databases.
+- `--database <name>` on every command that works on a project (and `-Dmigrax.database` for
+  the Maven goals, `MIGRAX_DATABASE`): the command works on that database, with its own
+  connection, folders, entity package (`migrax.databases.<name>.package`) and snapshot in
+  `.migrax/<name>/`. The default database no longer reads the entities of another database's
+  package.
 
 ### Changed
 
 - Every metric has the tag `database` (`default`, or the name of a further database), and
   spans the attribute `migrax.database`. Queries without the tag keep working.
+- A migration folder without a prefix (`migrax.locations=db/sql`, `--locations db/sql`) is now
+  a classpath folder (under `src/main/resources`) for the `migrax` command and the Maven and
+  Gradle goals too, the same as when the application migrates at startup. Before, the command
+  looked for it in the project folder. Write `filesystem:db/sql` for a folder outside the
+  resources; absolute paths are unchanged.
 
 ## [0.14.0] - 2026-10-18
 

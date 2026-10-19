@@ -19,7 +19,7 @@ final class PendingContracts {
   private PendingContracts() {}
 
   static Path folder(Project project) {
-    return project.root().resolve(".migrax").resolve("pending");
+    return project.state().resolve("pending");
   }
 
   /** The waiting contract migrations, oldest first. */
@@ -68,7 +68,7 @@ final class PendingContracts {
       Path schema = schema(pending);
       String base = newName.substring(0, newName.length() - ".sql".length());
       if (Files.exists(schema)) {
-        Path history = SnapshotStore.historySnapshot(project.root(), base);
+        Path history = project.historySnapshot(base);
         Files.createDirectories(history.getParent());
         Files.move(schema, history, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
       }
