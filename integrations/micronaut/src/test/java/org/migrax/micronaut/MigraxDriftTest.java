@@ -27,7 +27,10 @@ class MigraxDriftTest {
 
   private static void start(ClassLoader loader, String mode) {
     try (ApplicationContext context = ApplicationContext.builder().classLoader(loader)
-        .properties(Map.of("datasources.default.url", URL, "migrax.drift.check", mode))
+        // Spans and metrics off: the exporter is shared, and MigraxDataSourceListenerTest
+        // counts its spans.
+        .properties(Map.of("datasources.default.url", URL, "migrax.drift.check", mode,
+            "migrax.tracing.enabled", "false", "migrax.metrics.enabled", "false"))
         .start()) {
       context.getBean(DataSource.class);
     }
