@@ -64,7 +64,7 @@ final class ReportCommand implements Command {
   public List<String> options() {
     return List.of("--html", "--env", "--schemas", "--dialect", "--package", "--naming",
         "--extractor", "--url", "--user", "--password", "--password-file", "--locations",
-        "--classpath", "--no-build");
+        "--classpath", "--no-build", "--database");
   }
 
   @Override

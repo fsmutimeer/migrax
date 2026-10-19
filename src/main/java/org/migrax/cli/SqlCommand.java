@@ -36,7 +36,7 @@ final class SqlCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--locations");
+    return List.of("--locations", "--database");
   }
 
   @Override

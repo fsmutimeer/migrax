@@ -55,7 +55,8 @@ final class DiffCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--sql", "--json", "--source-user", "--source-password-file", "--schema",
-        "--url", "--user", "--password", "--password-file", "--classpath", "--no-build");
+        "--url", "--user", "--password", "--password-file", "--classpath", "--no-build",
+        "--database");
   }
 
   @Override

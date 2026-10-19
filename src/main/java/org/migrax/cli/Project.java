@@ -10,6 +10,7 @@ import org.migrax.model.ModelExtractor;
 import org.migrax.model.NamingStrategy;
 import org.migrax.plugin.ProjectDatabaseConfig;
 import org.migrax.plugin.RuntimeJdbc;
+import org.migrax.runner.Databases;
 import org.migrax.runner.Migration;
 import org.migrax.runner.MigrationLoader;
 import org.migrax.runner.MigrationRunner;
@@ -39,6 +40,8 @@ final class Project implements AutoCloseable {
   private final Args args;
   private final PrintStream err;
   private final Path root;
+  /** The further database the command works on, or null for the default database. */
+  private final String database;
   private Map<String, String> config;
   private ProjectDatabaseConfig.Credentials credentials;
   private URLClassLoader loader;
@@ -52,6 +55,20 @@ final class Project implements AutoCloseable {
       throw new UsageException("Project folder does not exist: " + start, null);
     }
     this.root = ProjectContext.findRoot(start);
+    String name = args.option("--database");
+    if (blank(name)) {
+      name = System.getProperty("migrax.database");
+    }
+    if (blank(name)) {
+      name = System.getenv("MIGRAX_DATABASE");
+    }
+    try {
+      this.database = blank(name) || name.trim().equals(Databases.DEFAULT) ? null
+          : Databases.checkName(name.trim());
+    } catch (IllegalArgumentException e) {
+      throw new UsageException(e.getMessage(),
+          "Pass the name of a migrax.databases.<name> block, or leave --database out.");
+    }
   }
 
   Path root() {
@@ -62,32 +79,102 @@ final class Project implements AutoCloseable {
     return root.resolve("src/main/resources");
   }
 
-  Path snapshot() {
-    return SnapshotStore.projectSnapshot(root);
+  /** The further database the command works on ({@code --database}), or null. */
+  String database() {
+    return database;
   }
 
+  /**
+   * Migrax's own files for the database: {@code .migrax}, or {@code .migrax/<name>} for a
+   * further database.
+   */
+  Path state() {
+    Path state = root.resolve(".migrax");
+    return database == null ? state : state.resolve(database);
+  }
+
+  Path snapshot() {
+    return database == null ? SnapshotStore.projectSnapshot(root)
+        : state().resolve("snapshot.json");
+  }
+
+  /** The model recorded after a generated migration, e.g. for squashing. */
+  Path historySnapshot(String migrationName) {
+    return SnapshotStore.historySnapshotIn(state(), migrationName);
+  }
+
+  /**
+   * The application config. For a further database, its block takes the place of the default
+   * database's own settings ({@link Databases#settings}).
+   */
   Map<String, String> config() throws Exception {
     if (config == null) {
-      config = ProjectDatabaseConfig.settings(resources());
+      Map<String, String> settings = ProjectDatabaseConfig.settings(resources());
+      if (database != null) {
+        List<String> names = databaseNames(settings);
+        if (!names.contains(database)
+            && ProjectDatabaseConfig.databaseSetting(settings, database, "url") == null) {
+          throw new UsageException("No database named '" + database + "'.", names.isEmpty()
+              ? "Configure it with migrax.databases." + database + ".* settings, or leave"
+                  + " --database out."
+              : "Configured: " + String.join(", ", names) + ".");
+        }
+        settings = Databases.settings(database, settings);
+      }
+      config = settings;
     }
     return config;
   }
 
-  /** A Migrax setting from the command line option, -D, MIGRAX_* or application config. */
+  /** The further databases in the settings. */
+  private static List<String> databaseNames(Map<String, String> settings) {
+    try {
+      return Databases.names(settings);
+    } catch (IllegalArgumentException e) {
+      throw new UsageException(e.getMessage(), null);
+    }
+  }
+
+  /** Settings that belong to one database and never come from the default database's. */
+  private static final List<String> OWN =
+      List.of("locations", "schemas", "java-package", "package");
+
+  /**
+   * A Migrax setting from the command line option, -D, MIGRAX_* or application config. For a
+   * further database, its own -D, MIGRAX_DATABASES_* or block first; settings that belong to
+   * one database stop there.
+   */
   String setting(String option, String key) throws Exception {
     String value = option == null ? null : args.option(option);
-    return value != null && !value.isBlank() ? value
-        : ProjectDatabaseConfig.migraxSetting(config(), key);
+    if (value != null && !value.isBlank()) {
+      return value;
+    }
+    if (database != null) {
+      config();
+      value = ProjectDatabaseConfig.databaseSetting(
+          ProjectDatabaseConfig.settings(resources()), database, key);
+      if (value != null || OWN.contains(key)) {
+        return value;
+      }
+    }
+    return ProjectDatabaseConfig.migraxSetting(config(), key);
   }
 
   ProjectDatabaseConfig.Credentials credentials() throws Exception {
     if (credentials == null) {
-      ProjectDatabaseConfig.Credentials loaded = ProjectDatabaseConfig.load(resources(), Map.of(
+      Map<String, String> overrides = Map.of(
           "url", args.option("--url", ""),
           "user", args.option("--user", ""),
           "password", args.option("--password", ""),
           "password-file", args.option("--password-file", ""),
-          "locations", args.option("--locations", "")));
+          "locations", args.option("--locations", ""));
+      ProjectDatabaseConfig.Credentials loaded;
+      if (database == null) {
+        loaded = ProjectDatabaseConfig.load(resources(), overrides);
+      } else {
+        config();
+        loaded = ProjectDatabaseConfig.loadDatabase(resources(), database, overrides);
+      }
       credentials = new ProjectDatabaseConfig.Credentials(
           resolveRelativeDatabasePath(loaded.url(), root),
           loaded.user(), loaded.password(), loaded.locations());
@@ -97,6 +184,13 @@ final class Project implements AutoCloseable {
 
   ProjectDatabaseConfig.Credentials requireUrl() throws Exception {
     if (blank(credentials().url())) {
+      if (database != null) {
+        throw new UsageException(ErrorCode.NO_DATABASE_URL,
+            "No URL found for database '" + database + "'.",
+            "Set migrax.databases." + database + ".url, set MIGRAX_DATABASES_"
+                + database.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "_")
+                + "_URL, or pass --url.");
+      }
       throw new UsageException(ErrorCode.NO_DATABASE_URL, "No database URL found.",
           "Set " + urlSetting() + ", set MIGRAX_DATABASE_URL, or pass --url.");
     }
@@ -182,16 +276,43 @@ final class Project implements AutoCloseable {
   }
 
   String packageName() throws Exception {
-    String name = ProjectContext.packageName(root, args.option("--package"));
+    String name = packageNameOrNull();
     if (blank(name)) {
-      throw new UsageException("Entity package is unknown.",
-          "Pass --package <name> or set MIGRAX_PACKAGE (for Maven projects the groupId is used).");
+      throw new UsageException("Entity package is unknown.", database == null
+          ? "Pass --package <name> or set MIGRAX_PACKAGE (for Maven projects the groupId is used)."
+          : "Set migrax.databases." + database + ".package or pass --package <name>.");
     }
     return name;
   }
 
+  /**
+   * The entity package: --package, then for a further database its own package setting, for
+   * the default database MIGRAX_PACKAGE or the build's group.
+   */
   String packageNameOrNull() throws Exception {
-    return ProjectContext.packageName(root, args.option("--package"));
+    return database == null ? ProjectContext.packageName(root, args.option("--package"))
+        : setting("--package", "package");
+  }
+
+  /**
+   * The packages to read entities from, as {@link org.migrax.util.ClassScanner} takes them: the
+   * entity package, and for the default database without the packages of further databases
+   * inside it ({@code com.shop,!com.shop.billing}).
+   */
+  String entityPackages() throws Exception {
+    String name = packageName();
+    if (database != null) {
+      return name;
+    }
+    Map<String, String> settings = config();
+    StringBuilder packages = new StringBuilder(name);
+    for (String other : databaseNames(settings)) {
+      String own = ProjectDatabaseConfig.databaseSetting(settings, other, "package");
+      if (!blank(own) && own.trim().startsWith(name + ".")) {
+        packages.append(",!").append(own.trim());
+      }
+    }
+    return packages.toString();
   }
 
   NamingStrategy naming() throws Exception {
@@ -292,8 +413,10 @@ final class Project implements AutoCloseable {
   }
 
   MigrationRunner.Options runOptions() throws Exception {
-    return new MigrationRunner.Options(args.flag("--resume"),
-        ProjectDatabaseConfig.placeholders(config()));
+    return new MigrationRunner.Options(args.flag("--resume"), database == null
+        ? ProjectDatabaseConfig.placeholders(config())
+        : ProjectDatabaseConfig.databasePlaceholders(
+            ProjectDatabaseConfig.settings(resources()), database));
   }
 
   /**
@@ -435,7 +558,7 @@ final class Project implements AutoCloseable {
 
   /** Reads the entity model with Hibernate's mapping or annotation scanning. */
   ModelExtractor.Result extract(Dialect dialect) throws Exception {
-    return ModelExtractor.extract(loader(true), packageName(), naming(), dialect,
+    return ModelExtractor.extract(loader(true), entityPackages(), naming(), dialect,
         readerSettings(), extractorMode());
   }
 

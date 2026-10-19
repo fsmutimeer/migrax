@@ -60,7 +60,7 @@ final class MigrateCommand implements Command {
   public List<String> options() {
     return List.of("--to", "--env", "--sql", "--dry-run", "--json", "--resume", "--lock-timeout", "--schemas", "--url",
         "--user", "--password", "--password-file", "--locations", "--java-package", "--classpath",
-        "--no-build");
+        "--no-build", "--database");
   }
 
   @Override

@@ -36,7 +36,8 @@ public final class Databases {
       Pattern.compile(Pattern.quote(PREFIX) + "([A-Za-z0-9_-]+)\\.(.+)");
   /** Settings of one database, never taken over from the default database. */
   private static final List<String> OWN = List.of("migrax.locations", "migrax.schemas",
-      "migrax.java-package", "migrax.datasource");
+      "migrax.java-package", "migrax.datasource", "migrax.package", "migrax.url", "migrax.user",
+      "migrax.password");
 
   private Databases() {}
 

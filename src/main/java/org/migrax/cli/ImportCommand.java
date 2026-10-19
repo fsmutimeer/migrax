@@ -48,7 +48,7 @@ final class ImportCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--table", "--name", "--schema", "--url", "--user", "--password",
-        "--password-file", "--locations", "--dialect", "--classpath", "--no-build");
+        "--password-file", "--locations", "--dialect", "--classpath", "--no-build", "--database");
   }
 
   @Override

@@ -62,7 +62,7 @@ final class VerifyCommand implements Command {
   public List<String> options() {
     return List.of("--url", "--user", "--password", "--password-file", "--image",
         "--skip-rollbacks", "--json", "--env", "--dialect", "--package", "--naming", "--extractor",
-        "--locations", "--classpath", "--no-build");
+        "--locations", "--classpath", "--no-build", "--database");
   }
 
   @Override
@@ -73,7 +73,7 @@ final class VerifyCommand implements Command {
     Dialect dialect = project.dialect(false, out);
     URLClassLoader loader = project.loader(true);
     List<Migration> migrations = project.migrationsToRun(true);
-    String packageName = project.packageName();
+    String packageName = project.entityPackages();
     boolean json = args.flag("--json");
     Map<String, Object> report = new LinkedHashMap<>();
     report.put("dialect", dialect.id());

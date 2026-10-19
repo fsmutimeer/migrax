@@ -82,6 +82,7 @@ Options are `-Dmigrax.*` properties (or `<configuration>` elements of the same n
 | `migrax.html=target/migrax-report.html` | `--html` | report |
 | `migrax.java=true` | `--java` | new |
 | `migrax.url`, `migrax.user`, `migrax.password` | `--url`, `--user`, `--password` | all |
+| `migrax.database=billing` | `--database` | all |
 | `migrax.package`, `migrax.naming`, `migrax.dialect`, `migrax.locations`, `migrax.schemas` | same names | all |
 
 Hints in the output use Maven syntax, for example:

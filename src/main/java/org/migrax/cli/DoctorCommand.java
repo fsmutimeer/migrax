@@ -63,7 +63,7 @@ final class DoctorCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--json", "--env", "--package", "--url", "--user", "--password",
-        "--password-file", "--classpath", "--no-build", "--extractor");
+        "--password-file", "--classpath", "--no-build", "--extractor", "--database");
   }
 
   @Override
@@ -72,7 +72,8 @@ final class DoctorCommand implements Command {
     Args args = context.args();
     PrintStream out = context.out();
     Report doctor = new Report(out);
-    out.println("Migrax " + Version.current() + " doctor for " + project.root().toAbsolutePath());
+    out.println("Migrax " + Version.current() + " doctor for " + project.root().toAbsolutePath()
+        + (project.database() == null ? "" : ", database " + project.database()));
     out.println();
 
     int javaVersion = Runtime.version().feature();
@@ -97,7 +98,8 @@ final class DoctorCommand implements Command {
           "No pom.xml or build.gradle found. Run inside the service folder, or set "
               + "MIGRAX_CLASSPATH.");
       doctor.check(packageName != null, "Entity package: " + packageName,
-          "Pass --package <name> or set MIGRAX_PACKAGE.");
+          project.database() == null ? "Pass --package <name> or set MIGRAX_PACKAGE."
+              : "Set migrax.databases." + project.database() + ".package or pass --package.");
       doctor.info("Framework: " + project.framework().label());
       doctor.info("Naming: " + project.naming().id()
           + " (must match Hibernate; set migrax.naming=spring|jpa|jpa-snake|micronaut to change)");

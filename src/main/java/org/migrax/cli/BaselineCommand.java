@@ -51,7 +51,7 @@ final class BaselineCommand implements Command {
   public List<String> options() {
     return List.of("--dry-run", "--yes", "--json", "--env", "--schemas", "--lock-timeout", "--url",
         "--user", "--password", "--password-file", "--locations", "--java-package",
-        "--classpath", "--no-build");
+        "--classpath", "--no-build", "--database");
   }
 
   @Override

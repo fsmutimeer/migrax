@@ -49,7 +49,7 @@ final class NewCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--json", "--java", "--java-package", "--locations");
+    return List.of("--json", "--java", "--java-package", "--locations", "--database");
   }
 
   @Override

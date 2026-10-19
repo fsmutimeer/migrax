@@ -64,7 +64,8 @@ final class CleanCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--json", "--dry-run", "--yes", "--lock-timeout", "--url", "--user",
-        "--password", "--password-file", "--schema", "--schemas", "--classpath", "--no-build");
+        "--password", "--password-file", "--schema", "--schemas", "--classpath", "--no-build",
+        "--database");
   }
 
   @Override

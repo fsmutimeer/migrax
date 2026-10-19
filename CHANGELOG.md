@@ -12,6 +12,11 @@ All notable changes to Migrax are listed here. The format follows
   folders, Java package, schemas, placeholders) migrates a further database at startup, in the
   Spring Boot, Quarkus (also native), Micronaut, Helidon and Jakarta EE integrations. Health
   checks report every database. See Guides > Several databases.
+- `--database <name>` on every command that works on a project (and `-Dmigrax.database` for
+  the Maven goals, `MIGRAX_DATABASE`): the command works on that database, with its own
+  connection, folders, entity package (`migrax.databases.<name>.package`) and snapshot in
+  `.migrax/<name>/`. The default database no longer reads the entities of another database's
+  package.
 
 ### Changed
 

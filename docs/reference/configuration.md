@@ -50,6 +50,7 @@ in values are resolved from the environment.
 | Environment (`-- migrax:env` migrations) | `--env`, `MIGRAX_ENV`, `migrax.env` | none: marked migrations are skipped |
 | Schemas (multi-tenant) | `--schemas`, `MIGRAX_SCHEMAS`, `migrax.schemas` | the connection's default schema |
 | Placeholders | `migrax.placeholders.<name>`, `-Dmigrax.placeholders.<name>`, `MIGRAX_PLACEHOLDERS_<NAME>` | |
+| Database to work on | `--database`, `MIGRAX_DATABASE`, `-Dmigrax.database` | the default database; others come from `migrax.databases.<name>.*` ([details](../guides/several-databases.md#the-command-line)) |
 
 Each migration folder is `classpath:<path>` (under `src/main/resources`) or
 `filesystem:<path>` (relative to the project folder). Several folders are separated by commas;
@@ -80,5 +81,6 @@ left out, because Migrax never connects Hibernate to your database while reading
 |---|---|---|
 | `snapshot.json` | yes | Schema your migrations produce, with dialect and naming |
 | `history/` | yes | Snapshot after each migration |
+| `<name>/` | yes | `snapshot.json`, `history/` and `pending/` of a further database (`--database <name>`) |
 | `classpath.txt`, `classpath.hash`, `build.stamp` | no | Build cache; refresh with `--refresh` |
 | `.gitignore` | yes | Written by Migrax; ignores the caches |

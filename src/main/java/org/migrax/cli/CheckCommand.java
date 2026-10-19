@@ -46,7 +46,7 @@ final class CheckCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--json", "--package", "--naming", "--extractor", "--classpath", "--no-build",
-        "--refresh");
+        "--refresh", "--database");
   }
 
   @Override
