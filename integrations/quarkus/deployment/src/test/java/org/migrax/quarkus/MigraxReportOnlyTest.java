@@ -1,7 +1,7 @@
 package org.migrax.quarkus;
 
 import db.migration.V0002__AddNote;
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.quarkus.test.QuarkusUnitTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ class MigraxReportOnlyTest {
           .addAsResource("report-only.properties", "application.properties"));
 
   @Inject
-  MeterRegistry registry;
+  SimpleMeterRegistry registry;
 
   @Inject
   @org.eclipse.microprofile.health.Readiness

@@ -1,7 +1,7 @@
 package org.migrax.quarkus;
 
 import db.migration.V0002__AddNote;
-import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.quarkus.test.QuarkusUnitTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -30,8 +30,10 @@ class MigraxMetricsTest {
     }
   }
 
+  // The application's own registry, not the JVM-wide composite: a composite answers from
+  // whichever child it lists first, and the test applications of this module share one.
   @Inject
-  MeterRegistry registry;
+  SimpleMeterRegistry registry;
 
   @Test
   void theStartsMigrationsAreMeasured() {
