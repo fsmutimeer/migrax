@@ -120,7 +120,7 @@ nav:
       - Java API and JUnit tests: guides/java-api-and-tests.md
       - Switching from Flyway or Liquibase: guides/switching-tools.md
       - Containers and Kubernetes: guides/containers-and-kubernetes.md
-      - SQL migrations for any language: guides/without-entities.md
+      - SQL migrations for any language: guides/sql-migrations-for-any-language.md
       - Using Migrax with AI assistants: guides/ai-assistants.md
   - Frameworks:
       - frameworks/index.md

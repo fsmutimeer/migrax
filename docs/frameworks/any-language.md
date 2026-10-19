@@ -71,7 +71,7 @@ The commands that compare the database with Java entities (`generate`, `check`, 
         ```
 
         The command line also needs the database's JDBC driver: see
-        [Drivers](../guides/without-entities.md#drivers).
+        [Drivers](../guides/sql-migrations-for-any-language.md#drivers).
 
 ## Before your application starts
 
@@ -171,7 +171,7 @@ migrax migrate --dry-run
 
 ## Next
 
-- [SQL migrations for any language](../guides/without-entities.md): drivers, writing
+- [SQL migrations for any language](../guides/sql-migrations-for-any-language.md): drivers, writing
   migrations, a database that already has tables, rollbacks and `migrax doctor`, step by step.
 - [Moving existing migrations to Migrax](../guides/switching-tools.md), when your project
   already has a history of applied migrations.
