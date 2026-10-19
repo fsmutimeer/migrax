@@ -61,6 +61,44 @@ public final class SnapshotStore {
     Json.write(path, model, dialect, naming, server);
   }
 
+  /**
+   * The snapshots a build packages into the application, so it can check for drift when it
+   * starts: {@code .migrax/snapshot.json} as {@code META-INF/migrax/snapshot.json}, and each
+   * further database's {@code .migrax/<name>/snapshot.json} as
+   * {@code META-INF/migrax/<name>/snapshot.json}. Empty when the project has none.
+   *
+   * @return the files by their path inside the application
+   * @since 0.16.0
+   */
+  public static java.util.Map<String, Path> packaged(Path root) throws java.io.IOException {
+    java.util.Map<String, Path> files = new java.util.TreeMap<>();
+    Path state = root.resolve(".migrax");
+    if (Files.isRegularFile(state.resolve("snapshot.json"))) {
+      files.put("META-INF/migrax/snapshot.json", state.resolve("snapshot.json"));
+    }
+    if (Files.isDirectory(state)) {
+      try (var children = Files.list(state)) {
+        for (Path child : children.filter(Files::isDirectory).toList()) {
+          String name = String.valueOf(child.getFileName());
+          Path snapshot = child.resolve("snapshot.json");
+          if (Files.isRegularFile(snapshot) && isDatabaseName(name)) {
+            files.put("META-INF/migrax/" + name + "/snapshot.json", snapshot);
+          }
+        }
+      }
+    }
+    return files;
+  }
+
+  private static boolean isDatabaseName(String name) {
+    try {
+      org.migrax.runner.Databases.checkName(name);
+      return true;
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
+  }
+
   public static SchemaModel load(Path path) throws Exception {
     String content = Files.readString(path);
     if (content.contains("<<<<<<<") || content.contains(">>>>>>>")) {

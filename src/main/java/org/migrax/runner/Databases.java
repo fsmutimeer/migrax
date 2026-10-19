@@ -22,8 +22,9 @@ import java.util.regex.Pattern;
  * lock timeout, resume, migrate-at-startup, metrics and tracing) is shared, and a block can
  * set it differently. The defaults never overlap with the default database's db/migration and
  * db.migration (Java migrations are found in sub-packages too), which is why the names
- * {@code default} and {@code migration} are reserved. The framework integrations migrate the
- * default database first, then the others by name.
+ * {@code default} and {@code migration} are reserved; {@code history} and {@code pending} too,
+ * because the CLI keeps a database's files in {@code .migrax/<name>/}. The framework
+ * integrations migrate the default database first, then the others by name.
  *
  * @since 0.15.0
  */
@@ -70,6 +71,10 @@ public final class Databases {
     if (name.equals(DEFAULT) || name.equals("migration")) {
       throw new IllegalArgumentException("migrax.databases." + name + " is reserved: the"
           + " default database uses the migrax.* settings and db/migration.");
+    }
+    if (name.equals("history") || name.equals("pending")) {
+      throw new IllegalArgumentException("migrax.databases." + name + " is reserved: the"
+          + " default database keeps its own files in .migrax/" + name + "/.");
     }
     return name;
   }

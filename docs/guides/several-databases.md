@@ -36,11 +36,13 @@ migration history table, lock and checksums, in its own database.
 | `lock-timeout` | `migrax.lock-timeout` | How long to wait while another instance migrates |
 | `resume` | `migrax.resume` | Re-run a failed resume-safe migration |
 | `migrate-at-startup` | `migrax.migrate-at-startup` | `false`: report only, as described in [Metrics and tracing](observability.md#when-a-pipeline-migrates) |
+| `drift.check` | `migrax.drift.check` | Compare this database with its snapshot at startup: see [Drift at startup](production-safety.md#drift-at-startup) |
 
 Folders, Java migrations, schemas and placeholders belong to one database: a further database
 never runs the default database's migrations. The defaults `db/<name>` and `db.<name>` are kept
 apart from `db/migration` and `db.migration` on purpose, which is why `default` and
-`migration` can't be database names. Names may contain letters, digits, `-` and `_`.
+`migration` can't be database names; nor can `history` and `pending`, the names of folders the
+`migrax` command keeps in `.migrax/`. Names may contain letters, digits, `-` and `_`.
 
 ## By framework
 

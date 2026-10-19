@@ -71,6 +71,8 @@ jobs:
           printf 'package demo;\nimport jakarta.persistence.*;\n@Entity public class Item { @Id @GeneratedValue Long id; String name; }\n' > "$P/src/main/java/demo/Item.java"
           printf 'spring.datasource.url=jdbc:h2:file:./data/db\n' > "$P/src/main/resources/application.properties"
           cd "$P" && gradle -q migraxGenerate migraxMigrate migraxStatus migraxVerify
+          # The plugin packages .migrax/snapshot.json for migrax.drift.check at startup.
+          gradle -q jar && unzip -l build/libs/shop.jar | grep -q "META-INF/migrax/snapshot.json"
 
   hibernate:
     name: Hibernate ${{ matrix.hibernate }}

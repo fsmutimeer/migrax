@@ -19,6 +19,7 @@ import io.quarkus.deployment.builditem.GeneratedResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.NativeImageResourceBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ReflectiveClassBuildItem;
 import io.quarkus.deployment.builditem.nativeimage.ServiceProviderBuildItem;
+import io.quarkus.deployment.pkg.builditem.OutputTargetBuildItem;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -158,6 +159,44 @@ class MigraxProcessor {
     }
     services.produce(ServiceProviderBuildItem.allProvidersFromClassPath(
         "org.migrax.dialect.Dialect"));
+  }
+
+  /**
+   * Puts the project's .migrax/snapshot.json (and each further database's) into the
+   * application as META-INF/migrax/snapshot.json, so it can check for drift when it starts
+   * (migrax.drift.check), also as a native executable. A snapshot the application already
+   * has, for example from the Maven goal, is left as it is.
+   */
+  @BuildStep
+  void packageSnapshot(OutputTargetBuildItem target, ApplicationArchivesBuildItem archives,
+                       BuildProducer<GeneratedResourceBuildItem> generated,
+                       BuildProducer<NativeImageResourceBuildItem> resources)
+      throws java.io.IOException {
+    java.nio.file.Path project = target.getOutputDirectory().toAbsolutePath().getParent();
+    if (project == null) {
+      return;
+    }
+    Set<String> present = new TreeSet<>();
+    archives.getRootArchive().accept(tree -> tree.walk(visit -> {
+      String path = visit.getRelativePath("/");
+      if (path.startsWith("META-INF/migrax/") && path.endsWith("/snapshot.json")) {
+        present.add(path);
+      }
+    }));
+    List<String> packaged = new ArrayList<>();
+    for (java.util.Map.Entry<String, java.nio.file.Path> snapshot
+        : org.migrax.diff.SnapshotStore.packaged(project).entrySet()) {
+      if (present.contains(snapshot.getKey())) {
+        packaged.add(snapshot.getKey());
+        continue;
+      }
+      generated.produce(new GeneratedResourceBuildItem(snapshot.getKey(),
+          java.nio.file.Files.readAllBytes(snapshot.getValue())));
+      packaged.add(snapshot.getKey());
+    }
+    if (!packaged.isEmpty()) {
+      resources.produce(new NativeImageResourceBuildItem(packaged));
+    }
   }
 
   /**

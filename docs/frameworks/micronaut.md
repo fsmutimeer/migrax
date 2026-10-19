@@ -63,6 +63,7 @@ Migrations run as soon as Micronaut creates the data source, **before** Hibernat
 |---|---|---|
 | `migrax.enabled` | `true` | Apply migrations at startup |
 | `migrax.migrate-at-startup` | `true` | `false`: start without migrating, when a pipeline or a DBA runs the migrations; the health check and the pending gauge still report them ([details](../guides/observability.md#when-a-pipeline-migrates)) |
+| `migrax.drift.check` | `off` | `warn` or `fail`: compare the database with the schema its migrations produce when the application starts; the build must put `.migrax/snapshot.json` into the application ([details](../guides/production-safety.md#drift-at-startup)) |
 | `migrax.datasource` | `default` | Data source to migrate |
 | `migrax.locations` | `db/migration` | Migration folders on the classpath, comma-separated |
 | `migrax.java-package` | `db.migration` | Package of `JavaMigration` classes |

@@ -58,16 +58,18 @@ public final class MigraxStartup {
                             ClassLoader loader) throws Exception {
     Map<String, String> settings = Databases.settings(database, settings(config));
     String prefix = prefix(database);
-    if (!StartupMigrations.migratesAtStartup(settings)) {
-      LOG.info(prefix + StartupMigrations.notMigrating(dataSource, settings, loader));
-      return 0;
-    }
     Log.Sink previous = Log.setSink(new JbossSink());
     try {
-      int applied = StartupMigrations.migrate(dataSource, settings, loader,
-          MigraxListeners.find(settings, database));
-      LOG.info(prefix + (applied == 0 ? "schema is up to date"
-          : "applied " + applied + " migration(s)"));
+      int applied = 0;
+      if (!StartupMigrations.migratesAtStartup(settings)) {
+        LOG.info(prefix + StartupMigrations.notMigrating(dataSource, settings, loader));
+      } else {
+        applied = StartupMigrations.migrate(dataSource, settings, loader,
+            MigraxListeners.find(settings, database));
+        LOG.info(prefix + (applied == 0 ? "schema is up to date"
+            : "applied " + applied + " migration(s)"));
+      }
+      StartupMigrations.checkDrift(dataSource, settings, loader, database);
       return applied;
     } finally {
       Log.setSink(previous);

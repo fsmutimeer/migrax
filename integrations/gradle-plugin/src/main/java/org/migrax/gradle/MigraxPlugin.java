@@ -15,6 +15,7 @@ import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.JavaExec;
 import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.SourceSetContainer;
+import org.gradle.language.jvm.tasks.ProcessResources;
 
 /**
  * Applies with {@code plugins { id("org.migrax") version "0.1.0" }} and adds one task per
@@ -23,6 +24,9 @@ import org.gradle.api.tasks.SourceSetContainer;
  * migraxImport, migraxNew and migraxRepair.
  *
  * <p>Command options can be passed with {@code -Pmigrax.args="--allow-destructive"}.
+ *
+ * <p>It also packages {@code .migrax/snapshot.json} as {@code META-INF/migrax/snapshot.json},
+ * for {@code migrax.drift.check} at startup.
  */
 public class MigraxPlugin implements Plugin<Project> {
   /** Commands that read the entities and therefore need compiled classes. */
@@ -45,6 +49,16 @@ public class MigraxPlugin implements Plugin<Project> {
       configuration.defaultDependencies(dependencies -> dependencies.add(
           project.getDependencies().create("org.migrax:migrax:" + extension.getVersion().get())));
     });
+
+    // The snapshot goes into the application, so it can check for drift when it starts
+    // (migrax.drift.check): .migrax/snapshot.json as META-INF/migrax/snapshot.json, and each
+    // further database's .migrax/<name>/snapshot.json next to it.
+    project.getTasks().named("processResources", ProcessResources.class, task ->
+        task.from(project.file(".migrax"), spec -> {
+          spec.include("snapshot.json", "*/snapshot.json");
+          spec.exclude("history/**", "pending/**");
+          spec.into("META-INF/migrax");
+        }));
 
     for (String command : COMMANDS) {
       String name = "migrax" + Character.toUpperCase(command.charAt(0)) + command.substring(1);

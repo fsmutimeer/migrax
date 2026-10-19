@@ -65,5 +65,11 @@ class DatabasesTest {
         () -> Databases.names(Map.of("migrax.databases.default.locations", "x")));
     assertThrows(IllegalArgumentException.class,
         () -> Databases.names(Map.of("migrax.databases.migration.locations", "x")));
+    // The CLI keeps the default database's history and pending files in these folders.
+    IllegalArgumentException history = assertThrows(IllegalArgumentException.class,
+        () -> Databases.names(Map.of("migrax.databases.history.locations", "x")));
+    assertTrue(history.getMessage().contains(".migrax/history/"), history.getMessage());
+    assertThrows(IllegalArgumentException.class,
+        () -> Databases.names(Map.of("migrax.databases.pending.locations", "x")));
   }
 }

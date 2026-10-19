@@ -77,6 +77,85 @@ or with the entities (`--entities`). It reports missing and extra tables and col
 unique constraints, nullability, type changes and narrowed columns. It exits with code 2 when it
 finds drift, so it can run on a schedule.
 
+### Drift at startup
+
+New in Migrax 0.16.0.
+
+The application can run the same comparison every time it starts, so a change someone made by
+hand is noticed at the next deployment instead of weeks later. Turn it on in the application's
+configuration:
+
+```properties title="application.properties"
+migrax.drift.check=fail
+```
+
+| Value | When the database differs from the schema its migrations produce |
+|---|---|
+| `off` (default) | Nothing is checked |
+| `warn` | The application starts and logs every difference |
+| `fail` | The application doesn't start; the log lists every difference |
+
+The check runs right after the startup migrations, in the Spring Boot, Quarkus, Micronaut,
+Helidon and Jakarta EE integrations. With `fail`, a hand-made column stops the start like this:
+
+```console
+Migrax: 1 difference(s) between the database and the schema its migrations produce:
+  - note.manual_change: column exists in the database but not in the expected schema
+Someone changed the database outside migrations. Write a migration for intended changes, or revert them.
+(migrax.drift.check=fail stops the start; warn only logs.)
+```
+
+When it finds nothing, it logs `Migrax: no drift: the database matches the schema its migrations
+produce`. While migrations are pending (for example with `migrax.migrate-at-startup=false`, before
+the pipeline has run them) or have failed, the check is skipped: their changes would show as
+differences. With [several databases](several-databases.md), every database is checked, and
+`migrax.databases.<name>.drift.check` sets it for one of them.
+
+#### Put the snapshot into the application
+
+The expected schema is `.migrax/snapshot.json`, the file `generate` keeps up to date and you
+commit. The application reads it as `META-INF/migrax/snapshot.json`, so the build has to copy it
+in:
+
+=== "Quarkus"
+
+    Nothing to do: the extension copies it while the application is built, also into native
+    executables.
+
+=== "Gradle"
+
+    Nothing to do: the Migrax Gradle plugin (`id("org.migrax")`) adds it to the application's
+    resources.
+
+=== "Maven"
+
+    Add the `package-snapshot` goal to the Migrax plugin; it runs while the resources are
+    copied:
+
+    ```xml title="pom.xml"
+    <plugin>
+      <groupId>org.migrax</groupId>
+      <artifactId>migrax</artifactId>
+      <version>0.15.0</version>
+      <executions>
+        <execution>
+          <goals>
+            <goal>package-snapshot</goal>
+          </goals>
+        </execution>
+      </executions>
+    </plugin>
+    ```
+
+=== "Other builds"
+
+    Copy `.migrax/snapshot.json` to `META-INF/migrax/snapshot.json` in the application's
+    classpath, and `.migrax/<name>/snapshot.json` to `META-INF/migrax/<name>/snapshot.json` for
+    each further database.
+
+Without the file, `warn` logs that it can't check and `fail` stops the start with the same
+message, so a missing build step is noticed at once.
+
 ## Hibernate must not change the schema
 
 When Hibernate is allowed to create or update tables at startup, the database drifts away from
