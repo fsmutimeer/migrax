@@ -10,7 +10,8 @@ import org.eclipse.microprofile.health.Readiness;
 
 /**
  * The {@code migrax} readiness check (with helidon-microprofile-health): UP when every
- * migration is applied and none failed or changed, DOWN otherwise, with the counts as data.
+ * migration of every database is applied and none failed or changed, DOWN otherwise, with the
+ * counts as data ({@code pending}, ...; {@code billing.pending}, ... for a further database).
  */
 @Readiness
 @ApplicationScoped
@@ -22,12 +23,17 @@ public class MigraxReadinessCheck implements HealthCheck {
   public HealthCheckResponse call() {
     HealthCheckResponseBuilder response = HealthCheckResponse.named("migrax");
     try {
-      StartupMigrations.Status status = startup.status();
-      return response.status(status.upToDate())
-          .withData("applied", status.applied())
-          .withData("pending", status.pending())
-          .withData("problems", status.problems())
-          .build();
+      boolean up = true;
+      for (var entry : startup.statuses().entrySet()) {
+        String key = org.migrax.runner.Databases.DEFAULT.equals(entry.getKey()) ? ""
+            : entry.getKey() + ".";
+        StartupMigrations.Status status = entry.getValue();
+        response.withData(key + "applied", status.applied())
+            .withData(key + "pending", status.pending())
+            .withData(key + "problems", status.problems());
+        up &= status.upToDate();
+      }
+      return response.status(up).build();
     } catch (Exception e) {
       return response.down().withData("error", String.valueOf(e.getMessage())).build();
     }

@@ -41,11 +41,13 @@ for _ in $(seq 1 90); do
   [[ $BODY == from* ]] && break
   sleep 2
 done
+# The second database (migrax.databases.billing), defined by the application itself.
+BILLING="$(curl -s "localhost:$PORT/app/billing" || true)"
 docker logs "$NAME" > server.log 2>&1
 docker rm -f "$NAME" > /dev/null
 
-echo "$SERVER: /app/notes -> ${BODY:-nothing}"
-if [[ $BODY != "from SQL,from Java" ]]; then
+echo "$SERVER: /app/notes -> ${BODY:-nothing}, /app/billing -> ${BILLING:-nothing}"
+if [[ $BODY != "from SQL,from Java" || $BILLING != "billing_team" ]]; then
   grep -iE "migrax|error|exception" server.log | head -40
   exit 1
 fi

@@ -104,6 +104,81 @@ class MigraxAutoConfigurationTest {
   }
 
   /**
+   * A second database: its own DataSource bean, folder (db/billing) and placeholders;
+   * the default database and JPA keep the primary DataSource. Health and the pending gauge
+   * report each database.
+   */
+  @Test
+  void migratesEveryConfiguredDatabase() {
+    try (ConfigurableApplicationContext context = new SpringApplicationBuilder(TestApp.class,
+        TwoDatabases.class).properties(
+            "spring.jpa.hibernate.ddl-auto=validate",
+            "spring.main.web-application-type=none",
+            "migrax.databases.billing.datasource=billingDataSource",
+            "migrax.databases.billing.placeholders.owner=billing_team").run()) {
+      JdbcTemplate main = new JdbcTemplate(context.getBean("dataSource",
+          javax.sql.DataSource.class));
+      JdbcTemplate billing = new JdbcTemplate(context.getBean("billingDataSource",
+          javax.sql.DataSource.class));
+      assertEquals(3, main.queryForObject("SELECT COUNT(*) FROM migrax_history", Integer.class));
+      assertEquals(0, main.queryForObject("SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES "
+          + "WHERE TABLE_NAME = 'INVOICE'", Integer.class));
+      assertEquals("billing_team",
+          billing.queryForObject("SELECT owner FROM invoice", String.class));
+      assertEquals(1, billing.queryForObject("SELECT COUNT(*) FROM migrax_history",
+          Integer.class), "only the billing folder, not the default one or its Java beans");
+
+      var health = context.getBean("migraxHealthIndicator",
+          org.springframework.boot.actuate.health.CompositeHealthContributor.class);
+      for (String database : java.util.List.of("default", "billing")) {
+        var indicator = (org.springframework.boot.actuate.health.HealthIndicator)
+            health.getContributor(database);
+        assertEquals(org.springframework.boot.actuate.health.Status.UP,
+            indicator.health().getStatus(), database);
+      }
+      var registry = context.getBean(io.micrometer.core.instrument.MeterRegistry.class);
+      assertEquals(1.0, registry.get("migrax.migrations.applied").tag("database", "billing")
+          .counter().count());
+      assertEquals(0.0, registry.get("migrax.migrations.pending").tag("database", "billing")
+          .gauge().value());
+    }
+  }
+
+  @Test
+  void aMissingDataSourceBeanIsExplained() {
+    Exception failure = assertThrows(Exception.class, () -> start("starter_missing_db",
+        "migrax.databases.billing.locations=classpath:db/billing").close());
+    Throwable cause = failure;
+    while (cause.getCause() != null) {
+      cause = cause.getCause();
+    }
+    org.junit.jupiter.api.Assertions.assertTrue(cause.getMessage()
+        .contains("no DataSource bean named 'billing'"), cause.getMessage());
+  }
+
+  /** Two DataSource beans, as an application with two databases defines them. */
+  @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
+  static class TwoDatabases {
+    @org.springframework.context.annotation.Bean
+    @org.springframework.context.annotation.Primary
+    javax.sql.DataSource dataSource() {
+      return h2("starter_two_main");
+    }
+
+    @org.springframework.context.annotation.Bean
+    javax.sql.DataSource billingDataSource() {
+      return h2("starter_two_billing");
+    }
+
+    private static javax.sql.DataSource h2(String name) {
+      org.h2.jdbcx.JdbcDataSource dataSource = new org.h2.jdbcx.JdbcDataSource();
+      dataSource.setURL("jdbc:h2:mem:" + name + ";DB_CLOSE_DELAY=-1");
+      dataSource.setUser("sa");
+      return dataSource;
+    }
+  }
+
+  /**
    * An OpenTelemetry that keeps its spans in memory, in place of Spring Boot's. Each test gets a
    * new exporter: closing a context shuts its exporter down.
    */

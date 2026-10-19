@@ -19,12 +19,16 @@ an `OpenTelemetry` bean. Without them, nothing changes.
 
 | Metric | Prometheus name | Tags | What it measures |
 |---|---|---|---|
-| `migrax.run` | `migrax_run_seconds` | `outcome` (`success`, `failure`) | Each migration run at startup |
-| `migrax.migration` | `migrax_migration_seconds` | `migration` (file or class name), `outcome` | Each migration |
-| `migrax.migrations.applied` | `migrax_migrations_applied_total` | | Migrations applied |
-| `migrax.migrations.failed` | `migrax_migrations_failed_total` | | Migrations that failed |
-| `migrax.lock.wait` | `migrax_lock_wait_seconds` | | How long the migration lock took to get |
-| `migrax.migrations.pending` | `migrax_migrations_pending` | | Migrations that wait to run (from Migrax 0.14.0) |
+| `migrax.run` | `migrax_run_seconds` | `outcome` (`success`, `failure`), `database` | Each migration run at startup |
+| `migrax.migration` | `migrax_migration_seconds` | `migration` (file or class name), `outcome`, `database` | Each migration |
+| `migrax.migrations.applied` | `migrax_migrations_applied_total` | `database` | Migrations applied |
+| `migrax.migrations.failed` | `migrax_migrations_failed_total` | `database` | Migrations that failed |
+| `migrax.lock.wait` | `migrax_lock_wait_seconds` | `database` | How long the migration lock took to get |
+| `migrax.migrations.pending` | `migrax_migrations_pending` | `database` | Migrations that wait to run (from Migrax 0.14.0) |
+
+The tag `database` (from Migrax 0.15.0) is `default`, or the name of a further database in an
+application with [several databases](several-databases.md). Queries without it add the
+databases up.
 
 A Prometheus alert on failed migrations, for example:
 

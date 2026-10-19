@@ -21,17 +21,29 @@ import java.time.Duration;
  */
 public final class OpenTelemetryListener implements MigrationListener {
   private final Tracer tracer;
+  private final String database;
   /** Spans of the run and of the migration in progress, per thread: runs may overlap. */
   private final ThreadLocal<Span> run = new ThreadLocal<>();
   private final ThreadLocal<Span> migration = new ThreadLocal<>();
 
   public OpenTelemetryListener(OpenTelemetry openTelemetry) {
+    this(openTelemetry, org.migrax.runner.Databases.DEFAULT);
+  }
+
+  /**
+   * Spans of one database: the run span has the attribute {@code migrax.database}.
+   *
+   * @since 0.15.0
+   */
+  public OpenTelemetryListener(OpenTelemetry openTelemetry, String database) {
     this.tracer = openTelemetry.getTracer("org.migrax");
+    this.database = database;
   }
 
   @Override
   public void runStarted() {
-    run.set(tracer.spanBuilder("migrax migrate").startSpan());
+    run.set(tracer.spanBuilder("migrax migrate").setAttribute("migrax.database", database)
+        .startSpan());
   }
 
   @Override

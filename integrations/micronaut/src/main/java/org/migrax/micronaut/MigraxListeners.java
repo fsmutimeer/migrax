@@ -16,16 +16,16 @@ final class MigraxListeners {
   private MigraxListeners() {}
 
   static List<MigrationListener> find(BeanContext context, Map<String, String> settings,
-                                      ClassLoader loader) {
+                                      ClassLoader loader, String database) {
     List<MigrationListener> listeners =
         new ArrayList<>(context.getBeansOfType(MigrationListener.class));
     if (!"false".equalsIgnoreCase(settings.get("migrax.metrics.enabled"))
         && present("io.micrometer.core.instrument.MeterRegistry", loader)) {
-      Metrics.add(context, listeners);
+      Metrics.add(context, listeners, database);
     }
     if (!"false".equalsIgnoreCase(settings.get("migrax.tracing.enabled"))
         && present("io.opentelemetry.api.OpenTelemetry", loader)) {
-      Tracing.add(context, listeners);
+      Tracing.add(context, listeners, database);
     }
     return listeners;
   }
@@ -41,17 +41,17 @@ final class MigraxListeners {
 
   /** Loaded only when Micrometer is on the class path. */
   private static final class Metrics {
-    static void add(BeanContext context, List<MigrationListener> listeners) {
+    static void add(BeanContext context, List<MigrationListener> listeners, String database) {
       context.findBean(io.micrometer.core.instrument.MeterRegistry.class).ifPresent(registry ->
-          listeners.add(new org.migrax.observe.MicrometerListener(registry)));
+          listeners.add(new org.migrax.observe.MicrometerListener(registry, database)));
     }
   }
 
   /** Loaded only when the OpenTelemetry API is on the class path. */
   private static final class Tracing {
-    static void add(BeanContext context, List<MigrationListener> listeners) {
+    static void add(BeanContext context, List<MigrationListener> listeners, String database) {
       context.findBean(io.opentelemetry.api.OpenTelemetry.class).ifPresent(openTelemetry ->
-          listeners.add(new org.migrax.observe.OpenTelemetryListener(openTelemetry)));
+          listeners.add(new org.migrax.observe.OpenTelemetryListener(openTelemetry, database)));
     }
   }
 }

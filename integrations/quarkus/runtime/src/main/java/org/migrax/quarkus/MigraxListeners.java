@@ -21,25 +21,25 @@ final class MigraxListeners {
 
   /** A bean adding a listener when its extension is in the application. */
   interface Source {
-    /** The listener, or null when it is turned off or its backend is missing. */
-    MigrationListener listener(Map<String, String> settings);
+    /** The listener of one database, or null when it is off or its backend is missing. */
+    MigrationListener listener(Map<String, String> settings, String database);
   }
 
   /**
-   * The metrics of the runs during startup, until {@link MigraxMetricsReplay} hands them to the
-   * registry: Quarkus attaches its registries after the migrations ran.
+   * The metrics of the runs during startup, per database, until {@link MigraxMetricsReplay}
+   * hands them to the registry: Quarkus attaches its registries after the migrations ran.
    */
-  static final org.migrax.observe.RecordingListener STARTUP_METRICS =
-      new org.migrax.observe.RecordingListener();
+  static final Map<String, org.migrax.observe.RecordingListener> STARTUP_METRICS =
+      new java.util.concurrent.ConcurrentHashMap<>();
 
-  static List<MigrationListener> find(Map<String, String> settings) {
+  static List<MigrationListener> find(Map<String, String> settings, String database) {
     List<MigrationListener> listeners = new ArrayList<>();
     if (Arc.container() == null) {
       return listeners;
     }
     Arc.container().select(MigrationListener.class).forEach(listeners::add);
     for (Source source : Arc.container().select(Source.class)) {
-      MigrationListener listener = source.listener(settings);
+      MigrationListener listener = source.listener(settings, database);
       if (listener != null) {
         listeners.add(listener);
       }

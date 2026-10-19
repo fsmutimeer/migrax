@@ -113,6 +113,7 @@ nav:
       - Continuous integration: guides/ci.md
       - Production safety: guides/production-safety.md
       - Comparing databases: guides/comparing-databases.md
+      - Several databases: guides/several-databases.md
       - Zero-downtime changes: guides/zero-downtime.md
       - Metrics and tracing: guides/observability.md
       - Advanced migrations: guides/advanced-migrations.md

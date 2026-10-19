@@ -105,13 +105,26 @@ class MigraxProcessor {
                       BuildProducer<NativeImageResourceBuildItem> resources,
                       BuildProducer<ReflectiveClassBuildItem> reflective,
                       BuildProducer<ServiceProviderBuildItem> services) {
+    // The folders of the default database and of each further one (migrax.databases.<name>).
+    org.eclipse.microprofile.config.Config config = ConfigProvider.getConfig();
+    java.util.Map<String, String> settings = new java.util.LinkedHashMap<>();
+    for (String name : config.getPropertyNames()) {
+      if (name.startsWith("migrax.")) {
+        config.getOptionalValue(name, String.class).ifPresent(value -> settings.put(name, value));
+      }
+    }
+    List<String> databases = new ArrayList<>(List.of(org.migrax.runner.Databases.DEFAULT));
+    databases.addAll(org.migrax.runner.Databases.names(settings));
     List<String> folders = new ArrayList<>();
-    for (String location : ConfigProvider.getConfig()
-        .getOptionalValue("migrax.locations", String.class).orElse("db/migration").split(",")) {
-      String folder = location.trim().replace("classpath:", "").replaceAll("^/+", "")
-          .replaceAll("/+$", "");
-      if (!folder.isEmpty()) {
-        folders.add(folder);
+    for (String database : databases) {
+      String locations = org.migrax.runner.Databases.settings(database, settings)
+          .getOrDefault("migrax.locations", "db/migration");
+      for (String location : locations.split(",")) {
+        String folder = location.trim().replace("classpath:", "").replaceAll("^/+", "")
+            .replaceAll("/+$", "");
+        if (!folder.isEmpty() && !folders.contains(folder)) {
+          folders.add(folder);
+        }
       }
     }
     Set<String> sql = new TreeSet<>();

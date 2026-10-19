@@ -125,4 +125,30 @@ class ObservabilityTest {
     cached.get("migrax.migrations.pending").gauge().value();
     assertEquals(1, reads[0]);
   }
+
+  @Test
+  void eachDatabaseHasItsOwnMetricsAndSpans() throws Exception {
+    Files.writeString(folder.resolve("0001_note.sql"), "CREATE TABLE note (id INT);\n");
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    for (String database : List.of("default", "billing")) {
+      Migrax migrax = Migrax.configure().dataSource(database("tag_" + database))
+          .locations("filesystem:" + folder)
+          .listener(new MicrometerListener(registry, database),
+              new OpenTelemetryListener(OTEL.getOpenTelemetry(), database))
+          .load();
+      new PendingGauge(() -> migrax.status().pending(), database, Duration.ZERO)
+          .bindTo(registry);
+      migrax.migrate();
+    }
+    for (String database : List.of("default", "billing")) {
+      assertEquals(1.0, registry.get("migrax.migrations.applied").tag("database", database)
+          .counter().count());
+      assertEquals(1, registry.get("migrax.run").tag("database", database).timer().count());
+      assertEquals(0.0, registry.get("migrax.migrations.pending").tag("database", database)
+          .gauge().value());
+    }
+    assertEquals(List.of("default", "billing"), OTEL.getSpans().stream()
+        .filter(s -> s.getName().equals("migrax migrate"))
+        .map(s -> s.getAttributes().get(AttributeKey.stringKey("migrax.database"))).toList());
+  }
 }

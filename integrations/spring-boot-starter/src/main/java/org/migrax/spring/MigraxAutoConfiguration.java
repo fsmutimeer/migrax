@@ -49,10 +49,30 @@ public class MigraxAutoConfiguration {
     if (beanFactory instanceof org.springframework.beans.factory.ListableBeanFactory beans) {
       migrator.setBeanFactory(beans);
     }
+    // Further databases (migrax.databases.<name>), each from its own DataSource bean.
+    for (var entry : properties.getDatabases().entrySet()) {
+      String name = org.migrax.runner.Databases.checkName(entry.getKey());
+      String bean = entry.getValue().getDatasource() != null
+          ? entry.getValue().getDatasource() : name;
+      if (!beanFactory.containsBean(bean)) {
+        throw new IllegalStateException("migrax.databases." + name + ": no DataSource bean"
+            + " named '" + bean + "'. Set migrax.databases." + name + ".datasource to the bean's"
+            + " name.");
+      }
+      MigraxMigrator other = new MigraxMigrator(beanFactory.getBean(bean, DataSource.class),
+          properties.forDatabase(name), resources, List.of(), environment, List.of(), name);
+      if (beanFactory instanceof org.springframework.beans.factory.ListableBeanFactory beans) {
+        other.setBeanFactory(beans);
+      }
+      migrator.addOther(other);
+    }
     return migrator;
   }
 
-  /** The migrax health indicator, only when the application has Actuator. */
+  /**
+   * The migrax health component, only when the application has Actuator: one indicator, or,
+   * with further databases, one entry per database (default, billing, ...).
+   */
   @Configuration(proxyBeanMethods = false)
   @ConditionalOnClass(name = "org.springframework.boot.actuate.health.HealthIndicator")
   static class MigraxHealth {
@@ -60,8 +80,17 @@ public class MigraxAutoConfiguration {
     @ConditionalOnMissingBean(name = "migraxHealthIndicator")
     @org.springframework.boot.actuate.autoconfigure.health.ConditionalOnEnabledHealthIndicator(
         "migrax")
-    MigraxHealthIndicator migraxHealthIndicator(MigraxMigrator migrator) {
-      return new MigraxHealthIndicator(migrator);
+    org.springframework.boot.actuate.health.HealthContributor migraxHealthIndicator(
+        MigraxMigrator migrator) {
+      if (migrator.others().isEmpty()) {
+        return new MigraxHealthIndicator(migrator);
+      }
+      java.util.Map<String, org.springframework.boot.actuate.health.HealthIndicator> byDatabase =
+          new java.util.LinkedHashMap<>();
+      byDatabase.put(migrator.database(), new MigraxHealthIndicator(migrator));
+      migrator.others().forEach(m -> byDatabase.put(m.database(), new MigraxHealthIndicator(m)));
+      return org.springframework.boot.actuate.health.CompositeHealthContributor
+          .fromMap(byDatabase);
     }
   }
 
@@ -77,7 +106,10 @@ public class MigraxAutoConfiguration {
     @ConditionalOnMissingBean(name = "migraxPendingGauge")
     io.micrometer.core.instrument.binder.MeterBinder migraxPendingGauge(
         MigraxMigrator migrator) {
-      return new org.migrax.observe.PendingGauge(() -> migrator.status().pending());
+      List<MigraxMigrator> all = new java.util.ArrayList<>(List.of(migrator));
+      all.addAll(migrator.others());
+      return registry -> all.forEach(m -> new org.migrax.observe.PendingGauge(
+          () -> m.status().pending(), m.database()).bindTo(registry));
     }
   }
 
