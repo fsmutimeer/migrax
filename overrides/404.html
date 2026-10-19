@@ -1,0 +1,90 @@
+{#- Page for addresses that don't exist. GitHub Pages serves it at any wrong address, so every
+    link goes through the url filter, which makes it absolute from site_url. -#}
+{% extends "main.html" %}
+
+{% block htmltitle %}
+  <title>Page not found - {{ config.site_name }}</title>
+  <meta name="robots" content="noindex">
+{% endblock %}
+
+{% block hero %}
+<section class="mx-hero mx-404" data-mx-spotlight>
+  <div class="mx-hero__glow mx-hero__glow--yellow" aria-hidden="true"></div>
+  <div class="mx-hero__glow mx-hero__glow--white" aria-hidden="true"></div>
+  <div class="mx-hero__grid" aria-hidden="true"></div>
+
+  <div class="mx-404__inner md-grid">
+    <p class="mx-404__code" aria-hidden="true"><span class="mx-gradient-text">404</span></p>
+    <h1 class="mx-404__title">This page doesn't exist</h1>
+    <p class="mx-404__lead">
+      It may have moved when the documentation was reorganized, or the address has a typo.
+    </p>
+    <p class="mx-404__path" hidden>
+      <span class="mx-404__path-label">You asked for</span>
+      <code class="mx-404__path-value"></code>
+    </p>
+
+    <div class="mx-404__actions">
+      <label class="mx-btn mx-btn--primary" for="__search" role="button" tabindex="0">
+        Search the docs <span aria-hidden="true">&rarr;</span>
+      </label>
+      <a class="mx-btn mx-btn--ghost" href="{{ nav.homepage.url | url }}">Home</a>
+      <a class="mx-btn mx-btn--ghost" href="{{ 'getting-started/installation/' | url }}">Get started</a>
+      <a class="mx-btn mx-btn--link" href="{{ 'download/' | url }}">Download</a>
+    </div>
+
+    <nav class="mx-404__links" aria-label="Popular pages">
+      <a class="mx-404__card" href="{{ 'getting-started/quickstart/' | url }}">
+        <strong>Quick start</strong>
+        <span>From entities to an applied migration in five minutes</span>
+      </a>
+      <a class="mx-404__card" href="{{ 'frameworks/any-language/' | url }}">
+        <strong>Any language</strong>
+        <span>Hand-written SQL migrations for Python, Node.js, Go, .NET, PHP or Ruby</span>
+      </a>
+      <a class="mx-404__card" href="{{ 'reference/cli/' | url }}">
+        <strong>CLI commands</strong>
+        <span>Every command and option of <code>migrax</code></span>
+      </a>
+      <a class="mx-404__card" href="{{ 'reference/configuration/' | url }}">
+        <strong>Configuration</strong>
+        <span>Where Migrax reads its settings, and every setting</span>
+      </a>
+    </nav>
+  </div>
+</section>
+{% endblock %}
+
+{#- No sidebars and no article: the hero is the whole page. -#}
+{% block site_nav %}{% endblock %}
+{% block container %}{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    (function () {
+      var path = window.location.pathname;
+      var box = document.querySelector(".mx-404__path");
+      if (box && path && path !== "/") {
+        var shown = path;
+        try {
+          shown = decodeURI(path);
+        } catch (e) {
+          // A malformed address: show it as it is.
+        }
+        box.querySelector(".mx-404__path-value").textContent = shown;
+        box.hidden = false;
+      }
+      // The search button is a label: let Enter and Space open the search like a click.
+      var search = document.querySelector(".mx-404 label[for='__search']");
+      if (search) {
+        search.addEventListener("keydown", function (event) {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            search.click();
+          }
+        });
+      }
+    })();
+  </script>
+{% endblock %}
