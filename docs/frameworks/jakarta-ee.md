@@ -6,6 +6,17 @@ description: "Database migrations for Jakarta EE servers such as WildFly and Pay
 
 Any project with JPA entities works, with or without an application framework.
 
+## What you need
+
+Migrax comes in two parts, and most projects use both:
+
+| Part | What it's for | How you get it |
+|---|---|---|
+| A tool for your terminal | Writing migrations from your entities (`generate`) and looking after them: `status`, `lint`, `verify`, `rollback` and the other commands | The Maven plugin, the Gradle plugin **or** the `migrax` command-line tool |
+| The startup library `migrax-jakarta-ee` | Applying the pending migrations each time the application is deployed, before JPA | A dependency: see [Migrate at startup](#migrate-at-startup) |
+
+--8<-- "docs/includes/terminal-tool.md"
+
 ## Database settings
 
 Migrax reads the first persistence unit in `src/main/resources/META-INF/persistence.xml`:

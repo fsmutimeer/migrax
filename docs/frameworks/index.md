@@ -12,8 +12,13 @@ Migrax doesn't depend on any framework, or on Java. It works in two ways:
 - **Java with JPA entities:** Migrax also writes the migrations for you from your entities,
   with the frameworks below.
 
-For Java applications, Migrax reads your entities and talks to the database over JDBC, so the
-command line works the same everywhere. What differs per framework is:
+For Java applications, Migrax comes in two parts, and most projects use both: a **tool for your
+terminal** (the Maven plugin, the Gradle plugin or the `migrax` command-line tool) that writes and
+checks the migrations, and a **startup library** for your framework that applies them when the
+application starts. Each framework page begins with what to add.
+
+Migrax reads your entities and talks to the database over JDBC, so the command line works the
+same everywhere. What differs per framework is:
 
 - **where the database settings are**, which Migrax reads for you;
 - **how Hibernate names tables and columns**, which Migrax must match exactly;
