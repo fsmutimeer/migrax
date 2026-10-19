@@ -6,6 +6,8 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-19
+
 ### Added
 
 - Drift at startup: `migrax.drift.check=warn` or `fail` makes the application compare the
@@ -21,6 +23,8 @@ All notable changes to Migrax are listed here. The format follows
 - `history` and `pending` can't be names of further databases (`migrax.databases.<name>`): the
   `migrax` command keeps the default database's files in `.migrax/history/` and
   `.migrax/pending/`, next to each further database's `.migrax/<name>/`.
+- `migrax-integrations` and `migrax-quarkus-parent` are no longer published to Maven Central:
+  they only group modules for the build, and no published artifact refers to them.
 
 ## [0.15.0] - 2026-10-19
 
@@ -720,7 +724,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/fsmutimeer/migrax/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/fsmutimeer/migrax/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/fsmutimeer/migrax/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/fsmutimeer/migrax/compare/v0.12.0...v0.13.0
