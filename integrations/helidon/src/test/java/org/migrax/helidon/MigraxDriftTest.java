@@ -2,6 +2,11 @@ package org.migrax.helidon;
 
 import io.helidon.microprofile.testing.junit5.AddConfig;
 import io.helidon.microprofile.testing.junit5.HelidonTest;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.Initialized;
+import jakarta.enterprise.event.Observes;
+import jakarta.interceptor.Interceptor;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -28,7 +33,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MigraxDriftTest {
   private static final List<String> WARNINGS = new CopyOnWriteArrayList<>();
 
-  static {
+  /**
+   * Listens to Migrax's log right before it migrates: Helidon reads its logging configuration
+   * while the container starts, which drops handlers added earlier.
+   */
+  static void listen(@Observes @Priority(Interceptor.Priority.PLATFORM_BEFORE - 1)
+                     @Initialized(ApplicationScoped.class) Object event) {
     Logger.getLogger("org.migrax").addHandler(new Handler() {
       @Override
       public void publish(LogRecord record) {
