@@ -1,0 +1,138 @@
+{#-
+  Site footer: the theme's previous/next links (unchanged from Material 9.7.7's
+  partials/footer.html, left out on the home page), then the brand, four columns of links, where to install from, and
+  the copyright line. Every link is checked when changed: internal ones by mkdocs build,
+  external ones by hand.
+-#}
+{% set mx_repo = config.repo_url %}
+<footer class="md-footer">
+  {#- The landing page ends with its own call to action, not "Next: Download". -#}
+  {% if "navigation.footer" in features and not page.is_homepage %}
+    {% if page.previous_page or page.next_page %}
+      {% if page.meta and page.meta.hide %}
+        {% set hidden = "hidden" if "footer" in page.meta.hide %}
+      {% endif %}
+      <nav class="md-footer__inner md-grid" aria-label="{{ lang.t('footer') }}" {{ hidden }}>
+        {% if page.previous_page %}
+          {% set direction = lang.t("footer.previous") %}
+          <a href="{{ page.previous_page.url | url }}" class="md-footer__link md-footer__link--prev" aria-label="{{ direction }}: {{ page.previous_page.title | e }}">
+            <div class="md-footer__button md-icon">
+              {% set icon = config.theme.icon.previous or "material/arrow-left" %}
+              {% include ".icons/" ~ icon ~ ".svg" %}
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                {{ direction }}
+              </span>
+              <div class="md-ellipsis">
+                {{ page.previous_page.title }}
+              </div>
+            </div>
+          </a>
+        {% endif %}
+        {% if page.next_page %}
+          {% set direction = lang.t("footer.next") %}
+          <a href="{{ page.next_page.url | url }}" class="md-footer__link md-footer__link--next" aria-label="{{ direction }}: {{ page.next_page.title | e }}">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                {{ direction }}
+              </span>
+              <div class="md-ellipsis">
+                {{ page.next_page.title }}
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              {% set icon = config.theme.icon.next or "material/arrow-right" %}
+              {% include ".icons/" ~ icon ~ ".svg" %}
+            </div>
+          </a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% endif %}
+  <div class="md-footer-meta mx-footer">
+    <div class="md-grid mx-footer__inner">
+      <div class="mx-footer__top">
+        <div class="mx-footer__brand">
+          <a href="{{ nav.homepage.url | url }}" class="mx-footer__logo" aria-label="Migrax home">
+            <span class="mx-footer__mark">{% include ".icons/material/database-arrow-up.svg" %}</span>
+            <span>Migrax</span>
+          </a>
+          <p class="mx-footer__tagline">
+            Database migrations generated from your JPA and Hibernate entities, with rollback
+            scripts and checks before they reach production.
+          </p>
+          <div class="mx-footer__social">
+            <a href="{{ mx_repo }}" target="_blank" rel="noopener" aria-label="Migrax on GitHub" title="GitHub">
+              {% include ".icons/fontawesome/brands/github.svg" %}
+            </a>
+            <a href="{{ 'feed_rss_created.xml' | url }}" aria-label="Blog RSS feed" title="RSS feed">
+              {% include ".icons/material/rss.svg" %}
+            </a>
+            <a href="{{ mx_repo }}/releases" target="_blank" rel="noopener" aria-label="Releases on GitHub" title="Releases">
+              {% include ".icons/material/tag-outline.svg" %}
+            </a>
+          </div>
+        </div>
+        <nav class="mx-footer__columns" aria-label="Site">
+          <div class="mx-footer__col">
+            <h2>Product</h2>
+            <ul>
+              <li><a href="{{ 'download/' | url }}">Download</a></li>
+              <li><a href="{{ 'getting-started/installation/' | url }}">Installation</a></li>
+              <li><a href="{{ 'getting-started/quickstart/' | url }}">Quick start</a></li>
+              <li><a href="{{ 'reference/databases/' | url }}">Databases</a></li>
+              <li><a href="{{ 'reference/hibernate/' | url }}">JPA providers</a></li>
+              <li><a href="{{ 'project/changelog/' | url }}">Changelog</a></li>
+            </ul>
+          </div>
+          <div class="mx-footer__col">
+            <h2>Frameworks</h2>
+            <ul>
+              <li><a href="{{ 'frameworks/spring-boot/' | url }}">Spring Boot</a></li>
+              <li><a href="{{ 'frameworks/quarkus/' | url }}">Quarkus</a></li>
+              <li><a href="{{ 'frameworks/micronaut/' | url }}">Micronaut</a></li>
+              <li><a href="{{ 'frameworks/helidon/' | url }}">Helidon</a></li>
+              <li><a href="{{ 'frameworks/jakarta-ee/' | url }}">Jakarta EE</a></li>
+              <li><a href="{{ 'frameworks/maven/' | url }}">Maven</a> &amp; <a href="{{ 'frameworks/gradle/' | url }}">Gradle</a></li>
+            </ul>
+          </div>
+          <div class="mx-footer__col">
+            <h2>Resources</h2>
+            <ul>
+              <li><a href="{{ 'guides/how-it-works/' | url }}">How Migrax works</a></li>
+              <li><a href="{{ 'reference/cli/' | url }}">CLI commands</a></li>
+              <li><a href="{{ 'reference/configuration/' | url }}">Configuration</a></li>
+              <li><a href="{{ 'reference/troubleshooting/' | url }}">Troubleshooting</a></li>
+              <li><a href="{{ 'blog/' | url }}">Blog</a></li>
+              <li><a href="{{ 'guides/ai-assistants/' | url }}">AI assistants</a></li>
+            </ul>
+          </div>
+          <div class="mx-footer__col">
+            <h2>Project</h2>
+            <ul>
+              <li><a href="{{ mx_repo }}" target="_blank" rel="noopener">Source code</a></li>
+              <li><a href="{{ mx_repo }}/issues" target="_blank" rel="noopener">Report an issue</a></li>
+              <li><a href="{{ 'project/contributing/' | url }}">Contributing</a></li>
+              <li><a href="{{ 'project/versioning/' | url }}">Versioning and releases</a></li>
+              <li><a href="{{ mx_repo }}/blob/main/LICENSE" target="_blank" rel="noopener">License</a></li>
+            </ul>
+          </div>
+        </nav>
+      </div>
+      <div class="mx-footer__install">
+        <span class="mx-footer__install-label">Install with</span>
+        <a href="https://central.sonatype.com/namespace/org.migrax" target="_blank" rel="noopener">Maven Central</a>
+        <a href="https://github.com/fsmutimeer/homebrew-migrax" target="_blank" rel="noopener">Homebrew</a>
+        <a href="https://github.com/fsmutimeer/scoop-migrax" target="_blank" rel="noopener">Scoop</a>
+        <a href="{{ mx_repo }}/pkgs/container/migrax" target="_blank" rel="noopener">Container image</a>
+        <a href="{{ 'download/' | url }}">Direct download</a>
+      </div>
+      <div class="mx-footer__bottom">
+        <span>{{ config.copyright }}</span>
+        <span>Open source under the
+          <a href="{{ mx_repo }}/blob/main/LICENSE" target="_blank" rel="noopener">Apache License 2.0</a></span>
+      </div>
+    </div>
+  </div>
+</footer>

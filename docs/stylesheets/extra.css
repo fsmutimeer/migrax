@@ -729,10 +729,143 @@
   animation: mx-fade 0.45s var(--mx-ease) both;
 }
 
-/* footer */
+/* footer (overrides/partials/footer.html): black in both color schemes, like the header */
 .md-footer,
 .md-footer-meta {
   background: var(--mx-ink);
+}
+.mx-footer {
+  border-top: 1px solid var(--mx-line);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.7rem;
+}
+.mx-footer a {
+  color: rgba(255, 255, 255, 0.78);
+  transition: color 0.2s var(--mx-ease);
+}
+.mx-footer a:hover,
+.mx-footer a:focus-visible {
+  color: var(--mx-yellow);
+}
+.mx-footer__inner {
+  padding: 2.6rem 0.8rem 1.2rem;
+}
+.mx-footer__top {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.2fr) 3fr;
+  gap: 2.5rem;
+}
+.mx-footer__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.mx-footer .mx-footer__logo {
+  color: #fff;
+}
+.mx-footer__mark {
+  display: inline-flex;
+  padding: 0.3rem;
+  border-radius: 0.5rem;
+  background: var(--mx-yellow);
+}
+.mx-footer__mark svg {
+  width: 1rem;
+  height: 1rem;
+  fill: var(--mx-ink);
+}
+.mx-footer__tagline {
+  max-width: 20rem;
+  margin: 0.8rem 0 1rem;
+  line-height: 1.6;
+}
+.mx-footer__social {
+  display: flex;
+  gap: 0.5rem;
+}
+.mx-footer__social a {
+  display: inline-flex;
+  padding: 0.4rem;
+  border: 1px solid var(--mx-line);
+  border-radius: 0.5rem;
+}
+.mx-footer__social a:hover {
+  border-color: var(--mx-yellow);
+}
+.mx-footer__social svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: currentColor;
+}
+.mx-footer__columns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+.mx-footer__col h2 {
+  margin: 0 0 0.8rem;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mx-footer__col ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mx-footer__col li {
+  margin: 0 0 0.55rem;
+}
+.mx-footer__install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 2.2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--mx-line);
+}
+.mx-footer__install-label {
+  margin-right: 0.3rem;
+  color: #fff;
+  font-weight: 600;
+}
+.mx-footer__install a {
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--mx-line);
+  border-radius: 999px;
+  font-size: 0.65rem;
+}
+.mx-footer__install a:hover {
+  border-color: var(--mx-yellow);
+}
+.mx-footer__bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.2rem;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+.mx-footer__bottom a {
+  color: rgba(255, 255, 255, 0.62);
+}
+@media screen and (max-width: 60em) {
+  .mx-footer__top {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+@media screen and (max-width: 36em) {
+  .mx-footer__columns {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem 1rem;
+  }
 }
 
 /* small helpers kept from the previous design */
@@ -966,5 +1099,149 @@
 @media (prefers-reduced-motion: reduce) {
   .mx-404__code {
     animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------- blog cards */
+/* Each article on the blog page is a card (overrides/partials/post.html); the whole card opens
+   the article. */
+.mx-post-card {
+  position: relative;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1.1rem 0.7rem;
+  background: var(--mx-card-bg);
+  border: 1px solid var(--mx-card-border);
+  border-radius: var(--mx-radius);
+  box-shadow: var(--mx-card-shadow);
+  transition: transform 0.25s var(--mx-ease), border-color 0.25s var(--mx-ease);
+}
+.mx-post-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--mx-yellow);
+}
+.mx-post-card .md-post__header {
+  align-items: center;
+  gap: 0.6rem;
+}
+.mx-post-card .md-post__authors {
+  min-height: 0;
+}
+/* The theme's frame is smaller and its photos grey; the card shows the photo whole, in color. */
+.mx-post-card .md-author {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+.mx-post-card .md-author img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: none;
+}
+.mx-post-card .md-post__meta {
+  flex: 1;
+  margin: 0;
+  line-height: 1.3;
+}
+.mx-post-card__author {
+  color: var(--md-default-fg-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.mx-post-card .md-meta__list {
+  margin: 0;
+  font-size: 0.65rem;
+}
+.mx-post-card .md-draft {
+  align-self: flex-start;
+}
+.mx-post-card .md-post__content h2 {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+/* The title is plain text in the card: no underline from the site's link style. */
+[data-md-color-scheme] .mx-post-card .md-post__content.md-typeset h2 a.toclink {
+  color: var(--md-default-fg-color);
+  background-image: none;
+  font-weight: inherit;
+}
+/* The card shows the opening paragraph only, cut after three lines. */
+.mx-post-card .md-post__content p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  color: var(--mx-muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+.mx-post-card .md-post__content p ~ p {
+  display: none;
+}
+.mx-post-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--mx-card-border);
+  font-size: 0.65rem;
+}
+.mx-post-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--mx-muted);
+}
+.mx-post-card .md-post__action {
+  margin: 0;
+}
+.mx-post-card .md-post__action a {
+  color: var(--mx-accent-text);
+  font-weight: 700;
+}
+.mx-post-card .md-post__action a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+/* The category link stays clickable above the card-wide link. */
+.mx-post-card .md-meta__link {
+  position: relative;
+  z-index: 1;
+}
+/* Article page: the author and the date, category and reading time below it sit close
+   together. */
+.md-sidebar--post .md-post__profile {
+  margin-bottom: 0.4rem;
+}
+.md-sidebar--post .md-post__meta .md-post__title {
+  margin-top: 0.4rem;
+  margin-bottom: 0.1rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.md-sidebar--post .md-post__meta .md-nav__link {
+  margin-top: 0.3rem;
+  font-size: 0.68rem;
+}
+.md-sidebar--post .md-post__meta .md-nav__link svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mx-post-card,
+  .mx-post-card:hover {
+    transform: none;
+    transition: none;
   }
 }
