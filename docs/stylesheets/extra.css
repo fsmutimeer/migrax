@@ -729,10 +729,143 @@
   animation: mx-fade 0.45s var(--mx-ease) both;
 }
 
-/* footer */
+/* footer (overrides/partials/footer.html): black in both color schemes, like the header */
 .md-footer,
 .md-footer-meta {
   background: var(--mx-ink);
+}
+.mx-footer {
+  border-top: 1px solid var(--mx-line);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.7rem;
+}
+.mx-footer a {
+  color: rgba(255, 255, 255, 0.78);
+  transition: color 0.2s var(--mx-ease);
+}
+.mx-footer a:hover,
+.mx-footer a:focus-visible {
+  color: var(--mx-yellow);
+}
+.mx-footer__inner {
+  padding: 2.6rem 0.8rem 1.2rem;
+}
+.mx-footer__top {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.2fr) 3fr;
+  gap: 2.5rem;
+}
+.mx-footer__logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.mx-footer .mx-footer__logo {
+  color: #fff;
+}
+.mx-footer__mark {
+  display: inline-flex;
+  padding: 0.3rem;
+  border-radius: 0.5rem;
+  background: var(--mx-yellow);
+}
+.mx-footer__mark svg {
+  width: 1rem;
+  height: 1rem;
+  fill: var(--mx-ink);
+}
+.mx-footer__tagline {
+  max-width: 20rem;
+  margin: 0.8rem 0 1rem;
+  line-height: 1.6;
+}
+.mx-footer__social {
+  display: flex;
+  gap: 0.5rem;
+}
+.mx-footer__social a {
+  display: inline-flex;
+  padding: 0.4rem;
+  border: 1px solid var(--mx-line);
+  border-radius: 0.5rem;
+}
+.mx-footer__social a:hover {
+  border-color: var(--mx-yellow);
+}
+.mx-footer__social svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: currentColor;
+}
+.mx-footer__columns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+}
+.mx-footer__col h2 {
+  margin: 0 0 0.8rem;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mx-footer__col ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mx-footer__col li {
+  margin: 0 0 0.55rem;
+}
+.mx-footer__install {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 2.2rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--mx-line);
+}
+.mx-footer__install-label {
+  margin-right: 0.3rem;
+  color: #fff;
+  font-weight: 600;
+}
+.mx-footer__install a {
+  padding: 0.2rem 0.65rem;
+  border: 1px solid var(--mx-line);
+  border-radius: 999px;
+  font-size: 0.65rem;
+}
+.mx-footer__install a:hover {
+  border-color: var(--mx-yellow);
+}
+.mx-footer__bottom {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.2rem;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+.mx-footer__bottom a {
+  color: rgba(255, 255, 255, 0.62);
+}
+@media screen and (max-width: 60em) {
+  .mx-footer__top {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+}
+@media screen and (max-width: 36em) {
+  .mx-footer__columns {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem 1rem;
+  }
 }
 
 /* small helpers kept from the previous design */
