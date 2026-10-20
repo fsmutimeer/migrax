@@ -974,8 +974,8 @@
    the article. */
 .mx-post-card {
   position: relative;
-  margin: 0 0 1.25rem;
-  padding: 1.1rem 1.3rem 0.9rem;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1.1rem 0.7rem;
   background: var(--mx-card-bg);
   border: 1px solid var(--mx-card-border);
   border-radius: var(--mx-radius);
@@ -988,29 +988,42 @@
 }
 .mx-post-card .md-post__header {
   align-items: center;
+  gap: 0.6rem;
 }
-.mx-post-card .md-post__authors .md-author img {
-  width: 2.6rem;
-  height: 2.6rem;
+.mx-post-card .md-post__authors {
+  min-height: 0;
+}
+/* The theme's frame is smaller and its photos grey; the card shows the photo whole, in color. */
+.mx-post-card .md-author {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+.mx-post-card .md-author img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: none;
 }
 .mx-post-card .md-post__meta {
   flex: 1;
-  line-height: 1.35;
+  margin: 0;
+  line-height: 1.3;
 }
 .mx-post-card__author {
   color: var(--md-default-fg-color);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 .mx-post-card .md-meta__list {
   margin: 0;
+  font-size: 0.65rem;
 }
 .mx-post-card .md-draft {
   align-self: flex-start;
 }
 .mx-post-card .md-post__content h2 {
-  margin: 0.7rem 0 0.4rem;
-  font-size: 1.15rem;
+  margin: 0.6rem 0 0.3rem;
+  font-size: 1rem;
   line-height: 1.35;
 }
 /* The title is plain text in the card: no underline from the site's link style. */
@@ -1019,25 +1032,36 @@
   background-image: none;
   font-weight: inherit;
 }
+/* The card shows the opening paragraph only, cut after three lines. */
 .mx-post-card .md-post__content p {
-  margin: 0.5rem 0 0;
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   color: var(--mx-muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+.mx-post-card .md-post__content p ~ p {
+  display: none;
 }
 .mx-post-card__footer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 1rem;
-  margin-top: 0.9rem;
-  padding-top: 0.7rem;
+  gap: 0.4rem 1rem;
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
   border-top: 1px solid var(--mx-card-border);
-  font-size: 0.7rem;
+  font-size: 0.65rem;
 }
 .mx-post-card__tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 0.7rem;
+  gap: 0.2rem 0.6rem;
   margin: 0;
   padding: 0;
   list-style: none;
