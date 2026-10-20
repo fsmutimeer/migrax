@@ -968,3 +968,103 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------- blog cards */
+/* Each article on the blog page is a card (overrides/partials/post.html); the whole card opens
+   the article. */
+.mx-post-card {
+  position: relative;
+  margin: 0 0 1.25rem;
+  padding: 1.1rem 1.3rem 0.9rem;
+  background: var(--mx-card-bg);
+  border: 1px solid var(--mx-card-border);
+  border-radius: var(--mx-radius);
+  box-shadow: var(--mx-card-shadow);
+  transition: transform 0.25s var(--mx-ease), border-color 0.25s var(--mx-ease);
+}
+.mx-post-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--mx-yellow);
+}
+.mx-post-card .md-post__header {
+  align-items: center;
+}
+.mx-post-card .md-post__authors .md-author img {
+  width: 2.6rem;
+  height: 2.6rem;
+}
+.mx-post-card .md-post__meta {
+  flex: 1;
+  line-height: 1.35;
+}
+.mx-post-card__author {
+  color: var(--md-default-fg-color);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.mx-post-card .md-meta__list {
+  margin: 0;
+}
+.mx-post-card .md-draft {
+  align-self: flex-start;
+}
+.mx-post-card .md-post__content h2 {
+  margin: 0.7rem 0 0.4rem;
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+/* The title is plain text in the card: no underline from the site's link style. */
+[data-md-color-scheme] .mx-post-card .md-post__content.md-typeset h2 a.toclink {
+  color: var(--md-default-fg-color);
+  background-image: none;
+  font-weight: inherit;
+}
+.mx-post-card .md-post__content p {
+  margin: 0.5rem 0 0;
+  color: var(--mx-muted);
+}
+.mx-post-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--mx-card-border);
+  font-size: 0.7rem;
+}
+.mx-post-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--mx-muted);
+}
+.mx-post-card .md-post__action {
+  margin: 0;
+}
+.mx-post-card .md-post__action a {
+  color: var(--mx-accent-text);
+  font-weight: 700;
+}
+.mx-post-card .md-post__action a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+/* The category link stays clickable above the card-wide link. */
+.mx-post-card .md-meta__link {
+  position: relative;
+  z-index: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mx-post-card,
+  .mx-post-card:hover {
+    transform: none;
+    transition: none;
+  }
+}

@@ -1,0 +1,76 @@
+{#-
+  An article on the blog page, laid out as a card: author and date at the top, then the title
+  and the opening, then the tags and a link to the full article. Based on Material's
+  partials/post.html (9.7.7); keeps its classes so the theme's own styles still apply.
+-#}
+<article class="md-post md-post--excerpt mx-post-card">
+  <header class="md-post__header">
+    {% if post.authors %}
+      <nav class="md-post__authors md-typeset">
+        {% for author in post.authors %}
+          <span class="md-author">
+            <img src="{{ author.avatar | url }}" alt="{{ author.name }}">
+          </span>
+        {% endfor %}
+      </nav>
+    {% endif %}
+    <div class="md-post__meta md-meta">
+      {% if post.authors %}
+        <div class="mx-post-card__author">
+          {{ post.authors | map(attribute="name") | join(", ") }}
+        </div>
+      {% endif %}
+      <ul class="md-meta__list">
+        <li class="md-meta__item">
+          <time datetime="{{ post.config.date.created }}">
+            {{- post.config.date.created | date -}}
+          </time>
+          {#- Collapse whitespace -#}
+        </li>
+        {% if post.categories %}
+          <li class="md-meta__item">
+            {% for category in post.categories %}
+              <a href="{{ category.url | url }}" class="md-meta__link">
+                {{- category.title -}}
+              </a>
+              {%- if loop.revindex > 1 %}, {% endif -%}
+            {% endfor -%}
+          </li>
+        {% endif %}
+        {% if post.config.readtime %}
+          {% set time = post.config.readtime %}
+          <li class="md-meta__item">
+            {% if time == 1 %}
+              {{ lang.t("readtime.one") }}
+            {% else %}
+              {{ lang.t("readtime.other") | replace("#", time) }}
+            {% endif %}
+          </li>
+        {% endif %}
+        {% if post.config.pin %}
+          <span class="md-pin"></span>
+        {% endif %}
+      </ul>
+    </div>
+    {% if post.config.draft %}
+      <span class="md-draft">
+        {{ lang.t("blog.draft") }}
+      </span>
+    {% endif %}
+  </header>
+  <div class="md-post__content md-typeset">
+    {{ post.content }}
+  </div>
+  <footer class="mx-post-card__footer">
+    {% if post.meta.tags %}
+      <ul class="mx-post-card__tags">
+        {% for tag in post.meta.tags %}
+          <li>#{{ tag | lower | replace(" ", "") }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <nav class="md-post__action">
+      <a href="{{ post.url | url }}">Read the article</a>
+    </nav>
+  </footer>
+</article>

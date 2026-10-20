@@ -1,8 +1,8 @@
 ---
-description: Articles about Migrax - features, how-tos for each framework and database, comparisons and how it works inside.
+description: News, guides and tips for Migrax, the migration tool for JPA and Hibernate projects.
 ---
 
 # Blog
 
-Articles about Migrax: one feature or one problem at a time, with commands you can copy.
-Follow new articles with the [RSS feed](https://migrax.org/feed_rss_created.xml).
+News, guides and tips for Migrax.
+New articles also appear in the [RSS feed](https://migrax.org/feed_rss_created.xml).
