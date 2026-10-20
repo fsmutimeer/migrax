@@ -72,6 +72,8 @@ plugins:
       # Short, stable addresses (blog/<slug>/): the articles copied to other sites link back
       # to them as the original.
       post_url_format: "{slug}"
+      # Date and time of an article (times are UTC: write them that way in the front matter).
+      post_date_format: "MMM d, yyyy 'at' HH:mm 'UTC'"
       categories_allowed:
         - Features
         - How-to

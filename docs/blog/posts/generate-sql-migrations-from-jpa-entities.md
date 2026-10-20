@@ -1,5 +1,5 @@
 ---
-date: 2026-10-20
+date: 2026-10-20T10:00:00
 draft: true
 slug: generate-sql-migrations-from-jpa-entities
 authors:
@@ -24,7 +24,7 @@ committed and writes the SQL migration for you, along with a rollback script. Yo
 SQL, commit it, and apply it.
 
 This article walks through that loop on a small project: create the first tables, add a
-column, and rename one without losing data.
+column, and catch a missing migration in CI.
 
 <!-- more -->
 
@@ -156,80 +156,16 @@ ALTER TABLE customers ADD COLUMN phone varchar(30);
 ```
 
 The file name describes the change. The rollback script is
-`ALTER TABLE customers DROP COLUMN phone;`.
+`ALTER TABLE customers DROP COLUMN phone;`. Apply it with `migrax migrate`, as before.
 
-## Renaming a column without losing data
-
-Renames are where generated migrations usually go wrong. If `name` becomes `fullName`, a
-simple comparison sees one column disappear and another appear, then drops the old column
-and all its data with it.
-
-Change the field:
-
-```java
-  @Column(name = "full_name", nullable = false, length = 100)
-  String fullName;
-```
-
-In a terminal, `migrax generate` asks whether `customers.name` was renamed to
-`customers.full_name`. In a script or a CI job, where nobody can answer, it refuses to
-write the migration and explains what to do:
-
-```console
-$ migrax generate
-Possible rename: customers.name to customers.full_name. To keep the data, rerun with --rename customers.name=full_name.
-2 change(s) for postgresql:
-  1. drop column customers.name  [DESTRUCTIVE]
-     ALTER TABLE customers DROP COLUMN name;
-  2. add column customers.full_name
-     ALTER TABLE customers ADD COLUMN full_name varchar(100) NOT NULL;
-error[MXE108]: 1 destructive change(s) detected (marked [DESTRUCTIVE] above).
-Review them, then run 'migrax generate --allow-destructive'. If a column or table was renamed, pass --rename table.old=new or --rename-table old=new instead.
-```
-
-Nothing is dropped unless you ask for it. Following the hint:
-
-```console
-$ migrax generate --rename customers.name=full_name
-Created src/main/resources/db/migration/0003_rename_customers_name.sql:
-  - rename column customers.name to full_name
-Rollback script written to src/main/resources/db/migration/rollback.
-src/main/resources/db/migration/0003_rename_customers_name.sql, statement 1: warning MX008
-  ALTER TABLE customers RENAME COLUMN name TO full_name
-  Application instances still running the old code use the old name and will fail.
-  Fix: Rename in steps: add the new name, write to both, switch reads, then remove the old name ('migrax generate --zero-downtime' does this). Or deploy during a maintenance window.
-Review the SQL, then run 'migrax migrate'.
-```
-
-The migration is now a single `RENAME COLUMN`, and the data stays. Migrax also checked the
-new SQL and warned about something easy to miss: during a rolling deployment, the instances
-still running the old code look for `name` and fail. For that case,
-`generate --zero-downtime` splits the rename into safe steps (a later article covers this).
-
-## Applying and undoing
-
-```console
-$ migrax migrate
-Applying migration '0003_rename_customers_name.sql'...
-Successfully applied migration '0003_rename_customers_name.sql'.
-Applied 1 migration(s); 3 total in src/main/resources/db/migration.
-
-$ migrax status
-Migrations in src/main/resources/db/migration for jdbc:postgresql://localhost:5432/shop
-  [X] 0001_initial.sql                applied 2026-10-20 21:31:26
-  [X] 0002_add_customers_phone.sql    applied 2026-10-20 21:31:42
-  [X] 0003_rename_customers_name.sql  applied 2026-10-20 21:31:57
-3 applied.
-```
-
-If something is wrong, `migrax rollback --yes` runs the newest rollback script. Here that
-renames `full_name` back to `name`, so the data is still there. Without `--yes`, Migrax only
-shows what it would undo and asks you to back up the database first.
+Renaming a column, undoing a migration and changing a column type without losing data each
+get their own article.
 
 ## Keeping entities and migrations in sync
 
-Someone will eventually change an entity and forget to generate the migration. `migrax
-check` catches that without a database, so it fits in CI:
+Someone will eventually change an entity and forget to generate the migration. Say a
+teammate renames the field `name` to `fullName` (column `full_name`) and pushes only the Java
+change. `migrax check` catches that without a database, so it fits in CI:
 
 ```console
 $ migrax check
@@ -250,10 +186,6 @@ OK: entities match the snapshot.
 
 - Change an entity, run `migrax generate`, read the SQL, commit, run `migrax migrate`.
 - Every migration comes with a rollback script that says what data it would delete.
-- Destructive changes are never written silently; renames keep the data.
-- New SQL is checked for problems such as renames that break a rolling deployment.
 - `migrax check` in CI catches entity changes that have no migration.
 
-Next: the [Quick start](../../getting-started/quickstart.md) sets this up in five minutes, and
-[Changing entities](../../guides/changing-entities.md) covers renames, type changes and
-data-keeping changes in detail.
+Next: the [Quick start](../../getting-started/quickstart.md) sets this up in five minutes.

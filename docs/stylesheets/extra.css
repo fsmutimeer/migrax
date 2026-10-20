@@ -1085,6 +1085,26 @@
   position: relative;
   z-index: 1;
 }
+/* Article page: the author and the date, category and reading time below it sit close
+   together. */
+.md-sidebar--post .md-post__profile {
+  margin-bottom: 0.4rem;
+}
+.md-sidebar--post .md-post__meta .md-post__title {
+  margin-top: 0.4rem;
+  margin-bottom: 0.1rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.md-sidebar--post .md-post__meta .md-nav__link {
+  margin-top: 0.3rem;
+  font-size: 0.68rem;
+}
+.md-sidebar--post .md-post__meta .md-nav__link svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
 @media (prefers-reduced-motion: reduce) {
   .mx-post-card,
   .mx-post-card:hover {
