@@ -1,6 +1,5 @@
 ---
-date: 2026-10-20T10:00:00
-draft: true
+date: 2026-10-20T16:58:00
 slug: generate-sql-migrations-from-jpa-entities
 authors:
   - feroz
