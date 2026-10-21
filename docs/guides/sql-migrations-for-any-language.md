@@ -212,6 +212,9 @@ export MIGRAX_SCHEMA_FILE=db/schema.sql
 (`--schema-file db/schema.sql` on the command line, or `migrax.schema-file` in a Java
 project's application configuration.)
 
+Describe your tables in an ORM such as SQLAlchemy or Drizzle? Export the schema file from
+it: [Schema file from your ORM](schema-from-orm.md).
+
 To read the file, Migrax runs it on a throwaway database of the same kind and reads the tables
 back. For PostgreSQL, MySQL and the other server databases that is a Docker container, so
 Docker must be running; H2, SQLite, Derby and HSQLDB need no Docker.
