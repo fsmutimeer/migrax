@@ -511,6 +511,56 @@
 .md-typeset .grid.mx-example > .highlight {
   margin: 0;
 }
+/* The examples' tabs: labels centered above the code; the right column stacks the migration
+   and its rollback. */
+.mx-home .tabbed-set .tabbed-labels {
+  justify-content: center;
+}
+.mx-home .tabbed-set .tabbed-labels > label {
+  font-size: 0.75rem;
+}
+.mx-home .tabbed-set .grid.mx-example {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+.mx-home .tabbed-set .grid.mx-example > .highlight:first-child {
+  grid-row: span 2;
+}
+@media screen and (max-width: 44.9375em) {
+  .mx-home .tabbed-set .grid.mx-example {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+/* Long SQL lines wrap instead of scrolling sideways. */
+.mx-home .tabbed-set pre > code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* "From the blog": the newest articles as the blog page's cards, side by side */
+.mx-latest {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 22rem));
+  justify-content: center;
+  gap: 1rem;
+}
+.mx-latest .mx-post-card {
+  margin: 0;
+}
+/* The home page's text styles would give the card's lists bullets and indents. */
+.md-typeset .mx-latest ul {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.md-typeset .mx-latest ul li {
+  margin: 0;
+}
+.md-typeset .mx-latest .md-post__content h2 {
+  margin-top: 0.6rem;
+}
 
 /* feature cards */
 .md-typeset .grid.cards > ul > li,
@@ -614,6 +664,17 @@
 }
 .mx-js .mx-reveal.is-visible {
   opacity: 1;
+  transform: none;
+}
+/* Headings only slide in: half-faded text looks broken while it scrolls into view. */
+.mx-js .mx-section-title.mx-reveal,
+.mx-js .mx-section-lead.mx-reveal {
+  opacity: 1;
+  transform: translateY(14px);
+  transition: transform 0.6s var(--mx-ease);
+}
+.mx-js .mx-section-title.mx-reveal.is-visible,
+.mx-js .mx-section-lead.mx-reveal.is-visible {
   transform: none;
 }
 

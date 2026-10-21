@@ -100,5 +100,69 @@ Review the SQL, then run 'migrax migrate'.</code></pre>
     </div>
   </section>
   {{ page.content }}
+
+  {#- The newest articles (scripts/mkdocs_hooks.py). The cards copy the markup of
+      overrides/partials/post.html, which needs the blog plugin's own objects: change both. -#}
+  {% if mx_latest_posts %}
+  <h2 class="mx-section-title mx-reveal">From the blog</h2>
+  <p class="mx-section-lead mx-reveal">How-tos and the thinking behind Migrax.
+    <a href="{{ 'blog/' | url }}">All articles</a></p>
+  <div class="mx-latest mx-reveal">
+    {% for post in mx_latest_posts %}
+    <article class="md-post md-post--excerpt mx-post-card">
+      <header class="md-post__header">
+        {% if post.authors %}
+        <nav class="md-post__authors md-typeset">
+          {% for author in post.authors %}
+          <span class="md-author">
+            <img src="{{ author.avatar | url }}" alt="{{ author.name | e }}">
+          </span>
+          {% endfor %}
+        </nav>
+        {% endif %}
+        <div class="md-post__meta md-meta">
+          <div class="mx-post-card__author">
+            {{ post.authors | map(attribute="name") | join(", ") }}
+          </div>
+          <ul class="md-meta__list">
+            {% if post.date %}
+            <li class="md-meta__item">
+              <time datetime="{{ post.created.isoformat() }}">{{ post.date }}</time>
+            </li>
+            {% endif %}
+            {% if post.categories %}
+            <li class="md-meta__item">{{ post.categories | join(", ") }}</li>
+            {% endif %}
+          </ul>
+        </div>
+      </header>
+      <div class="md-post__content md-typeset">
+        <h2>{{ post.title | e }}</h2>
+        {% if post.description %}<p>{{ post.description | e }}</p>{% endif %}
+      </div>
+      <footer class="mx-post-card__footer">
+        {% if post.tags %}
+        <ul class="mx-post-card__tags">
+          {% for tag in post.tags %}<li>#{{ tag | lower | replace(" ", "") }}</li>{% endfor %}
+        </ul>
+        {% endif %}
+        <nav class="md-post__action">
+          <a href="{{ post.url | url }}">Read the article</a>
+        </nav>
+      </footer>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="mx-cta mx-reveal">
+    <h2>Ready when your next entity changes</h2>
+    <p>Install the command line tool in a minute, then run it in any service folder.</p>
+    <p>
+      <a class="md-button md-button--primary" href="{{ 'getting-started/installation/' | url }}">
+        Install Migrax <span aria-hidden="true">&rarr;</span></a>
+      <a class="md-button" href="{{ 'guides/how-it-works/' | url }}">Read how it works</a>
+    </p>
+  </div>
 </div>
 {% endblock %}
