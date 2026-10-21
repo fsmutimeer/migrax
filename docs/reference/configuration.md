@@ -55,6 +55,8 @@ in values are resolved from the environment.
 | Schemas (multi-tenant) | `--schemas`, `MIGRAX_SCHEMAS`, `migrax.schemas` | the connection's default schema |
 | Placeholders | `migrax.placeholders.<name>`, `-Dmigrax.placeholders.<name>`, `MIGRAX_PLACEHOLDERS_<NAME>` | |
 | Database to work on | `--database`, `MIGRAX_DATABASE`, `-Dmigrax.database` | the default database; others come from `migrax.databases.<name>.*` ([details](../guides/several-databases.md#the-command-line)) |
+| Environments for `migrax environments` | `migrax.environments.<name>.url`, `.user`, `.password`, `.password-file`, `.env`; or `MIGRAX_ENVIRONMENTS_<NAME>_URL` and so on | none ([details](../guides/comparing-databases.md#all-environments-at-a-glance)) |
+| Which environments, in which order | `--environments`, `MIGRAX_ENVIRONMENTS`, `migrax.environments` (comma-separated) | all configured, in alphabetical order |
 
 Each migration folder is `classpath:<path>` (under `src/main/resources`) or
 `filesystem:<path>` (relative to the project folder). A folder without a prefix, such as

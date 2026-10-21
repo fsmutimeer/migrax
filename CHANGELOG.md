@@ -8,6 +8,14 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- `migrax environments`: every environment's migrations side by side, read-only. For each
+  `migrax.environments.<name>.url` (dev, staging, production, ...) it shows how many migrations
+  are applied and pending, the last one applied and whether the schema drifted from the
+  snapshot; `-- migrax:env` migrations count only where they run. All databases are asked at
+  once with `--timeout`, so one that doesn't answer only marks its own row. Exit code 1 when an
+  environment can't be reached or a migration failed, changed or is missing there, 2 on drift;
+  `--json` for dashboards. Error `MXE116` when none is configured. See Guides > Comparing
+  databases.
 - Migrations from a SQL file instead of entities: with `migrax.schema-file=db/schema.sql`
   (`--schema-file`, `MIGRAX_SCHEMA_FILE`, or `migrax.databases.<name>.schema-file`), a project
   without JPA entities keeps its tables as they should be in one SQL file, and `generate`
