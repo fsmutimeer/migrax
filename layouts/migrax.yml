@@ -27,9 +27,8 @@ layers:
   # Logo and name
   - size: { width: 64, height: 64 }
     offset: { x: 64, y: 58 }
-    icon:
-      value: material/database-arrow-up
-      color: "#fbbf24"
+    background:
+      image: docs/assets/logo.svg
   - size: { width: 600, height: 44 }
     offset: { x: 144, y: 68 }
     typography:
