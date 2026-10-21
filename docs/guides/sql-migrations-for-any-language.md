@@ -217,7 +217,9 @@ it: [Schema file from your ORM](schema-from-orm.md).
 
 To read the file, Migrax runs it on a throwaway database of the same kind and reads the tables
 back. For PostgreSQL, MySQL and the other server databases that is a Docker container, so
-Docker must be running; H2, SQLite, Derby and HSQLDB need no Docker.
+Docker must be running; H2, SQLite, Derby and HSQLDB need no Docker. For PostgreSQL, MySQL and
+MariaDB, the container runs the same version as your database server when Migrax can reach
+it.
 
 ```console
 $ migrax generate

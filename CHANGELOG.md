@@ -16,7 +16,10 @@ All notable changes to Migrax are listed here. The format follows
   too. Migrax reads it by applying it to a throwaway database (in memory, Docker, or an empty
   one given with `--scratch-url`) and keeps what it read in `.migrax/schema-model.json`, so
   `check` in CI needs no Docker while the file is unchanged. A statement that fails is named
-  with its line (error `MXE115`). See Guides > SQL migrations for any language.
+  with its line (error `MXE115`). On PostgreSQL, MySQL and MariaDB the throwaway database runs
+  the server's own version, so a file written by `pg_dump --schema-only` or
+  `mysqldump --no-data` applies as it is. See Guides > SQL migrations for any language and
+  Guides > Schema file from your ORM (SQLAlchemy, Drizzle, and any ORM through a dump).
 
 ## [0.16.0] - 2026-10-19
 
