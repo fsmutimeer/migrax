@@ -17,14 +17,15 @@ final class Options {
       "--classpath", "--name", "--schema", "--action", "--naming", "--extractor", "--rename",
       "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table",
       "--lock-timeout", "--password-file", "--env", "--html", "--source-user",
-      "--source-password-file", "--database", "--schema-file", "--scratch-url");
+      "--source-password-file", "--database", "--schema-file", "--scratch-url",
+      "--environments", "--timeout");
   /** Options without a value. */
   static final Set<String> FLAGS = Set.of(
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
       "--refresh", "--yes", "-y", "--help", "-h", "--version", "-V", "--json", "--safe",
       "--impact", "--strict", "--no-input", "--optimize", "--java", "--entities",
       "--skip-rollbacks", "--all", "--allow-generate", "--sql", "--keep-data", "--drop",
-      "--zero-downtime", "--contract");
+      "--zero-downtime", "--contract", "--no-drift");
 
   private static final Map<String, String> HELP = new LinkedHashMap<>();
 
@@ -85,6 +86,11 @@ final class Options {
     HELP.put("--action", "--action <action>       applied, retry or forget");
     HELP.put("--yes", "--yes, -y               Confirm without asking");
     HELP.put("--json", "--json                  Machine-readable output");
+    HELP.put("--environments",
+        "--environments <a,b>    Environments to show, in this order (default: all configured)");
+    HELP.put("--no-drift", "--no-drift              Don't compare the schemas with the snapshot");
+    HELP.put("--timeout",
+        "--timeout <duration>    How long to wait for each database (default: 30s)");
     HELP.put("--impact", "--impact                Show affected table sizes (needs the database)");
     HELP.put("--strict", "--strict                Fail on warnings too");
     HELP.put("--all", "--all                   Lint every migration, not only pending ones");

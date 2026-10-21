@@ -139,6 +139,32 @@ public final class ProjectDatabaseConfig {
         System.getenv(databaseEnvironment(name, key)), resolve(config.get(own)));
   }
 
+  /**
+   * A setting by its full key, such as {@code migrax.environments.staging.url}: {@code -D<key>},
+   * then the environment variable of that key ({@link #environmentVariable}), then the
+   * application config.
+   *
+   * <p>Internal: used by the command line, not a supported API.
+   *
+   * @since 0.17.0
+   */
+  public static String keySetting(Map<String, String> config, String key) {
+    return firstNonBlank(System.getProperty(key), System.getenv(environmentVariable(key)),
+        resolve(config.get(key)));
+  }
+
+  /**
+   * The environment variable of a setting: MIGRAX_ENVIRONMENTS_STAGING_PASSWORD_FILE for
+   * migrax.environments.staging.password-file.
+   *
+   * <p>Internal: used by the command line, not a supported API.
+   *
+   * @since 0.17.0
+   */
+  public static String environmentVariable(String key) {
+    return environmentName(key);
+  }
+
   /** MIGRAX_DATABASES_BILLING_JAVA_PACKAGE for billing's java-package. */
   private static String databaseEnvironment(String name, String key) {
     return "MIGRAX_DATABASES_" + environmentName(name) + "_" + environmentName(key);

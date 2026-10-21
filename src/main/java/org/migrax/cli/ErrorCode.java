@@ -24,7 +24,8 @@ enum ErrorCode {
   CLEAN_DISABLED("MXE112", "clean is disabled"),
   NO_DATABASE_URL("MXE113", "No database URL configured"),
   PRECONDITION_NOT_MET("MXE114", "A migration's precondition is not met"),
-  SCHEMA_FILE_FAILED("MXE115", "The schema file can't be read");
+  SCHEMA_FILE_FAILED("MXE115", "The schema file can't be read"),
+  NO_ENVIRONMENTS("MXE116", "No environments configured");
 
   final String code;
   final String title;

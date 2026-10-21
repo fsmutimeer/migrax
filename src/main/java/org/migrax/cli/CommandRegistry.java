@@ -32,6 +32,7 @@ final class CommandRegistry {
     registry.add(new VerifyCommand());
     registry.add(new DriftCommand());
     registry.add(new DiffCommand());
+    registry.add(new EnvironmentsCommand());
     registry.add(new ReportCommand());
     registry.add(new ImportCommand());
     registry.add(new BaselineCommand());
