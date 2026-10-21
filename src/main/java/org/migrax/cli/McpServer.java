@@ -73,6 +73,9 @@ final class McpServer {
         + "(entities=true: with the entities) and lists manual changes. Read-only.",
         schema("entities", "boolean", "Compare with the entities instead of the snapshot"),
         args -> flagged(List.of("drift", "--json"), args, "entities", "--entities"));
+    tool("environments", "Shows every configured environment (dev, staging, production, ...) "
+        + "side by side: applied and pending migrations, the last one applied, and drift. "
+        + "Read-only.", schema(), args -> List.of("environments", "--json"));
     tool("doctor", "Checks Java, the build, the entities, the database connection and "
         + "locking, and explains how to fix anything that fails. Read-only.", schema(),
         args -> List.of("doctor", "--json"));

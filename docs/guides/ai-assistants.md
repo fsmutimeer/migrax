@@ -21,6 +21,7 @@ Cursor, start it and call Migrax's commands as tools, getting their
 | `plan` | The SQL `generate` would write, with lint findings and table sizes |
 | `lint` | Locking and risky statements in migrations |
 | `drift` | Manual changes in the database |
+| `environments` | Every environment's applied and pending migrations and drift |
 | `doctor` | Setup problems and how to fix them |
 | `verify` | Migrations applied to a throwaway database and validated (slow) |
 | `show_migration` | One migration file's SQL, or its rollback script |

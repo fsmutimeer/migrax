@@ -1,6 +1,6 @@
 ---
-seo_title: "Compare two database schemas"
-description: "Compare the schemas of two databases, such as staging and production, list the differences and print the SQL that makes them match: migrax diff."
+seo_title: "Compare database schemas and environments"
+description: "Compare the schemas of two databases, such as staging and production, and print the SQL that makes them match (migrax diff); see every environment's migrations and drift side by side (migrax environments)."
 ---
 # Comparing databases
 
@@ -12,7 +12,8 @@ by hand in one place, before a release to check that production is where staging
 find out why two tenants' databases behave differently.
 
 `drift` compares one database with what the migrations produce. `diff` compares two live
-databases with each other, without looking at migrations or entities.
+databases with each other, without looking at migrations or entities. To see which migrations
+each environment has, use [`migrax environments`](#all-environments-at-a-glance).
 
 ## Run it
 
@@ -88,3 +89,72 @@ with its kind, a summary, its SQL, and whether it is destructive:
 ```bash
 migrax diff "$STAGING_URL" --json | jq '.changes[] | .summary'
 ```
+
+## All environments at a glance
+
+New in Migrax 0.17.0.
+
+`migrax environments` asks every environment's database which migrations it has applied, so
+you see before a release whether staging is ahead of production, or whether someone changed a
+database by hand. It only reads.
+
+Give each environment a URL in the application config:
+
+```properties title="application.properties"
+migrax.environments=dev,staging,production
+migrax.environments.dev.url=jdbc:postgresql://dev-db:5432/shop
+migrax.environments.staging.url=jdbc:postgresql://staging-db:5432/shop
+migrax.environments.production.url=jdbc:postgresql://prod-db:5432/shop
+```
+
+The first line sets the order of the rows; without it they are sorted by name. Users and
+passwords belong in the environment, not in the file:
+
+```bash
+export MIGRAX_ENVIRONMENTS_PRODUCTION_USER=readonly
+export MIGRAX_ENVIRONMENTS_PRODUCTION_PASSWORD=...   # or ..._PASSWORD_FILE
+```
+
+Every setting also works as a variable alone (`MIGRAX_ENVIRONMENTS_STAGING_URL`), which is
+handy in CI. A read-only user is enough.
+
+```console
+$ migrax environments
+Environments for db/migrations (2 migration(s)):
+
+  Environment  Applied  Pending  Last applied                                                 Drift
+  dev          2        0        0002_add_customer_phone_create_orders.sql, 2026-10-21 20:58  none
+  staging      2        0        0002_add_customer_phone_create_orders.sql, 2026-10-21 20:58  1 difference(s)
+  production   1        1        0001_initial.sql, 2026-10-21 20:58                           not checked (pending)
+
+staging: drift: customer.note: column exists in the database but not in the expected schema
+production: pending 0002_add_customer_phone_create_orders.sql
+```
+
+Here production is one migration behind, which `migrax migrate` there fixes, and someone
+added a column to staging by hand. The migrations are the ones in your current checkout:
+run it from the branch you are about to release.
+
+- **Pending** counts the migrations that would run there. A migration marked
+  `-- migrax:env dev` counts only in dev. When an environment's name differs from the one in
+  those lines, set `migrax.environments.<name>.env`.
+- **Drift** compares the schema with the snapshot, as [`migrax drift`](../reference/cli.md#drift)
+  does. It is checked only where nothing is pending, because pending migrations change the
+  schema on purpose. `--no-drift` skips it.
+- A database that can't be reached gets `can't connect` and the reason in its row; the others
+  are still shown. All of them are asked at the same time, and each one has `--timeout`
+  (30 seconds) to answer.
+- Migrations an environment has applied that are not in your checkout are listed with `[!]`,
+  as in `migrax status`: a newer branch was deployed there, or a file was deleted.
+
+The exit code is `0` when every environment answered (pending migrations are fine), `1` when
+one can't be reached or a migration failed, changed or is missing there, and `2` when drift
+was found. `--json` gives the same per environment, for a dashboard or a release script:
+
+```bash
+migrax environments --json | jq '.environments[] | {name, pending}'
+```
+
+With [several databases](several-databases.md), each one has its own environments:
+`migrax.databases.billing.environments.staging.url`, shown with
+`migrax environments --database billing`.

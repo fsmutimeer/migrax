@@ -436,6 +436,27 @@ Compares the schema of the source database (for example staging) with the projec
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
+### environments
+
+```
+migrax environments [--environments <a,b>] [--no-drift] [--timeout <duration>] [--json]
+```
+
+Asks each environment's database (`migrax.environments.<name>.url`) which migrations it has applied, lists what is pending there and whether its schema drifted from the snapshot, without changing anything. Migrations marked `-- migrax:env` count only in the environments they name. Exits with code 1 when an environment can't be reached or a migration failed, changed or is missing there, and 2 when drift is found; pending migrations alone exit with 0.
+
+| Option | Meaning |
+|---|---|
+| `--environments <a,b>` | Environments to show, in this order (default: all configured) |
+| `--no-drift` | Don't compare the schemas with the snapshot |
+| `--timeout <duration>` | How long to wait for each database (default: 30s) |
+| `--json` | Machine-readable output |
+| `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
+| `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
+| `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
+| `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
+| `--dir <path>` | Project folder (default: current folder) |
+
 ### report
 
 ```

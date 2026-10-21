@@ -73,3 +73,4 @@ meaning; new situations get new codes.
 | MXE113 | No database URL configured | Set it in the application config, `MIGRAX_DATABASE_URL`, or `--url` |
 | MXE114 | A migration's precondition is not met | Change the database so the `-- migrax:require` line holds, or end the line with `else skip` |
 | MXE115 | The schema file can't be read | Fix the statement the message names, start Docker, or pass `--scratch-url` with an empty database |
+| MXE116 | No environments configured | Give each environment a URL: `migrax.environments.<name>.url` or `MIGRAX_ENVIRONMENTS_<NAME>_URL` |

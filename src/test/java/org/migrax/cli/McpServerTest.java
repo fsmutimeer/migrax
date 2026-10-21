@@ -82,8 +82,8 @@ class McpServerTest {
   void offersOnlyToolsThatDontChangeTheDatabase() {
     var tools = result(call(server(false),
         "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/list\"}")).get("tools").toString();
-    for (String name : List.of("status", "check", "plan", "lint", "drift", "doctor", "verify",
-        "show_migration")) {
+    for (String name : List.of("status", "check", "plan", "lint", "drift", "environments",
+        "doctor", "verify", "show_migration")) {
       assertTrue(tools.contains("name=" + name + ","), name);
     }
     for (String name : List.of("migrate", "rollback", "repair", "clean", "generate")) {
