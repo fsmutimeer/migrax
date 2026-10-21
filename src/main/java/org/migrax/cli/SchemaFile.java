@@ -1,6 +1,7 @@
 package org.migrax.cli;
 
 import org.migrax.dialect.Dialect;
+import org.migrax.dialect.PostgresDialect;
 import org.migrax.model.ModelExtractor;
 import org.migrax.model.SchemaModel;
 import org.migrax.plugin.DatabaseSchemaReader;
@@ -9,6 +10,7 @@ import org.migrax.runner.SqlScript;
 import org.migrax.util.Json;
 import org.migrax.util.Log;
 import org.migrax.verify.ScratchDatabase;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,10 +18,13 @@ import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.UnaryOperator;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -36,7 +41,7 @@ final class SchemaFile {
    * Part of the cache key. Raise it whenever {@link DatabaseSchemaReader} or the naming below
    * reads the same file differently, so caches written by older versions are read again.
    */
-  private static final int READER_VERSION = 1;
+  private static final int READER_VERSION = 2;
 
   /** Names databases make up for unnamed constraints and indexes. */
   private static final Pattern MADE_UP_NAME = Pattern.compile("(?i)sys_c\\d+"
@@ -45,10 +50,16 @@ final class SchemaFile {
       + "|sql\\d{6,}(-[0-9a-f]+)*|(pk|fk|uq|ck|df)__.+__[0-9a-f]{8,}"
       // MySQL and TiDB number them in table order, so adding one renumbers the rest.
       + "|.+_ibfk_\\d+|.+_chk_\\d+");
-  private static final Pattern SEQUENCE = Pattern.compile("(?i)\\bCREATE\\s+SEQUENCE\\b");
+  private static final Pattern SEQUENCE = Pattern.compile(
+      "(?i)\\bCREATE\\s+SEQUENCE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?([\\w.\"`\\[\\]]+)");
+  /** A sequence that belongs to a column (pg_dump's serial columns): read as the column's. */
+  private static final Pattern OWNED_SEQUENCE = Pattern.compile(
+      "(?i)\\bALTER\\s+SEQUENCE\\s+([\\w.\"`\\[\\]]+)\\s+OWNED\\s+BY\\s+(?!NONE\\b)");
   private static final Pattern ON_UPDATE = Pattern.compile("(?i)\\bON\\s+UPDATE\\s+CURRENT_");
-  private static final Pattern QUALIFIED_TABLE = Pattern.compile(
-      "(?i)\\bCREATE\\s+TABLE\\s+(IF\\s+NOT\\s+EXISTS\\s+)?[\\w\"`\\[\\]]+\\s*\\.\\s*[\\w\"`\\[]");
+  private static final Pattern QUALIFIED_TABLE = Pattern.compile("(?i)\\bCREATE\\s+TABLE\\s+"
+      + "(?:IF\\s+NOT\\s+EXISTS\\s+)?([\\w\"`\\[\\]]+)\\s*\\.\\s*[\\w\"`\\[]");
+  /** psql's own commands, such as the \restrict lines pg_dump writes; not SQL. */
+  private static final Pattern PSQL_COMMAND = Pattern.compile("(?m)^\\\\[a-zA-Z].*$");
 
   private SchemaFile() {}
 
@@ -64,6 +75,7 @@ final class SchemaFile {
     }
     String sql = SqlScript.substitute(Files.readString(file, StandardCharsets.UTF_8),
         project.runOptions().placeholders());
+    sql = withoutPsqlCommands(sql, dialect);
     String key = sha256(sql + "\n" + dialect.id() + "\n" + dialect.serverVersion() + "\n"
         + READER_VERSION);
     Path cache = project.state().resolve(CACHE);
@@ -72,18 +84,6 @@ final class SchemaFile {
       Log.debug("Read {} from {} (unchanged since it was last read).", source,
           project.display(cache));
       return new ModelExtractor.Result(cached, source);
-    }
-    if (SEQUENCE.matcher(sql).find()) {
-      Log.warn("{} creates sequences, which Migrax doesn't read from a schema file yet: create "
-          + "them in a migration of your own (migrax new).", source);
-    }
-    if (ON_UPDATE.matcher(sql).find()) {
-      Log.warn("{} uses ON UPDATE CURRENT_TIMESTAMP, which Migrax doesn't read from a schema "
-          + "file yet: add it to the generated migration yourself.", source);
-    }
-    if (QUALIFIED_TABLE.matcher(sql).find()) {
-      Log.warn("{} creates tables in another schema; Migrax reads the default schema only.",
-          source);
     }
     SchemaModel model = withOwnNames(readThroughDatabase(project, source, sql, dialect));
     Files.createDirectories(project.state());
@@ -128,6 +128,10 @@ final class SchemaFile {
             "Migrax applies " + source + " to it, reads the tables back and empties it again, "
                 + "so it must start empty. Use a database of its own for this.");
       }
+      // MySQL's driver has no schemas, only catalogs (its databases).
+      String defaultSchema = java.util.Objects.requireNonNullElse(connection.getSchema(),
+          String.valueOf(connection.getCatalog()));
+      notRead(source, sql, defaultSchema).forEach(w -> Log.warn("{}", w));
       SchemaModel model = null;
       try {
         apply(connection, source, sql, dialect);
@@ -140,6 +144,56 @@ final class SchemaFile {
       }
       return model;
     }
+  }
+
+  /**
+   * The file without psql's own commands, for PostgreSQL, CockroachDB and YugabyteDB (whose
+   * dumps are psql scripts). pg_dump's \restrict key differs on every run, so this comes before
+   * the cache key. Blanked rather than removed, so the line numbers in errors stay right.
+   */
+  static String withoutPsqlCommands(String sql, Dialect dialect) {
+    return dialect instanceof PostgresDialect ? PSQL_COMMAND.matcher(sql).replaceAll("") : sql;
+  }
+
+  /** Warnings for the statements whose result Migrax leaves out of the model. */
+  static List<String> notRead(String source, String sql, String defaultSchema) {
+    List<String> warnings = new ArrayList<>();
+    Set<String> owned = new HashSet<>();
+    Matcher ownedBy = OWNED_SEQUENCE.matcher(sql);
+    while (ownedBy.find()) {
+      owned.add(sequenceName(ownedBy.group(1)));
+    }
+    Matcher sequence = SEQUENCE.matcher(sql);
+    while (sequence.find()) {
+      if (!owned.contains(sequenceName(sequence.group(1)))) {
+        warnings.add(source + " creates sequences, which Migrax doesn't read from a schema "
+            + "file yet: create them in a migration of your own (migrax new).");
+        break;
+      }
+    }
+    Matcher table = QUALIFIED_TABLE.matcher(sql);
+    while (table.find()) {
+      if (!unquoted(table.group(1)).equalsIgnoreCase(String.valueOf(defaultSchema))) {
+        warnings.add(source + " creates tables in another schema; Migrax reads the default "
+            + "schema only.");
+        break;
+      }
+    }
+    if (ON_UPDATE.matcher(sql).find()) {
+      warnings.add(source + " uses ON UPDATE CURRENT_TIMESTAMP, which Migrax doesn't read from "
+          + "a schema file yet: add it to the generated migration yourself.");
+    }
+    return warnings;
+  }
+
+  private static String unquoted(String name) {
+    return name.replaceAll("[\"`\\[\\]]", "").toLowerCase(Locale.ROOT);
+  }
+
+  /** A sequence's own name, without its schema: files may qualify it in one place only. */
+  private static String sequenceName(String name) {
+    String plain = unquoted(name);
+    return plain.substring(plain.lastIndexOf('.') + 1);
   }
 
   /**
@@ -162,6 +216,17 @@ final class SchemaFile {
                                               ClassLoader loader) throws Exception {
     try {
       String image = project.setting("--image", "scratch-image");
+      // The server's own version: a dump of it may use settings older versions don't know.
+      String own = Project.blank(image) && dialect.scratchImage() == null
+          ? project.serverImage(dialect) : null;
+      if (own != null) {
+        try {
+          return ScratchDatabase.start(dialect.id(), own, loader);
+        } catch (IOException e) {
+          Log.warn("Could not start {}, so Migrax uses its default image: {}", own,
+              Errors.describe(e));
+        }
+      }
       return ScratchDatabase.start(dialect.id(),
           Project.blank(image) ? dialect.scratchImage() : image, loader);
     } catch (IllegalStateException e) {
