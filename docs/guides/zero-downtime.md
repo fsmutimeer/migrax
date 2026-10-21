@@ -17,6 +17,32 @@ instances the moment it runs, and one that adds a NOT NULL column breaks their i
 - The **contract** migration ships with the next release, when no old instance is left. It
   removes and tightens.
 
+<figure class="mx-diagram" markdown="0">
+<svg viewBox="0 0 690 250" role="img" aria-labelledby="mx-zd-title">
+<title id="mx-zd-title">The expand migration ships with release N, while old and new instances run together. When every instance runs release N, migrax generate --contract writes the contract migration, which ships with release N+1.</title>
+<defs><marker id="mx-zd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mx-diagram__head" d="M0 0L10 5L0 10z"/></marker></defs>
+<rect class="mx-diagram__box mx-diagram__box--accent" x="10" y="20" width="300" height="150" rx="12"/>
+<text x="30" y="52">Expand migration</text>
+<text class="mx-diagram__label" x="30" y="76">Adds and relaxes: safe for the old version.</text>
+<rect class="mx-diagram__chip" x="30" y="98" width="120" height="30" rx="15"/>
+<text class="mx-diagram__small" x="90" y="118" text-anchor="middle">old version</text>
+<rect class="mx-diagram__chip" x="160" y="98" width="120" height="30" rx="15"/>
+<text class="mx-diagram__small" x="220" y="118" text-anchor="middle">new version</text>
+<text class="mx-diagram__label" x="30" y="154">Both run against the same database.</text>
+<path class="mx-diagram__line" d="M310 95H376" marker-end="url(#mx-zd-arrow)"/>
+<rect class="mx-diagram__box" x="380" y="20" width="300" height="150" rx="12"/>
+<text x="400" y="52">Contract migration</text>
+<text class="mx-diagram__label" x="400" y="76">Removes and tightens.</text>
+<rect class="mx-diagram__chip" x="400" y="98" width="120" height="30" rx="15"/>
+<text class="mx-diagram__small" x="460" y="118" text-anchor="middle">new version</text>
+<text class="mx-diagram__label" x="400" y="154">No old instance is left.</text>
+<path class="mx-diagram__axis" d="M10 205H676" marker-end="url(#mx-zd-arrow)"/>
+<text class="mx-diagram__label" x="160" y="232" text-anchor="middle">Release N</text>
+<text class="mx-diagram__label" x="530" y="232" text-anchor="middle">Release N+1</text>
+<text class="mx-diagram__mono" x="345" y="196" text-anchor="middle">migrax generate --contract</text>
+</svg>
+</figure>
+
 ```console
 $ migrax generate --zero-downtime --rename customer.email=email_address
 Created src/main/resources/db/migration/0007_rename_customer_email_expand.sql (expand: safe while the old version runs):

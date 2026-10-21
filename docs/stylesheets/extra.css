@@ -941,6 +941,82 @@
 }
 .mx-note { opacity: 0.8; font-size: 0.85em; }
 
+/* Diagrams in the guides: inline SVG drawn with the page's own colors, so they follow light and
+   dark mode. Yellow is a fill with black text on it, never text on white. */
+.md-typeset .mx-diagram {
+  display: block;
+  width: 100%;
+  max-width: 36rem;
+  margin: 1.5em auto 2em;
+}
+.mx-diagram svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--md-text-font-family);
+}
+/* On phones the diagram keeps a readable size and scrolls sideways instead of shrinking. */
+@media screen and (max-width: 44.9375em) {
+  .md-typeset .mx-diagram {
+    overflow-x: auto;
+  }
+  .mx-diagram svg {
+    min-width: 32rem;
+  }
+}
+.mx-diagram text {
+  fill: var(--md-default-fg-color);
+  font-size: 15px;
+  font-weight: 600;
+}
+.mx-diagram .mx-diagram__label {
+  fill: var(--md-default-fg-color--light);
+  font-size: 13px;
+  font-weight: 400;
+}
+.mx-diagram .mx-diagram__small {
+  font-size: 13px;
+  font-weight: 400;
+}
+.mx-diagram .mx-diagram__mono {
+  font-family: var(--md-code-font-family);
+  font-size: 13px;
+  font-weight: 500;
+}
+.mx-diagram .mx-diagram__on-accent {
+  fill: var(--mx-ink);
+  font-weight: 700;
+}
+.mx-diagram__box {
+  fill: var(--md-code-bg-color);
+  stroke: var(--md-default-fg-color--lighter);
+  stroke-width: 1.5;
+}
+.mx-diagram__box--accent {
+  stroke: var(--mx-yellow);
+  stroke-width: 2.5;
+}
+.mx-diagram__accent {
+  fill: var(--mx-yellow);
+}
+.mx-diagram__chip {
+  fill: none;
+  stroke: var(--md-default-fg-color--light);
+  stroke-width: 1.5;
+}
+.mx-diagram__line,
+.mx-diagram__axis {
+  fill: none;
+  stroke: var(--md-default-fg-color--light);
+  stroke-width: 1.8;
+}
+.mx-diagram__axis {
+  stroke-dasharray: 6 5;
+}
+.mx-diagram__head {
+  fill: var(--md-default-fg-color--light);
+}
+
 /* ---------------------------------------------------------------- responsive */
 @media screen and (max-width: 76.1875em) {
   .mx-hero__inner { grid-template-columns: minmax(0, 1fr); gap: 2.2rem; }
