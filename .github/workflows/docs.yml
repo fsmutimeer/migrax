@@ -13,11 +13,11 @@ on:
     branches: [main]
     paths: ['docs/**', 'mkdocs.yml', 'README.md', 'CONTRIBUTING.md', 'CHANGELOG.md',
             'scripts/fetch-releases.py', 'scripts/build-llms-txt.py',
-            '.github/workflows/docs.yml']
+            'scripts/mkdocs_hooks.py', 'overrides/**', '.github/workflows/docs.yml']
   pull_request:
     paths: ['docs/**', 'mkdocs.yml', 'README.md', 'CONTRIBUTING.md', 'CHANGELOG.md',
             'scripts/fetch-releases.py', 'scripts/build-llms-txt.py',
-            '.github/workflows/docs.yml']
+            'scripts/mkdocs_hooks.py', 'overrides/**', '.github/workflows/docs.yml']
   # Run by release.yml after it publishes a release, so the Download page gets the new files.
   workflow_dispatch:
 

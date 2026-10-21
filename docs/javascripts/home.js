@@ -54,13 +54,24 @@
       pre.scrollTop = pre.scrollHeight;
     }
 
+    // Shows a step in its final state at once, before the cursor.
+    function print(s) {
+      if (s.cmd) {
+        code.insertBefore(prompt(), cursor);
+        code.insertBefore(span(s.cmd + "\n", s.cls || "mx-t-cmd"), cursor);
+      }
+      if (s.out) code.insertBefore(span(s.out + "\n", s.cls), cursor);
+      if (s.ask) {
+        code.insertBefore(span(s.ask, "mx-t-ask"), cursor);
+        code.insertBefore(span(s.answer + "\n", "mx-t-answer"), cursor);
+      }
+    }
+
     if (reducedMotion) {
       code.textContent = "";
-      SCRIPT.forEach(function (step) {
-        if (step.cmd) { code.appendChild(prompt()); code.appendChild(span(step.cmd + "\n", step.cls || "mx-t-cmd")); }
-        if (step.out) code.appendChild(span(step.out + "\n", step.cls));
-        if (step.ask) { code.appendChild(span(step.ask, "mx-t-ask")); code.appendChild(span(step.answer + "\n", "mx-t-answer")); }
-      });
+      code.appendChild(cursor);
+      SCRIPT.forEach(print);
+      cursor.remove();
       return;
     }
 
@@ -109,9 +120,14 @@
       later(function () { step(index + 1); }, 110 + Math.random() * 120);
     }
 
+    // The first command is already there when the page opens, so the terminal never starts as
+    // an empty box; typing starts with the next command. Later rounds type everything.
+    var first = 0;
+    while (first < SCRIPT.length && !SCRIPT[first].pause) first++;
     code.textContent = "";
     code.appendChild(cursor);
-    later(function () { step(0); }, 700);
+    SCRIPT.slice(0, first).forEach(print);
+    step(first);
   }
 
   function countUp(el) {
@@ -130,7 +146,8 @@
   }
 
   function reveal(root) {
-    root.querySelectorAll(".mx-home .grid.cards > ul > li, .mx-home .grid.mx-example > *")
+    // Not inside content tabs: a hidden tab never intersects, so its content would stay hidden.
+    root.querySelectorAll(".mx-home .grid.cards > ul > li")
       .forEach(function (el) { el.classList.add("mx-reveal"); });
     var items = root.querySelectorAll(".mx-reveal");
     if (reducedMotion || !("IntersectionObserver" in window)) {

@@ -92,6 +92,10 @@ plugins:
         - categories
         - tags
 
+# The home page's "From the blog" cards.
+hooks:
+  - scripts/mkdocs_hooks.py
+
 extra_css:
   - stylesheets/extra.css
 
