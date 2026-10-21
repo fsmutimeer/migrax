@@ -15,10 +15,11 @@ copyright: Copyright &copy; 2026 Migrax contributors
 theme:
   name: material
   custom_dir: overrides
+  # The Migrax mark: three schema versions as steps, the newest one yellow.
+  logo: assets/logo.svg
   icon:
-    logo: material/database-arrow-up
     repo: fontawesome/brands/github
-  favicon: assets/favicon.svg
+  favicon: assets/logo.svg
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default

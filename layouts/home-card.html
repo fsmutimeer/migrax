@@ -1,0 +1,58 @@
+<!doctype html>
+<!--
+  The home page's link preview image, docs/assets/social-card.png (1200 x 630). Other pages
+  get theirs from the social plugin (layouts/migrax.yml). To redraw it, from the repository
+  root:
+    chrome --headless --hide-scrollbars --window-size=1200,630 \
+      --screenshot=docs/assets/social-card.png layouts/home-card.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;800;900&display=swap"
+      rel="stylesheet">
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative;
+    box-sizing: border-box;
+    padding: 72px 80px;
+    font-family: Inter, sans-serif;
+    color: #fff;
+    background:
+      radial-gradient(420px 320px at 1020px 70px, rgba(251, 191, 36, 0.22), transparent 70%),
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
+      #0a0a0a;
+  }
+  .brand { display: flex; align-items: center; gap: 26px; }
+  .brand img { width: 84px; height: 84px; }
+  .brand span { font-size: 48px; font-weight: 800; letter-spacing: -0.02em; }
+  h1 {
+    margin: 64px 0 0;
+    font-size: 66px;
+    font-weight: 900;
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+  }
+  h1 em { font-style: normal; color: #fbbf24; }
+  p { margin: 26px 0 0; max-width: 980px; font-size: 27px; line-height: 1.45; color: #d4d4d4; }
+  footer {
+    position: absolute;
+    left: 80px;
+    bottom: 56px;
+    font-size: 26px;
+    font-weight: 800;
+    color: #fbbf24;
+  }
+</style>
+</head>
+<body>
+  <div class="brand"><img src="../docs/assets/logo.svg" alt=""><span>Migrax</span></div>
+  <h1>Your entities change.<br><em>Migrax writes the migration.</em></h1>
+  <p>SQL migrations generated from JPA and Hibernate entities, with rollback scripts, lint
+    checks and verification.</p>
+  <footer>migrax.org &middot; free and open source</footer>
+</body>
+</html>
