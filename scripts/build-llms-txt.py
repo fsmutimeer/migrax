@@ -41,7 +41,8 @@ def pages(nav, section=None):
             continue
         for title, value in entry.items():
             if isinstance(value, list):
-                yield from pages(value, title)
+                # Nested groups keep their parent: "Guides: Production".
+                yield from pages(value, f"{section}: {title}" if section else title)
             else:
                 yield section, title, value
 
@@ -67,6 +68,9 @@ def markdown(path):
         return snippet.read_text(encoding="utf-8") if snippet.exists() else ""
 
     text = re.sub(r'^--8<-- "([^"]+)"$', include, text, flags=re.M)
+    # A diagram (inline SVG) becomes the sentence in its <title>, which describes it.
+    text = re.sub(r'<figure class="mx-diagram".*?<title[^>]*>(.*?)</title>.*?</figure>',
+                  r"\1", text, flags=re.S)
     if path == "index.md":
         # The home page is mostly HTML; keep its words only. Other pages keep placeholders
         # such as <file>.

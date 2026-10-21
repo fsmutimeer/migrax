@@ -150,22 +150,26 @@ nav:
       - Installation: getting-started/installation.md
       - Quick start: getting-started/quickstart.md
   - Guides:
-      - How Migrax works: guides/how-it-works.md
-      - Changing entities: guides/changing-entities.md
-      - Rollbacks and recovery: guides/rollbacks-and-recovery.md
-      - Working in a team: guides/team-workflow.md
-      - Continuous integration: guides/ci.md
-      - Production safety: guides/production-safety.md
-      - Comparing databases: guides/comparing-databases.md
-      - Several databases: guides/several-databases.md
-      - Zero-downtime changes: guides/zero-downtime.md
-      - Metrics and tracing: guides/observability.md
-      - Advanced migrations: guides/advanced-migrations.md
-      - Java API and JUnit tests: guides/java-api-and-tests.md
-      - Switching from Flyway or Liquibase: guides/switching-tools.md
-      - Containers and Kubernetes: guides/containers-and-kubernetes.md
-      - SQL migrations for any language: guides/sql-migrations-for-any-language.md
-      - Using Migrax with AI assistants: guides/ai-assistants.md
+      - Everyday use:
+          - How Migrax works: guides/how-it-works.md
+          - Changing entities: guides/changing-entities.md
+          - Rollbacks and recovery: guides/rollbacks-and-recovery.md
+          - Advanced migrations: guides/advanced-migrations.md
+      - Teams and CI:
+          - Working in a team: guides/team-workflow.md
+          - Continuous integration: guides/ci.md
+          - Comparing databases: guides/comparing-databases.md
+          - Java API and JUnit tests: guides/java-api-and-tests.md
+      - Production:
+          - Production safety: guides/production-safety.md
+          - Zero-downtime changes: guides/zero-downtime.md
+          - Metrics and tracing: guides/observability.md
+          - Containers and Kubernetes: guides/containers-and-kubernetes.md
+      - Other setups:
+          - Several databases: guides/several-databases.md
+          - Switching from Flyway or Liquibase: guides/switching-tools.md
+          - SQL migrations for any language: guides/sql-migrations-for-any-language.md
+          - Using Migrax with AI assistants: guides/ai-assistants.md
   - Frameworks:
       - frameworks/index.md
       - Spring Boot: frameworks/spring-boot.md
