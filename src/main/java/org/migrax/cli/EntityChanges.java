@@ -40,7 +40,7 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
       previous = SnapshotStore.load(project.snapshot());
     } else if (useDatabaseBaseline) {
       try (Connection connection = project.connect()) {
-        // A schema file is read from a database with its defaults, so the baseline is too.
+        // A schema file is read from a database exactly as it is, so the baseline is too.
         previous = DatabaseBaseline.read(connection, args.option("--schema"), current,
             project.schemaFile() != null);
       }

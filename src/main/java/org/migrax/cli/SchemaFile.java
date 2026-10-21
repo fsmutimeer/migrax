@@ -41,10 +41,12 @@ final class SchemaFile {
   /** Names databases make up for unnamed constraints and indexes. */
   private static final Pattern MADE_UP_NAME = Pattern.compile("(?i)sys_c\\d+"
       + "|sys_(pk|fk|ct|idx|ac|uq)_.*\\d+|(constraint|primary_key|constraint_index)_[0-9a-f]+"
-      + "|sql\\d{6,}|(pk|fk|uq|ck|df)__.+__[0-9a-f]{8,}"
+      // Derby: SQL0000000183-ce684bc2-01a1-5da5-0497-00001e742478.
+      + "|sql\\d{6,}(-[0-9a-f]+)*|(pk|fk|uq|ck|df)__.+__[0-9a-f]{8,}"
       // MySQL and TiDB number them in table order, so adding one renumbers the rest.
       + "|.+_ibfk_\\d+|.+_chk_\\d+");
   private static final Pattern SEQUENCE = Pattern.compile("(?i)\\bCREATE\\s+SEQUENCE\\b");
+  private static final Pattern ON_UPDATE = Pattern.compile("(?i)\\bON\\s+UPDATE\\s+CURRENT_");
   private static final Pattern QUALIFIED_TABLE = Pattern.compile(
       "(?i)\\bCREATE\\s+TABLE\\s+(IF\\s+NOT\\s+EXISTS\\s+)?[\\w\"`\\[\\]]+\\s*\\.\\s*[\\w\"`\\[]");
 
@@ -74,6 +76,10 @@ final class SchemaFile {
     if (SEQUENCE.matcher(sql).find()) {
       Log.warn("{} creates sequences, which Migrax doesn't read from a schema file yet: create "
           + "them in a migration of your own (migrax new).", source);
+    }
+    if (ON_UPDATE.matcher(sql).find()) {
+      Log.warn("{} uses ON UPDATE CURRENT_TIMESTAMP, which Migrax doesn't read from a schema "
+          + "file yet: add it to the generated migration yourself.", source);
     }
     if (QUALIFIED_TABLE.matcher(sql).find()) {
       Log.warn("{} creates tables in another schema; Migrax reads the default schema only.",

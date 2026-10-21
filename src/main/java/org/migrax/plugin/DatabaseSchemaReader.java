@@ -29,15 +29,16 @@ public final class DatabaseSchemaReader {
   }
 
   /**
-   * Reads the schema; with {@code withDefaults}, also the columns' defaults, in a form that can
-   * be written back as SQL. Defaults are left out otherwise: databases report them in their own
-   * form, which never matches the defaults entities declare. Comparing a database with another
-   * read the same way (a schema file, its baseline) keeps them.
+   * Reads the schema; with {@code exact}, as the database has it, for comparing it with another
+   * database read the same way (a schema file and its baseline): the columns' defaults are read
+   * in a form that can be written back as SQL, and MySQL's timestamp and datetime columns keep
+   * their exact type. Otherwise defaults are left out and types are the general ones entities
+   * declare: databases report defaults in their own form, which never matches the entities'.
    *
    * @since 0.17.0
    */
   public static SchemaModel read(Connection connection, String explicitSchema,
-                                 boolean withDefaults) throws SQLException {
+                                 boolean exact) throws SQLException {
     DatabaseMetaData metadata = connection.getMetaData();
     String catalog = connection.getCatalog();
     String schema = resolveSchema(connection, metadata, explicitSchema);
@@ -61,7 +62,7 @@ public final class DatabaseSchemaReader {
     }
     for (String name : names) {
       if (!isHibernateHelperTable(name, names)) {
-        tables.add(readTable(metadata, catalog, schema, name, withDefaults));
+        tables.add(readTable(metadata, catalog, schema, name, exact));
       }
     }
     tables = withChecksAndComments(connection, catalog, schema, tables);
@@ -456,9 +457,9 @@ public final class DatabaseSchemaReader {
   /** A PostgreSQL or CockroachDB type cast: ::character varying, :::INT8, ::numeric(10,2). */
   private static final Pattern POSTGRES_CAST = Pattern.compile(
       "(?i):{2,3}\\s*[a-z_][a-z0-9_ ]*(\\(\\s*\\d+(\\s*,\\s*\\d+)?\\s*\\))?(\\[])?");
-  /** Defaults that hand out ids: sequences and CockroachDB's row ids. */
+  /** Defaults that hand out ids: sequences (Oracle: "APP"."ISEQ$$_7".nextval), row ids. */
   private static final Pattern GENERATED_DEFAULT = Pattern.compile(
-      "(?is).*(nextval\\(|next value for|unique_rowid\\().*");
+      "(?is).*(nextval\\(|\\.nextval\\b|next value for|unique_rowid\\().*");
 
   /**
    * A column default as SQL that can be written into a migration, or null when there is none or
@@ -523,13 +524,15 @@ public final class DatabaseSchemaReader {
   }
 
   private static SchemaModel.Table readTable(DatabaseMetaData metadata, String catalog,
-      String schema, String table, boolean withDefaults) throws SQLException {
+      String schema, String table, boolean exact) throws SQLException {
     List<SchemaModel.Column> columns = new ArrayList<>();
     boolean sqlite = String.valueOf(metadata.getDatabaseProductName())
         .toLowerCase(Locale.ROOT).contains("sqlite");
     List<String> declaredInteger = new ArrayList<>();
     try (ResultSet result = metadata.getColumns(catalog, schema, table, "%")) {
       while (result.next()) {
+        // Oracle returns the default as a LONG, readable only before any later column.
+        String rawDefault = optionalString(result, "COLUMN_DEF");
         String databaseType = result.getString("TYPE_NAME");
         String logicalType = logicalType(databaseType, result.getInt("DATA_TYPE"));
         Integer size = result.getInt("COLUMN_SIZE");
@@ -576,17 +579,26 @@ public final class DatabaseSchemaReader {
         // Databases report defaults in their own normalized form (for example
         // 'x'::character varying), which would never match entity defaults; leave them out.
         String autoIncrement = optionalString(result, "IS_AUTOINCREMENT");
-        String defaultValue = withDefaults && !"YES".equalsIgnoreCase(autoIncrement)
+        String defaultValue = exact && !"YES".equalsIgnoreCase(autoIncrement)
             ? columnDefault(metadata.getDatabaseProductName(), logicalType,
-                optionalString(result, "COLUMN_DEF"))
+                rawDefault)
             : null;
-        if (isHiddenRowId(result.getString("COLUMN_NAME"), optionalString(result, "COLUMN_DEF"))) {
+        if (isHiddenRowId(result.getString("COLUMN_NAME"), rawDefault)) {
           continue;
         }
         // A fixed-length binary(n) is not a varbinary: keep its real type, which is what
         // Hibernate writes for byte arrays and serialized values on some databases.
         String sqlType = typeLower.equals("binary") && "varbinary".equals(logicalType)
             && size != null ? "binary(" + size + ")" : logicalType;
+        // MySQL's timestamp is stored in UTC and its datetime isn't, and CURRENT_TIMESTAMP must
+        // have the column's precision: read exactly, they keep their own type, written in full.
+        if (exact && (typeLower.equals("timestamp") || typeLower.equals("datetime"))
+            && String.valueOf(metadata.getDatabaseProductName()).toLowerCase(Locale.ROOT)
+                .matches(".*(mysql|mariadb).*")) {
+          // MariaDB's driver leaves the scale out and puts the fraction into the size: 20 + n.
+          int fraction = !noScale ? scaleValue : size != null && size > 19 ? size - 20 : 0;
+          sqlType = typeLower + "(" + fraction + ")";
+        }
         columns.add(new SchemaModel.Column(
             result.getString("COLUMN_NAME"),
             sqlType,
@@ -597,7 +609,7 @@ public final class DatabaseSchemaReader {
             defaultValue,
             false,
             "YES".equalsIgnoreCase(autoIncrement),
-            defaultSequence(optionalString(result, "COLUMN_DEF")),
+            defaultSequence(rawDefault),
             logicalType));
       }
     }

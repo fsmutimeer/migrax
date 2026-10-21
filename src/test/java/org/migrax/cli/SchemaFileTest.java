@@ -123,6 +123,12 @@ class SchemaFileTest {
         .resolve(migrations().get(1))), "rollback script written");
     assertEquals(0, cli("migrate").code());
     assertEquals(0, cli("check").code());
+
+    // verify builds the schema from the migrations on its own empty database.
+    Result verified = run("verify", "--locations", "filesystem:db/migrations",
+        "--schema-file", "db/schema.sql");
+    assertEquals(0, verified.code(), verified.all());
+    assertTrue(verified.out().contains("Schema matches the schema file"), verified.out());
   }
 
   @Test
@@ -258,6 +264,13 @@ class SchemaFileTest {
     schema(CUSTOMER + "\n");
     Result again = cli("check", "--scratch-url", scratch);
     assertEquals(0, again.code(), "the scratch database was emptied: " + again.all());
+  }
+
+  @Test
+  void theEngineScenarioPassesOnH2() throws Exception {
+    try (Connection connection = DriverManager.getConnection(url)) {
+      SchemaFileScenario.run(connection, org.migrax.dialect.Dialects.byName("h2"));
+    }
   }
 
   @Test

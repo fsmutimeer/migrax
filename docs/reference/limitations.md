@@ -18,6 +18,18 @@ in places: they share one `hibernate_sequence` between entities, for example.
 the same way, with Hibernate's naming rules. If your provider names tables or columns differently, set
 the names in your entities (`@Table`, `@Column`) or check the generated migrations.
 
+## Reading a schema file
+
+**Sequences, tables in another schema, and MySQL's `ON UPDATE CURRENT_TIMESTAMP`** in a
+[schema file](../guides/sql-migrations-for-any-language.md#let-migrax-write-the-migrations)
+are not read; Migrax warns when the file has them. Identity columns work. Write migrations for
+sequences and other schemas yourself (`migrax new`), and add `ON UPDATE` to the generated
+migration.
+
+**Views, functions, procedures and triggers** belong in
+[repeatable migrations](../guides/advanced-migrations.md#repeatable-migrations), not in the
+schema file.
+
 ## Rolling back
 
 **A rollback brings back the structure, not the data**, unless the migration was generated with

@@ -73,7 +73,8 @@ final class VerifyCommand implements Command {
     Dialect dialect = project.dialect(false, out);
     URLClassLoader loader = project.loader(true);
     List<Migration> migrations = project.migrationsToRun(true);
-    String packageName = project.entityPackages();
+    // A schema file is the desired schema; there are no entities to look for.
+    String packageName = project.schemaFile() != null ? null : project.entityPackages();
     boolean json = args.flag("--json");
     Map<String, Object> report = new LinkedHashMap<>();
     report.put("dialect", dialect.id());
