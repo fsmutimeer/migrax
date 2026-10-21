@@ -1,0 +1,82 @@
+# Link preview image (1200 x 630) for every page of migrax.org, drawn by Material's social
+# plugin (mkdocs.yml, plugins > social). Black card, yellow accent, the page title in white.
+# Inter comes in optical sizes: 28pt for the large text, 18pt for the description.
+# No `tags:`: overrides/main.html writes the og:/twitter: tags and points them at these cards.
+
+definitions:
+
+  - &page_title >-
+    {{ page.meta.get("title", page.title) }}
+
+  - &page_description >-
+    {{ page.meta.get("description", config.site_description) | x }}
+
+size: { width: 1200, height: 630 }
+layers:
+
+  # Background
+  - background:
+      color: "#0a0a0a"
+
+  # Yellow line along the top
+  - size: { width: 1200, height: 10 }
+    offset: { x: 0, y: 0 }
+    background:
+      color: "#fbbf24"
+
+  # Logo and name
+  - size: { width: 64, height: 64 }
+    offset: { x: 64, y: 58 }
+    icon:
+      value: material/database-arrow-up
+      color: "#fbbf24"
+  - size: { width: 600, height: 44 }
+    offset: { x: 144, y: 68 }
+    typography:
+      content: Migrax
+      color: "#ffffff"
+      font:
+        family: Inter
+        variant: 28pt
+        style: Bold
+
+  # Page title
+  - size: { width: 1072, height: 270 }
+    offset: { x: 64, y: 168 }
+    typography:
+      content: *page_title
+      align: start
+      color: "#ffffff"
+      line:
+        amount: 3
+        height: 1.2
+      font:
+        family: Inter
+        variant: 28pt
+        style: Bold
+
+  # Page description
+  - size: { width: 1072, height: 76 }
+    offset: { x: 64, y: 462 }
+    typography:
+      content: *page_description
+      align: start
+      color: "#a3a3a3"
+      line:
+        amount: 2
+        height: 1.4
+      font:
+        family: Inter
+        variant: 18pt
+        style: Regular
+
+  # Address
+  - size: { width: 500, height: 34 }
+    offset: { x: 64, y: 566 }
+    typography:
+      content: migrax.org
+      color: "#fbbf24"
+      font:
+        family: Inter
+        variant: 28pt
+        style: Bold

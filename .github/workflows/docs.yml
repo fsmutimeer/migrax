@@ -13,11 +13,13 @@ on:
     branches: [main]
     paths: ['docs/**', 'mkdocs.yml', 'README.md', 'CONTRIBUTING.md', 'CHANGELOG.md',
             'scripts/fetch-releases.py', 'scripts/build-llms-txt.py',
-            'scripts/mkdocs_hooks.py', 'overrides/**', '.github/workflows/docs.yml']
+            'scripts/mkdocs_hooks.py', 'overrides/**', 'layouts/**',
+            '.github/workflows/docs.yml']
   pull_request:
     paths: ['docs/**', 'mkdocs.yml', 'README.md', 'CONTRIBUTING.md', 'CHANGELOG.md',
             'scripts/fetch-releases.py', 'scripts/build-llms-txt.py',
-            'scripts/mkdocs_hooks.py', 'overrides/**', '.github/workflows/docs.yml']
+            'scripts/mkdocs_hooks.py', 'overrides/**', 'layouts/**',
+            '.github/workflows/docs.yml']
   # Run by release.yml after it publishes a release, so the Download page gets the new files.
   workflow_dispatch:
 
@@ -36,6 +38,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
+      # Cairo draws the per-page link preview images (social plugin; it runs because CI=true).
+      - run: sudo apt-get install -y --no-install-recommends libcairo2
       - run: pip install -r docs/requirements.txt
       # Copies the release files into the site and writes the Download page.
       - run: python scripts/fetch-releases.py
