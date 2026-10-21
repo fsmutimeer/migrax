@@ -45,6 +45,9 @@ in values are resolved from the environment.
 | Migration folders | `--locations`, `MIGRAX_LOCATIONS`, `migrax.locations` (comma-separated) | `classpath:db/migration` |
 | Naming strategy | `--naming`, `MIGRAX_NAMING`, `migrax.naming` | recorded in the snapshot, else detected ([details](naming.md)) |
 | Entity reader | `--extractor`, `MIGRAX_EXTRACTOR`, `migrax.extractor` | `auto` |
+| Schema file (the desired schema as SQL, instead of entities; [guide](../guides/sql-migrations-for-any-language.md#let-migrax-write-the-migrations)) | `--schema-file`, `MIGRAX_SCHEMA_FILE`, `migrax.schema-file` | none: entities |
+| Empty database to read the schema file in | `--scratch-url`, `MIGRAX_SCRATCH_URL`, `migrax.scratch-url` | a throwaway one (Docker for server databases) |
+| Docker image for that throwaway database | `MIGRAX_SCRATCH_IMAGE`, `migrax.scratch-image` | as for `verify` |
 | Check constraints for enum columns | `MIGRAX_ENUM_CHECKS`, `migrax.enum-checks` (`true` / `false`) | `false` ([details](../guides/changing-entities.md#enum-columns)) |
 | SQL dialect | `--dialect` | from the database URL |
 | Java migration package | `--java-package`, `migrax.java-package` | `db.migration` |

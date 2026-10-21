@@ -62,7 +62,7 @@ final class VerifyCommand implements Command {
   public List<String> options() {
     return List.of("--url", "--user", "--password", "--password-file", "--image",
         "--skip-rollbacks", "--json", "--env", "--dialect", "--package", "--naming", "--extractor",
-        "--locations", "--classpath", "--no-build", "--database");
+        "--schema-file", "--scratch-url", "--locations", "--classpath", "--no-build", "--database");
   }
 
   @Override
@@ -73,7 +73,8 @@ final class VerifyCommand implements Command {
     Dialect dialect = project.dialect(false, out);
     URLClassLoader loader = project.loader(true);
     List<Migration> migrations = project.migrationsToRun(true);
-    String packageName = project.entityPackages();
+    // A schema file is the desired schema; there are no entities to look for.
+    String packageName = project.schemaFile() != null ? null : project.entityPackages();
     boolean json = args.flag("--json");
     Map<String, Object> report = new LinkedHashMap<>();
     report.put("dialect", dialect.id());
@@ -116,7 +117,9 @@ final class VerifyCommand implements Command {
         // Hibernate's validator rejects the integer row-id columns that its own SQLite dialect
         // creates for Long ids, so SQLite gets the structural comparison.
         boolean validated = false;
-        if (ModelExtractor.readsMapping(hibernate) && !"sqlite".equals(dialect.id())
+        boolean schemaFile = project.schemaFile() != null;
+        if (!schemaFile && ModelExtractor.readsMapping(hibernate)
+            && !"sqlite".equals(dialect.id())
             && project.extractorMode() != ModelExtractor.Mode.ANNOTATIONS
             && ModelExtractor.matchingEntities(loader, packageName, hibernate)) {
           try {
@@ -141,7 +144,7 @@ final class VerifyCommand implements Command {
         }
         if (!validated) {
           SchemaModel expected = project.extract(dialect).model();
-          SchemaModel actual = DatabaseSchemaReader.read(connection);
+          SchemaModel actual = DatabaseSchemaReader.read(connection, null, schemaFile);
           SchemaComparator.compare(expected, actual, dialect.id())
               .forEach(d -> problems.add(d.toString()));
           report.put("validation", "structural comparison");
@@ -149,9 +152,11 @@ final class VerifyCommand implements Command {
         report.put("problems", problems);
         if (!json) {
           if (problems.isEmpty()) {
-            out.println("Schema matches the entities (" + report.get("validation") + ").");
+            out.println("Schema matches the " + (schemaFile ? "schema file" : "entities") + " ("
+                + report.get("validation") + ").");
           } else {
-            out.println("The migrated schema does not match the entities:");
+            out.println("The migrated schema does not match the "
+                + (schemaFile ? "schema file:" : "entities:"));
             problems.forEach(p -> out.println("  - " + p));
           }
         }

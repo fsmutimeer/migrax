@@ -26,8 +26,20 @@ public final class DatabaseBaseline {
    */
   public static SchemaModel read(Connection connection, String schema, SchemaModel entities)
       throws SQLException {
+    return read(connection, schema, entities, false);
+  }
+
+  /**
+   * As {@link #read(Connection, String, SchemaModel)}; with {@code exact}, the database is read
+   * as it is ({@link DatabaseSchemaReader#read(Connection, String, boolean)}), for a desired
+   * schema that was itself read from a database (a schema file).
+   *
+   * @since 0.17.0
+   */
+  public static SchemaModel read(Connection connection, String schema, SchemaModel entities,
+                                 boolean exact) throws SQLException {
     SchemaModel database = withTableSequenceRows(connection, schema,
-        DatabaseSchemaReader.read(connection, schema)
+        DatabaseSchemaReader.read(connection, schema, exact)
             .withSequencesFrom(entities, DatabaseSchemaReader.sequenceNames(connection)),
         entities);
     if (DatabaseSchemaReader.foldsNames(connection)) {

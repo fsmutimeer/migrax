@@ -40,13 +40,18 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
       previous = SnapshotStore.load(project.snapshot());
     } else if (useDatabaseBaseline) {
       try (Connection connection = project.connect()) {
-        previous = DatabaseBaseline.read(connection, args.option("--schema"), current);
+        // A schema file is read from a database exactly as it is, so the baseline is too.
+        previous = DatabaseBaseline.read(connection, args.option("--schema"), current,
+            project.schemaFile() != null);
       }
       Log.info("No snapshot yet: using the current database schema as the baseline.");
     } else {
       previous = SchemaModel.empty();
     }
     current = DatabaseBaseline.align(current, previous, dialect);
+    if (project.schemaFile() != null) {
+      current = SchemaFile.withNamesFrom(current, previous);
+    }
 
     List<Renames.TableRename> tables =
         new ArrayList<>(Renames.parseTables(args.option("--rename-table")));

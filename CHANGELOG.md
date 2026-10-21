@@ -6,6 +6,18 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Migrations from a SQL file instead of entities: with `migrax.schema-file=db/schema.sql`
+  (`--schema-file`, `MIGRAX_SCHEMA_FILE`, or `migrax.databases.<name>.schema-file`), a project
+  without JPA entities keeps its tables as they should be in one SQL file, and `generate`
+  writes the migration and its rollback script from the changes, with rename questions, lint
+  and `--zero-downtime` as for entities. `plan`, `check`, `verify` and `doctor` read the file
+  too. Migrax reads it by applying it to a throwaway database (in memory, Docker, or an empty
+  one given with `--scratch-url`) and keeps what it read in `.migrax/schema-model.json`, so
+  `check` in CI needs no Docker while the file is unchanged. A statement that fails is named
+  with its line (error `MXE115`). See Guides > SQL migrations for any language.
+
 ## [0.16.0] - 2026-10-19
 
 ### Added

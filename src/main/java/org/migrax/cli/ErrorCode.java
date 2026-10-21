@@ -23,7 +23,8 @@ enum ErrorCode {
   NO_DOCKER("MXE111", "Docker is needed for verify"),
   CLEAN_DISABLED("MXE112", "clean is disabled"),
   NO_DATABASE_URL("MXE113", "No database URL configured"),
-  PRECONDITION_NOT_MET("MXE114", "A migration's precondition is not met");
+  PRECONDITION_NOT_MET("MXE114", "A migration's precondition is not met"),
+  SCHEMA_FILE_FAILED("MXE115", "The schema file can't be read");
 
   final String code;
   final String title;

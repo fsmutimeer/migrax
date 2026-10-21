@@ -26,6 +26,41 @@ class DatabaseSchemaReaderTest {
   }
 
   @Test
+  void readsColumnDefaultsAsSqlThatCanBeWrittenBack() {
+    String pg = "PostgreSQL";
+    assertEquals("'new'", DatabaseSchemaReader.columnDefault(pg, "varchar",
+        "'new'::character varying"));
+    assertEquals("'a::b'", DatabaseSchemaReader.columnDefault(pg, "varchar",
+        "'a::b'::character varying"));
+    assertEquals("0", DatabaseSchemaReader.columnDefault(pg, "decimal", "0::numeric(10,2)"));
+    assertEquals("now()", DatabaseSchemaReader.columnDefault(pg, "timestamp", "now()"));
+    assertEquals(null, DatabaseSchemaReader.columnDefault(pg, "bigint",
+        "nextval('x_seq'::regclass)"));
+    assertEquals("'new'", DatabaseSchemaReader.columnDefault("CockroachDB", "varchar",
+        "'new':::STRING"));
+
+    String sqlServer = "Microsoft SQL Server";
+    assertEquals("0", DatabaseSchemaReader.columnDefault(sqlServer, "integer", "((0))"));
+    assertEquals("N'x'", DatabaseSchemaReader.columnDefault(sqlServer, "nvarchar", "(N'x')"));
+    assertEquals("getdate()", DatabaseSchemaReader.columnDefault(sqlServer, "timestamp",
+        "(getdate())"));
+    assertEquals("(1)+(2)", DatabaseSchemaReader.columnDefault(sqlServer, "integer",
+        "(1)+(2)"));
+
+    String mysql = "MySQL";
+    assertEquals("'active'", DatabaseSchemaReader.columnDefault(mysql, "varchar", "active"));
+    assertEquals("'it''s'", DatabaseSchemaReader.columnDefault(mysql, "varchar", "it's"));
+    assertEquals("(uuid())", DatabaseSchemaReader.columnDefault(mysql, "varchar", "(uuid())"));
+    assertEquals("CURRENT_TIMESTAMP", DatabaseSchemaReader.columnDefault(mysql, "timestamp",
+        "CURRENT_TIMESTAMP"));
+    assertEquals("0", DatabaseSchemaReader.columnDefault(mysql, "integer", "0"));
+
+    assertEquals(null, DatabaseSchemaReader.columnDefault("H2", "varchar", "NULL"));
+    assertEquals(null, DatabaseSchemaReader.columnDefault("H2", "varchar", null));
+    assertEquals("'new'", DatabaseSchemaReader.columnDefault("Oracle", "varchar", "'new' \n"));
+  }
+
+  @Test
   void ignoresTheIndexH2CreatesForAForeignKey() throws Exception {
     try (var connection = DriverManager.getConnection("jdbc:h2:mem:foreign-key-index")) {
       try (var statement = connection.createStatement()) {

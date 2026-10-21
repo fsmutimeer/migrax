@@ -82,6 +82,7 @@ class DatabaseEngineIT {
           exerciseZeroDowntime(derby);
           exerciseScriptTimestamps(derby);
           exerciseSchemas(derby);
+          exerciseSchemaFile(derby);
         }),
         // In memory: every connection of this JVM shares the database by its name.
         DynamicTest.dynamicTest("HSQLDB 2.7", () -> {
@@ -95,6 +96,7 @@ class DatabaseEngineIT {
           exerciseZeroDowntime(hsqldb);
           exerciseScriptTimestamps(hsqldb);
           exerciseSchemas(hsqldb);
+          exerciseSchemaFile(hsqldb);
         }),
         DynamicTest.dynamicTest("SQLite", () -> {
           Path file = Files.createTempFile("migrax-it-", ".db");
@@ -107,6 +109,7 @@ class DatabaseEngineIT {
             exerciseUnnamedCheck(sqlite);
             exerciseKeepData(sqlite);
             exerciseZeroDowntime(sqlite);
+            exerciseSchemaFile(sqlite);
           } finally {
             Files.deleteIfExists(file);
             Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
@@ -172,6 +175,7 @@ class DatabaseEngineIT {
         exerciseZeroDowntime(Database.of(container));
         exerciseScriptTimestamps(Database.of(container));
         exerciseSchemas(Database.of(container));
+        exerciseSchemaFile(Database.of(container));
       }
     });
   }
@@ -1056,6 +1060,14 @@ class DatabaseEngineIT {
         connection.commit();
       }
       org.migrax.cli.KeepDataScenario.run(connection,
+          org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
+    }
+  }
+
+  /** migrax.schema-file: read twice alike, generated migration round-trips, no baseline changes. */
+  private static void exerciseSchemaFile(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      org.migrax.cli.SchemaFileScenario.run(connection,
           org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
     }
   }
