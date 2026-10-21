@@ -55,6 +55,8 @@ theme:
 extra:
   # No "Made with Material for MkDocs" line in the footer.
   generator: false
+  # Tells overrides/main.html that the social plugin made a preview image for each page.
+  social_cards: !ENV [CI, false]
   # The keywords meta tag (overrides/main.html). Search engines rank on titles, descriptions and
   # page text; this list only helps the few that still read it.
   keywords: >-
@@ -67,6 +69,14 @@ plugins:
   # Listing plugins replaces MkDocs' default list, so search is named here too.
   - search
   - tags
+  # A link preview image per page (layouts/migrax.yml). Drawing them needs the Cairo library,
+  # so they are made in CI only (GitHub Actions sets CI=true); local builds skip them.
+  - social:
+      enabled: !ENV [CI, false]
+      cards_layout: migrax
+      cards_exclude:
+        # The home page keeps its own designed image (docs/assets/social-card.png).
+        - index.md
   - blog:
       blog_dir: blog
       # Short, stable addresses (blog/<slug>/): the articles copied to other sites link back

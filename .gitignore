@@ -28,3 +28,6 @@ docs/downloads/
 
 # Python bytecode (the docs build imports scripts/mkdocs_hooks.py)
 __pycache__/
+
+# Fonts and images cached by the docs build (social plugin)
+.cache/

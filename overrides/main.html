@@ -16,7 +16,18 @@
   {{ super() }}
   {%- set mx_title = page.meta.seo_title if page.meta and page.meta.seo_title else (page.title | striptags if page.title and not page.is_homepage else config.site_name) -%}
   {%- set mx_description = (page.meta.description if page.meta and page.meta.description else config.site_description) -%}
-  {%- set mx_image = config.site_url ~ "assets/social-card.png" -%}
+  {#- Each page's own preview image (layouts/migrax.yml), named as the social plugin names it;
+      the home page, and builds without the plugin, use the site's designed image. -#}
+  {%- if config.extra.social_cards and page and page.file and not page.is_homepage -%}
+    {%- set mx_suffix = ".html" if page.is_index else "/index.html" -%}
+    {%- set mx_card = page.file.dest_uri | replace(mx_suffix, ".png") -%}
+    {%- set mx_image = config.site_url ~ "assets/images/social/" ~ mx_card -%}
+    {#- The text drawn on the card: the page title, not the longer seo_title. -#}
+    {%- set mx_image_alt = page.title | striptags -%}
+  {%- else -%}
+    {%- set mx_image = config.site_url ~ "assets/social-card.png" -%}
+    {%- set mx_image_alt = "Migrax: your entities change, Migrax writes the migration." -%}
+  {%- endif -%}
   <meta name="keywords" content="{{ config.extra.keywords }}">
   <meta name="author" content="Feroz Shah">
   <meta property="og:type" content="{{ 'website' if page.is_homepage else 'article' }}">
@@ -27,7 +38,7 @@
   <meta property="og:image" content="{{ mx_image }}">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Migrax: your entities change, Migrax writes the migration.">
+  <meta property="og:image:alt" content="{{ mx_image_alt }}">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{ mx_title }}">
   <meta name="twitter:description" content="{{ mx_description }}">
