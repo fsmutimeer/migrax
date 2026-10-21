@@ -26,10 +26,11 @@ HOME = "What Migrax is, a short example, and how to get started."
 
 
 class _Loader(yaml.SafeLoader):
-    """Reads mkdocs.yml, ignoring its !!python/name tags."""
+    """Reads mkdocs.yml, ignoring its !!python/name and !ENV tags."""
 
 
 _Loader.add_multi_constructor("tag:yaml.org,2002:python/", lambda loader, suffix, node: None)
+_Loader.add_constructor("!ENV", lambda loader, node: None)
 
 
 def pages(nav, section=None):
