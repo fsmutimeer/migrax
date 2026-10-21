@@ -25,6 +25,19 @@ public final class DatabaseSchemaReader {
   }
 
   public static SchemaModel read(Connection connection, String explicitSchema) throws SQLException {
+    return read(connection, explicitSchema, false);
+  }
+
+  /**
+   * Reads the schema; with {@code withDefaults}, also the columns' defaults, in a form that can
+   * be written back as SQL. Defaults are left out otherwise: databases report them in their own
+   * form, which never matches the defaults entities declare. Comparing a database with another
+   * read the same way (a schema file, its baseline) keeps them.
+   *
+   * @since 0.17.0
+   */
+  public static SchemaModel read(Connection connection, String explicitSchema,
+                                 boolean withDefaults) throws SQLException {
     DatabaseMetaData metadata = connection.getMetaData();
     String catalog = connection.getCatalog();
     String schema = resolveSchema(connection, metadata, explicitSchema);
@@ -48,7 +61,7 @@ public final class DatabaseSchemaReader {
     }
     for (String name : names) {
       if (!isHibernateHelperTable(name, names)) {
-        tables.add(readTable(metadata, catalog, schema, name));
+        tables.add(readTable(metadata, catalog, schema, name, withDefaults));
       }
     }
     tables = withChecksAndComments(connection, catalog, schema, tables);
@@ -440,6 +453,67 @@ public final class DatabaseSchemaReader {
     return rows;
   }
 
+  /** A PostgreSQL or CockroachDB type cast: ::character varying, :::INT8, ::numeric(10,2). */
+  private static final Pattern POSTGRES_CAST = Pattern.compile(
+      "(?i):{2,3}\\s*[a-z_][a-z0-9_ ]*(\\(\\s*\\d+(\\s*,\\s*\\d+)?\\s*\\))?(\\[])?");
+  /** Defaults that hand out ids: sequences and CockroachDB's row ids. */
+  private static final Pattern GENERATED_DEFAULT = Pattern.compile(
+      "(?is).*(nextval\\(|next value for|unique_rowid\\().*");
+
+  /**
+   * A column default as SQL that can be written into a migration, or null when there is none or
+   * it belongs to an identity or sequence.
+   */
+  static String columnDefault(String product, String logicalType, String raw) {
+    if (raw == null || raw.isBlank() || GENERATED_DEFAULT.matcher(raw).matches()) {
+      return null;
+    }
+    String value = raw.strip();
+    String database = String.valueOf(product).toLowerCase(Locale.ROOT);
+    if (database.contains("postgres") || database.contains("cockroach")) {
+      value = withoutCasts(value).strip();
+    } else if (database.contains("microsoft")) {
+      // ('x'), ((0)), (getdate()): SQL Server wraps every default in parentheses.
+      while (value.startsWith("(") && value.endsWith(")") && wrapsAll(value)) {
+        value = value.substring(1, value.length() - 1).strip();
+      }
+    } else if (database.contains("mysql") && !value.startsWith("'") && !value.endsWith(")")
+        && ("varchar".equals(logicalType) || "nvarchar".equals(logicalType)
+            || "char".equals(logicalType) || "text".equals(logicalType))) {
+      // MySQL reports a text default without its quotes. A text column's default is a literal
+      // unless it is an expression, which ends in a parenthesis: (uuid()).
+      value = "'" + value.replace("'", "''") + "'";
+    }
+    return value.isEmpty() || "NULL".equalsIgnoreCase(value) ? null : value;
+  }
+
+  /** The default without type casts, leaving text inside quotes as it is. */
+  private static String withoutCasts(String value) {
+    // Parts at odd positions are inside quotes; '' inside a literal adds an empty part.
+    String[] parts = value.split("'", -1);
+    StringBuilder result = new StringBuilder();
+    for (int i = 0; i < parts.length; i++) {
+      if (i > 0) {
+        result.append('\'');
+      }
+      result.append(i % 2 == 0 ? POSTGRES_CAST.matcher(parts[i]).replaceAll("") : parts[i]);
+    }
+    return result.toString();
+  }
+
+  /** Whether the parentheses at both ends belong together: (a) + (b) is not wrapped. */
+  private static boolean wrapsAll(String text) {
+    int depth = 0;
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      depth += c == '(' ? 1 : c == ')' ? -1 : 0;
+      if (depth == 0 && i < text.length() - 1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   private static boolean autoCommit(Connection connection) {
     try {
       return connection.getAutoCommit();
@@ -448,8 +522,8 @@ public final class DatabaseSchemaReader {
     }
   }
 
-  private static SchemaModel.Table readTable(
-      DatabaseMetaData metadata, String catalog, String schema, String table) throws SQLException {
+  private static SchemaModel.Table readTable(DatabaseMetaData metadata, String catalog,
+      String schema, String table, boolean withDefaults) throws SQLException {
     List<SchemaModel.Column> columns = new ArrayList<>();
     boolean sqlite = String.valueOf(metadata.getDatabaseProductName())
         .toLowerCase(Locale.ROOT).contains("sqlite");
@@ -501,8 +575,11 @@ public final class DatabaseSchemaReader {
         }
         // Databases report defaults in their own normalized form (for example
         // 'x'::character varying), which would never match entity defaults; leave them out.
-        String defaultValue = null;
         String autoIncrement = optionalString(result, "IS_AUTOINCREMENT");
+        String defaultValue = withDefaults && !"YES".equalsIgnoreCase(autoIncrement)
+            ? columnDefault(metadata.getDatabaseProductName(), logicalType,
+                optionalString(result, "COLUMN_DEF"))
+            : null;
         if (isHiddenRowId(result.getString("COLUMN_NAME"), optionalString(result, "COLUMN_DEF"))) {
           continue;
         }

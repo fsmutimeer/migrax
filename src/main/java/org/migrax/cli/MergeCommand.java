@@ -60,8 +60,8 @@ final class MergeCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--json", "--dialect", "--package", "--naming", "--extractor", "--url",
-        "--locations", "--classpath", "--no-build", "--database");
+    return List.of("--json", "--dialect", "--package", "--naming", "--extractor", "--schema-file",
+        "--scratch-url", "--url", "--locations", "--classpath", "--no-build", "--database");
   }
 
   @Override

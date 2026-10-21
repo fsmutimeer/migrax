@@ -63,7 +63,8 @@ final class DoctorCommand implements Command {
   @Override
   public List<String> options() {
     return List.of("--json", "--env", "--package", "--url", "--user", "--password",
-        "--password-file", "--classpath", "--no-build", "--extractor", "--database");
+        "--password-file", "--classpath", "--no-build", "--extractor", "--schema-file",
+        "--scratch-url", "--database");
   }
 
   @Override
@@ -85,10 +86,15 @@ final class DoctorCommand implements Command {
     // Migrations but no build file and no entity package: a project that writes its migrations
     // by hand (another language, or the container image), so the Java checks don't apply. A Java
     // project opened in the wrong folder has no migrations there and still fails them.
-    boolean withoutJava = tool == ProjectBuild.Tool.NONE && packageName == null
-        && !files.isEmpty();
+    // With a schema file, the desired schema comes from SQL, so the Java checks don't apply
+    // either.
+    Path schemaFile = project.schemaFile();
+    boolean withoutJava = schemaFile != null
+        || tool == ProjectBuild.Tool.NONE && packageName == null && !files.isEmpty();
     boolean entitiesHaveChecks = false;
-    if (withoutJava) {
+    if (schemaFile != null) {
+      doctor.info("Schema file instead of entities: " + project.display(schemaFile));
+    } else if (withoutJava) {
       doctor.info("No pom.xml, build.gradle or entity package: checking migrations and the "
           + "database only");
     } else {
@@ -158,6 +164,26 @@ final class DoctorCommand implements Command {
         } catch (Exception e) {
           doctor.fail("Entities: " + Errors.describe(e), null);
         }
+      }
+    }
+
+    if (loader != null && schemaFile != null && !project.hasUrl()
+        && !Files.exists(project.snapshot())) {
+      doctor.info("Schema file: not read yet; configure the database URL so Migrax knows which "
+          + "database to read it with");
+    } else if (loader != null && schemaFile != null) {
+      try {
+        Dialect dialect = project.dialect(false,
+            new PrintStream(java.io.OutputStream.nullOutputStream(), false,
+                StandardCharsets.UTF_8));
+        ModelExtractor.Result result = project.extract(dialect);
+        entitiesHaveChecks = result.model().tables().stream()
+            .anyMatch(t -> !t.checks().isEmpty());
+        doctor.check(!result.model().tables().isEmpty(),
+            "Schema file: " + result.model().tables().size() + " table(s) in " + result.source(),
+            result.source() + " has no CREATE TABLE statements.");
+      } catch (Exception e) {
+        doctor.fail("Schema file: " + Errors.describe(e), null);
       }
     }
 

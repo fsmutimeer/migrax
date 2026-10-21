@@ -147,6 +147,17 @@ final class CleanCommand implements Command {
         ? sqlServer.inSchema(schema) : dialect;
   }
 
+  /** Whether the schema (null: the connection's default) has nothing {@link #empty} drops. */
+  static boolean isEmpty(Connection connection, String schema) throws SQLException {
+    return Objects.read(connection, schema).isEmpty();
+  }
+
+  /** Drops everything in the schema (null: the connection's default), as {@code clean} does. */
+  static void empty(Connection connection, Dialect dialect, String schema,
+                    java.time.Duration lockTimeout) throws Exception {
+    drop(connection, dialect, Objects.read(connection, schema), schema, lockTimeout);
+  }
+
   /**
    * Drops views, then foreign keys (so tables can go in any order), tables and the sequences
    * that are left, with the migration lock held so no migration runs meanwhile.

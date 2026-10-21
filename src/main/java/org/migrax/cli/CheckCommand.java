@@ -45,8 +45,8 @@ final class CheckCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--json", "--package", "--naming", "--extractor", "--classpath", "--no-build",
-        "--refresh", "--database");
+    return List.of("--json", "--package", "--naming", "--extractor", "--schema-file",
+        "--scratch-url", "--classpath", "--no-build", "--refresh", "--database");
   }
 
   @Override
@@ -69,12 +69,16 @@ final class CheckCommand implements Command {
         err.println("Migrations share numbers: " + duplicates.values()
             + ". Run 'migrax merge'.");
       }
+      boolean schemaFile = project.schemaFile() != null;
       if (changes.operations().isEmpty()) {
         if (duplicates.isEmpty()) {
-          out.println("OK: entities match the snapshot.");
+          out.println(schemaFile ? "OK: " + changes.source() + " matches the snapshot."
+              : "OK: entities match the snapshot.");
         }
       } else {
-        err.println(changes.operations().size() + " entity change(s) have no migration:");
+        err.println(changes.operations().size() + (schemaFile
+            ? " change(s) in " + changes.source() + " have no migration:"
+            : " entity change(s) have no migration:"));
         for (Operation operation : changes.operations()) {
           err.println("  - " + Migrations.summary(operation));
         }

@@ -63,6 +63,8 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--schema-file <path>` | SQL file with the desired schema, instead of entities |
+| `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
@@ -169,6 +171,8 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--schema-file <path>` | SQL file with the desired schema, instead of entities |
+| `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
@@ -256,6 +260,8 @@ Shows the operations and SQL for current entity changes without writing files. `
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--schema-file <path>` | SQL file with the desired schema, instead of entities |
+| `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -323,6 +329,8 @@ Exits with code 2 when the entities differ from `.migrax/snapshot.json`, and wit
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--schema-file <path>` | SQL file with the desired schema, instead of entities |
+| `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--refresh` | Re-resolve dependencies even if cached |
@@ -370,6 +378,8 @@ Starts a throwaway database (H2, HSQLDB and Derby in memory, Docker for other en
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--schema-file <path>` | SQL file with the desired schema, instead of entities |
+| `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
@@ -443,6 +453,8 @@ Writes one HTML page (default `migrax-report.html`) for reviews and CI artifacts
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--schema-file <path>` | SQL file with the desired schema, instead of entities |
+| `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |
@@ -491,6 +503,8 @@ Renumbers migrations that share a number after a git merge (the one added later 
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
 | `--extractor <mode>` | auto, hibernate, eclipselink, openjpa or annotations (default: auto) |
+| `--schema-file <path>` | SQL file with the desired schema, instead of entities |
+| `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |

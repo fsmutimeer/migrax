@@ -137,7 +137,7 @@ final class Project implements AutoCloseable {
 
   /** Settings that belong to one database and never come from the default database's. */
   private static final List<String> OWN =
-      List.of("locations", "schemas", "java-package", "package");
+      List.of("locations", "schemas", "java-package", "package", "schema-file");
 
   /**
    * A Migrax setting from the command line option, -D, MIGRAX_* or application config. For a
@@ -556,10 +556,26 @@ final class Project implements AutoCloseable {
     return loader;
   }
 
-  /** Reads the entity model with Hibernate's mapping or annotation scanning. */
+  /**
+   * Reads the desired schema: the schema file when one is configured ({@link SchemaFile}),
+   * otherwise the entities with Hibernate's mapping or annotation scanning.
+   */
   ModelExtractor.Result extract(Dialect dialect) throws Exception {
+    Path file = schemaFile();
+    if (file != null) {
+      return SchemaFile.read(this, file, dialect);
+    }
     return ModelExtractor.extract(loader(true), entityPackages(), naming(), dialect,
         readerSettings(), extractorMode());
+  }
+
+  /**
+   * The SQL file with the desired schema ({@code --schema-file}, {@code migrax.schema-file}),
+   * relative to the project folder; null when the schema comes from entities.
+   */
+  Path schemaFile() throws Exception {
+    String value = setting("--schema-file", "schema-file");
+    return blank(value) ? null : root.resolve(value.trim()).normalize();
   }
 
   /** SQL files, repeatable migrations, callbacks and Java migrations. */

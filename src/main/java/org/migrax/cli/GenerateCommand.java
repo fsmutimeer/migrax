@@ -96,6 +96,7 @@ final class GenerateCommand implements Command {
         "--contract", "--rename",
         "--rename-table",
         "--no-input", "--lock-timeout", "--dialect", "--package", "--naming", "--extractor",
+        "--schema-file", "--scratch-url",
         "--url", "--user", "--password", "--password-file", "--schema", "--locations",
         "--classpath", "--no-build", "--refresh", "--database");
   }
@@ -124,6 +125,10 @@ final class GenerateCommand implements Command {
     }
     Dialect dialect = project.generating(project.dialect(false, out));
     EntityChanges changes = EntityChanges.read(context, dialect, true, true);
+    if (changes.current().tables().isEmpty() && project.schemaFile() != null) {
+      throw new UsageException(ErrorCode.NO_ENTITIES, changes.source() + " has no tables.",
+          "Write the tables as they should be, as CREATE TABLE statements.");
+    }
     if (changes.current().tables().isEmpty()) {
       throw new UsageException(ErrorCode.NO_ENTITIES,
           "No JPA entities found under package '" + project.packageName() + "'.",
@@ -147,7 +152,8 @@ final class GenerateCommand implements Command {
         }
         SnapshotStore.save(project.snapshot(), changes.current(), dialect.id(),
             project.recordedNaming(), dialect.serverVersion());
-        out.println("Saved the entity schema as the baseline snapshot: "
+        out.println("Saved the " + (project.schemaFile() != null ? "schema in "
+            + changes.source() : "entity schema") + " as the baseline snapshot: "
             + project.display(project.snapshot()));
       }
       remindContracts(project, out);

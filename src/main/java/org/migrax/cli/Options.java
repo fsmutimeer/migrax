@@ -17,7 +17,7 @@ final class Options {
       "--classpath", "--name", "--schema", "--action", "--naming", "--extractor", "--rename",
       "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table",
       "--lock-timeout", "--password-file", "--env", "--html", "--source-user",
-      "--source-password-file", "--database");
+      "--source-password-file", "--database", "--schema-file", "--scratch-url");
   /** Options without a value. */
   static final Set<String> FLAGS = Set.of(
       "--allow-destructive", "--resume", "--dry-run", "--verbose", "-v", "--no-build",
@@ -53,6 +53,10 @@ final class Options {
     HELP.put("--extractor",
         "--extractor <mode>      auto, hibernate, eclipselink, openjpa or annotations "
             + "(default: auto)");
+    HELP.put("--schema-file",
+        "--schema-file <path>    SQL file with the desired schema, instead of entities");
+    HELP.put("--scratch-url",
+        "--scratch-url <url>     Empty database to read the schema file in (default: Docker)");
     HELP.put("--url", "--url <jdbc-url>        Database URL (default: application config)");
     HELP.put("--user", "--user <name>           Database user");
     HELP.put("--password", "--password <secret>     Database password (prefer env vars)");
