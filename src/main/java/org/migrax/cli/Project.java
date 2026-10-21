@@ -16,6 +16,7 @@ import org.migrax.runner.MigrationLoader;
 import org.migrax.runner.MigrationRunner;
 import org.migrax.runner.TargetSchema;
 import org.migrax.util.Log;
+import org.migrax.verify.ScratchDatabase;
 
 import java.io.PrintStream;
 import java.net.URLClassLoader;
@@ -438,14 +439,29 @@ final class Project implements AutoCloseable {
     if (!dialect.dependsOnServerVersion()) {
       return dialect;
     }
+    int[] version = serverVersion(dialect);
+    return version.length == 2 ? dialect.forServer(version[0], version[1]) : dialect;
+  }
+
+  /** The throwaway database image of the configured server's version, or null if unknown. */
+  String serverImage(Dialect dialect) throws Exception {
+    int[] version = serverVersion(dialect);
+    return version.length == 2
+        ? ScratchDatabase.imageFor(dialect.id(), version[0], version[1]) : null;
+  }
+
+  /**
+   * The server's major and minor version: the configured server's, asked once, or else the one
+   * recorded in the snapshot; empty when neither is known.
+   */
+  private int[] serverVersion(Dialect dialect) throws Exception {
     if (serverVersion == null) {
       serverVersion = askServerVersion(dialect);
       if (serverVersion.length == 0 && dialect.id().equals(SnapshotStore.dialect(snapshot()))) {
         serverVersion = parseVersion(SnapshotStore.server(snapshot()));
       }
     }
-    return serverVersion.length == 2 ? dialect.forServer(serverVersion[0], serverVersion[1])
-        : dialect;
+    return serverVersion;
   }
 
   private int[] askServerVersion(Dialect dialect) throws Exception {

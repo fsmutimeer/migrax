@@ -53,6 +53,25 @@ public final class ScratchDatabase implements AutoCloseable {
   }
 
   /**
+   * The image of a server's own version, for SQL that only that version (or newer) runs, such
+   * as the settings pg_dump writes; null when there is no such image.
+   *
+   * @param dialect the dialect's id
+   * @param major the server's major version
+   * @param minor the server's minor version
+   * @return an image name, or null
+   * @since 0.17.0
+   */
+  public static String imageFor(String dialect, int major, int minor) {
+    return switch (dialect) {
+      case "postgresql" -> major >= 12 ? "postgres:" + major + "-alpine" : null;
+      case "mysql" -> major >= 8 ? "mysql:" + major + "." + minor : null;
+      case "mariadb" -> major >= 10 ? "mariadb:" + major + "." + minor : null;
+      default -> null;
+    };
+  }
+
+  /**
    * Starts a scratch database for the dialect.
    *
    * @param image Docker image to use instead of the default, or null

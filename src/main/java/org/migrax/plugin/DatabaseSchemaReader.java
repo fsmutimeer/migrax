@@ -460,6 +460,9 @@ public final class DatabaseSchemaReader {
   /** Defaults that hand out ids: sequences (Oracle: "APP"."ISEQ$$_7".nextval), row ids. */
   private static final Pattern GENERATED_DEFAULT = Pattern.compile(
       "(?is).*(nextval\\(|\\.nextval\\b|next value for|unique_rowid\\().*");
+  /** MySQL's and MariaDB's unsigned integer types, as their drivers name them. */
+  private static final Pattern UNSIGNED_INTEGER = Pattern.compile(
+      "(tiny|small|medium|big)?int(eger)? unsigned");
 
   /**
    * A column default as SQL that can be written into a migration, or null when there is none or
@@ -598,6 +601,11 @@ public final class DatabaseSchemaReader {
           // MariaDB's driver leaves the scale out and puts the fraction into the size: 20 + n.
           int fraction = !noScale ? scaleValue : size != null && size > 19 ? size - 20 : 0;
           sqlType = typeLower + "(" + fraction + ")";
+        }
+        // MySQL's unsigned integers hold other values than the signed ones: read exactly, they
+        // keep their type.
+        if (exact && UNSIGNED_INTEGER.matcher(typeLower).matches()) {
+          sqlType = typeLower;
         }
         columns.add(new SchemaModel.Column(
             result.getString("COLUMN_NAME"),

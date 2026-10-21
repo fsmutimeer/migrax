@@ -170,6 +170,7 @@ nav:
           - Several databases: guides/several-databases.md
           - Switching from Flyway or Liquibase: guides/switching-tools.md
           - SQL migrations for any language: guides/sql-migrations-for-any-language.md
+          - Schema file from your ORM: guides/schema-from-orm.md
           - Using Migrax with AI assistants: guides/ai-assistants.md
   - Frameworks:
       - frameworks/index.md

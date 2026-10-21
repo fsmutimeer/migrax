@@ -36,8 +36,8 @@ public final class SchemaFileScenario {
     String text = dialect.id().equals("oracle") ? "VARCHAR2" : "VARCHAR";
     // SQL Server's TIMESTAMP is a row version, not a point in time.
     String time = dialect.id().equals("sqlserver") ? "DATETIME2" : "TIMESTAMP";
-    // MySQL's own types, which must keep their fraction digits.
-    String mysqlOnly = mysql(dialect) ? ", paid_at DATETIME(6)" : "";
+    // MySQL's own types, which must keep their fraction digits and their sign.
+    String mysqlOnly = mysql(dialect) ? ", paid_at DATETIME(6), quantity INT UNSIGNED" : "";
     String identity = switch (dialect.id()) {
       case "mysql", "mariadb", "tidb" -> "BIGINT AUTO_INCREMENT NOT NULL PRIMARY KEY";
       case "sqlserver" -> "BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY";
@@ -111,6 +111,8 @@ public final class SchemaFileScenario {
     assertTrue(customer.column("created_at").defaultValue() != null, engine + customer);
     if (mysql(dialect)) {
       assertEquals("datetime(6)", order.column("paid_at").sqlType(), engine + order);
+      assertTrue(order.column("quantity").sqlType().matches("int(eger)? unsigned"),
+          engine + order);
     }
     assertEquals(1, order.foreignKeys().size(), engine + order);
     SchemaModel.ForeignKey key = order.foreignKeys().get(0);

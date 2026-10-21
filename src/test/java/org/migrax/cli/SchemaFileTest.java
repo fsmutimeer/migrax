@@ -3,6 +3,8 @@ package org.migrax.cli;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.migrax.dialect.Dialects;
+import org.migrax.verify.ScratchDatabase;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -17,6 +19,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** A project without entities: the desired schema is a SQL file (migrax.schema-file). */
@@ -293,5 +296,53 @@ class SchemaFileTest {
     Result empty = cli("generate");
     assertEquals(1, empty.code(), empty.all());
     assertTrue(empty.err().contains("db/schema.sql has no tables."), empty.err());
+  }
+
+  @Test
+  void warnsOnlyAboutWhatIsLeftOut() {
+    // pg_dump qualifies every table with public and writes serial columns as owned sequences.
+    String dump = """
+        CREATE TABLE public.customers (id integer NOT NULL);
+        CREATE SEQUENCE public.customers_id_seq AS integer START WITH 1;
+        ALTER SEQUENCE public.customers_id_seq OWNED BY public.customers.id;
+        """;
+    assertEquals(List.of(), SchemaFile.notRead("db/schema.sql", dump, "public"));
+
+    List<String> warnings = SchemaFile.notRead("db/schema.sql", dump
+        + "CREATE SEQUENCE invoice_numbers;\nCREATE TABLE billing.invoice (id integer);\n",
+        "public");
+    assertEquals(2, warnings.size(), warnings.toString());
+    assertTrue(warnings.get(0).contains("creates sequences"), warnings.toString());
+    assertTrue(warnings.get(1).contains("another schema"), warnings.toString());
+
+    // Quoted the way SQL Server and MySQL quote names; owned sequences matched without schema.
+    assertEquals(1, SchemaFile.notRead("db/schema.sql",
+        "CREATE SEQUENCE [dbo].[order_numbers];\n", "dbo").size());
+    assertEquals(1, SchemaFile.notRead("db/schema.sql",
+        "CREATE SEQUENCE `order_numbers`;\n", "shop").size());
+    assertEquals(List.of(), SchemaFile.notRead("db/schema.sql", "CREATE SEQUENCE c_id_seq;\n"
+        + "ALTER SEQUENCE public.c_id_seq OWNED BY public.c.id;\n", "public"));
+  }
+
+  @Test
+  void skipsPsqlCommandsInPostgresFilesOnly() {
+    String dump = "\\restrict %s\nCREATE TABLE customer (id integer);\n\\unrestrict %s\n";
+    String once = SchemaFile.withoutPsqlCommands(dump.formatted("abc", "abc"),
+        Dialects.byName("postgresql"));
+    // The key differs on every dump; the file must still count as unchanged.
+    assertEquals(once, SchemaFile.withoutPsqlCommands(dump.formatted("xyz", "xyz"),
+        Dialects.byName("postgresql")));
+    assertFalse(once.contains("restrict"), once);
+    assertEquals(dump.formatted("a", "a").lines().count(), once.lines().count(),
+        "line numbers stay right");
+    assertEquals(dump, SchemaFile.withoutPsqlCommands(dump, Dialects.byName("mysql")));
+  }
+
+  @Test
+  void throwawayDatabasesOfTheServersVersion() {
+    assertEquals("postgres:17-alpine", ScratchDatabase.imageFor("postgresql", 17, 6));
+    assertEquals("mysql:8.4", ScratchDatabase.imageFor("mysql", 8, 4));
+    assertEquals("mariadb:11.4", ScratchDatabase.imageFor("mariadb", 11, 4));
+    assertNull(ScratchDatabase.imageFor("sqlserver", 16, 0));
   }
 }
