@@ -175,19 +175,23 @@ final class CleanCommand implements Command {
         // can't drop a foreign key on its own.
         if (!(dialect instanceof SqliteDialect)) {
           for (SchemaModel.Table table : objects.schema.tables()) {
+            // The model folds names; the table list has them as the database spells them.
+            String name = objects.tables.stream().filter(t -> t.equalsIgnoreCase(table.name()))
+                .findFirst().orElse(table.name());
             for (SchemaModel.ForeignKey key : table.foreignKeys()) {
-              execute(connection, dialect.render(new DropForeignKey(table.name(), key.name())));
+              execute(connection, dialect.render(new DropForeignKey(stored(dialect, name),
+                  key.name())));
             }
           }
         }
         for (String table : objects.tables) {
           if (!table.equalsIgnoreCase(LOCK_TABLE)) {
-            execute(connection, dialect.render(new DropTable(table)));
+            execute(connection, dialect.render(new DropTable(stored(dialect, table))));
           }
         }
         // Sequences behind identity columns went with their tables.
         for (String sequence : DatabaseSchemaReader.sequencesIn(connection, schema)) {
-          execute(connection, dialect.render(new DropSequence(sequence)));
+          execute(connection, dialect.render(new DropSequence(stored(dialect, sequence))));
         }
       }
       if (objects.tables.stream().anyMatch(t -> t.equalsIgnoreCase(LOCK_TABLE))) {
@@ -196,6 +200,20 @@ final class CleanCommand implements Command {
     } finally {
       connection.setAutoCommit(autoCommit);
     }
+  }
+
+  /**
+   * A name as the database spells it, written so it names that object: quoted when an unquoted
+   * name would get another letter case ({@code Publisher} on PostgreSQL, {@code customers} on
+   * H2), else as it is.
+   */
+  static String stored(Dialect dialect, String name) {
+    boolean changes = switch (dialect.unquotedNames()) {
+      case UPPER -> !name.equals(name.toUpperCase(Locale.ROOT));
+      case LOWER -> !name.equals(name.toLowerCase(Locale.ROOT));
+      case KEPT -> false;
+    };
+    return changes ? dialect.quote(name) : name;
   }
 
   /** Views can depend on each other: drop what can go, then try the rest again. */

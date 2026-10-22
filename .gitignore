@@ -20,6 +20,7 @@ compat/eclipselink/work/
 compat/openjpa/work/
 compat/spring-data-jdbc/work/
 compat/spring-boot/work/
+compat/micronaut-data/work/
 
 # MkDocs output
 site/

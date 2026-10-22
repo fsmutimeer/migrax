@@ -133,14 +133,14 @@ final class DoctorCommand implements Command {
     if (loader != null && !withoutJava) {
       String jpa = loadable(loader, "jakarta.persistence.Entity") ? "jakarta.persistence"
           : loadable(loader, "javax.persistence.Entity") ? "javax.persistence" : null;
-      String springData = ModelExtractor.springDataJdbcVersion(loader);
-      boolean springDataJdbc = springDataJdbc(loader, packageName, jpa, springData,
-          project.extractorMode());
-      if (springDataJdbc) {
-        doctor.check(springData != null, springData == null ? "Spring Data JDBC found"
-                : ("Spring Data JDBC " + springData).trim()
-                    + ": entities are read from Spring Data JDBC's own mapping",
-            "--extractor spring-data-jdbc needs Spring Data JDBC on the project classpath.");
+      Library library = library(loader, packageName, jpa, project.extractorMode());
+      if (library != null) {
+        doctor.check(library.version() != null, library.version() == null
+                ? library.name() + " found"
+                : (library.name() + " " + library.version()).trim()
+                    + ": entities are read from " + library.name() + "'s own mapping",
+            "--extractor " + library.extractor() + " needs " + library.name()
+                + " on the project classpath.");
       } else {
         doctor.check(jpa != null, "JPA API found: " + jpa,
             "Neither jakarta.persistence nor javax.persistence is on the project classpath.");
@@ -161,7 +161,7 @@ final class DoctorCommand implements Command {
           doctor.info("Hibernate not found: entities are read by scanning JPA annotations");
         }
       }
-      if (packageName != null && (jpa != null || springDataJdbc)) {
+      if (packageName != null && (jpa != null || library != null)) {
         try {
           Dialect dialect = project.dialect(true,
               new PrintStream(java.io.OutputStream.nullOutputStream(), false, StandardCharsets.UTF_8));
@@ -171,8 +171,9 @@ final class DoctorCommand implements Command {
           doctor.check(!result.model().tables().isEmpty(),
               "Entities: " + result.model().tables().size() + " table(s) under " + packageName
                   + " (" + result.source() + ")",
-              springDataJdbc ? "No aggregates found under " + packageName + ": Spring Data "
-                  + "JDBC needs @Table classes or repositories there. Check --package."
+              library != null ? "No " + library.entities() + " found under " + packageName
+                  + ": " + library.name() + " needs " + library.needs() + " there. Check "
+                  + "--package."
                   : "No @Entity classes found under " + packageName + ". Check --package.");
         } catch (Exception e) {
           doctor.fail("Entities: " + Errors.describe(e), null);
@@ -277,25 +278,45 @@ final class DoctorCommand implements Command {
     return ERROR;
   }
 
+  /** A library whose own mapping is read instead of JPA's, and how doctor talks about it. */
+  private record Library(String name, String version, String extractor, String entities,
+                         String needs) {}
+
   /**
-   * Whether the entities are read through Spring Data JDBC, as the reader decides; a project
-   * with Spring Data JDBC and without the JPA API is one even before it has aggregates.
+   * The library the entities are read through instead of JPA, as the reader decides, or null; a
+   * project with such a library and without the JPA API uses it even before it has entities.
    */
-  private static boolean springDataJdbc(ClassLoader loader, String packageName, String jpa,
-                                        String springData, ModelExtractor.Mode mode) {
+  private static Library library(ClassLoader loader, String packageName, String jpa,
+                                 ModelExtractor.Mode mode) {
+    String springVersion = ModelExtractor.springDataJdbcVersion(loader);
+    String micronautVersion = ModelExtractor.micronautDataVersion(loader);
+    Library spring = new Library("Spring Data JDBC", springVersion, "spring-data-jdbc",
+        "aggregates", "@Table classes or repositories");
+    Library micronaut = new Library("Micronaut Data", micronautVersion, "micronaut-data",
+        "entities", "@MappedEntity classes");
     if (mode == ModelExtractor.Mode.SPRING_DATA_JDBC) {
-      return true;
+      return spring;
     }
-    if (mode != ModelExtractor.Mode.AUTO || springData == null) {
-      return false;
+    if (mode == ModelExtractor.Mode.MICRONAUT_DATA) {
+      return micronaut;
+    }
+    if (mode != ModelExtractor.Mode.AUTO) {
+      return null;
     }
     try {
-      return jpa == null || packageName != null
-          && ModelExtractor.readsSpringDataJdbc(loader, packageName, mode);
+      if (packageName != null && ModelExtractor.readsSpringDataJdbc(loader, packageName, mode)) {
+        return spring;
+      }
+      if (packageName != null && ModelExtractor.readsMicronautData(loader, packageName, mode)) {
+        return micronaut;
+      }
     } catch (Exception e) {
       // The entity check below reports what is wrong with the package.
-      return false;
     }
+    if (jpa != null) {
+      return null;
+    }
+    return springVersion != null ? spring : micronautVersion != null ? micronaut : null;
   }
 
   private static boolean loadable(ClassLoader loader, String name) {
