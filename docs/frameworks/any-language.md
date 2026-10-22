@@ -55,7 +55,7 @@ The commands that compare the database with Java entities (`generate`, `check`, 
           -e MIGRAX_DATABASE_URL \
           -e MIGRAX_DATABASE_USER \
           -e MIGRAX_DATABASE_PASSWORD \
-          ghcr.io/fsmutimeer/migrax:0.16.0 migrate
+          ghcr.io/fsmutimeer/migrax:0.17.0 migrate
         ```
 
         The image reads the migrations from `/migrations`, so `MIGRAX_LOCATIONS` isn't needed
@@ -92,7 +92,7 @@ services:
       retries: 30
 
   migrate:
-    image: ghcr.io/fsmutimeer/migrax:0.16.0
+    image: ghcr.io/fsmutimeer/migrax:0.17.0
     command: migrate --lock-timeout 2m
     volumes:
       - ./db/migrations:/migrations:ro

@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.16.1-SNAPSHOT</version>
+    <version>0.17.0</version>
     <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-quarkus-parent</artifactId>
-  <version>0.16.1-SNAPSHOT</version>
+  <version>0.17.0</version>
   <packaging>pom</packaging>
   <name>Migrax for Quarkus (parent)</name>
   <description>

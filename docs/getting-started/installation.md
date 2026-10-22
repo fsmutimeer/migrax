@@ -68,11 +68,11 @@ Open a terminal **in the extracted folder** (or the source folder) and run the i
     In Command Prompt or PowerShell, for example with the folder extracted to `D:\`:
 
     ```bat
-    cd /d D:\migrax-0.16.0
+    cd /d D:\migrax-0.17.0
     powershell -ExecutionPolicy Bypass -File install.ps1
     ```
 
-    (In PowerShell, use `cd D:\migrax-0.16.0`.) The installer copies Migrax to
+    (In PowerShell, use `cd D:\migrax-0.17.0`.) The installer copies Migrax to
     `%LOCALAPPDATA%\migrax` and adds its `bin` folder to your user `PATH`. After that you can
     delete the extracted folder and the ZIP.
 
@@ -91,7 +91,7 @@ Open a terminal **in the extracted folder** (or the source folder) and run the i
 
 ```console
 $ migrax version
-migrax 0.16.0
+migrax 0.17.0
 ```
 
 !!! tip "`migrax` is not recognized?"

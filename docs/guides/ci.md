@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: fsmutimeer/migrax@v0.16.0
+      - uses: fsmutimeer/migrax@v0.17.0
         with:
           working-directory: .          # folder with pom.xml or build.gradle
           fail-on-lint-warnings: 'false'
@@ -59,7 +59,7 @@ report (shown as **Migrax report** on the merge request), and a comment with the
 
 ```yaml title=".gitlab-ci.yml"
 include:
-  - remote: https://raw.githubusercontent.com/fsmutimeer/migrax/v0.16.0/ci/gitlab/migrax.gitlab-ci.yml
+  - remote: https://raw.githubusercontent.com/fsmutimeer/migrax/v0.17.0/ci/gitlab/migrax.gitlab-ci.yml
 ```
 
 To change a setting, add a `migrax` job of your own with only the keys to replace:
@@ -100,7 +100,7 @@ pipelines:
           caches:
             - maven
           script:
-            - export MIGRAX_VERSION=0.16.0
+            - export MIGRAX_VERSION=0.17.0
             - export MIGRAX_DIR=.       # folder with pom.xml or build.gradle
             - curl -fsSL --retry 3 -o /tmp/migrax-ci.sh "https://raw.githubusercontent.com/fsmutimeer/migrax/v${MIGRAX_VERSION}/ci/migrax-ci.sh"
             - sh /tmp/migrax-ci.sh

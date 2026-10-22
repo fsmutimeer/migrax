@@ -15,7 +15,7 @@ pipelines:
           caches:
             - maven
           script:
-            - export MIGRAX_VERSION=0.16.0
+            - export MIGRAX_VERSION=0.17.0
             - export MIGRAX_DIR=.       # folder with pom.xml or build.gradle
             - curl -fsSL --retry 3 -o /tmp/migrax-ci.sh "https://raw.githubusercontent.com/fsmutimeer/migrax/v${MIGRAX_VERSION}/ci/migrax-ci.sh"
             - sh /tmp/migrax-ci.sh
