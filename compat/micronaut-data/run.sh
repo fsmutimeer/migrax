@@ -84,11 +84,9 @@ $MIGRAX_DATABASE_URL $MIGRAX_DATABASE_USER $MIGRAX_DATABASE_PASSWORD" > "$1" 2>&
     ok2=$(smoke smoke2.log)
 
     # migrax-micronaut applies both migrations to a new H2 database at startup, before
-    # Micronaut Data uses it. It is built against Micronaut 4.10, which Micronaut 4.0 to 4.9
-    # don't load, so the step runs from 4.10 on.
+    # Micronaut Data uses it.
     startup=skipped
-    if [[ -n $MIGRAX_COMPAT_STARTUP_VERSION && $db == h2 && ($v == 4.1[0-9].* || $v == 5.*) ]]
-    then
+    if [[ -n $MIGRAX_COMPAT_STARTUP_VERSION && $db == h2 ]]; then
       mvn -q -B -Pstartup -Dmigrax.version="$MIGRAX_COMPAT_STARTUP_VERSION" compile exec:java \
         -Dexec.mainClass=com.matrix.Smoke -Dexec.args="jdbc:h2:file:$dir/target/startup sa" \
         > startup.log 2>&1

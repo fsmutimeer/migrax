@@ -205,6 +205,11 @@ jobs:
       - run: echo "$GITHUB_WORKSPACE/.github/ci" >> "$GITHUB_PATH"
       - run: mvn -B install -DskipTests
       - run: mvn -B install -DskipTests -f integrations/micronaut/pom.xml
+      # migrax-micronaut is compiled against the oldest Micronaut 4; its tests (health, metrics,
+      # tracing, several databases) run here on this job's Micronaut.
+      - run: >-
+          mvn -B surefire:test -f integrations/micronaut/pom.xml
+          -Dmicronaut.platform.version=${{ matrix.micronaut }}
       - run: MIGRAX_INSTALL_DIR="$RUNNER_TEMP/migrax" MIGRAX_BIN_DIR="$RUNNER_TEMP/bin" sh install.sh
       # Generates, migrates and verifies a fixture read through Micronaut Data's mapping on H2
       # and PostgreSQL, then Micronaut Data itself saves, loads and deletes its entities;
