@@ -26,6 +26,8 @@ echo "Build version: $CURRENT -> $NEW"
 while IFS= read -r pom; do
   awk -v new="$NEW" '
     /<artifactId>(migrax[^<]*|org\.migrax\.gradle\.plugin)<\/artifactId>/ { pending = 1 }
+    # A property such as ${migrax.version} is set by whoever builds that POM.
+    pending && /<version>\$\{/ { pending = 0 }
     pending && /<version>[^<]*<\/version>/ {
       sub(/<version>[^<]*<\/version>/, "<version>" new "</version>"); pending = 0
     }
