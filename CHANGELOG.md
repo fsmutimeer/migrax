@@ -56,6 +56,9 @@ All notable changes to Migrax are listed here. The format follows
   starter was ordered against, so it didn't run at all: no migrations at startup, and a JPA
   application with `ddl-auto=validate` failed with a missing table. The `migrax` health
   component works with Spring Boot 4's Actuator too.
+- `migrax-micronaut` now works on Micronaut 4.0 to 4.9. Before, those versions skipped it
+  without an error: no migrations at startup, and the application failed on a missing table.
+  Micronaut 4.10 and 5 work as before.
 
 ## [0.16.0] - 2026-10-19
 
