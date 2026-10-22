@@ -6,27 +6,36 @@ import java.util.List;
 import javax.sql.DataSource;
 
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.orm.jpa.EntityManagerFactoryDependsOnPostProcessor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.support.ResourcePatternResolver;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * Runs Migrax migrations at startup, after the DataSource exists and before JPA starts.
- * Disable with {@code migrax.enabled=false}.
+ * Disable with {@code migrax.enabled=false}. Spring Boot 4 moved the auto-configurations this
+ * one is ordered against, so both names are given.
  */
 @AutoConfiguration(
-    afterName = "org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
-    beforeName = "org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration")
+    afterName = {"org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration",
+        "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration"},
+    beforeName = {"org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration",
+        "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration"})
 @ConditionalOnClass(DataSource.class)
 @ConditionalOnBean(DataSource.class)
 @ConditionalOnProperty(prefix = "migrax", name = "enabled", matchIfMissing = true)
@@ -94,6 +103,29 @@ public class MigraxAutoConfiguration {
     }
   }
 
+  /** The health component on Spring Boot 4, whose Actuator keeps it in another package. */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnClass(name = "org.springframework.boot.health.contributor.HealthIndicator")
+  static class MigraxBoot4Health {
+    @Bean
+    @ConditionalOnMissingBean(name = "migraxHealthIndicator")
+    @org.springframework.boot.health.autoconfigure.contributor.ConditionalOnEnabledHealthIndicator(
+        "migrax")
+    org.springframework.boot.health.contributor.HealthContributor migraxHealthIndicator(
+        MigraxMigrator migrator) {
+      if (migrator.others().isEmpty()) {
+        return new MigraxBoot4HealthIndicator(migrator);
+      }
+      java.util.Map<String, org.springframework.boot.health.contributor.HealthIndicator>
+          byDatabase = new java.util.LinkedHashMap<>();
+      byDatabase.put(migrator.database(), new MigraxBoot4HealthIndicator(migrator));
+      migrator.others().forEach(
+          m -> byDatabase.put(m.database(), new MigraxBoot4HealthIndicator(m)));
+      return org.springframework.boot.health.contributor.CompositeHealthContributor
+          .fromMap(byDatabase);
+    }
+  }
+
   /**
    * The gauge of pending migrations, only when the application has Micrometer; Spring Boot binds
    * it to the application's registries.
@@ -118,8 +150,36 @@ public class MigraxAutoConfiguration {
   @ConditionalOnClass(name = "org.springframework.orm.jpa.AbstractEntityManagerFactoryBean")
   static class JpaDependsOnMigrax {
     @Bean
-    static EntityManagerFactoryDependsOnPostProcessor migraxEntityManagerFactoryDependsOn() {
-      return new EntityManagerFactoryDependsOnPostProcessor(MIGRATOR_BEAN);
+    static BeanFactoryPostProcessor migraxEntityManagerFactoryDependsOn() {
+      return MigraxAutoConfiguration::entityManagerFactoriesDependOnMigrator;
+    }
+  }
+
+  /**
+   * Makes every EntityManagerFactory bean depend on the migrator. Spring Boot has a class for
+   * this, but Spring Boot 4 moved it to another package; this works with both.
+   */
+  static void entityManagerFactoriesDependOnMigrator(ConfigurableListableBeanFactory beans) {
+    for (String type : List.of("org.springframework.orm.jpa.AbstractEntityManagerFactoryBean",
+        "jakarta.persistence.EntityManagerFactory")) {
+      Class<?> factoryType;
+      try {
+        factoryType = ClassUtils.forName(type, beans.getBeanClassLoader());
+      } catch (ClassNotFoundException | LinkageError e) {
+        continue;
+      }
+      for (String name : BeanFactoryUtils.beanNamesForTypeIncludingAncestors(beans, factoryType,
+          true, false)) {
+        String bean = BeanFactoryUtils.transformedBeanName(name);
+        if (!beans.containsBeanDefinition(bean)) {
+          continue;
+        }
+        BeanDefinition definition = beans.getBeanDefinition(bean);
+        if (!ObjectUtils.containsElement(definition.getDependsOn(), MIGRATOR_BEAN)) {
+          definition.setDependsOn(StringUtils.addStringToArray(definition.getDependsOn(),
+              MIGRATOR_BEAN));
+        }
+      }
     }
   }
 }

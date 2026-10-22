@@ -18,6 +18,8 @@ compat/quarkus/work/
 compat/jakarta-ee/work/
 compat/eclipselink/work/
 compat/openjpa/work/
+compat/spring-data-jdbc/work/
+compat/spring-boot/work/
 
 # MkDocs output
 site/

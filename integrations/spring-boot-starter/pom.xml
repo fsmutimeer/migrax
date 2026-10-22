@@ -75,6 +75,19 @@
       <artifactId>spring-boot-actuator-autoconfigure</artifactId>
       <scope>provided</scope>
     </dependency>
+    <!-- Spring Boot 4 keeps health indicators here; compiled against, never brought along. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-health</artifactId>
+      <version>4.1.1</version>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
 
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -109,6 +122,12 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>3.5.2</version>
+        <configuration>
+          <!-- The tests run on Spring Boot 3; Spring Boot 4's health classes would mix in. -->
+          <classpathDependencyExcludes>
+            <classpathDependencyExclude>org.springframework.boot:spring-boot-health</classpathDependencyExclude>
+          </classpathDependencyExcludes>
+        </configuration>
       </plugin>
     </plugins>
   </build>
