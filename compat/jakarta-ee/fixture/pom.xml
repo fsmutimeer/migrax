@@ -9,7 +9,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencies>
-    <dependency><groupId>org.migrax</groupId><artifactId>migrax-jakarta-ee</artifactId><version>0.16.1-SNAPSHOT</version></dependency>
+    <dependency><groupId>org.migrax</groupId><artifactId>migrax-jakarta-ee</artifactId><version>0.17.0</version></dependency>
     <dependency><groupId>jakarta.platform</groupId><artifactId>jakarta.jakartaee-api</artifactId><version>10.0.0</version><scope>provided</scope></dependency>
     <!-- The driver of the second database, which the application defines itself (Billing). -->
     <dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId><version>2.3.232</version></dependency>
@@ -19,7 +19,7 @@
     <plugins>
       <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-war-plugin</artifactId><version>3.4.0</version></plugin>
       <!-- Packages .migrax/snapshot.json for migrax.drift.check at startup. -->
-      <plugin><groupId>org.migrax</groupId><artifactId>migrax</artifactId><version>0.16.1-SNAPSHOT</version>
+      <plugin><groupId>org.migrax</groupId><artifactId>migrax</artifactId><version>0.17.0</version>
         <executions><execution><goals><goal>package-snapshot</goal></goals></execution></executions>
       </plugin>
     </plugins>

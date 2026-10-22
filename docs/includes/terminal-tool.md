@@ -8,7 +8,7 @@
         <plugin>
           <groupId>org.migrax</groupId>
           <artifactId>migrax</artifactId>
-          <version>0.16.0</version>
+          <version>0.17.0</version>
         </plugin>
       </plugins>
     </build>
@@ -21,7 +21,7 @@
 
     ```kotlin title="build.gradle.kts"
     plugins {
-        id("org.migrax") version "0.16.0"
+        id("org.migrax") version "0.17.0"
     }
     ```
 

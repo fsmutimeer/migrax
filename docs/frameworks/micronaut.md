@@ -79,7 +79,7 @@ Details and what isn't read: [Entity readers](../reference/hibernate.md#micronau
 <dependency>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-micronaut</artifactId>
-  <version>0.16.0</version>
+  <version>0.17.0</version>
 </dependency>
 ```
 
