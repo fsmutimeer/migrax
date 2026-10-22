@@ -8,6 +8,16 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Added
 
+- Spring Data JDBC: projects without JPA that use Spring Data JDBC (3.0 to 4.1, Spring Boot 3.0
+  to 4.1) get `generate`, `check`, `verify` and `drift` like JPA projects, and the startup
+  migration with the Spring Boot starter (Spring Boot 3). Migrax reads Spring Data JDBC's own mapping, without a database: aggregate roots
+  are the classes with `@Table` and the types of repositories, and their child tables get the
+  back-reference and key columns Spring Data JDBC names (`@MappedCollection`), with a foreign
+  key to the parent. Found by itself when the project has no JPA entities, or chosen with
+  `--extractor spring-data-jdbc`. Names written in `@Table` or `@Column` keep their letter case
+  where an unquoted name would get another one (lower case on H2, Oracle, HSQLDB and Derby,
+  capitals on PostgreSQL), as Spring Data JDBC sends them quoted. See Reference >
+  Entity readers.
 - `migrax environments`: every environment's migrations side by side, read-only. For each
   `migrax.environments.<name>.url` (dev, staging, production, ...) it shows how many migrations
   are applied and pending, the last one applied and whether the schema drifted from the

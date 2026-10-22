@@ -42,6 +42,19 @@ Set Hibernate so it doesn't change the schema itself:
 spring.jpa.hibernate.ddl-auto=validate
 ```
 
+## Without JPA: Spring Data JDBC
+
+New in Migrax 0.17.0.
+
+When your application uses Spring Data JDBC instead of JPA, Migrax reads Spring Data JDBC's own
+mapping: your aggregates (classes with `@Table`, and the types of your repositories), their
+child tables with the back-reference and key columns, embedded values and ids. Nothing to
+configure: `migrax doctor` shows `Spring Data JDBC <version>`, and `generate`, `check`,
+`verify` and `drift` work as for JPA entities. Remove `schema.sql` once Migrax writes the
+tables, or set `spring.sql.init.mode=never`, so Spring Boot doesn't create them a second time.
+
+Details and what isn't read: [Entity readers](../reference/hibernate.md#spring-data-jdbc).
+
 ## Migrate at startup
 
 Add the starter:
