@@ -76,7 +76,8 @@ Add the starter:
     ```
 
 Migrations are applied when the application starts, **before** JPA starts, so
-`ddl-auto=validate` checks the migrated schema. `JavaMigration` beans are picked up.
+`ddl-auto=validate` checks the migrated schema. `JavaMigration` beans are picked up. The
+starter works with Spring Boot 3 and 4 (on Spring Boot 4 from Migrax 0.17.0 on).
 
 | Setting | Default | Meaning |
 |---|---|---|

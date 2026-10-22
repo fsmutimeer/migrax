@@ -115,8 +115,7 @@ written as usual.
 
 Spring Data JDBC is used when the entity package has no JPA entities; with
 `--extractor spring-data-jdbc` it is used in any case. `migrax doctor` shows the version it
-found. The Spring Boot starter applies the migrations at startup without JPA too (Spring Boot
-3).
+found. The Spring Boot starter applies the migrations at startup without JPA too.
 
 Tested versions: Spring Data JDBC 3.0, 3.2, 3.5 and 4.1 (Spring Boot 3.0.13, 3.2.12, 3.5.16
 and 4.1.1), on H2 and PostgreSQL. A fixture with every kind of aggregate is generated,

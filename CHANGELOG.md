@@ -9,8 +9,8 @@ All notable changes to Migrax are listed here. The format follows
 ### Added
 
 - Spring Data JDBC: projects without JPA that use Spring Data JDBC (3.0 to 4.1, Spring Boot 3.0
-  to 4.1) get `generate`, `check`, `verify` and `drift` like JPA projects, and the startup
-  migration with the Spring Boot starter (Spring Boot 3). Migrax reads Spring Data JDBC's own mapping, without a database: aggregate roots
+  to 4.1) get `generate`, `check`, `verify`, `drift` and the startup migration like JPA
+  projects. Migrax reads Spring Data JDBC's own mapping, without a database: aggregate roots
   are the classes with `@Table` and the types of repositories, and their child tables get the
   back-reference and key columns Spring Data JDBC names (`@MappedCollection`), with a foreign
   key to the parent. Found by itself when the project has no JPA entities, or chosen with
@@ -38,6 +38,13 @@ All notable changes to Migrax are listed here. The format follows
   the server's own version, so a file written by `pg_dump --schema-only` or
   `mysqldump --no-data` applies as it is. See Guides > SQL migrations for any language and
   Guides > Schema file from your ORM (SQLAlchemy, Drizzle, and any ORM through a dump).
+
+### Fixed
+
+- The Spring Boot starter now works on Spring Boot 4. Spring Boot 4 moved the classes the
+  starter was ordered against, so it didn't run at all: no migrations at startup, and a JPA
+  application with `ddl-auto=validate` failed with a missing table. The `migrax` health
+  component works with Spring Boot 4's Actuator too.
 
 ## [0.16.0] - 2026-10-19
 
