@@ -57,6 +57,22 @@ snake_case rules for names like `myURL` (`my_url`) or `productSKU` (`product_sku
 uses one shared `hibernate_sequence` for generated ids. Migrax matches both, and when Micronaut
 Data is on the classpath it uses Micronaut's own naming class.
 
+## Micronaut Data JDBC and R2DBC
+
+New in Migrax 0.17.0.
+
+With Micronaut Data JDBC or R2DBC (`@MappedEntity` entities instead of JPA's `@Entity`),
+Migrax reads the mapping Micronaut's annotation processor compiled into your classes: tables,
+columns, relations, join tables, embedded values and generated ids, named the way your
+Micronaut Data version names them. Nothing to configure: build the project as usual (the
+processor `micronaut-data-processor` must run), and `migrax doctor` shows
+`Micronaut Data <version>`.
+
+Micronaut 5 is compiled for Java 25, so run Migrax with Java 25 for a Micronaut 5 project
+(`JAVA_HOME`); Migrax says so when the Java is too old.
+
+Details and what isn't read: [Entity readers](../reference/hibernate.md#micronaut-data).
+
 ## Migrate at startup
 
 ```xml
