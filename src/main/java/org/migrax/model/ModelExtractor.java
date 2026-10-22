@@ -26,6 +26,14 @@ public final class ModelExtractor {
   private static final String HIBERNATE4_READER = "org.migrax.orm.Hibernate4SchemaReader";
   private static final String ECLIPSELINK_READER = "org.migrax.orm.EclipseLinkSchemaReader";
   private static final String OPENJPA_READER = "org.migrax.orm.OpenJpaSchemaReader";
+  private static final String SPRING_DATA_JDBC_READER =
+      "org.migrax.orm.SpringDataJdbcSchemaReader";
+  /** Annotation packages of other stores: their repositories' types are not JDBC aggregates. */
+  private static final List<String> OTHER_STORES = List.of("jakarta.persistence.",
+      "javax.persistence.", "org.springframework.data.mongodb.",
+      "org.springframework.data.redis.", "org.springframework.data.neo4j.",
+      "org.springframework.data.cassandra.", "org.springframework.data.elasticsearch.",
+      "org.springframework.data.couchbase.");
 
   /** How entities are read. */
   public enum Mode {
@@ -40,6 +48,10 @@ public final class ModelExtractor {
     ECLIPSELINK,
     /** OpenJPA's mapping only; fails if OpenJPA is unavailable (since 0.6.0). */
     OPENJPA,
+    /**
+     * Spring Data JDBC's mapping only; fails if Spring Data JDBC is unavailable (since 0.17.0).
+     */
+    SPRING_DATA_JDBC,
     /** JPA annotation scanning only. */
     ANNOTATIONS;
 
@@ -52,10 +64,11 @@ public final class ModelExtractor {
         case "hibernate" -> HIBERNATE;
         case "eclipselink" -> ECLIPSELINK;
         case "openjpa" -> OPENJPA;
+        case "spring-data-jdbc" -> SPRING_DATA_JDBC;
         case "annotations", "annotation", "reflection" -> ANNOTATIONS;
         default -> throw new IllegalArgumentException(
-            "Unknown extractor '" + value + "'. Use auto, hibernate, eclipselink, openjpa or "
-                + "annotations.");
+            "Unknown extractor '" + value + "'. Use auto, hibernate, eclipselink, openjpa, "
+                + "spring-data-jdbc or annotations.");
       };
     }
   }
@@ -78,6 +91,9 @@ public final class ModelExtractor {
     ClassLoader previous = thread.getContextClassLoader();
     thread.setContextClassLoader(loader);
     try {
+      if (readsSpringDataJdbc(loader, basePackage, mode)) {
+        return readSpringDataJdbc(loader, basePackage, dialect, hibernateSettings);
+      }
       // Without Hibernate: the project's EclipseLink, else its OpenJPA.
       boolean otherProvider = mode == Mode.AUTO && !readsMapping(hibernateVersion(loader));
       Mode provider = mode == Mode.ECLIPSELINK || mode == Mode.OPENJPA ? mode
@@ -206,6 +222,116 @@ public final class ModelExtractor {
     classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "Embeddable"));
     classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "MappedSuperclass"));
     classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "Converter"));
+    return readWithAdapter(adapter, loader, classes, dialect, settings);
+  }
+
+  /**
+   * Whether the entities are read through Spring Data JDBC: with {@link Mode#SPRING_DATA_JDBC},
+   * or in {@link Mode#AUTO} when Spring Data JDBC is on the classpath and the package has
+   * aggregates but no JPA entities.
+   *
+   * @since 0.17.0
+   */
+  public static boolean readsSpringDataJdbc(ClassLoader loader, String basePackage, Mode mode)
+      throws Exception {
+    return mode == Mode.SPRING_DATA_JDBC || mode == Mode.AUTO
+        && springDataJdbcVersion(loader) != null
+        && JpaExtractor.scanEntities(loader, basePackage).isEmpty()
+        && !springDataJdbcAggregates(loader, basePackage).isEmpty();
+  }
+
+  /** Reads Spring Data JDBC's aggregates. */
+  private static Result readSpringDataJdbc(ClassLoader loader, String basePackage,
+                                           Dialect dialect, Map<String, String> settings)
+      throws Exception {
+    String version = springDataJdbcVersion(loader);
+    if (version == null) {
+      throw new IllegalStateException("Spring Data JDBC is not on the project classpath.");
+    }
+    List<Class<?>> roots = springDataJdbcAggregates(loader, basePackage);
+    try {
+      return new Result(readWithAdapter(SPRING_DATA_JDBC_READER, loader, roots, dialect,
+          settings), ("Spring Data JDBC " + version).trim() + " mapping");
+    } catch (Exception | LinkageError e) {
+      throw new IllegalStateException("Spring Data JDBC could not read the entity mapping: "
+          + rootMessage(e), e);
+    }
+  }
+
+  /**
+   * Spring Data JDBC's version on the class loader ("" when its jar doesn't say), or null when
+   * it is absent.
+   *
+   * @since 0.17.0
+   */
+  public static String springDataJdbcVersion(ClassLoader loader) {
+    try {
+      Class<?> context = Class.forName(
+          "org.springframework.data.jdbc.core.mapping.JdbcMappingContext", false, loader);
+      String version = context.getPackage().getImplementationVersion();
+      return version == null ? "" : version;
+    } catch (ClassNotFoundException | LinkageError e) {
+      return null;
+    }
+  }
+
+  /**
+   * The aggregate roots under {@code basePackage}: classes with Spring Data's relational
+   * {@code @Table}, and the types of repository interfaces (Spring Data JDBC needs no
+   * annotation). Types annotated for another store (JPA, MongoDB, ...) are left out.
+   */
+  @SuppressWarnings("unchecked")
+  private static List<Class<?>> springDataJdbcAggregates(ClassLoader loader, String basePackage)
+      throws Exception {
+    Class<? extends java.lang.annotation.Annotation> table =
+        (Class<? extends java.lang.annotation.Annotation>) Class.forName(
+            "org.springframework.data.relational.core.mapping.Table", false, loader);
+    Class<?> repository = Class.forName("org.springframework.data.repository.Repository",
+        false, loader);
+    java.util.Set<Class<?>> roots = new java.util.TreeSet<>(
+        java.util.Comparator.comparing(Class::getName));
+    for (Class<?> type : org.migrax.util.ClassScanner.scan(loader, basePackage,
+        c -> c.isAnnotationPresent(table) || c.isInterface() && repository.isAssignableFrom(c))) {
+      Class<?> root = type.isInterface() ? domainType(type, repository) : type;
+      if (root != null && !root.isInterface() && !otherStore(root)) {
+        roots.add(root);
+      }
+    }
+    return new ArrayList<>(roots);
+  }
+
+  /** The aggregate type {@code T} of a repository interface, or null when it is generic. */
+  private static Class<?> domainType(Class<?> type, Class<?> repository) {
+    for (java.lang.reflect.Type parent : type.getGenericInterfaces()) {
+      if (parent instanceof java.lang.reflect.ParameterizedType generic
+          && generic.getRawType() instanceof Class<?> raw && repository.isAssignableFrom(raw)
+          && generic.getActualTypeArguments().length > 0) {
+        return generic.getActualTypeArguments()[0] instanceof Class<?> domain ? domain : null;
+      }
+      if (parent instanceof Class<?> raw && repository.isAssignableFrom(raw)) {
+        Class<?> domain = domainType(raw, repository);
+        if (domain != null) {
+          return domain;
+        }
+      }
+    }
+    return null;
+  }
+
+  private static boolean otherStore(Class<?> type) {
+    for (java.lang.annotation.Annotation annotation : type.getAnnotations()) {
+      String name = annotation.annotationType().getName();
+      if (OTHER_STORES.stream().anyMatch(name::startsWith)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Runs a Migrax adapter, loaded against the application's library, on the classes. */
+  private static SchemaModel readWithAdapter(String adapter, ClassLoader loader,
+                                             List<Class<?>> classes, Dialect dialect,
+                                             Map<String, String> settings) throws Exception {
     if (classes.isEmpty()) {
       return SchemaModel.empty();
     }

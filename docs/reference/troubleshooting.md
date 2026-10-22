@@ -27,7 +27,7 @@ debug output and stack traces.
     Migrax fell back to annotation scanning. Run with `--extractor hibernate` to see the exact
     error. Common causes: entities using `javax.persistence` with Hibernate 6+ (or `jakarta` with
     Hibernate 5), a Hibernate version older than 4.0, or Hibernate 5.0 to 5.2 without JAXB (the
-    message says so; see [JPA providers](hibernate.md)).
+    message says so; see [Entity readers](hibernate.md)).
 
 ??? question "A migration fails with 'already exists'"
 

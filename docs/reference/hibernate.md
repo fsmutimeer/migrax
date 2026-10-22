@@ -1,8 +1,8 @@
 ---
-seo_title: "Supported JPA providers: Hibernate, EclipseLink, OpenJPA"
-description: "Migrax reads the mapping of Hibernate 4.0 to 7.4, EclipseLink and OpenJPA, so generated SQL matches what your provider expects."
+seo_title: "Entity readers: Hibernate, EclipseLink, OpenJPA, Spring Data JDBC"
+description: "Migrax reads the mapping of Hibernate 4.0 to 7.4, EclipseLink, OpenJPA and Spring Data JDBC, so generated SQL matches what your application expects."
 ---
-# JPA providers
+# Entity readers
 
 With Hibernate 4 or newer in your project, Migrax asks **your Hibernate version itself** for
 the mapping, without connecting to a database. The generated schema is therefore exactly what
@@ -82,6 +82,52 @@ Tested versions: 3.2.2 (`javax.persistence`) and 4.1.1 (`jakarta.persistence`), 
 saving and reading every kind of entity against the migrated database, as for EclipseLink.
 OpenJPA has no sequences on MySQL and MariaDB: use `GenerationType.IDENTITY` there.
 
+## Spring Data JDBC
+
+New in Migrax 0.17.0.
+
+Projects that use Spring Data JDBC instead of JPA are read through **your Spring Data JDBC's**
+own mapping, without a database. Migrax finds the aggregate roots under the entity package: the
+classes with `@Table` (`org.springframework.data.relational.core.mapping.Table`) and the types
+of your repositories, so a class without annotations counts once a repository uses it. The
+migrations get the tables Spring Data JDBC reads and writes:
+
+- Names from Spring Data JDBC's naming (`createdAt` becomes `created_at`), or as written in
+  `@Table`, `@Column` and `@MappedCollection(idColumn, keyColumn)`.
+- A child entity (a `Set`, `List`, `Map` or single property of another entity) gets its own
+  table with the back-reference column to its parent, the key column for a `List` index or a
+  `Map` key, and a foreign key to the parent. A reference to another aggregate
+  (`AggregateReference`) is a plain column, without a foreign key, because the two are saved
+  and deleted on their own.
+- Embedded values (`@Embedded`) become columns of the same table, with their prefix.
+- A `Long` or `Integer` id is an identity column, as Spring Data JDBC lets the database
+  create it; `@Sequence` (Spring Data JDBC 3.5 and newer) creates the sequence instead.
+- Enums are stored by name, `byte[]` as binary data. Only ids and primitive types (`int`,
+  `boolean`) are `NOT NULL`: Spring Data JDBC has no annotation that says a column can't be
+  empty.
+
+Spring Data JDBC puts every name in quotes, and a quoted name keeps its letter case. So where
+an unquoted name would get another case, Migrax quotes the name too: a name you write in lower
+case, such as `@Table("customers")`, on H2, Oracle, HSQLDB and Derby
+(`CREATE TABLE "customers"`), and a name with capitals, such as `@Column("Nick")`, on
+PostgreSQL. Names Spring Data JDBC derives itself, and every name on MySQL and SQL Server, are
+written as usual.
+
+Spring Data JDBC is used when the entity package has no JPA entities; with
+`--extractor spring-data-jdbc` it is used in any case. `migrax doctor` shows the version it
+found. The Spring Boot starter applies the migrations at startup without JPA too (Spring Boot
+3).
+
+Tested versions: Spring Data JDBC 3.0, 3.2, 3.5 and 4.1 (Spring Boot 3.0.13, 3.2.12, 3.5.16
+and 4.1.1), on H2 and PostgreSQL. A fixture with every kind of aggregate is generated,
+migrated and verified, and then Spring Data JDBC itself saves, loads, updates and deletes it
+against the migrated database; after a new field, the second migration is checked the same
+way.
+
+Not read: a collection of simple values (`List<String>`), which Spring Data JDBC stores as a
+database array (Migrax warns and leaves the column out), and a naming strategy or quoting
+setting your application changes in its own beans: write such names in the annotations.
+
 ## Without Hibernate, EclipseLink or OpenJPA, or before Hibernate 4
 
 Migrax then scans the JPA annotations and applies Hibernate 6's rules. That covers the common
@@ -93,10 +139,11 @@ generated migrations carefully and run `migrax verify`.
 
 | `--extractor` | Behavior |
 |---|---|
-| `auto` (default) | Hibernate's mapping when possible, else EclipseLink's or OpenJPA's, else annotation scanning |
+| `auto` (default) | Spring Data JDBC's mapping when the package has no JPA entities, else Hibernate's mapping when possible, else EclipseLink's or OpenJPA's, else annotation scanning |
 | `hibernate` | Hibernate's mapping only; fails with the reason if it can't be used |
 | `eclipselink` | EclipseLink's mapping only; fails with the reason if it can't be used |
 | `openjpa` | OpenJPA's mapping only; fails with the reason if it can't be used |
+| `spring-data-jdbc` | Spring Data JDBC's mapping only; fails with the reason if it can't be used |
 | `annotations` | Annotation scanning only |
 
 `migrax doctor` shows which reader is used. `migrax inspect` prints the schema it read.

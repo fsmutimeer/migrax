@@ -52,8 +52,8 @@ final class Options {
     HELP.put("--dialect", "--dialect <name>        " + String.join(", ", Dialects.NAMES));
     HELP.put("--naming", "--naming <strategy>     spring, jpa, jpa-snake or micronaut (default: detected)");
     HELP.put("--extractor",
-        "--extractor <mode>      auto, hibernate, eclipselink, openjpa or annotations "
-            + "(default: auto)");
+        "--extractor <mode>      auto, hibernate, eclipselink, openjpa, spring-data-jdbc or "
+            + "annotations (default: auto)");
     HELP.put("--schema-file",
         "--schema-file <path>    SQL file with the desired schema, instead of entities");
     HELP.put("--scratch-url",

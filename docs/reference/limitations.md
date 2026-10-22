@@ -12,7 +12,7 @@ What Migrax doesn't do yet, and what to do instead.
 rules of current Hibernate versions. Most mappings come out the same, but older versions differ
 in places: they share one `hibernate_sequence` between entities, for example.
 `migrax doctor` tells you when this applies. Review the generated migrations and run
-`migrax verify` before you release them. See [JPA providers](hibernate.md).
+`migrax verify` before you release them. See [Entity readers](hibernate.md).
 
 **JPA providers other than Hibernate, EclipseLink and OpenJPA**, such as DataNucleus, are read
 the same way, with Hibernate's naming rules. If your provider names tables or columns differently, set

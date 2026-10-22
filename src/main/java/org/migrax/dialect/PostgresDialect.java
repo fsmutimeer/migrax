@@ -98,6 +98,11 @@ public class PostgresDialect extends AbstractDialect {
   }
 
   @Override
+  public NameCase unquotedNames() {
+    return NameCase.LOWER;
+  }
+
+  @Override
   public String quote(String identifier) {
     return "\"" + identifier.replace("\"", "\"\"") + "\"";
   }

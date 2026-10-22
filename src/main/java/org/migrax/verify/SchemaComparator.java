@@ -290,8 +290,9 @@ public final class SchemaComparator {
     return null;
   }
 
+  /** A name compared without letter case; an exact name ("customers") without its quotes. */
   private static String key(String name) {
-    return name.toLowerCase(Locale.ROOT);
+    return SchemaModel.bareName(name).toLowerCase(Locale.ROOT);
   }
 
   /** PostgreSQL and YugabyteDB keep large objects as oid, which can hold text or bytes. */

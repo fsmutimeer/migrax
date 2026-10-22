@@ -66,6 +66,11 @@ public final class H2Dialect extends AbstractDialect {
   }
 
   @Override
+  public NameCase unquotedNames() {
+    return NameCase.UPPER;
+  }
+
+  @Override
   public String quote(String identifier) {
     return "\"" + identifier.replace("\"", "\"\"") + "\"";
   }

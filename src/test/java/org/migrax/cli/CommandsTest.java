@@ -658,6 +658,22 @@ class CommandsTest {
     assertTrue(clean.get("schemas").toString().contains("MIGRAX_HISTORY"), clean.toString());
   }
 
+  /**
+   * The JPA API is on this classpath too, but the package has Spring Data JDBC aggregates and no
+   * JPA entities: doctor says what the reader uses.
+   */
+  @Test
+  void doctorNamesTheReaderSpringDataJdbcWhenItReadsTheAggregates() throws Exception {
+    setUp();
+    Result doctor = cli("doctor", "--package", "org.migrax.springdata.fixtures");
+    assertTrue(doctor.out().contains("[ok]    Spring Data JDBC "), doctor.all());
+    assertTrue(doctor.out().contains("Spring Data JDBC's own mapping"), doctor.all());
+    assertTrue(doctor.out().contains("table(s) under org.migrax.springdata.fixtures (Spring "
+        + "Data JDBC"), doctor.all());
+    assertFalse(doctor.out().contains("JPA API"), doctor.all());
+    assertFalse(doctor.out().contains("Hibernate not found"), doctor.all());
+  }
+
   /** Hand-written migrations in a project without Java, as in the container image. */
   private Result doctorWithoutBuildFile(boolean withMigrations, String... extra) throws Exception {
     Path folder = project.resolve("db/migrations");

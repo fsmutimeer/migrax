@@ -123,8 +123,11 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
     if (theirs.contains(name)) {
       return null;
     }
-    List<String> matches = theirs.stream().filter(n -> n.equalsIgnoreCase(name)).toList();
-    long ownMatches = own.stream().filter(n -> n.equalsIgnoreCase(name)).count();
+    // An exact name ("customers") is the database's customers.
+    List<String> matches = theirs.stream()
+        .filter(n -> bareName(n).equalsIgnoreCase(bareName(name))).toList();
+    long ownMatches = own.stream()
+        .filter(n -> bareName(n).equalsIgnoreCase(bareName(name))).count();
     return matches.size() == 1 && ownMatches == 1 ? matches.get(0) : null;
   }
 
@@ -268,7 +271,35 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
     return new SchemaModel(result, named.sequences());
   }
 
+  /**
+   * Whether a name must keep its exact letter case: it is written in double quotes
+   * ({@code "customers"}), as SQL spells such a name. Dialects write it quoted, as it is. Only
+   * readers that know the application sends the name quoted make such names (Spring Data JDBC,
+   * where a written name's case differs from the case the database gives unquoted names).
+   *
+   * @since 0.17.0
+   */
+  public static boolean exactName(String name) {
+    return name != null && name.length() > 2 && name.startsWith("\"") && name.endsWith("\"");
+  }
+
+  /**
+   * The name without the quotes of an {@linkplain #exactName exact name}; other names as they
+   * are.
+   *
+   * @since 0.17.0
+   */
+  public static String bareName(String name) {
+    return exactName(name) ? name.substring(1, name.length() - 1) : name;
+  }
+
+  /** A name to build constraint names from: exact names in lower case without their quotes. */
+  private static String plainName(String name) {
+    return exactName(name) ? bareName(name).toLowerCase(Locale.ROOT) : name;
+  }
+
   public static String primaryKeyConstraintName(String tableName) {
+    tableName = plainName(tableName);
     String candidate = tableName + "_pkey";
     if (candidate.length() <= 30) {
       return candidate;
@@ -287,6 +318,8 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
 
   /** Stable name for a single-column unique constraint, at most 30 characters for Oracle. */
   public static String uniqueConstraintName(String tableName, String columnName) {
+    tableName = plainName(tableName);
+    columnName = plainName(columnName);
     String candidate = "uk_" + tableName + "_" + columnName;
     if (candidate.length() <= 30) {
       return candidate;
@@ -337,7 +370,7 @@ public record SchemaModel(List<Table> tables, List<Sequence> sequences) {
   public static String checkConstraintName(String table, String expression) {
     String hash = String.format(Locale.ROOT, "%08x",
         expression.strip().replaceAll("\\s+", " ").hashCode());
-    String prefix = "ck_" + table;
+    String prefix = "ck_" + plainName(table);
     return (prefix.length() > 21 ? prefix.substring(0, 21) : prefix) + "_" + hash;
   }
 
