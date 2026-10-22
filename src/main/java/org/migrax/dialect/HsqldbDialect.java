@@ -85,6 +85,11 @@ public final class HsqldbDialect extends AbstractDialect {
   }
 
   @Override
+  public NameCase unquotedNames() {
+    return NameCase.UPPER;
+  }
+
+  @Override
   public String quote(String identifier) {
     return "\"" + identifier.replace("\"", "\"\"") + "\"";
   }

@@ -110,6 +110,26 @@ public interface Dialect {
     return identifier;
   }
 
+  /** What a database does with the letter case of an unquoted name. */
+  enum NameCase {
+    /** Makes it upper case: {@code customers} is stored as {@code CUSTOMERS}. */
+    UPPER,
+    /** Makes it lower case. */
+    LOWER,
+    /** Keeps it as written (or compares names without case). */
+    KEPT
+  }
+
+  /**
+   * What this database does with the letter case of unquoted names. A reader whose library
+   * quotes every name (Spring Data JDBC) needs it to know which names keep their case.
+   *
+   * @since 0.17.0
+   */
+  default NameCase unquotedNames() {
+    return NameCase.KEPT;
+  }
+
   /**
    * A table's or sequence's name as this dialect writes it in generated SQL: the identifier,
    * with the schema in front when the dialect is bound to one.

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>BOOT_VERSION</version>
+    <relativePath/>
+  </parent>
+  <groupId>com.matrix</groupId>
+  <artifactId>spring-data-jdbc-matrix</artifactId>
+  <version>1.0</version>
+  <properties>
+    <java.version>17</java.version>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jdbc</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+  </dependencies>
+  <profiles>
+    <!-- Migrations applied at startup by the starter (-Dmigrax.version=...). -->
+    <profile>
+      <id>starter</id>
+      <dependencies>
+        <dependency>
+          <groupId>org.migrax</groupId>
+          <artifactId>migrax-spring-boot-starter</artifactId>
+          <version>${migrax.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+</project>

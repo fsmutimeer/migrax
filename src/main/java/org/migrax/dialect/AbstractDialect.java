@@ -107,6 +107,9 @@ public abstract class AbstractDialect implements Dialect {
   }
 
   protected String q(String identifier) {
+    if (SchemaModel.exactName(identifier)) {
+      return quote(SchemaModel.bareName(identifier));
+    }
     return needsQuoting(identifier) ? quote(identifier) : identifier;
   }
 

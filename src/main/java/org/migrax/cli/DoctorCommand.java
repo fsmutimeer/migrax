@@ -133,24 +133,35 @@ final class DoctorCommand implements Command {
     if (loader != null && !withoutJava) {
       String jpa = loadable(loader, "jakarta.persistence.Entity") ? "jakarta.persistence"
           : loadable(loader, "javax.persistence.Entity") ? "javax.persistence" : null;
-      doctor.check(jpa != null, "JPA API found: " + jpa,
-          "Neither jakarta.persistence nor javax.persistence is on the project classpath.");
-      String hibernate = ModelExtractor.hibernateVersion(loader);
-      if (hibernate != null) {
-        if (ModelExtractor.readsMapping(hibernate)) {
-          doctor.ok("Hibernate " + hibernate + ": entities are read from Hibernate's own mapping");
-        } else {
-          doctor.advise("Hibernate " + hibernate + " is older than 4.0, which Migrax cannot read",
-              List.of("Migrax scans the JPA annotations instead and follows Hibernate 6 defaults,",
-                  "which differ from yours: for example Hibernate " + hibernate + " expects one",
-                  "shared hibernate_sequence, and some column types differ. Upgrade to Hibernate",
-                  "4.0+, or check every generated migration and run 'migrax verify' before",
-                  "applying it."));
-        }
+      String springData = ModelExtractor.springDataJdbcVersion(loader);
+      boolean springDataJdbc = springDataJdbc(loader, packageName, jpa, springData,
+          project.extractorMode());
+      if (springDataJdbc) {
+        doctor.check(springData != null, springData == null ? "Spring Data JDBC found"
+                : ("Spring Data JDBC " + springData).trim()
+                    + ": entities are read from Spring Data JDBC's own mapping",
+            "--extractor spring-data-jdbc needs Spring Data JDBC on the project classpath.");
       } else {
-        doctor.info("Hibernate not found: entities are read by scanning JPA annotations");
+        doctor.check(jpa != null, "JPA API found: " + jpa,
+            "Neither jakarta.persistence nor javax.persistence is on the project classpath.");
+        String hibernate = ModelExtractor.hibernateVersion(loader);
+        if (hibernate != null) {
+          if (ModelExtractor.readsMapping(hibernate)) {
+            doctor.ok("Hibernate " + hibernate
+                + ": entities are read from Hibernate's own mapping");
+          } else {
+            doctor.advise("Hibernate " + hibernate + " is older than 4.0, which Migrax cannot read",
+                List.of("Migrax scans the JPA annotations instead and follows Hibernate 6 defaults,",
+                    "which differ from yours: for example Hibernate " + hibernate + " expects one",
+                    "shared hibernate_sequence, and some column types differ. Upgrade to Hibernate",
+                    "4.0+, or check every generated migration and run 'migrax verify' before",
+                    "applying it."));
+          }
+        } else {
+          doctor.info("Hibernate not found: entities are read by scanning JPA annotations");
+        }
       }
-      if (packageName != null && jpa != null) {
+      if (packageName != null && (jpa != null || springDataJdbc)) {
         try {
           Dialect dialect = project.dialect(true,
               new PrintStream(java.io.OutputStream.nullOutputStream(), false, StandardCharsets.UTF_8));
@@ -160,7 +171,9 @@ final class DoctorCommand implements Command {
           doctor.check(!result.model().tables().isEmpty(),
               "Entities: " + result.model().tables().size() + " table(s) under " + packageName
                   + " (" + result.source() + ")",
-              "No @Entity classes found under " + packageName + ". Check --package.");
+              springDataJdbc ? "No aggregates found under " + packageName + ": Spring Data "
+                  + "JDBC needs @Table classes or repositories there. Check --package."
+                  : "No @Entity classes found under " + packageName + ". Check --package.");
         } catch (Exception e) {
           doctor.fail("Entities: " + Errors.describe(e), null);
         }
@@ -262,6 +275,27 @@ final class DoctorCommand implements Command {
     }
     out.println(doctor.failures + " check(s) failed.");
     return ERROR;
+  }
+
+  /**
+   * Whether the entities are read through Spring Data JDBC, as the reader decides; a project
+   * with Spring Data JDBC and without the JPA API is one even before it has aggregates.
+   */
+  private static boolean springDataJdbc(ClassLoader loader, String packageName, String jpa,
+                                        String springData, ModelExtractor.Mode mode) {
+    if (mode == ModelExtractor.Mode.SPRING_DATA_JDBC) {
+      return true;
+    }
+    if (mode != ModelExtractor.Mode.AUTO || springData == null) {
+      return false;
+    }
+    try {
+      return jpa == null || packageName != null
+          && ModelExtractor.readsSpringDataJdbc(loader, packageName, mode);
+    } catch (Exception e) {
+      // The entity check below reports what is wrong with the package.
+      return false;
+    }
   }
 
   private static boolean loadable(ClassLoader loader, String name) {
