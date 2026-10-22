@@ -203,7 +203,8 @@ jobs:
           cache: maven
       # Retries Maven once when Maven Central fails to serve a file (.github/ci/mvn).
       - run: echo "$GITHUB_WORKSPACE/.github/ci" >> "$GITHUB_PATH"
-      - run: mvn -B install -DskipTests
+      # SpotBugs can't read Java 25 class files; the build job runs it.
+      - run: mvn -B install -DskipTests -Dspotbugs.skip=true
       - run: mvn -B install -DskipTests -f integrations/micronaut/pom.xml
       # migrax-micronaut is compiled against the oldest Micronaut 4; its tests (health, metrics,
       # tracing, several databases) run here on this job's Micronaut.
