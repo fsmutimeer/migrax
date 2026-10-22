@@ -64,10 +64,9 @@ $MIGRAX_DATABASE_URL $MIGRAX_DATABASE_USER $MIGRAX_DATABASE_PASSWORD" > "$1" 2>&
     ok2=$(smoke smoke2.log)
 
     # The starter applies both migrations to a new H2 database when the application starts,
-    # before Spring Data JDBC uses it. Spring Boot 3 only: the starter doesn't run on Spring
-    # Boot 4 yet.
+    # before Spring Data JDBC uses it.
     startup=skipped
-    if [[ -n $MIGRAX_COMPAT_STARTER_VERSION && $db == h2 && $v == 3.* ]]; then
+    if [[ -n $MIGRAX_COMPAT_STARTER_VERSION && $db == h2 ]]; then
       mvn -q -B -Pstarter -Dmigrax.version="$MIGRAX_COMPAT_STARTER_VERSION" compile exec:java \
         -Dexec.mainClass=com.matrix.Smoke -Dexec.args="jdbc:h2:file:$dir/target/startup sa" \
         > startup.log 2>&1
