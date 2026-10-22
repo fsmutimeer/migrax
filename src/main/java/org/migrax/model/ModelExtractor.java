@@ -28,6 +28,8 @@ public final class ModelExtractor {
   private static final String OPENJPA_READER = "org.migrax.orm.OpenJpaSchemaReader";
   private static final String SPRING_DATA_JDBC_READER =
       "org.migrax.orm.SpringDataJdbcSchemaReader";
+  private static final String MICRONAUT_DATA_READER =
+      "org.migrax.orm.MicronautDataSchemaReader";
   /** Annotation packages of other stores: their repositories' types are not JDBC aggregates. */
   private static final List<String> OTHER_STORES = List.of("jakarta.persistence.",
       "javax.persistence.", "org.springframework.data.mongodb.",
@@ -52,6 +54,10 @@ public final class ModelExtractor {
      * Spring Data JDBC's mapping only; fails if Spring Data JDBC is unavailable (since 0.17.0).
      */
     SPRING_DATA_JDBC,
+    /**
+     * Micronaut Data's mapping only; fails if Micronaut Data is unavailable (since 0.17.0).
+     */
+    MICRONAUT_DATA,
     /** JPA annotation scanning only. */
     ANNOTATIONS;
 
@@ -65,10 +71,11 @@ public final class ModelExtractor {
         case "eclipselink" -> ECLIPSELINK;
         case "openjpa" -> OPENJPA;
         case "spring-data-jdbc" -> SPRING_DATA_JDBC;
+        case "micronaut-data" -> MICRONAUT_DATA;
         case "annotations", "annotation", "reflection" -> ANNOTATIONS;
         default -> throw new IllegalArgumentException(
             "Unknown extractor '" + value + "'. Use auto, hibernate, eclipselink, openjpa, "
-                + "spring-data-jdbc or annotations.");
+                + "spring-data-jdbc, micronaut-data or annotations.");
       };
     }
   }
@@ -93,6 +100,9 @@ public final class ModelExtractor {
     try {
       if (readsSpringDataJdbc(loader, basePackage, mode)) {
         return readSpringDataJdbc(loader, basePackage, dialect, hibernateSettings);
+      }
+      if (readsMicronautData(loader, basePackage, mode)) {
+        return readMicronautData(loader, basePackage, dialect, hibernateSettings);
       }
       // Without Hibernate: the project's EclipseLink, else its OpenJPA.
       boolean otherProvider = mode == Mode.AUTO && !readsMapping(hibernateVersion(loader));
@@ -238,6 +248,61 @@ public final class ModelExtractor {
         && springDataJdbcVersion(loader) != null
         && JpaExtractor.scanEntities(loader, basePackage).isEmpty()
         && !springDataJdbcAggregates(loader, basePackage).isEmpty();
+  }
+
+  /**
+   * Whether the entities are read through Micronaut Data: with {@link Mode#MICRONAUT_DATA}, or
+   * in {@link Mode#AUTO} when Micronaut Data is on the classpath and the package has
+   * {@code @MappedEntity} classes but no JPA entities.
+   *
+   * @since 0.17.0
+   */
+  public static boolean readsMicronautData(ClassLoader loader, String basePackage, Mode mode)
+      throws Exception {
+    return mode == Mode.MICRONAUT_DATA || mode == Mode.AUTO
+        && micronautDataVersion(loader) != null
+        && JpaExtractor.scanEntities(loader, basePackage).isEmpty()
+        && !JpaExtractor.scanAnnotated(loader, basePackage, "MappedEntity").isEmpty();
+  }
+
+  /**
+   * Micronaut Data's version on the class loader ("" when its jar doesn't say), or null when it
+   * is absent.
+   *
+   * @since 0.17.0
+   */
+  public static String micronautDataVersion(ClassLoader loader) {
+    try {
+      Class<?> entity = Class.forName(
+          "io.micronaut.data.model.runtime.RuntimePersistentEntity", false, loader);
+      String version = entity.getPackage().getImplementationVersion();
+      return version == null ? "" : version;
+    } catch (ClassNotFoundException | LinkageError e) {
+      return null;
+    }
+  }
+
+  /** Reads Micronaut Data's {@code @MappedEntity} classes. */
+  private static Result readMicronautData(ClassLoader loader, String basePackage,
+                                          Dialect dialect, Map<String, String> settings)
+      throws Exception {
+    String version = micronautDataVersion(loader);
+    if (version == null) {
+      throw new IllegalStateException("Micronaut Data is not on the project classpath.");
+    }
+    List<Class<?>> entities = JpaExtractor.scanAnnotated(loader, basePackage, "MappedEntity");
+    try {
+      return new Result(readWithAdapter(MICRONAUT_DATA_READER, loader, entities, dialect,
+          settings), ("Micronaut Data " + version).trim() + " mapping");
+    } catch (Exception | LinkageError e) {
+      String message = rootMessage(e);
+      if (message.contains("introspection")) {
+        message += ". Micronaut Data reads its mapping from what its annotation processor "
+            + "compiled: build the project with micronaut-data-processor";
+      }
+      throw new IllegalStateException("Micronaut Data could not read the entity mapping: "
+          + message, e);
+    }
   }
 
   /** Reads Spring Data JDBC's aggregates. */

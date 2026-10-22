@@ -62,7 +62,7 @@ Runs every check Migrax needs and explains how to fix anything that fails. Exits
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--schema-file <path>` | SQL file with the desired schema, instead of entities |
 | `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
@@ -170,7 +170,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--schema-file <path>` | SQL file with the desired schema, instead of entities |
 | `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
@@ -259,7 +259,7 @@ Shows the operations and SQL for current entity changes without writing files. `
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--schema-file <path>` | SQL file with the desired schema, instead of entities |
 | `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
@@ -328,7 +328,7 @@ Exits with code 2 when the entities differ from `.migrax/snapshot.json`, and wit
 | `--json` | Machine-readable output |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--schema-file <path>` | SQL file with the desired schema, instead of entities |
 | `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
@@ -377,7 +377,7 @@ Starts a throwaway database (H2, HSQLDB and Derby in memory, Docker for other en
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--schema-file <path>` | SQL file with the desired schema, instead of entities |
 | `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
@@ -406,7 +406,7 @@ Reads the database schema and reports manual changes: missing or extra tables, c
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
@@ -473,7 +473,7 @@ Writes one HTML page (default `migrax-report.html`) for reviews and CI artifacts
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--schema-file <path>` | SQL file with the desired schema, instead of entities |
 | `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
@@ -523,7 +523,7 @@ Renumbers migrations that share a number after a git merge (the one added later 
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--schema-file <path>` | SQL file with the desired schema, instead of entities |
 | `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
@@ -631,7 +631,7 @@ Prints the schema model Migrax builds from the entities.
 |---|---|
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
-| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc or annotations (default: auto) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |

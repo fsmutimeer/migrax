@@ -125,9 +125,21 @@ public final class ClassScanner {
       if (filter.test(candidate)) {
         found.add(candidate);
       }
+    } catch (UnsupportedClassVersionError failure) {
+      throw new IllegalStateException("Could not load class '" + className + "' while scanning "
+          + source + ": the project needs a newer Java" + newerJava(failure.getMessage())
+          + " than the one running Migrax (Java " + Runtime.version().feature()
+          + "). Run Migrax with that Java, for example by pointing JAVA_HOME at it.", failure);
     } catch (ClassNotFoundException | LinkageError failure) {
       throw new IllegalStateException(
           "Could not load class '" + className + "' while scanning " + source + ".", failure);
     }
+  }
+
+  /** " (Java 25)" from the JVM's "class file version 69.0" message, else "". */
+  static String newerJava(String message) {
+    java.util.regex.Matcher version = java.util.regex.Pattern
+        .compile("class file version (\\d+)").matcher(String.valueOf(message));
+    return version.find() ? " (Java " + (Integer.parseInt(version.group(1)) - 44) + ")" : "";
   }
 }

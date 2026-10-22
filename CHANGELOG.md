@@ -18,6 +18,14 @@ All notable changes to Migrax are listed here. The format follows
   where an unquoted name would get another one (lower case on H2, Oracle, HSQLDB and Derby,
   capitals on PostgreSQL), as Spring Data JDBC sends them quoted. See Reference >
   Entity readers.
+- Micronaut Data JDBC and R2DBC: projects with `@MappedEntity` entities (Micronaut Data 4 and
+  5) get `generate`, `check`, `verify` and `drift` like JPA projects. Migrax reads the mapping
+  Micronaut's annotation processor compiled, without a database, and follows Micronaut Data's
+  rules for names, join tables, embedded values and generated ids (identity, sequences, UUIDs).
+  Found by itself when the project has no JPA entities, or chosen with
+  `--extractor micronaut-data`. Micronaut 5 projects need Migrax running on Java 25; Migrax
+  names the Java a project needs when it can't load its classes. See Reference > Entity
+  readers.
 - `migrax environments`: every environment's migrations side by side, read-only. For each
   `migrax.environments.<name>.url` (dev, staging, production, ...) it shows how many migrations
   are applied and pending, the last one applied and whether the schema drifted from the
@@ -41,6 +49,9 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Fixed
 
+- `migrax clean` drops tables and sequences whose names keep their letter case: names with
+  capitals on PostgreSQL, or lower-case names created in quotes on H2 and Oracle. Before, it
+  stopped with "table does not exist".
 - The Spring Boot starter now works on Spring Boot 4. Spring Boot 4 moved the classes the
   starter was ordered against, so it didn't run at all: no migrations at startup, and a JPA
   application with `ddl-auto=validate` failed with a missing table. The `migrax` health

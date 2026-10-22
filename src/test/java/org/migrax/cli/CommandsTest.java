@@ -356,6 +356,9 @@ class CommandsTest {
     generateAndMigrate();
     execute("CREATE VIEW names AS SELECT name FROM sample_entity");
     execute("CREATE SEQUENCE leftover_seq");
+    // Names created in quotes keep their lower case on H2: clean must quote them too.
+    execute("CREATE TABLE \"customers\" (id INT)");
+    execute("CREATE SEQUENCE \"orders_seq\"");
 
     Result unconfirmed = cli("clean");
     assertEquals(1, unconfirmed.code(), unconfirmed.all());
@@ -379,7 +382,7 @@ class CommandsTest {
 
     Result cleaned = cli("clean", "--yes");
     assertEquals(0, cleaned.code(), cleaned.all());
-    assertTrue(cleaned.out().contains("Dropped 3 table(s), 1 view(s), 1 sequence(s)"),
+    assertTrue(cleaned.out().contains("Dropped 4 table(s), 1 view(s), 2 sequence(s)"),
         cleaned.out());
     assertEquals("0", query("SELECT COUNT(*) FROM information_schema.tables "
         + "WHERE table_schema = 'PUBLIC'"));
@@ -672,6 +675,16 @@ class CommandsTest {
         + "Data JDBC"), doctor.all());
     assertFalse(doctor.out().contains("JPA API"), doctor.all());
     assertFalse(doctor.out().contains("Hibernate not found"), doctor.all());
+  }
+
+  @Test
+  void doctorNamesTheReaderMicronautDataWhenItReadsTheEntities() throws Exception {
+    setUp();
+    Result doctor = cli("doctor", "--package", "org.migrax.micronautdata.fixtures");
+    assertTrue(doctor.out().contains("[ok]    Micronaut Data "), doctor.all());
+    assertTrue(doctor.out().contains("table(s) under org.migrax.micronautdata.fixtures (Micronaut "
+        + "Data"), doctor.all());
+    assertFalse(doctor.out().contains("JPA API"), doctor.all());
   }
 
   /** Hand-written migrations in a project without Java, as in the container image. */

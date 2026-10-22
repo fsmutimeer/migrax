@@ -1,6 +1,6 @@
 ---
-seo_title: "Entity readers: Hibernate, EclipseLink, OpenJPA, Spring Data JDBC"
-description: "Migrax reads the mapping of Hibernate 4.0 to 7.4, EclipseLink, OpenJPA and Spring Data JDBC, so generated SQL matches what your application expects."
+seo_title: "Entity readers: Hibernate, EclipseLink, OpenJPA, Spring Data JDBC, Micronaut Data"
+description: "Migrax reads the mapping of Hibernate 4.0 to 7.4, EclipseLink, OpenJPA, Spring Data JDBC and Micronaut Data, so generated SQL matches what your application expects."
 ---
 # Entity readers
 
@@ -127,6 +127,45 @@ Not read: a collection of simple values (`List<String>`), which Spring Data JDBC
 database array (Migrax warns and leaves the column out), and a naming strategy or quoting
 setting your application changes in its own beans: write such names in the annotations.
 
+## Micronaut Data
+
+New in Migrax 0.17.0.
+
+Projects that use Micronaut Data JDBC or R2DBC (`@MappedEntity`) are read through the mapping
+**your Micronaut Data's** annotation processor compiled into the classes, without a database
+or a running application. The migrations follow Micronaut Data's own rules:
+
+- Names from the entity's naming strategy (`fullName` becomes `full_name`), or as written in
+  `@MappedEntity`, `@MappedProperty` and `@JoinTable`. Micronaut Data puts names in quotes, so
+  on PostgreSQL a name with capitals (`@MappedEntity("Publisher")`) is created in quotes too.
+- `NOT NULL` for every property that isn't `@Nullable`, as Micronaut Data expects.
+- A many-to-one or one-to-one reference becomes its `_id` column with a foreign key. A
+  many-to-many relation (or a one-to-many without `mappedBy`) gets its join table, without
+  foreign keys: Micronaut Data deletes an entity without its join table rows, so a foreign key
+  there would make deletes fail.
+- Generated ids as Micronaut Data makes them: an identity column, a sequence
+  (`GeneratedValue.Type.SEQUENCE`, named `<table>_seq` or `ref`, and every generated id on
+  Oracle), or a UUID the database fills in (on MySQL, MariaDB and TiDB Micronaut Data sends
+  the UUID itself). UUIDs are `varchar(36)` on MySQL, MariaDB, TiDB and Oracle, as Micronaut
+  Data stores them there.
+- Embedded values (`@Embeddable`) become columns of the same table, named as your version
+  names them (Micronaut Data 5 leaves out the prefix).
+- `@MappedProperty(definition = ...)` is used as written; `@Size(max)` and JPA's
+  `@Column(length, precision, scale)` set sizes.
+
+Micronaut Data is used when the entity package has `@MappedEntity` classes and no JPA entities;
+with `--extractor micronaut-data` it is used in any case. Entities written with JPA annotations
+(`micronaut-data-hibernate-jpa`) are read as JPA entities, as before.
+
+Tested versions: Micronaut Data 4.0, 4.14 and 5.2 (Micronaut 4.0.6, 4.10.22 and 5.2.3), on H2
+and PostgreSQL. A fixture with every kind of entity is generated, migrated and verified, and
+then Micronaut Data itself saves, loads, updates and deletes it against the migrated database;
+after a new field, the second migration is checked the same way.
+
+Not read: array properties (`String[]`, PostgreSQL arrays) and other types without a
+`@MappedProperty(definition)`: Migrax warns and leaves the column out. Micronaut 5 projects need
+Migrax running on Java 25.
+
 ## Without Hibernate, EclipseLink or OpenJPA, or before Hibernate 4
 
 Migrax then scans the JPA annotations and applies Hibernate 6's rules. That covers the common
@@ -138,11 +177,12 @@ generated migrations carefully and run `migrax verify`.
 
 | `--extractor` | Behavior |
 |---|---|
-| `auto` (default) | Spring Data JDBC's mapping when the package has no JPA entities, else Hibernate's mapping when possible, else EclipseLink's or OpenJPA's, else annotation scanning |
+| `auto` (default) | Spring Data JDBC's or Micronaut Data's mapping when the package has no JPA entities, else Hibernate's mapping when possible, else EclipseLink's or OpenJPA's, else annotation scanning |
 | `hibernate` | Hibernate's mapping only; fails with the reason if it can't be used |
 | `eclipselink` | EclipseLink's mapping only; fails with the reason if it can't be used |
 | `openjpa` | OpenJPA's mapping only; fails with the reason if it can't be used |
 | `spring-data-jdbc` | Spring Data JDBC's mapping only; fails with the reason if it can't be used |
+| `micronaut-data` | Micronaut Data's mapping only; fails with the reason if it can't be used |
 | `annotations` | Annotation scanning only |
 
 `migrax doctor` shows which reader is used. `migrax inspect` prints the schema it read.
