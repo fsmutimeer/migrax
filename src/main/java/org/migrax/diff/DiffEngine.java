@@ -66,7 +66,11 @@ public final class DiffEngine {
             ? null
             : findForeignKey(newTable, oldKey.name());
         if (newKey == null || !newKey.equals(oldKey)) {
-          drops.add(new DropForeignKey(oldTable.name(), oldKey.name()));
+          // Renaming a table (or a key column) renames the key Hibernate generates: the
+          // same key comes back under its new name, so dropping the old one loses nothing.
+          boolean renamed = newKey == null && newTable != null && newTable.foreignKeys().stream()
+              .anyMatch(key -> sameForeignKey(key, oldKey));
+          drops.add(new DropForeignKey(oldTable.name(), oldKey.name(), renamed));
         }
       }
     }
@@ -240,6 +244,12 @@ public final class DiffEngine {
         .filter(index -> index.name().equals(name))
         .findFirst()
         .orElse(null);
+  }
+
+  /** Same columns and referenced columns; the names may differ. */
+  private static boolean sameForeignKey(SchemaModel.ForeignKey a, SchemaModel.ForeignKey b) {
+    return a.columns().equals(b.columns()) && a.referencedTable().equals(b.referencedTable())
+        && a.referencedColumns().equals(b.referencedColumns());
   }
 
   private static SchemaModel.ForeignKey findForeignKey(SchemaModel.Table table, String name) {

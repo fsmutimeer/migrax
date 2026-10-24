@@ -15,6 +15,6 @@ public sealed interface Operation permits CreateTable, DropTable, AddColumn, Dro
   default boolean destructive() {
     return this instanceof DropTable || this instanceof DropColumn
         || this instanceof DropPrimaryKey || this instanceof DropIndex
-        || this instanceof DropForeignKey || this instanceof DropSequence;
+        || this instanceof DropSequence;
   }
 }
