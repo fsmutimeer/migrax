@@ -5,13 +5,16 @@
 # Run:  docker run --rm -v "$PWD/db/migration:/migrations" \
 #         -e MIGRAX_DATABASE_URL=jdbc:postgresql://db:5432/app ... migrax migrate
 
+# Base images are pinned to a digest, so every build ships the same thing; Dependabot updates
+# the digests.
+
 # The drivers are plain jars: download them once, on the build machine's own platform.
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21 AS drivers
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320 AS drivers
 COPY docker/drivers/pom.xml /build/pom.xml
 RUN mvn -q -B -f /build/pom.xml dependency:copy-dependencies \
       -DoutputDirectory=/build/drivers -DincludeScope=runtime
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jre@sha256:227118764cccd3c3294617061aaa93a08309c63a395eefa83e6b35032992ea99
 ARG VERSION
 LABEL org.opencontainers.image.title="Migrax" \
       org.opencontainers.image.description="Migrations for JPA and Hibernate projects" \
@@ -23,7 +26,9 @@ LABEL org.opencontainers.image.title="Migrax" \
 COPY bin/migrax /opt/migrax/bin/migrax
 COPY target/migrax-${VERSION}.jar /opt/migrax/lib/migrax.jar
 COPY --from=drivers /build/drivers/ /opt/migrax/drivers/
+# pebble: a service manager in the base image that Migrax never runs (scanners report it).
 RUN chmod 755 /opt/migrax/bin/migrax \
+    && rm -f /usr/bin/pebble \
     && groupadd --system migrax \
     && useradd --system --gid migrax --home-dir /workspace --create-home migrax \
     && mkdir -p /migrations
