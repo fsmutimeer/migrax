@@ -6,6 +6,15 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Renaming a table no longer needs `--allow-destructive`. Hibernate's foreign key names
+  contain the table name, so `generate --rename-table` (or answering "yes" to "Did you
+  rename table ...?") dropped the old key and added it again under its new name, and the drop
+  was counted as a destructive change. A foreign key that comes back unchanged under a new
+  name in the same migration is no longer destructive; one that is really removed or changed
+  still is. `plan --json` and `diff --json` report it with `"destructive": false`.
+
 ## [0.17.0] - 2026-10-22
 
 ### Added

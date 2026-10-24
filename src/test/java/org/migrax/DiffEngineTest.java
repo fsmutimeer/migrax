@@ -7,11 +7,13 @@ import org.migrax.ops.AddForeignKey;
 import org.migrax.ops.DropColumn;
 import org.migrax.ops.DropForeignKey;
 import org.migrax.ops.AlterColumn;
+import org.migrax.ops.Operation;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -128,6 +130,58 @@ class DiffEngineTest {
     int dropColumn = indexOf(operations, DropColumn.class);
     assertTrue(dropForeignKey < dropColumn);
     assertInstanceOf(AddForeignKey.class, operations.get(operations.size() - 1));
+  }
+
+  @Test
+  void foreignKeyThatOnlyGetsANewNameIsNotDestructive() {
+    var operations = new DiffEngine().diff(
+        ordersWith(new SchemaModel.ForeignKey(
+            "fk_orders_customer_id", List.of("customer_id"), "customers", List.of("id"))),
+        ordersWith(new SchemaModel.ForeignKey(
+            "fk_purchase_orders_customer_id", List.of("customer_id"), "customers",
+            List.of("id"))));
+
+    var drop = (DropForeignKey) operations.get(indexOf(operations, DropForeignKey.class));
+    assertTrue(drop.renamed());
+    assertTrue(operations.stream().noneMatch(Operation::destructive));
+    assertInstanceOf(AddForeignKey.class, operations.get(operations.size() - 1));
+  }
+
+  @Test
+  void foreignKeyWithANewNameAndANewTargetStaysDestructive() {
+    var operations = new DiffEngine().diff(
+        ordersWith(new SchemaModel.ForeignKey(
+            "fk_orders_customer_id", List.of("customer_id"), "customers", List.of("id"))),
+        ordersWith(new SchemaModel.ForeignKey(
+            "fk_purchase_orders_customer_id", List.of("customer_id"), "customers",
+            List.of("code"))));
+
+    var drop = (DropForeignKey) operations.get(indexOf(operations, DropForeignKey.class));
+    assertFalse(drop.renamed());
+    assertTrue(drop.destructive());
+  }
+
+  @Test
+  void foreignKeyThatIsRemovedStaysDestructive() {
+    var operations = new DiffEngine().diff(
+        ordersWith(new SchemaModel.ForeignKey(
+            "fk_orders_customer_id", List.of("customer_id"), "customers", List.of("id"))),
+        ordersWith());
+
+    assertEquals(1, operations.size());
+    assertTrue(operations.get(0).destructive());
+  }
+
+  /** customers(id, code) and purchase_orders(customer_id) with the given foreign keys. */
+  private static SchemaModel ordersWith(SchemaModel.ForeignKey... keys) {
+    var id = new SchemaModel.Column("id", "bigint", false, null, null, null, null, false);
+    var code = new SchemaModel.Column("code", "bigint", false, null, null, null, null, false);
+    var customerId = new SchemaModel.Column("customer_id", "bigint", false, null, null, null,
+        null, false);
+    return new SchemaModel(List.of(
+        new SchemaModel.Table("customers", List.of(id, code), null, List.of(), List.of()),
+        new SchemaModel.Table("purchase_orders", List.of(customerId), null, List.of(),
+            List.of(keys))));
   }
 
   private static int indexOf(List<?> operations, Class<?> operationType) {
