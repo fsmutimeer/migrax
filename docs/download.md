@@ -48,6 +48,22 @@ Each file's SHA-256 checksum is listed above and in `SHA256SUMS`. To check a fil
 
 The result must match the checksum on this page.
 
+From Migrax 0.17.1 on, you can also check that a file was built by Migrax's own release
+workflow on GitHub, from this repository's code, with the [GitHub CLI](https://cli.github.com):
+
+```bash
+gh attestation verify migrax-0.17.1.zip -R fsmutimeer/migrax
+```
+
+Each release also lists every library its files contain in `migrax-<version>-sbom.cdx.json`
+(CycloneDX format), for security scanners and license checks. The container image keeps its
+own software list and build record in the registry:
+
+```bash
+docker buildx imagetools inspect ghcr.io/fsmutimeer/migrax:0.17.1 --format '{{ json .SBOM }}'
+docker buildx imagetools inspect ghcr.io/fsmutimeer/migrax:0.17.1 --format '{{ json .Provenance }}'
+```
+
 ## Which file do I need?
 
 - **To use the `migrax` command:** the `.zip`. It contains the command line tool and its

@@ -6,6 +6,14 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Every GitHub release lists the libraries it contains in `migrax-<version>-sbom.cdx.json`
+  (CycloneDX), and each of its files has a signed record of the workflow run that built it:
+  `gh attestation verify <file> -R fsmutimeer/migrax` checks it. The container image carries
+  its own software list and build record in the registry. See Download > Check your
+  download.
+
 ### Fixed
 
 - Renaming a table no longer needs `--allow-destructive`. Hibernate's foreign key names

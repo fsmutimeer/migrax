@@ -32,4 +32,8 @@ newest). Published versions are never changed; upgrade to the release that has t
 
 Before every release, every library Migrax names or ships is checked against the OSV
 vulnerability database (`scripts/security-scan.py`), and the same check runs every week on
-GitHub Actions. Releases on Maven Central are signed with GPG key `3203540753450CBC`.
+GitHub Actions. Releases on Maven Central are signed with GPG key `3203540753450CBC`. From
+0.17.1 on, every file of a GitHub release has a signed build record
+(`gh attestation verify <file> -R fsmutimeer/migrax`) and the release lists its libraries in
+`migrax-<version>-sbom.cdx.json`; the container image carries its own software list and
+build record.
