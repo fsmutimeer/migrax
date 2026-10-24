@@ -19,7 +19,10 @@ When you accept cookies in the banner, the site loads Google Analytics. It recor
   Analytics does not store the address itself),
 - your browser, operating system, screen size and language,
 - your answer when you click 👍 or 👎 under "Was this page helpful?" (that box only appears
-  after you accept).
+  after you accept),
+- when you copy an install command (which kind: Homebrew, Scoop, installer, container image,
+  Maven or Gradle) or click a file on the Download page (which file). The copied text itself
+  is not sent.
 
 This tells us how many people visit, which guides and blog articles they read, and how they
 found the site. It is not used for advertising, and it is not sold or shared with anyone

@@ -150,6 +150,7 @@ extra_css:
 
 extra_javascript:
   - javascripts/home.js
+  - javascripts/track.js
 
 markdown_extensions:
   - admonition
