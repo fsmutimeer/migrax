@@ -25,6 +25,9 @@ All notable changes to Migrax are listed here. The format follows
 - The published POMs no longer name library versions with known vulnerabilities
   (Micrometer, OpenTelemetry, Spring Boot). Migrax never bundled them: your application keeps
   its own versions, and the framework versions Migrax works with are unchanged.
+- The GitHub Action (`uses: fsmutimeer/migrax@...`) runs the actions it uses at exact
+  commits instead of version tags, so a moved or compromised tag can't change what runs in
+  your workflow.
 
 ## [0.17.0] - 2026-10-22
 
