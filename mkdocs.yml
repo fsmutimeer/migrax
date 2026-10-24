@@ -65,6 +65,44 @@ extra:
     migrations, Java database migration tool, Spring Boot migrations, Quarkus migrations,
     Micronaut, Helidon, Jakarta EE, SQL migration generator, rollback scripts, Maven plugin,
     Gradle plugin, PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, zero-downtime migrations
+  # Visitor counts (Google Analytics property "migrax.org" in the owner's Google account). The
+  # theme loads it only after a visitor accepts cookies in the banner below.
+  analytics:
+    provider: google
+    property: G-ZEENTK4J2Q
+    # "Was this page helpful?" under each page; votes arrive in Google Analytics as a
+    # "feedback" event with the page path. Only shown to visitors who accepted cookies.
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/thumb-up-outline
+          name: This page was helpful
+          data: 1
+          note: Thanks for your feedback!
+        - icon: material/thumb-down-outline
+          name: This page could be improved
+          data: 0
+          note: >-
+            Thanks for your feedback! Help us improve this page by
+            <a href="https://github.com/fsmutimeer/migrax/issues/new?title=Docs:+{title}&body=Page:+https://migrax.org{url}%0A%0AWhat+was+missing+or+unclear%3F%0A"
+            target="_blank" rel="noopener">telling us what was missing</a>.
+  consent:
+    title: Cookies
+    description: >-
+      With your consent, this site uses Google Analytics cookies to count visits and see which
+      pages people read. Nothing is used for ads. See the
+      <a href="/project/privacy/">privacy page</a>; you can change your choice at any time
+      with "Cookie settings" at the bottom of every page.
+    # Accept saves the boxes ticked under "Manage settings", so this one starts ticked;
+    # Reject clears it.
+    cookies:
+      analytics:
+        name: Google Analytics
+        checked: true
+    actions:
+      - accept
+      - reject
+      - manage
 
 plugins:
   # Listing plugins replaces MkDocs' default list, so search is named here too.
@@ -196,5 +234,6 @@ nav:
       - Versioning and releases: project/versioning.md
       - Contributing: project/contributing.md
       - Changelog: project/changelog.md
+      - Privacy: project/privacy.md
   - Blog:
       - blog/index.md
