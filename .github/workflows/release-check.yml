@@ -1,0 +1,128 @@
+name: Release check
+
+# release.yml without publishing anything: the tests, the release files and their software
+# bill of materials, the multi-platform image, and the signed Maven Central bundle, which goes
+# to a stand-in for Central on the runner (.github/ci/fake-central.py) and must be exactly one
+# upload with every artifact. Left out: attestations, the image push, the GitHub release and
+# the package updates; added: the security scan. Runs on release and hotfix branches, so a
+# release fails here instead of after its tag; by hand on any branch. Keep the steps in line
+# with release.yml.
+on:
+  push:
+    branches: ['release/**', 'hotfix/**']
+  workflow_dispatch:
+
+concurrency:
+  group: release-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Release dry run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # Retries Maven once when Maven Central fails to serve a file (.github/ci/mvn).
+      - run: echo "$GITHUB_WORKSPACE/.github/ci" >> "$GITHUB_PATH"
+
+      # A development version can't be checked as a release (Central treats -SNAPSHOT
+      # differently), so it becomes X.Y.Z-check here, on the runner only.
+      - name: Version
+        run: |
+          VERSION=$(mvn -q -B help:evaluate -Dexpression=project.version -DforceStdout)
+          if [[ "$VERSION" == *-SNAPSHOT ]]; then
+            VERSION="${VERSION%-SNAPSHOT}-check"
+            bash scripts/set-version.sh "$VERSION"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - run: mvn -B install
+      - run: mvn -B install -f integrations/pom.xml
+
+      - name: Release notes from the changelog
+        if: ${{ !endsWith(env.VERSION, '-check') }}
+        run: |
+          awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && index($0, "## [") == 1 { exit }
+            found && /^\[.*\]: http/ { next }
+            found { print }' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "CHANGELOG.md has no section for $VERSION" >&2
+            exit 1
+          fi
+
+      - name: Release files and software bill of materials
+        run: |
+          mvn -B -q org.cyclonedx:cyclonedx-maven-plugin:2.9.3:makeAggregateBom \
+            -f .github/central/pom.xml -DoutputName=sbom -DoutputFormat=json \
+            -DincludeTestScope=false -DincludeProvidedScope=false
+          mkdir dist
+          jq --arg v "$VERSION" '.metadata.component.name = "migrax"
+            | .metadata.component.version = $v' .github/central/target/sbom.json \
+            > "dist/migrax-$VERSION-sbom.cdx.json"
+          cp target/migrax-$VERSION.zip target/migrax-$VERSION.jar \
+            integrations/spring-boot-starter/target/migrax-spring-boot-starter-$VERSION.jar \
+            integrations/quarkus/runtime/target/migrax-quarkus-$VERSION.jar \
+            integrations/quarkus/deployment/target/migrax-quarkus-deployment-$VERSION.jar \
+            integrations/micronaut/target/migrax-micronaut-$VERSION.jar \
+            integrations/helidon/target/migrax-helidon-$VERSION.jar \
+            integrations/jakarta-ee/target/migrax-jakarta-ee-$VERSION.jar \
+            integrations/junit/target/migrax-junit-$VERSION.jar \
+            integrations/gradle-plugin/target/migrax-gradle-plugin-$VERSION.jar dist/
+          ls -l dist
+
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+          build-args: VERSION=${{ env.VERSION }}
+          sbom: true
+          provenance: mode=max
+
+      # The real release profile (sources, javadoc, signatures, one bundle), signed with a
+      # throwaway key (the real one stays with release.yml) and uploaded to the stand-in for
+      # Central.
+      - name: Maven Central bundle
+        env:
+          MAVEN_GPG_PASSPHRASE: check
+        run: |
+          gpg --batch --pinentry-mode loopback --passphrase check \
+            --quick-gen-key "Release check <check@invalid>" default default never
+          SERVER='<publishingServerId>central</publishingServerId>'
+          STAND_IN='<centralBaseUrl>http://127.0.0.1:8799</centralBaseUrl>'
+          sed -i "s|$SERVER|&$STAND_IN|" parent/pom.xml
+          # Never let a dry run reach the real Maven Central.
+          grep -q "$STAND_IN" parent/pom.xml \
+            || { echo "could not point the publishing plugin at the stand-in" >&2; exit 1; }
+          cat > "$RUNNER_TEMP/settings.xml" <<'EOF'
+          <settings><servers><server>
+            <id>central</id><username>check</username><password>check</password>
+          </server></servers></settings>
+          EOF
+          python3 -I .github/ci/fake-central.py "$RUNNER_TEMP/central" &
+          STATUS=http://127.0.0.1:8799/api/v1/publisher/status
+          for _ in $(seq 20); do curl -sf -X POST "$STATUS" > /dev/null && break; sleep 0.5; done
+          curl -sf -X POST "$STATUS" > /dev/null \
+            || { echo "the stand-in for Maven Central did not start" >&2; exit 1; }
+          mvn -B -s "$RUNNER_TEMP/settings.xml" -P release deploy -DskipTests \
+            -Dspotbugs.skip=true -f .github/central/pom.xml
+          python3 -I .github/ci/check-bundle.py "$RUNNER_TEMP/central" "$VERSION"
+
+      - name: Security scan
+        run: python3 -I scripts/security-scan.py
+
+      # The build put this version into the local Maven repository; keep it out of the cache.
+      - if: always()
+        run: rm -rf ~/.m2/repository/org/migrax
