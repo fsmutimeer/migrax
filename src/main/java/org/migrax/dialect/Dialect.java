@@ -198,6 +198,20 @@ public interface Dialect {
   }
 
   /**
+   * The statement that renames a foreign key in place, or null when this database can't (the
+   * key is then dropped and added again under its new name).
+   *
+   * @param table the table that has the key
+   * @param from the key's current name
+   * @param to its new name
+   * @return the statement without a trailing semicolon, or null
+   * @since 0.17.1
+   */
+  default String renameForeignKey(String table, String from, String to) {
+    return null;
+  }
+
+  /**
    * The SQL type this dialect writes for a column, without identity or constraints.
    *
    * @param column the column
