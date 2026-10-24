@@ -30,6 +30,15 @@ migration.
 [repeatable migrations](../guides/advanced-migrations.md#repeatable-migrations), not in the
 schema file.
 
+## Changing columns
+
+**Oracle: a smaller NUMBER column.** Oracle makes a `NUMBER` column smaller (fewer digits or
+fewer decimals) only while the column is empty. Once the table has rows, the migration stops
+with ORA-01440 and changes nothing. The rollback of a migration that made a `NUMBER` column
+larger stops the same way. Keep the larger type, or write the change yourself
+(`migrax new`): add a column with the new type, copy the values into it, drop the old column
+and give the new one its name. Check first that every value fits.
+
 ## Rolling back
 
 **A rollback brings back the structure, not the data**, unless the migration was generated with
