@@ -1,6 +1,8 @@
 ---
 seo_title: "Privacy"
 description: "What migrax.org records about visits, the cookies it uses, and how to change your choice."
+hide:
+  - feedback
 ---
 # Privacy
 
@@ -15,7 +17,9 @@ When you accept cookies in the banner, the site loads Google Analytics. It recor
 - the page or site you came from (for example a search engine or a link on another site),
 - your approximate location (country and city, worked out from your IP address; Google
   Analytics does not store the address itself),
-- your browser, operating system, screen size and language.
+- your browser, operating system, screen size and language,
+- your answer when you click 👍 or 👎 under "Was this page helpful?" (that box only appears
+  after you accept).
 
 This tells us how many people visit, which guides and blog articles they read, and how they
 found the site. It is not used for advertising, and it is not sold or shared with anyone

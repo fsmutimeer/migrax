@@ -70,6 +70,22 @@ extra:
   analytics:
     provider: google
     property: G-ZEENTK4J2Q
+    # "Was this page helpful?" under each page; votes arrive in Google Analytics as a
+    # "feedback" event with the page path. Only shown to visitors who accepted cookies.
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/thumb-up-outline
+          name: This page was helpful
+          data: 1
+          note: Thanks for your feedback!
+        - icon: material/thumb-down-outline
+          name: This page could be improved
+          data: 0
+          note: >-
+            Thanks for your feedback! Help us improve this page by
+            <a href="https://github.com/fsmutimeer/migrax/issues/new?title=Docs:+{title}&body=Page:+https://migrax.org{url}%0A%0AWhat+was+missing+or+unclear%3F%0A"
+            target="_blank" rel="noopener">telling us what was missing</a>.
   consent:
     title: Cookies
     description: >-
