@@ -22,6 +22,9 @@ All notable changes to Migrax are listed here. The format follows
   server could make it spend CPU on SCRAM), MariaDB 3.5.1 to 3.5.11 (could send the password
   in clear text to a server in the middle), SQL Server 12.8.1 to 12.10.2. The CLI download
   bundles no drivers and is not affected.
+- The published POMs no longer name library versions with known vulnerabilities
+  (Micrometer, OpenTelemetry, Spring Boot). Migrax never bundled them: your application keeps
+  its own versions, and the framework versions Migrax works with are unchanged.
 
 ## [0.17.0] - 2026-10-22
 

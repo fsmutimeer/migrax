@@ -108,13 +108,13 @@
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-core</artifactId>
-      <version>1.15.4</version>
+      <version>1.15.12</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-testing</artifactId>
-      <version>1.46.0</version>
+      <version>1.67.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
