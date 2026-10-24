@@ -15,6 +15,14 @@ All notable changes to Migrax are listed here. The format follows
   name in the same migration is no longer destructive; one that is really removed or changed
   still is. `plan --json` and `diff --json` report it with `"destructive": false`.
 
+### Security
+
+- Container image: newer JDBC drivers without known vulnerabilities. PostgreSQL 42.7.5 to
+  42.7.14 (could fall back to weaker authentication despite `channelBinding=require`, and a
+  server could make it spend CPU on SCRAM), MariaDB 3.5.1 to 3.5.11 (could send the password
+  in clear text to a server in the middle), SQL Server 12.8.1 to 12.10.2. The CLI download
+  bundles no drivers and is not affected.
+
 ## [0.17.0] - 2026-10-22
 
 ### Added
