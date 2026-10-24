@@ -46,6 +46,8 @@ def request(url, accept="application/vnd.github+json"):
 def describe(name):
     if name.endswith(".zip"):
         return "**Command line tool** with installers for Windows, macOS and Linux"
+    if name.endswith(".cdx.json"):
+        return "Software bill of materials (CycloneDX): every library in this release"
     for prefix, text in DESCRIPTIONS:
         if name.startswith(prefix):
             return text
