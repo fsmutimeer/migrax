@@ -80,6 +80,7 @@ class DatabaseEngineIT {
           exerciseUnnamedCheck(derby);
           exerciseKeepData(derby);
           exerciseZeroDowntime(derby);
+          exerciseRenames(derby);
           exerciseScriptTimestamps(derby);
           exerciseSchemas(derby);
           exerciseSchemaFile(derby);
@@ -94,6 +95,7 @@ class DatabaseEngineIT {
           exerciseUnnamedCheck(hsqldb);
           exerciseKeepData(hsqldb);
           exerciseZeroDowntime(hsqldb);
+          exerciseRenames(hsqldb);
           exerciseScriptTimestamps(hsqldb);
           exerciseSchemas(hsqldb);
           exerciseSchemaFile(hsqldb);
@@ -109,6 +111,7 @@ class DatabaseEngineIT {
             exerciseUnnamedCheck(sqlite);
             exerciseKeepData(sqlite);
             exerciseZeroDowntime(sqlite);
+            exerciseRenames(sqlite);
             exerciseSchemaFile(sqlite);
           } finally {
             Files.deleteIfExists(file);
@@ -173,6 +176,7 @@ class DatabaseEngineIT {
         exerciseCockroachTypeChange(Database.of(container));
         exerciseKeepData(Database.of(container));
         exerciseZeroDowntime(Database.of(container));
+        exerciseRenames(Database.of(container));
         exerciseScriptTimestamps(Database.of(container));
         exerciseSchemas(Database.of(container));
         exerciseSchemaFile(Database.of(container));
@@ -1076,6 +1080,14 @@ class DatabaseEngineIT {
   private static void exerciseZeroDowntime(Database database) throws Exception {
     try (Connection connection = database.connect()) {
       org.migrax.cli.ZeroDowntimeScenario.run(connection,
+          org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
+    }
+  }
+
+  /** Column, table and key renames, step by step and rolled back: rows and keys survive. */
+  private static void exerciseRenames(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      org.migrax.cli.RenameScenario.run(connection,
           org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
     }
   }

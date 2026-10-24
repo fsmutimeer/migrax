@@ -213,12 +213,40 @@ public final class SqliteDialect extends AbstractDialect {
       result.add(operation);
     }
     for (String table : rebuilt) {
-      SchemaModel.Table target = after.table(table);
-      if (target != null) {
-        result.add(new RunSql(rebuild(renamed.table(table), target), false));
+      // The rebuild runs after every rename: a rollback changes a table and then gives it its
+      // old name back, so the table is found under the name it has at the end.
+      String name = finalName(table, operations);
+      SchemaModel.Table target = after.table(name);
+      SchemaModel.Table current = renamed.table(name);
+      if (target == null || current == null) {
+        throw new IllegalStateException("Cannot rebuild SQLite table '" + table + "': it is "
+            + "not in the schema after this migration. This is a bug in Migrax; please report "
+            + "it with the entity changes of this migration.");
       }
+      result.add(new RunSql(rebuild(current, target), false));
     }
     return result;
+  }
+
+  /**
+   * A table's name at the end of the list: only the table renames after the last operation
+   * that changes it count (renames before it already gave it the name that operation uses).
+   */
+  private static String finalName(String table, List<Operation> operations) {
+    int last = -1;
+    for (int i = 0; i < operations.size(); i++) {
+      if (table.equalsIgnoreCase(table(operations.get(i)))
+          && !(operations.get(i) instanceof RenameTable)) {
+        last = i;
+      }
+    }
+    String name = table;
+    for (int i = last + 1; i < operations.size(); i++) {
+      if (operations.get(i) instanceof RenameTable x && x.from().equalsIgnoreCase(name)) {
+        name = x.to();
+      }
+    }
+    return name;
   }
 
   /** The schema after a rename operation; other operations leave it as it is. */

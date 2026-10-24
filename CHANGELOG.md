@@ -25,6 +25,11 @@ All notable changes to Migrax are listed here. The format follows
   `plan --json` and `diff --json`). On PostgreSQL, CockroachDB, YugabyteDB and H2 the
   migration renames the key (`RENAME CONSTRAINT`); other databases drop it and add it again,
   which checks every row.
+- SQLite: the rollback of a table rename lost the other changes to that table (a renamed
+  foreign key, a changed column). SQLite makes them by rebuilding the table, and the rollback
+  looked the table up under the name it gives back only afterwards, so the rebuild was left
+  out without a word. It is now rebuilt under that name, and a table that can't be found stops
+  `migrax generate` with an error instead.
 
 ### Security
 
