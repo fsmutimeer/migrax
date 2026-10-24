@@ -32,11 +32,15 @@
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-core</artifactId>
+      <!-- Newer than Quarkus 3.9's own (old ones have published advisories). Use only API that
+           Micrometer 1.9 and OpenTelemetry 1.26 have: the application brings its own. -->
+      <version>1.15.12</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-api</artifactId>
+      <version>1.67.0</version>
       <scope>provided</scope>
     </dependency>
     <!-- Only when the application has quarkus-smallrye-health: the migrax readiness check. -->

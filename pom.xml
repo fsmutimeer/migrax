@@ -70,13 +70,13 @@
     <dependency>
       <groupId>io.micrometer</groupId>
       <artifactId>micrometer-core</artifactId>
-      <version>1.15.4</version>
+      <version>1.15.12</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-api</artifactId>
-      <version>1.46.0</version>
+      <version>1.67.0</version>
       <scope>provided</scope>
     </dependency>
     <!-- Compile-only: CdiListeners looks the listeners up in Helidon and Jakarta EE servers. -->
@@ -89,7 +89,7 @@
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-testing</artifactId>
-      <version>1.46.0</version>
+      <version>1.67.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -222,19 +222,19 @@
     <dependency>
       <groupId>org.mariadb.jdbc</groupId>
       <artifactId>mariadb-java-client</artifactId>
-      <version>3.5.1</version>
+      <version>3.5.11</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.7.5</version>
+      <version>42.7.14</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.microsoft.sqlserver</groupId>
       <artifactId>mssql-jdbc</artifactId>
-      <version>12.8.1.jre11</version>
+      <version>12.10.2.jre11</version>
       <scope>test</scope>
     </dependency>
     <dependency>

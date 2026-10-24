@@ -30,6 +30,24 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- First, so they win over the platform's (older versions have published advisories):
+           every Micrometer and OpenTelemetry module at one version, as a library needs its
+           own siblings. Use only API that Micrometer 1.9 and OpenTelemetry 1.26 have: the
+           application brings its own, older, versions. -->
+      <dependency>
+        <groupId>io.micrometer</groupId>
+        <artifactId>micrometer-bom</artifactId>
+        <version>1.15.12</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.opentelemetry</groupId>
+        <artifactId>opentelemetry-bom</artifactId>
+        <version>1.67.0</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
       <dependency>
         <groupId>io.micronaut.platform</groupId>
         <artifactId>micronaut-platform</artifactId>
