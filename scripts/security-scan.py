@@ -127,7 +127,7 @@ def read_jars(drivers, image):
                     if "groupId" in fields and "artifactId" in fields:
                         groups[fields["artifactId"].strip()] = fields["groupId"].strip()
         groups = {**KNOWN_GROUPS, **groups}
-        # The file name has the exact version (mssql-jdbc-12.10.2.jre11.jar keeps its suffix).
+        # The file name has the exact version (mssql-jdbc-13.6.1.jre11.jar keeps its suffix).
         match = next(((a, name[len(a) + 1:-4]) for a in sorted(groups, key=len, reverse=True)
                       if name.startswith(a + "-")), None)
         if not match:

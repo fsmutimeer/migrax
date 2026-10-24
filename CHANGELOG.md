@@ -20,8 +20,12 @@ All notable changes to Migrax are listed here. The format follows
 - Container image: newer JDBC drivers without known vulnerabilities. PostgreSQL 42.7.5 to
   42.7.14 (could fall back to weaker authentication despite `channelBinding=require`, and a
   server could make it spend CPU on SCRAM), MariaDB 3.5.1 to 3.5.11 (could send the password
-  in clear text to a server in the middle), SQL Server 12.8.1 to 12.10.2. The CLI download
-  bundles no drivers and is not affected.
+  in clear text to a server in the middle), SQL Server 12.8.1 to 13.6.1 (did not check some
+  input from the server well enough). URLs with `encrypt` and `trustServerCertificate` work
+  as before (tested on SQL Server 2022). The CLI download bundles no drivers and is not affected.
+- Container image: the base images are pinned to exact versions, so every build of a release
+  ships the same thing, and `/usr/bin/pebble`, a program of the base image that Migrax never
+  runs and that scanners report, is removed.
 - The published POMs no longer name library versions with known vulnerabilities
   (Micrometer, OpenTelemetry, Spring Boot). Migrax never bundled them: your application keeps
   its own versions, and the framework versions Migrax works with are unchanged.

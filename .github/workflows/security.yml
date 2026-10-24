@@ -1,10 +1,11 @@
 name: Security scan
 
 # Checks the libraries the POMs name and the JDBC drivers in the container image against the
-# OSV vulnerability database. New advisories appear without any change here, so it also runs
-# every week. It fails only on what users get (SHIPPED and COMPILE); PROVIDED findings are
-# listed for the next release. Pushes run it only when dependencies change, so a new advisory
-# shows up in the weekly run instead of failing unrelated work.
+# OSV vulnerability database, and the whole image with Trivy. New advisories appear without
+# any change here, so it also runs every week. It fails only on what users get (SHIPPED and
+# COMPILE, and fixable image findings); PROVIDED findings are listed for the next release.
+# Pushes run it only when dependencies change, so a new advisory shows up in the weekly run
+# instead of failing unrelated work.
 on:
   push:
     branches: [main, 'feature/**', 'fix/**', 'refactor/**', 'chore/**', 'ci/**', 'test/**',
@@ -43,3 +44,12 @@ jobs:
           VERSION="$(mvn -q help:evaluate -Dexpression=project.version -DforceStdout)"
           docker build --build-arg VERSION="$VERSION" -t migrax:scan .
       - run: python3 -I scripts/security-scan.py --image migrax:scan
+      # The whole image: operating system packages, Go binaries and the jars again (Trivy's
+      # own database). Only findings that have a fix fail the run: those can be acted on.
+      # Dependabot doesn't update this digest: change it by hand.
+      - name: Scan the image (Trivy 0.76.1)
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+          image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1
+          migrax:scan
