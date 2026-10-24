@@ -1,0 +1,80 @@
+# Weekly update suggestions. Minor and patch updates are grouped into a few pull requests; a
+# major update comes alone, so one that needs work doesn't hold the others back. Merge them like
+# any other change: on a branch, with the code review and the tests the change needs.
+version: 2
+updates:
+  # The workflows and the published action (action.yml): actions are pinned to a commit with
+  # the version in a comment, and Dependabot updates both.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # The container image's base images. A new Java version in the tag (21 to 25) is a decision,
+  # not a routine update, so those are not offered.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      images:
+        patterns: ['*']
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-major]
+
+  # The JDBC drivers the container image ships.
+  - package-ecosystem: maven
+    directory: /docker/drivers
+    schedule:
+      interval: weekly
+    groups:
+      drivers:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # Migrax and its integrations. They are compiled against the oldest framework and ORM versions
+  # they support (Micronaut, Quarkus, Helidon, Hibernate, ...), so they keep working there:
+  # never raise those, only libraries and plugins. Ignored artifacts get no security pull
+  # requests either; the weekly security scan (security.yml) still reports them.
+  - package-ecosystem: maven
+    directories: [/, /integrations, /parent]
+    schedule:
+      interval: weekly
+    groups:
+      maven:
+        patterns: ['*']
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: io.micronaut*
+      - dependency-name: io.quarkus:*
+      - dependency-name: io.helidon*
+      - dependency-name: org.hibernate.orm:*
+      - dependency-name: org.eclipse.persistence:*
+      - dependency-name: org.apache.openjpa:*
+      - dependency-name: org.springframework.data:*
+      - dependency-name: org.springframework.boot:*
+        update-types: [version-update:semver-major]
+      - dependency-name: org.springframework:*
+        update-types: [version-update:semver-major]
+      - dependency-name: org.apache.maven:*
+      - dependency-name: jakarta.*:*
+      - dependency-name: org.eclipse.microprofile.*:*
+      - dependency-name: dev.gradleplugins:*
+      # migrax-junit passes its JUnit version on to users (compile scope).
+      - dependency-name: org.junit*
+        update-types: [version-update:semver-major]
+
+  # The documentation site's build (MkDocs and its plugins).
+  - package-ecosystem: pip
+    directory: /docs
+    schedule:
+      interval: weekly
+    groups:
+      docs:
+        patterns: ['*']
+        update-types: [minor, patch]
