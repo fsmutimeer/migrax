@@ -8,13 +8,13 @@ package org.migrax.ops;
 public sealed interface Operation permits CreateTable, DropTable, AddColumn, DropColumn,
     AlterColumn, RenameColumn, RenameTable, AddPrimaryKey, DropPrimaryKey, AddIndex, DropIndex, AddForeignKey,
     DropForeignKey, AddUnique, DropUnique, RunSql, CreateSequence, DropSequence, AddCheck,
-    DropCheck, SetComment {
+    DropCheck, SetComment, RenameForeignKey {
 
   String kind();
 
   default boolean destructive() {
     return this instanceof DropTable || this instanceof DropColumn
         || this instanceof DropPrimaryKey || this instanceof DropIndex
-        || this instanceof DropSequence;
+        || this instanceof DropForeignKey || this instanceof DropSequence;
   }
 }

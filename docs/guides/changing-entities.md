@@ -54,9 +54,10 @@ $ migrax generate --rename-table client=customer
 
 Several column renames are separated by commas. A rename with a type change becomes a
 `RENAME` followed by an `ALTER`. Hibernate's foreign key names contain the table name, so a
-table rename also drops each of the table's foreign keys and adds it again under its new
-name. The data stays and the key stays the same, so this doesn't need
-`--allow-destructive` (from Migrax 0.17.1 on).
+table rename also renames the table's foreign keys. From Migrax 0.17.1 on, that needs no
+`--allow-destructive`: on PostgreSQL, CockroachDB, YugabyteDB and H2 the migration renames
+each key (`RENAME CONSTRAINT`); other databases drop it and add it again under its new name,
+which checks every row.
 
 !!! note "Non-interactive runs"
 

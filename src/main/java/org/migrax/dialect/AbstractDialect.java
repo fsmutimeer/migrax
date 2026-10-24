@@ -69,6 +69,12 @@ public abstract class AbstractDialect implements Dialect {
           + tableName(x.fk().referencedTable()) + " (" + join(x.fk().referencedColumns()) + ")";
     }
     if (o instanceof DropForeignKey x) return dropForeignKey(x.table(), x.name());
+    if (o instanceof RenameForeignKey x) {
+      String rename = renameForeignKey(x.table(), x.from(), x.key().name());
+      return rename != null ? rename
+          : dropForeignKey(x.table(), x.from()) + ";\n"
+              + render(new AddForeignKey(x.table(), x.key()));
+    }
     if (o instanceof AddUnique x) {
       return "ALTER TABLE " + tableName(x.table()) + " ADD CONSTRAINT " + q(x.name())
           + " UNIQUE (" + q(x.column()) + ")";

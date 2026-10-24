@@ -13,7 +13,10 @@ All notable changes to Migrax are listed here. The format follows
   rename table ...?") dropped the old key and added it again under its new name, and the drop
   was counted as a destructive change. A foreign key that comes back unchanged under a new
   name in the same migration is no longer destructive; one that is really removed or changed
-  still is. `plan --json` and `diff --json` report it with `"destructive": false`.
+  still is. It is listed as "rename foreign key ..." (`"kind": "rename_foreign_key"` in
+  `plan --json` and `diff --json`). On PostgreSQL, CockroachDB, YugabyteDB and H2 the
+  migration renames the key (`RENAME CONSTRAINT`); other databases drop it and add it again,
+  which checks every row.
 
 ### Security
 

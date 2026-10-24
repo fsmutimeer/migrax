@@ -7,7 +7,7 @@ import org.migrax.ops.AddForeignKey;
 import org.migrax.ops.DropColumn;
 import org.migrax.ops.DropForeignKey;
 import org.migrax.ops.AlterColumn;
-import org.migrax.ops.Operation;
+import org.migrax.ops.RenameForeignKey;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -141,10 +141,11 @@ class DiffEngineTest {
             "fk_purchase_orders_customer_id", List.of("customer_id"), "customers",
             List.of("id"))));
 
-    var drop = (DropForeignKey) operations.get(indexOf(operations, DropForeignKey.class));
-    assertTrue(drop.renamed());
-    assertTrue(operations.stream().noneMatch(Operation::destructive));
-    assertInstanceOf(AddForeignKey.class, operations.get(operations.size() - 1));
+    assertEquals(1, operations.size());
+    var rename = (RenameForeignKey) operations.get(0);
+    assertEquals("fk_orders_customer_id", rename.from());
+    assertEquals("fk_purchase_orders_customer_id", rename.key().name());
+    assertFalse(rename.destructive());
   }
 
   @Test
@@ -156,9 +157,8 @@ class DiffEngineTest {
             "fk_purchase_orders_customer_id", List.of("customer_id"), "customers",
             List.of("code"))));
 
-    var drop = (DropForeignKey) operations.get(indexOf(operations, DropForeignKey.class));
-    assertFalse(drop.renamed());
-    assertTrue(drop.destructive());
+    assertTrue(operations.get(indexOf(operations, DropForeignKey.class)).destructive());
+    assertEquals(-1, indexOf(operations, RenameForeignKey.class));
   }
 
   @Test
@@ -170,6 +170,75 @@ class DiffEngineTest {
 
     assertEquals(1, operations.size());
     assertTrue(operations.get(0).destructive());
+  }
+
+  @Test
+  void aKeyNameThatStillBelongsToAnotherKeyIsNoRename() {
+    // fk_y moves from column code_id to customer_id, and fk_x (customer_id) goes: renaming
+    // fk_x to fk_y would clash with the old fk_y, so this is a drop and a changed key.
+    var codeId = new SchemaModel.Column("code_id", "bigint", false, null, null, null, null,
+        false);
+    var before = new SchemaModel(List.of(new SchemaModel.Table("purchase_orders",
+        List.of(codeId), null, List.of(), List.of(
+            new SchemaModel.ForeignKey("fk_x", List.of("customer_id"), "customers",
+                List.of("id")),
+            new SchemaModel.ForeignKey("fk_y", List.of("code_id"), "customers",
+                List.of("id"))))));
+    var after = new SchemaModel(List.of(new SchemaModel.Table("purchase_orders",
+        List.of(codeId), null, List.of(), List.of(
+            new SchemaModel.ForeignKey("fk_y", List.of("customer_id"), "customers",
+                List.of("id"))))));
+
+    var operations = new DiffEngine().diff(before, after);
+
+    assertEquals(-1, indexOf(operations, RenameForeignKey.class));
+    assertInstanceOf(AddForeignKey.class, operations.get(operations.size() - 1));
+  }
+
+  @Test
+  void aKeyWhoseColumnChangesTooIsDroppedFirst() {
+    // Most databases refuse to change a column a key uses: drop the key, change, add it back.
+    var before = ordersWith(new SchemaModel.ForeignKey(
+        "fk_orders_customer_id", List.of("customer_id"), "customers", List.of("id")));
+    var wider = new SchemaModel.Column("customer_id", "numeric(20)", false, null, 20, 0, null,
+        false);
+    var after = new SchemaModel(List.of(before.table("customers"),
+        new SchemaModel.Table("purchase_orders", List.of(wider), null, List.of(),
+            List.of(new SchemaModel.ForeignKey("fk_purchase_orders_customer_id",
+                List.of("customer_id"), "customers", List.of("id"))))));
+
+    var operations = new DiffEngine().diff(before, after);
+
+    assertEquals(-1, indexOf(operations, RenameForeignKey.class));
+    assertEquals(0, indexOf(operations, DropForeignKey.class));
+    assertInstanceOf(AddForeignKey.class, operations.get(operations.size() - 1));
+  }
+
+  @Test
+  void renamesThatHandANameOnAreDropsAndAdds() {
+    // a's key goes z -> x while b's key goes x -> y: run table by table, the first rename
+    // would find x still taken.
+    var before = new SchemaModel(List.of(customers(), keyed("a", "z"), keyed("b", "x")));
+    var after = new SchemaModel(List.of(customers(), keyed("a", "x"), keyed("b", "y")));
+
+    var operations = new DiffEngine().diff(before, after);
+
+    assertEquals(-1, indexOf(operations, RenameForeignKey.class));
+    assertEquals(2, operations.stream().filter(DropForeignKey.class::isInstance).count());
+  }
+
+  private static SchemaModel.Table customers() {
+    return new SchemaModel.Table("customers",
+        List.of(new SchemaModel.Column("id", "bigint", false, null, null, null, null, false)),
+        null, List.of(), List.of());
+  }
+
+  private static SchemaModel.Table keyed(String table, String key) {
+    return new SchemaModel.Table(table,
+        List.of(new SchemaModel.Column("customer_id", "bigint", false, null, null, null, null,
+            false)),
+        null, List.of(), List.of(new SchemaModel.ForeignKey(key, List.of("customer_id"),
+            "customers", List.of("id"))));
   }
 
   /** customers(id, code) and purchase_orders(customer_id) with the given foreign keys. */

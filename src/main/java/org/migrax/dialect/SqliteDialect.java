@@ -251,6 +251,7 @@ public final class SqliteDialect extends AbstractDialect {
     return operation instanceof AlterColumn || operation instanceof DropColumn
         || operation instanceof AddPrimaryKey || operation instanceof DropPrimaryKey
         || operation instanceof AddForeignKey || operation instanceof DropForeignKey
+        || operation instanceof org.migrax.ops.RenameForeignKey
         || operation instanceof DropUnique || operation instanceof org.migrax.ops.AddCheck
         || operation instanceof org.migrax.ops.DropCheck;
   }
@@ -270,6 +271,7 @@ public final class SqliteDialect extends AbstractDialect {
     if (operation instanceof DropIndex x) return x.table();
     if (operation instanceof AddForeignKey x) return x.table();
     if (operation instanceof DropForeignKey x) return x.table();
+    if (operation instanceof org.migrax.ops.RenameForeignKey x) return x.table();
     if (operation instanceof AddUnique x) return x.table();
     if (operation instanceof DropUnique x) return x.table();
     if (operation instanceof org.migrax.ops.AddCheck x) return x.table();

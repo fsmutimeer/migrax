@@ -18,6 +18,7 @@ import org.migrax.ops.DropTable;
 import org.migrax.ops.DropUnique;
 import org.migrax.ops.Operation;
 import org.migrax.ops.RenameColumn;
+import org.migrax.ops.RenameForeignKey;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -156,6 +157,9 @@ public final class Migrations {
     if (o instanceof DropIndex x) return "drop index " + x.name() + " on " + x.table();
     if (o instanceof AddForeignKey x) return "add foreign key " + x.fk().name() + " on " + x.table();
     if (o instanceof DropForeignKey x) return "drop foreign key " + x.name() + " on " + x.table();
+    if (o instanceof RenameForeignKey x) {
+      return "rename foreign key " + x.from() + " to " + x.key().name() + " on " + x.table();
+    }
     if (o instanceof AddUnique x) return "add unique constraint on " + x.table() + "." + x.column();
     if (o instanceof org.migrax.ops.AddCheck x) {
       return "add check " + x.check().name() + " on " + x.table();

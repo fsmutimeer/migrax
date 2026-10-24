@@ -193,4 +193,10 @@ public class PostgresDialect extends AbstractDialect {
   public boolean updatableViews() {
     return true;
   }
+
+  /** Renames the key in place: no new key is built, so nothing checks the table's rows. */
+  @Override
+  public String renameForeignKey(String table, String from, String to) {
+    return "ALTER TABLE " + tableName(table) + " RENAME CONSTRAINT " + q(from) + " TO " + q(to);
+  }
 }

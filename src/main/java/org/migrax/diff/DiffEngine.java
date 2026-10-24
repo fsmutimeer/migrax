@@ -20,10 +20,16 @@ import org.migrax.ops.DropPrimaryKey;
 import org.migrax.ops.DropSequence;
 import org.migrax.ops.DropTable;
 import org.migrax.ops.Operation;
+import org.migrax.ops.RenameForeignKey;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Compares two {@link SchemaModel} snapshots and calculates the ordered list of DDL
@@ -59,18 +65,19 @@ public final class DiffEngine {
       }
     }
 
+    // Renaming a table (or a key column) renames the keys Hibernate generates: the same key
+    // under a new name is a rename, not a drop and an add. table -> new key name -> old name.
+    Map<String, Map<String, String>> renamedKeys = renamedForeignKeys(before, after);
     for (SchemaModel.Table oldTable : before.tables()) {
       SchemaModel.Table newTable = after.table(oldTable.name());
+      Map<String, String> renamed = renamedKeys.getOrDefault(oldTable.name(), Map.of());
       for (SchemaModel.ForeignKey oldKey : oldTable.foreignKeys()) {
         SchemaModel.ForeignKey newKey = newTable == null
             ? null
             : findForeignKey(newTable, oldKey.name());
-        if (newKey == null || !newKey.equals(oldKey)) {
-          // Renaming a table (or a key column) renames the key Hibernate generates: the
-          // same key comes back under its new name, so dropping the old one loses nothing.
-          boolean renamed = newKey == null && newTable != null && newTable.foreignKeys().stream()
-              .anyMatch(key -> sameForeignKey(key, oldKey));
-          drops.add(new DropForeignKey(oldTable.name(), oldKey.name(), renamed));
+        if ((newKey == null || !newKey.equals(oldKey))
+            && !renamed.containsValue(oldKey.name())) {
+          drops.add(new DropForeignKey(oldTable.name(), oldKey.name()));
         }
       }
     }
@@ -151,9 +158,13 @@ public final class DiffEngine {
           adds.add(new AddIndex(newTable.name(), newIndex));
         }
       }
+      Map<String, String> renamed = renamedKeys.getOrDefault(newTable.name(), Map.of());
       for (SchemaModel.ForeignKey newKey : newTable.foreignKeys()) {
         SchemaModel.ForeignKey oldKey = findForeignKey(oldTable, newKey.name());
-        if (oldKey == null || !oldKey.equals(newKey)) {
+        if (renamed.containsKey(newKey.name())) {
+          // With the adds, after every drop: the new name may belong to a key dropped above.
+          adds.add(new RenameForeignKey(newTable.name(), renamed.get(newKey.name()), newKey));
+        } else if (oldKey == null || !oldKey.equals(newKey)) {
           adds.add(new AddForeignKey(newTable.name(), newKey));
         }
       }
@@ -246,7 +257,74 @@ public final class DiffEngine {
         .orElse(null);
   }
 
-  /** Same columns and referenced columns; the names may differ. */
+  /**
+   * Per table, the keys that only get a new name: an old key whose name is gone, and a new key
+   * with the same columns, referenced table and referenced columns whose name is new. Each key
+   * pairs once. Not a rename (so dropped first and added last, as any changed key): a key
+   * whose columns or referenced columns change too, since most databases refuse to change a
+   * column a key uses; and a key whose new name is another renamed key's old name, since
+   * renames run table by table and that name may still be taken.
+   */
+  private static Map<String, Map<String, String>> renamedForeignKeys(SchemaModel before,
+                                                                     SchemaModel after) {
+    Map<String, Map<String, String>> result = new HashMap<>();
+    Set<String> oldNames = new HashSet<>();
+    for (SchemaModel.Table oldTable : before.tables()) {
+      SchemaModel.Table newTable = after.table(oldTable.name());
+      if (newTable == null) {
+        continue;
+      }
+      Map<String, String> renamed = new LinkedHashMap<>();
+      for (SchemaModel.ForeignKey oldKey : oldTable.foreignKeys()) {
+        if (findForeignKey(newTable, oldKey.name()) != null
+            || !unchangedColumns(before, after, oldTable, newTable, oldKey)) {
+          continue;
+        }
+        newTable.foreignKeys().stream()
+            .filter(key -> findForeignKey(oldTable, key.name()) == null)
+            .filter(key -> !renamed.containsKey(key.name()) && sameForeignKey(key, oldKey))
+            .findFirst()
+            .ifPresent(key -> renamed.put(key.name(), oldKey.name()));
+      }
+      if (!renamed.isEmpty()) {
+        result.put(oldTable.name(), renamed);
+        oldNames.addAll(renamed.values());
+      }
+    }
+    // A rename into a name another rename gives up: both become a drop and an add.
+    Set<String> chained = new HashSet<>();
+    for (Map<String, String> renamed : result.values()) {
+      renamed.keySet().stream().filter(oldNames::contains).forEach(chained::add);
+    }
+    for (Map<String, String> renamed : result.values()) {
+      renamed.entrySet().removeIf(e -> chained.contains(e.getKey())
+          || chained.contains(e.getValue()));
+    }
+    result.values().removeIf(Map::isEmpty);
+    return result;
+  }
+
+  /** Whether a key's columns and referenced columns keep their definitions. */
+  private static boolean unchangedColumns(SchemaModel before, SchemaModel after,
+                                          SchemaModel.Table oldTable, SchemaModel.Table newTable,
+                                          SchemaModel.ForeignKey key) {
+    SchemaModel.Table oldTarget = before.table(key.referencedTable());
+    SchemaModel.Table newTarget = after.table(key.referencedTable());
+    if (oldTarget == null || newTarget == null) {
+      return false;
+    }
+    return key.columns().stream().allMatch(c -> unchanged(oldTable, newTable, c))
+        && key.referencedColumns().stream().allMatch(c -> unchanged(oldTarget, newTarget, c));
+  }
+
+  private static boolean unchanged(SchemaModel.Table before, SchemaModel.Table after,
+                                   String column) {
+    SchemaModel.Column old = before.column(column);
+    SchemaModel.Column now = after.column(column);
+    return old != null && now != null && sameColumn(old, now);
+  }
+
+  /** Same columns, referenced table and referenced columns; the names may differ. */
   private static boolean sameForeignKey(SchemaModel.ForeignKey a, SchemaModel.ForeignKey b) {
     return a.columns().equals(b.columns()) && a.referencedTable().equals(b.referencedTable())
         && a.referencedColumns().equals(b.referencedColumns());
