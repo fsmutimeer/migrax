@@ -1,0 +1,25 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <!-- Builds the core and the integrations in one reactor, so release.yml uploads one bundle
+       to Maven Central per version. Central counts every upload as a release (7 a month on
+       the free tier); two separate 'mvn deploy' runs counted twice. Never published itself
+       (excludeArtifacts in parent/pom.xml). -->
+  <parent>
+    <groupId>org.migrax</groupId>
+    <artifactId>migrax-parent</artifactId>
+    <version>0.17.1-SNAPSHOT</version>
+    <relativePath>../../parent/pom.xml</relativePath>
+  </parent>
+  <groupId>org.migrax</groupId>
+  <artifactId>migrax-central-bundle</artifactId>
+  <version>0.17.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>Migrax Maven Central bundle</name>
+
+  <modules>
+    <module>../..</module>
+    <module>../../integrations</module>
+  </modules>
+</project>

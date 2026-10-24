@@ -74,7 +74,9 @@ jobs:
 
       # Maven Central, stable versions only: sources, javadoc and signatures (release profile in
       # parent/pom.xml), uploaded and published. Central never takes a version back, so this
-      # comes after everything that can still fail and before the GitHub release.
+      # comes after everything that can still fail and before the GitHub release. Core and
+      # integrations are deployed in one build (.github/central/pom.xml), so Central gets one
+      # upload: it counts every upload as a release (7 a month on the free tier).
       - name: Signing key and Central login
         if: ${{ !contains(github.ref_name, '-') }}
         uses: actions/setup-java@v6
@@ -93,9 +95,7 @@ jobs:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          mvn -B -P release deploy -DskipTests -Dspotbugs.skip=true
-          mvn -B -P release deploy -DskipTests -f integrations/pom.xml
+        run: mvn -B -P release deploy -DskipTests -Dspotbugs.skip=true -f .github/central/pom.xml
 
       - uses: softprops/action-gh-release@v3
         with:

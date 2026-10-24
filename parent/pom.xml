@@ -150,6 +150,7 @@
               <waitUntil>published</waitUntil>
               <!-- POMs that only group modules for the build: no application needs them. -->
               <excludeArtifacts>
+                <excludeArtifact>migrax-central-bundle</excludeArtifact>
                 <excludeArtifact>migrax-integrations</excludeArtifact>
                 <excludeArtifact>migrax-quarkus-parent</excludeArtifact>
               </excludeArtifacts>
