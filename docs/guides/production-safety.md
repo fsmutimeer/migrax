@@ -136,7 +136,7 @@ in:
     <plugin>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.17.0</version>
+      <version>0.17.1</version>
       <executions>
         <execution>
           <goals>
