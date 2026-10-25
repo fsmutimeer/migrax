@@ -19,7 +19,7 @@ From Migrax 0.3.0 on, every release is also a container image with the common JD
 for running migrations in Kubernetes or CI without a Java project:
 
 ```
-docker pull ghcr.io/fsmutimeer/migrax:0.17.0
+docker pull ghcr.io/fsmutimeer/migrax:0.17.1
 ```
 
 See [Containers and Kubernetes](guides/containers-and-kubernetes.md).
@@ -31,19 +31,19 @@ Each file's SHA-256 checksum is listed above and in `SHA256SUMS`. To check a fil
 === "Windows"
 
     ```bat
-    certutil -hashfile migrax-0.17.0.zip SHA256
+    certutil -hashfile migrax-0.17.1.zip SHA256
     ```
 
 === "macOS"
 
     ```bash
-    shasum -a 256 migrax-0.17.0.zip
+    shasum -a 256 migrax-0.17.1.zip
     ```
 
 === "Linux"
 
     ```bash
-    sha256sum migrax-0.17.0.zip
+    sha256sum migrax-0.17.1.zip
     ```
 
 The result must match the checksum on this page.

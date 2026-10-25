@@ -3,7 +3,7 @@
 # request. Use it from .gitlab-ci.yml:
 #
 #   include:
-#     - remote: https://raw.githubusercontent.com/fsmutimeer/migrax/v0.17.0/ci/gitlab/migrax.gitlab-ci.yml
+#     - remote: https://raw.githubusercontent.com/fsmutimeer/migrax/v0.17.1/ci/gitlab/migrax.gitlab-ci.yml
 #
 # Change the job by adding a "migrax:" job of your own with the keys to replace (image,
 # variables, stage). For the comment, add the CI/CD variable MIGRAX_COMMENT_TOKEN (masked): a
@@ -15,7 +15,7 @@ migrax:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   variables:
-    MIGRAX_VERSION: "0.17.0"
+    MIGRAX_VERSION: "0.17.1"
     MIGRAX_DIR: "."                     # folder with pom.xml or build.gradle
     MIGRAX_FAIL_ON_LINT_WARNINGS: "false"
   script:

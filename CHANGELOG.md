@@ -6,6 +6,8 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-10-25
+
 ### Added
 
 - Every GitHub release lists the libraries it contains in `migrax-<version>-sbom.cdx.json`
@@ -834,7 +836,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/fsmutimeer/migrax/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/fsmutimeer/migrax/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/fsmutimeer/migrax/compare/v0.14.0...v0.15.0
