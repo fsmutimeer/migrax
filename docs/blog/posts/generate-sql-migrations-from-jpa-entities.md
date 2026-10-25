@@ -183,5 +183,3 @@ OK: entities match the snapshot.
 - Change an entity, run `migrax generate`, read the SQL, commit, run `migrax migrate`.
 - Every migration comes with a rollback script that says what data it would delete.
 - `migrax check` in CI catches entity changes that have no migration.
-
-Next: the [Quick start](../../getting-started/quickstart.md) sets this up in five minutes.
