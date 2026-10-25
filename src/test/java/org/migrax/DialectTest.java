@@ -527,20 +527,75 @@ class DialectTest {
     assertTrue(copy.length() <= 30, copy);
     assertTrue(sql.contains("EXECUTE IMMEDIATE 'ALTER TABLE payments DROP COLUMN " + copy + "'"),
         sql);
+    assertTrue(sql.contains("EXECUTE IMMEDIATE 'DROP TRIGGER " + copy + "_t'"), sql);
+    assertTrue(sql.contains("EXECUTE IMMEDIATE 'ALTER TABLE payments RENAME COLUMN " + copy
+        + " TO amount'"), sql);
+    assertTrue(sql.contains("table_name = 'PAYMENTS' AND column_name = 'AMOUNT'"), sql);
+    assertTrue(sql.contains("all_ind_columns") && sql.contains("all_cons_columns")
+        && sql.contains("all_col_privs") && sql.contains("FUNCTION-BASED%"), sql);
     assertTrue(sql.contains("AND (ROUND(amount, 2) <> amount OR ABS(amount) >= POWER(10, 10))"),
         sql);
-    assertTrue(sql.contains("do not fit NUMBER(12,2); nothing was changed. Fix or delete them, "
-        + "or keep the larger type."), sql);
-    assertTrue(sql.contains("ALTER TABLE payments ADD (" + copy + " number(12,2));\n"
-        + "LOCK TABLE payments IN EXCLUSIVE MODE;\n"
+    assertTrue(sql.contains("do not fit NUMBER(12,2); the column was not changed. Fix or "
+        + "delete them, or keep the larger type."), sql);
+    assertTrue(sql.contains("ALTER SESSION SET DDL_LOCK_TIMEOUT = 60;\n"
+        + "ALTER TABLE payments ADD (" + copy + " number(12,2));\n"
+        + "CREATE TRIGGER " + copy + "_t BEFORE INSERT OR UPDATE ON payments FOR EACH ROW\n"
+        + "BEGIN\n  :NEW." + copy + " := :NEW.amount;\nEND;\n"
+        + "BEGIN\n  EXECUTE IMMEDIATE 'LOCK TABLE payments IN SHARE MODE WAIT 60';\n"
+        + "  COMMIT;\nEXCEPTION WHEN OTHERS THEN\n"
+        + "    EXECUTE IMMEDIATE 'DROP TRIGGER " + copy + "_t';\n"
+        + "    EXECUTE IMMEDIATE 'ALTER TABLE payments DROP COLUMN " + copy + "';\n"
+        + "    RAISE;\nEND;\n"
         + "UPDATE payments SET " + copy + " = amount;\n"
+        + "DECLARE\n  differing NUMBER;\nBEGIN\n"
+        + "  EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM payments WHERE amount IS NOT NULL AND ("
+        + copy + " IS NULL OR " + copy + " <> amount)' INTO differing;\n"), sql);
+    assertTrue(sql.contains("  IF differing > 0 THEN\n"
+        + "    EXECUTE IMMEDIATE 'DROP TRIGGER " + copy + "_t';\n"
+        + "    EXECUTE IMMEDIATE 'ALTER TABLE payments DROP COLUMN " + copy + "';\n"), sql);
+    assertTrue(sql.contains("written during the move do not fit NUMBER(12,2); the column was "
+        + "not changed."), sql);
+    assertTrue(sql.contains("  END IF;\nEND;\n"
         + "ALTER TABLE payments DROP COLUMN amount;\n"
+        + "DROP TRIGGER " + copy + "_t;\n"
         + "ALTER TABLE payments RENAME COLUMN " + copy + " TO amount;\n"
         + "ALTER TABLE payments MODIFY (amount DEFAULT 0 NOT NULL);\n"
-        + "COMMENT ON COLUMN payments.amount IS 'Paid, in euros'"), sql);
+        + "COMMENT ON COLUMN payments.amount IS 'Paid, in euros';\n"
+        + "ALTER SESSION SET DDL_LOCK_TIMEOUT = 0"), sql);
     // One warning for the move, none for its drop, rename and copy.
     var findings = org.migrax.lint.SqlLinter.lint("0002_smaller.sql", sql + ";", "oracle");
     assertEquals(List.of("MX003"), findings.stream().map(f -> f.code()).toList(), sql);
+  }
+
+  @Test
+  void oracleQuotesTheNamesItPutsInStrings() {
+    // An exact name is compared as Oracle stores it; a quote in a name stays inside the string.
+    var from = amount("\"Amount\"", 14, 2, null);
+    var to = amount("\"Amount\"", 12, 2, null);
+    var change = new AlterColumn("pay'ments", from, to);
+    String sql = ((org.migrax.ops.RunSql) oracle(List.of(change),
+        new SchemaModel(List.of(new SchemaModel.Table("pay'ments", List.of(from), null,
+            List.of(), List.of()))),
+        new SchemaModel(List.of(new SchemaModel.Table("pay'ments", List.of(to), null,
+            List.of(), List.of())))).get(0)).sql();
+    assertTrue(sql.contains("table_name = 'pay''ments' AND column_name = 'Amount'"), sql);
+    assertTrue(sql.contains("'ALTER TABLE \"pay''ments\" DROP COLUMN "), sql);
+    assertTrue(sql.contains("value(s) of pay''ments.Amount do not fit"), sql);
+  }
+
+  @Test
+  void onlyAnOracleMoveThroughANewColumnHidesItsDropAndRename() {
+    String move = "UPDATE orders SET migrax_tmp_1 = total;\n"
+        + "ALTER TABLE orders DROP COLUMN total;\n"
+        + "ALTER TABLE orders RENAME COLUMN migrax_tmp_1 TO total;";
+    String bare = "ALTER TABLE orders DROP COLUMN total;\n"
+        + "ALTER TABLE orders RENAME COLUMN migrax_tmp_1 TO total;";
+    java.util.function.BiFunction<String, String, List<String>> codes = (sql, dialect) ->
+        org.migrax.lint.SqlLinter.lint("0002.sql", sql, dialect).stream()
+            .map(f -> f.code()).toList();
+    assertEquals(List.of("MX003"), codes.apply(move, "oracle"));
+    assertEquals(List.of("MX007", "MX008"), codes.apply(bare, "oracle"));
+    assertTrue(codes.apply(move, "postgresql").containsAll(List.of("MX007", "MX008")));
   }
 
   @Test

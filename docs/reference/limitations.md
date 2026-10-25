@@ -35,12 +35,15 @@ schema file.
 **Oracle: a smaller NUMBER column in a key, index, unique constraint or check.** Oracle makes
 a `NUMBER` column smaller (fewer decimals or fewer digits before the point) only while the
 column is empty. For other columns Migrax moves the values through a new column, which rewrites
-the table while writes to it wait. Dropping a column in a key, index, unique constraint or check
-would drop those too, so there the migration stops with ORA-01440 once the table has rows, and
-changes nothing. The same goes for identity columns. Keep the larger type, or write the change
-yourself (`migrax new`): drop the key, index or constraint, add a column with the new type,
-copy the values into it, drop the old column, give the new one its name, and create the key,
-index or constraint again.
+the table; a trigger keeps the new column up to date while the application goes on writing, and
+writes fail for a moment only while the old column is dropped. Dropping a column in a key,
+index, unique constraint or check would drop those too, so there the migration stops with
+ORA-01440 once the table has rows, and changes nothing. The same goes for identity columns. An
+index, constraint or column grant that only the database has (made by hand), or a function-based
+index on the table, stops the move with a message before anything is changed. Keep the larger
+type, or write the change yourself (`migrax new`): drop the key, index or constraint, add a
+column with the new type, copy the values into it, drop the old column, give the new one its
+name, and create the key, index or constraint again.
 
 ## Rolling back
 

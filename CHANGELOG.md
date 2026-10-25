@@ -37,12 +37,14 @@ All notable changes to Migrax are listed here. The format follows
   migration or in the rollback of one that made it larger. Oracle allows that only on an
   empty column, so the change now goes through a new column: first a check that every value
   fits unchanged (a value with too many digits or decimals stops the migration with a message
-  saying how many, before anything is changed), then the new column is added, the table is
-  locked against writes while the values are copied, the old column is dropped and the new
-  one gets its name, default, NOT NULL and comment. The table is rewritten and the column
-  moves to its end. Columns in a key, index, unique constraint or check, and identity
-  columns, keep the plain change, which Oracle still refuses once they have values (see
-  Reference > Limitations).
+  saying how many, before the column is changed, and so does an index, constraint or column
+  grant made by hand that dropping the column would remove), then the new column is added, a
+  trigger keeps it up to date while the application goes on writing, the values are copied
+  and checked once more, the old column is dropped (writes fail for a moment there) and the
+  new one gets its name, default, NOT NULL and comment. The table is rewritten and the column
+  moves to its end; the migration account needs `CREATE TRIGGER`. Columns in a key, index,
+  unique constraint or check, and identity columns, keep the plain change, which Oracle
+  still refuses once they have values (see Reference > Limitations).
 
 ### Security
 

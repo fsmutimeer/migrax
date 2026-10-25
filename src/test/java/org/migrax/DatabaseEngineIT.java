@@ -1095,9 +1095,26 @@ class DatabaseEngineIT {
     }
   }
 
+  private static int count(Statement statement, String sql) throws Exception {
+    try (java.sql.ResultSet rows = statement.executeQuery(sql)) {
+      rows.next();
+      return rows.getInt(1);
+    }
+  }
+
+  private static java.math.BigDecimal sum(Statement statement) throws Exception {
+    try (java.sql.ResultSet rows = statement.executeQuery("SELECT SUM(amount) FROM sn_payment")) {
+      rows.next();
+      return rows.getBigDecimal(1).stripTrailingZeros();
+    }
+  }
+
   /**
-   * Oracle: a NUMBER made smaller with rows in it. A value with too many digits or decimals
-   * stops the migration before anything is changed; once they are gone, every value is kept.
+   * Oracle: a NUMBER made smaller with rows in it. A value with too many digits or decimals,
+   * or an index made by hand, stops the migration before the column is changed; a run that
+   * stopped half way is finished by the next one; and while a second session goes on writing,
+   * every value is kept. Also proves what the move relies on: CREATE TRIGGER doesn't wait for
+   * the transactions already writing to the table, and the SHARE lock after it does.
    */
   private static void exerciseOracleSmallerNumber(Database database) throws Exception {
     try (Connection connection = database.connect()) {
@@ -1123,6 +1140,23 @@ class DatabaseEngineIT {
         statement.execute("INSERT INTO sn_payment VALUES (2, 1.234)");
         statement.execute("INSERT INTO sn_payment VALUES (3, 12345678901.5)");
       }
+      // What the move relies on, with a transaction that inserted a row and hasn't committed:
+      // CREATE TRIGGER doesn't wait for it, so that row could escape the trigger and the copy;
+      // LOCK TABLE ... IN SHARE MODE does wait (here it gives up after a second).
+      try (Connection other = database.connect();
+           Statement writing = other.createStatement();
+           Statement statement = connection.createStatement()) {
+        other.setAutoCommit(false);
+        writing.execute("INSERT INTO sn_payment VALUES (4, 4.5)");
+        statement.execute("CREATE TRIGGER sn_payment_probe BEFORE INSERT ON "
+            + "sn_payment FOR EACH ROW\nBEGIN\n  NULL;\nEND;");
+        java.sql.SQLException waited = assertThrows(java.sql.SQLException.class,
+            () -> statement.execute("LOCK TABLE sn_payment IN SHARE MODE WAIT 1"));
+        assertTrue(waited.getErrorCode() == 54 || waited.getErrorCode() == 30006,
+            waited.getMessage());
+        other.rollback();
+        statement.execute("DROP TRIGGER sn_payment_probe");
+      }
       Path migrations = Files.createTempDirectory("migrax-oracle-number");
       Path file = migrations.resolve("0091_smaller.sql");
       Files.writeString(file, org.migrax.cli.MigrationSqlAccess.render(dialect,
@@ -1132,7 +1166,8 @@ class DatabaseEngineIT {
           () -> runner.migrate(connection, List.of(file)));
       String message = String.valueOf(refused.getMessage()) + " "
           + String.valueOf(refused.getCause());
-      assertTrue(message.contains("do not fit NUMBER(12,2); nothing was changed"), message);
+      assertTrue(message.contains("do not fit NUMBER(12,2); the column was not changed"),
+          message);
       try (Statement statement = connection.createStatement();
            java.sql.ResultSet rows = statement.executeQuery(
                "SELECT COUNT(*), SUM(amount) FROM sn_payment")) {
@@ -1149,13 +1184,112 @@ class DatabaseEngineIT {
         // As a run that stopped after adding the new column leaves it: the next run drops it.
         statement.execute("ALTER TABLE sn_payment ADD (migrax_tmp_" + String.format(
             java.util.Locale.ROOT, "%08x", "sn_payment.amount".hashCode()) + " NUMBER(12,2))");
+        // An index Migrax doesn't know about would go with the old column: it stops the run.
+        statement.execute("CREATE INDEX sn_payment_amount_ix ON sn_payment (amount)");
+      }
+      Exception indexed = assertThrows(Exception.class,
+          () -> runner.migrate(connection, List.of(file)));
+      String why = String.valueOf(indexed.getMessage()) + " " + indexed.getCause();
+      assertTrue(why.contains("has an index, constraint or column grant"), why);
+      try (Statement statement = connection.createStatement()) {
+        assertEquals(1, count(statement, "SELECT COUNT(*) FROM user_indexes "
+            + "WHERE index_name = 'SN_PAYMENT_AMOUNT_IX'"), "the index is kept");
+        assertEquals(0, count(statement, "SELECT COUNT(*) FROM user_tab_columns WHERE "
+            + "table_name = 'SN_PAYMENT' AND column_name LIKE 'MIGRAX_TMP%'"), "leftover gone");
+        statement.execute("DROP INDEX sn_payment_amount_ix");
+        statement.execute("DELETE FROM migrax_history WHERE version = '0091_smaller.sql'");
+        statement.execute("DELETE FROM migrax_failures");
+        // Enough rows that the copy takes a while, and a second session writing all along:
+        // no insert or update that succeeded may be lost.
+        statement.execute("INSERT INTO sn_payment SELECT 10000000 + LEVEL, LEVEL / 4 FROM dual "
+            + "CONNECT BY LEVEL <= 200000");
+      }
+      java.util.concurrent.ConcurrentHashMap<Long, java.math.BigDecimal> written =
+          new java.util.concurrent.ConcurrentHashMap<>();
+      java.util.concurrent.atomic.AtomicBoolean migrating =
+          new java.util.concurrent.atomic.AtomicBoolean(true);
+      java.util.concurrent.atomic.AtomicInteger during =
+          new java.util.concurrent.atomic.AtomicInteger();
+      Thread writer = new Thread(() -> {
+        try (Connection other = database.connect();
+             java.sql.PreparedStatement insert = other.prepareStatement(
+                 "INSERT INTO sn_payment (id, amount) VALUES (?, ?)");
+             java.sql.PreparedStatement update = other.prepareStatement(
+                 "UPDATE sn_payment SET amount = ? WHERE id = 1")) {
+          other.setAutoCommit(true);
+          for (long next = 100; migrating.get(); next++) {
+            java.math.BigDecimal value = java.math.BigDecimal.valueOf(next, 2);
+            try {
+              insert.setLong(1, next);
+              insert.setBigDecimal(2, value);
+              insert.executeUpdate();
+              written.put(next, value);
+              update.setBigDecimal(1, value);
+              update.executeUpdate();
+              written.put(1L, value);
+              during.incrementAndGet();
+            } catch (java.sql.SQLException e) {
+              // Refused while the old column is dropped: the writer notices, nothing is lost.
+            }
+          }
+        } catch (java.sql.SQLException e) {
+          throw new IllegalStateException(e);
+        }
+      });
+      writer.start();
+      try {
+        runner.migrate(connection, List.of(file));
+      } finally {
+        migrating.set(false);
+        writer.join();
+      }
+      assertTrue(during.get() > 0, "the writer wrote while the column was moved");
+      try (Statement statement = connection.createStatement()) {
+        assertEquals(200001 + written.size() - 1, count(statement,
+            "SELECT COUNT(*) FROM sn_payment"));
+        assertEquals(0, count(statement, "SELECT COUNT(*) FROM sn_payment "
+            + "WHERE id > 10000000 AND amount <> (id - 10000000) / 4"), "copied rows");
+        assertEquals(0, count(statement, "SELECT COUNT(*) FROM user_triggers "
+            + "WHERE trigger_name LIKE 'MIGRAX_TMP%'"), "the trigger is gone");
+      }
+      for (var entry : written.entrySet()) {
+        try (java.sql.PreparedStatement select = connection.prepareStatement(
+            "SELECT amount FROM sn_payment WHERE id = ?")) {
+          select.setLong(1, entry.getKey());
+          try (java.sql.ResultSet rows = select.executeQuery()) {
+            assertTrue(rows.next(), "row " + entry.getKey());
+            assertEquals(0, entry.getValue().compareTo(rows.getBigDecimal(1)),
+                "row " + entry.getKey());
+          }
+        }
+      }
+      // As a run that stopped right after dropping the old column leaves it: the values only
+      // in the new column, and its trigger, now broken, refusing every write. The next run
+      // drops the trigger, gives the new column the name and finishes.
+      String copy = "migrax_tmp_" + String.format(java.util.Locale.ROOT, "%08x",
+          "sn_payment.amount".hashCode());
+      String total;
+      try (Statement statement = connection.createStatement()) {
+        total = String.valueOf(count(statement, "SELECT COUNT(*) FROM sn_payment")) + "/"
+            + sum(statement);
+        statement.execute("ALTER TABLE sn_payment ADD (" + copy + " NUMBER(12,2))");
+        statement.execute("UPDATE sn_payment SET " + copy + " = amount");
+        statement.execute("CREATE TRIGGER " + copy + "_t BEFORE INSERT OR UPDATE ON sn_payment "
+            + "FOR EACH ROW\nBEGIN\n  :NEW." + copy + " := :NEW.amount;\nEND;");
+        statement.execute("ALTER TABLE sn_payment DROP COLUMN amount");
+        assertThrows(java.sql.SQLException.class,
+            () -> statement.execute("INSERT INTO sn_payment (id) VALUES (5)"),
+            "the broken trigger refuses writes");
+        statement.execute("DELETE FROM migrax_history WHERE version = '0091_smaller.sql'");
       }
       runner.migrate(connection, List.of(file));
-      try (Statement statement = connection.createStatement();
-           java.sql.ResultSet rows = statement.executeQuery(
-               "SELECT amount FROM sn_payment WHERE id = 1")) {
-        rows.next();
-        assertEquals(0, new java.math.BigDecimal("120.50").compareTo(rows.getBigDecimal(1)));
+      try (Statement statement = connection.createStatement()) {
+        assertEquals(total, count(statement, "SELECT COUNT(*) FROM sn_payment") + "/"
+            + sum(statement), "rows and values after the finished run");
+        assertEquals(0, count(statement, "SELECT COUNT(*) FROM user_triggers "
+            + "WHERE trigger_name LIKE 'MIGRAX_TMP%'"), "the trigger is gone");
+        assertEquals(0, count(statement, "SELECT COUNT(*) FROM user_tab_columns WHERE "
+            + "table_name = 'SN_PAYMENT' AND column_name LIKE 'MIGRAX_TMP%'"), "no new column");
       }
       var table = org.migrax.plugin.DatabaseSchemaReader.read(connection, null).tables()
           .stream().filter(t -> t.name().equalsIgnoreCase("sn_payment")).findFirst()
