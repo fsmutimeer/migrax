@@ -247,7 +247,6 @@ Rolled back 1 migration(s).
 ```
 
 A rename moves no data, so undoing it loses none either. `migrax migrate` applies it again.
-Applying, undoing and the rest of that loop get their own article.
 
 ## A rename while the old code still runs
 
