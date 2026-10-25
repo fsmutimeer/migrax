@@ -4,4 +4,4 @@ mkdocs-material[imaging]==9.7.7
 # RSS feed of the blog (feed_rss_created.xml at the site root).
 mkdocs-rss-plugin==1.19.0
 # MkDocs 2.0 drops the plugin and theme system Material relies on.
-mkdocs>=1.6,<2
+mkdocs>=1.6.1,<2
