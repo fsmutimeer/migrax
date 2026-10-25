@@ -30,6 +30,17 @@ All notable changes to Migrax are listed here. The format follows
   looked the table up under the name it gives back only afterwards, so the rebuild was left
   out without a word. It is now rebuilt under that name, and a table that can't be found stops
   `migrax generate` with an error instead.
+- Oracle: making a NUMBER column smaller (fewer decimals or fewer digits before the point,
+  `bigint` to `integer` included) failed with ORA-01440 once the table had rows, in a
+  migration or in the rollback of one that made it larger. Oracle allows that only on an
+  empty column, so the change now goes through a new column: first a check that every value
+  fits unchanged (a value with too many digits or decimals stops the migration with a message
+  saying how many, before anything is changed), then the new column is added, the table is
+  locked against writes while the values are copied, the old column is dropped and the new
+  one gets its name, default, NOT NULL and comment. The table is rewritten and the column
+  moves to its end. Columns in a key, index, unique constraint or check, and identity
+  columns, keep the plain change, which Oracle still refuses once they have values (see
+  Reference > Limitations).
 
 ### Security
 

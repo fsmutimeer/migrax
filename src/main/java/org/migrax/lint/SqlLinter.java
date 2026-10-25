@@ -72,6 +72,17 @@ public final class SqlLinter {
 
   private SqlLinter() {}
 
+  /**
+   * {@code ALTER TABLE t RENAME COLUMN migrax_tmp_... TO c}: the last step of Oracle's smaller
+   * NUMBER through a new column, which copied c's values first.
+   */
+  private static final Pattern NEW_COLUMN_RENAME = Pattern.compile(
+      "(?i)^ALTER TABLE \"?(\\w+)\"? RENAME COLUMN \"?migrax_tmp_\\w+\"? TO \"?(\\w+)\"?\\s*$");
+
+  /** {@code ALTER TABLE t DROP COLUMN c}, with both names captured. */
+  private static final Pattern DROP_COLUMN = Pattern.compile(
+      "(?i)^ALTER TABLE \"?(\\w+)\"? DROP COLUMN \"?(\\w+)\"?\\s*$");
+
   /** {@code ALTER TABLE migrax_new_x RENAME TO x}: the last step of a SQLite table rebuild. */
   private static final Pattern REBUILD_RENAME = Pattern.compile(
       "(?i)^ALTER TABLE \"?migrax_new_\\w+\"? RENAME TO \"?(\\w+)\"?\\s*$");
@@ -121,6 +132,16 @@ public final class SqlLinter {
       Matcher copy = REBUILD_RENAME.matcher(SqlScript.stripComments(statement).trim());
       if (copy.find()) {
         rebuilt.add(normalize(copy.group(1)));
+      }
+    }
+    // Columns Oracle moved through a new column: the old one goes only after its values were
+    // copied, and the new one takes its name.
+    Set<String> moved = new HashSet<>();
+    for (String statement : statements) {
+      Matcher column = NEW_COLUMN_RENAME.matcher(
+          SqlScript.stripComments(statement).replaceAll("\\s+", " ").trim());
+      if (column.find()) {
+        moved.add(normalize(column.group(1)) + "." + normalize(column.group(2)));
       }
     }
 
@@ -201,6 +222,8 @@ public final class SqlLinter {
       }
       if (existing && (upper.matches(".* ALTER COLUMN \\S+ (SET DATA )?TYPE .*")
           || upper.matches(".* (MODIFY|CHANGE) (COLUMN )?.*")
+              // Oracle's MODIFY of only the default or NULL / NOT NULL keeps the type.
+              && !upper.matches(".* MODIFY \\(\\S+( DEFAULT \\S+)?( (NOT )?NULL)?\\)")
           || "sqlserver".equals(dialect) && upper.matches(".* ALTER COLUMN \\S+ \\w+.*")
           && !upper.matches(".* ALTER COLUMN \\S+ (SET|DROP|ADD) .*"))) {
         found.add(finding("MX003", Severity.WARNING, file, number, text,
@@ -243,14 +266,20 @@ public final class SqlLinter {
       }
       boolean rebuildDrop = upper.matches("^DROP TABLE .*")
           && rebuilt.contains(normalize(text.substring("DROP TABLE ".length()).trim()));
-      if (!rebuildDrop && upper.matches("^DROP TABLE .*") || upper.matches(".* DROP (COLUMN )?(?!CONSTRAINT|INDEX|PRIMARY|FOREIGN|DEFAULT|NOT|IDENTITY|UNIQUE)\\S+.*")
+      Matcher dropColumn = DROP_COLUMN.matcher(text);
+      boolean movedDrop = dropColumn.matches() && moved.contains(
+          normalize(dropColumn.group(1)) + "." + normalize(dropColumn.group(2)));
+      if (!rebuildDrop && upper.matches("^DROP TABLE .*") || !movedDrop && upper.matches(
+              ".* DROP (COLUMN )?(?!CONSTRAINT|INDEX|PRIMARY|FOREIGN|DEFAULT|NOT|IDENTITY|UNIQUE)"
+                  + "\\S+.*")
           && upper.startsWith("ALTER TABLE")) {
         found.add(finding("MX007", Severity.WARNING, file, number, text,
             "This deletes data, and running application instances that still use it will fail.",
             "Deploy code that no longer uses it first, then drop it in a later release "
                 + "(expand/contract: 'migrax generate --zero-downtime' does this)."));
       }
-      boolean rebuildCopy = REBUILD_RENAME.matcher(text).find();
+      boolean rebuildCopy = REBUILD_RENAME.matcher(text).find()
+          || NEW_COLUMN_RENAME.matcher(text).find();
       if (!rebuildCopy && (upper.matches("^(RENAME TABLE|EXEC SP_RENAME).*")
           || upper.startsWith("ALTER TABLE") && upper.matches(".* RENAME (COLUMN |TO ).*"))) {
         found.add(finding("MX008", Severity.WARNING, file, number, text,
@@ -259,7 +288,13 @@ public final class SqlLinter {
                 + "old name ('migrax generate --zero-downtime' does this). Or deploy during a "
                 + "maintenance window."));
       }
-      if (upper.matches("^(UPDATE|DELETE FROM|DELETE) .*") && !upper.contains(" WHERE ")) {
+      if (upper.matches("^UPDATE .* SET MIGRAX_TMP_[0-9A-F]+ = .*")) {
+        // Oracle's smaller NUMBER, copied into a new column: one warning for the whole move.
+        found.add(finding("MX003", Severity.WARNING, file, number, text,
+            "Making the column smaller rewrites " + table + " through a new column; writes to "
+                + "it wait while the values are copied.",
+            "Test on a production-size copy and run it when the table is quiet."));
+      } else if (upper.matches("^(UPDATE|DELETE FROM|DELETE) .*") && !upper.contains(" WHERE ")) {
         found.add(finding("MX009", Severity.WARNING, file, number, text,
             "This changes every row of the table in one transaction.",
             "Add a WHERE clause, or update large tables in batches."));

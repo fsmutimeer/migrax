@@ -23,7 +23,9 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseEngineIT {
   /**
@@ -177,6 +179,7 @@ class DatabaseEngineIT {
         exerciseKeepData(Database.of(container));
         exerciseZeroDowntime(Database.of(container));
         exerciseRenames(Database.of(container));
+        exerciseOracleSmallerNumber(Database.of(container));
         exerciseScriptTimestamps(Database.of(container));
         exerciseSchemas(Database.of(container));
         exerciseSchemaFile(Database.of(container));
@@ -1089,6 +1092,84 @@ class DatabaseEngineIT {
     try (Connection connection = database.connect()) {
       org.migrax.cli.RenameScenario.run(connection,
           org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
+    }
+  }
+
+  /**
+   * Oracle: a NUMBER made smaller with rows in it. A value with too many digits or decimals
+   * stops the migration before anything is changed; once they are gone, every value is kept.
+   */
+  private static void exerciseOracleSmallerNumber(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      org.migrax.dialect.Dialect dialect =
+          org.migrax.dialect.Dialects.forConnection(connection).orElseThrow();
+      if (!"oracle".equals(dialect.id())) {
+        return;
+      }
+      var wide = new org.migrax.model.SchemaModel.Column("amount", "decimal", false, null, 14,
+          3, null, false, false, null, "decimal", "Paid, in euros");
+      var small = new org.migrax.model.SchemaModel.Column("amount", "decimal", false, null, 12,
+          2, null, false, false, null, "decimal", "Paid, in euros");
+      var id = new org.migrax.model.SchemaModel.Column("id", "bigint", false, null, null, null,
+          null, false);
+      var before = new org.migrax.model.SchemaModel(List.of(new org.migrax.model.SchemaModel.Table(
+          "sn_payment", List.of(id, wide), null, List.of(), List.of())));
+      var after = new org.migrax.model.SchemaModel(List.of(new org.migrax.model.SchemaModel.Table(
+          "sn_payment", List.of(id, small), null, List.of(), List.of())));
+      try (Statement statement = connection.createStatement()) {
+        statement.execute("CREATE TABLE sn_payment (id NUMBER(19) NOT NULL, "
+            + "amount NUMBER(14,3) NOT NULL)");
+        statement.execute("INSERT INTO sn_payment VALUES (1, 120.5)");
+        statement.execute("INSERT INTO sn_payment VALUES (2, 1.234)");
+        statement.execute("INSERT INTO sn_payment VALUES (3, 12345678901.5)");
+      }
+      Path migrations = Files.createTempDirectory("migrax-oracle-number");
+      Path file = migrations.resolve("0091_smaller.sql");
+      Files.writeString(file, org.migrax.cli.MigrationSqlAccess.render(dialect,
+          new org.migrax.diff.DiffEngine().diff(before, after), before, after));
+      MigrationRunner runner = new MigrationRunner();
+      Exception refused = assertThrows(Exception.class,
+          () -> runner.migrate(connection, List.of(file)));
+      String message = String.valueOf(refused.getMessage()) + " "
+          + String.valueOf(refused.getCause());
+      assertTrue(message.contains("do not fit NUMBER(12,2); nothing was changed"), message);
+      try (Statement statement = connection.createStatement();
+           java.sql.ResultSet rows = statement.executeQuery(
+               "SELECT COUNT(*), SUM(amount) FROM sn_payment")) {
+        rows.next();
+        assertEquals(3, rows.getInt(1));
+        assertEquals(0, new java.math.BigDecimal("12345679023.234").compareTo(
+            rows.getBigDecimal(2)), "values unchanged");
+      }
+      // Nothing changed: no new column, and the migration can run again.
+      try (Statement statement = connection.createStatement()) {
+        statement.execute("DELETE FROM migrax_history WHERE version = '0091_smaller.sql'");
+        statement.execute("DELETE FROM migrax_failures");
+        statement.execute("DELETE FROM sn_payment WHERE id IN (2, 3)");
+        // As a run that stopped after adding the new column leaves it: the next run drops it.
+        statement.execute("ALTER TABLE sn_payment ADD (migrax_tmp_" + String.format(
+            java.util.Locale.ROOT, "%08x", "sn_payment.amount".hashCode()) + " NUMBER(12,2))");
+      }
+      runner.migrate(connection, List.of(file));
+      try (Statement statement = connection.createStatement();
+           java.sql.ResultSet rows = statement.executeQuery(
+               "SELECT amount FROM sn_payment WHERE id = 1")) {
+        rows.next();
+        assertEquals(0, new java.math.BigDecimal("120.50").compareTo(rows.getBigDecimal(1)));
+      }
+      var table = org.migrax.plugin.DatabaseSchemaReader.read(connection, null).tables()
+          .stream().filter(t -> t.name().equalsIgnoreCase("sn_payment")).findFirst()
+          .orElseThrow();
+      var amount = table.columns().stream().filter(c -> c.name().equalsIgnoreCase("amount"))
+          .findFirst().orElseThrow();
+      assertEquals(12, amount.precision());
+      assertEquals(2, amount.scale());
+      assertFalse(amount.nullable());
+      assertEquals("Paid, in euros", amount.comment());
+      try (Statement statement = connection.createStatement()) {
+        statement.execute("DROP TABLE sn_payment");
+        statement.execute("DELETE FROM migrax_history WHERE version = '0091_smaller.sql'");
+      }
     }
   }
 }
