@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Renames end to end on a real database, step by step as a project goes through them: a column
  * rename, a table rename with a foreign key (whose generated name changes), a rename of the
- * table the key points at, a rename of the key's own column, and a rename next to a wider column.
+ * table the key points at, a rename of the key's own column, and a rename next to wider columns
+ * (whose rollback makes a decimal smaller again, with rows in it).
  * Each step is generated the way {@code generate --rename/--rename-table} does it, migrated,
  * and checked: no step may be destructive, the rows keep their values and the key keeps
  * pointing at the right rows. Then every step is rolled back, newest first, and the first
@@ -55,10 +56,12 @@ public final class RenameScenario {
    * @param orders the order table's name
    * @param keyColumn the order's column that points at the customer
    * @param total the order total column
+   * @param precision its precision
    * @param email the e-mail column's length
    */
   private static SchemaModel model(String customers, String nameColumn, String orders,
-                                   String keyColumn, String total, int email) {
+                                   String keyColumn, String total, int precision,
+                                   int email) {
     SchemaModel.Table customerTable = new SchemaModel.Table(customers,
         List.of(id(), column("email", "varchar", false, email, null, null),
             column(nameColumn, "varchar", false, 100, null, null)),
@@ -68,7 +71,7 @@ public final class RenameScenario {
         List.of(keyColumn), customers, List.of("id"));
     SchemaModel.Table orderTable = new SchemaModel.Table(orders,
         List.of(id(), column(keyColumn, "bigint", false, null, null, null),
-            column(total, "decimal", false, null, 12, 2)),
+            column(total, "decimal", false, null, precision, 2)),
         new SchemaModel.PrimaryKey(List.of("id"), "rs_order_pkey"), List.of(), List.of(key));
     return new SchemaModel(List.of(customerTable, orderTable));
   }
@@ -76,21 +79,21 @@ public final class RenameScenario {
   private static List<Step> steps() {
     return List.of(
         new Step("0061_create", model("rs_customer", "name", "rs_order", "customer_id",
-            "total", 150), List.of(), List.of()),
+            "total", 12, 150), List.of(), List.of()),
         new Step("0062_rename_column", model("rs_customer", "full_name", "rs_order",
-            "customer_id", "total", 150), List.of(),
+            "customer_id", "total", 12, 150), List.of(),
             List.of(new Renames.ColumnRename("rs_customer", "name", "full_name"))),
         new Step("0063_rename_table", model("rs_customer", "full_name", "rs_purchase",
-            "customer_id", "total", 150),
+            "customer_id", "total", 12, 150),
             List.of(new Renames.TableRename("rs_order", "rs_purchase")), List.of()),
         new Step("0064_rename_referenced_table", model("rs_client", "full_name", "rs_purchase",
-            "customer_id", "total", 150),
+            "customer_id", "total", 12, 150),
             List.of(new Renames.TableRename("rs_customer", "rs_client")), List.of()),
         new Step("0065_rename_key_column", model("rs_client", "full_name", "rs_purchase",
-            "client_id", "total", 150), List.of(),
+            "client_id", "total", 12, 150), List.of(),
             List.of(new Renames.ColumnRename("rs_purchase", "customer_id", "client_id"))),
         new Step("0066_rename_and_widen", model("rs_client", "full_name", "rs_purchase",
-            "client_id", "amount", 200), List.of(),
+            "client_id", "amount", 14, 200), List.of(),
             List.of(new Renames.ColumnRename("rs_purchase", "total", "amount"))));
   }
 

@@ -32,12 +32,15 @@ schema file.
 
 ## Changing columns
 
-**Oracle: a smaller NUMBER column.** Oracle makes a `NUMBER` column smaller (fewer digits or
-fewer decimals) only while the column is empty. Once the table has rows, the migration stops
-with ORA-01440 and changes nothing. The rollback of a migration that made a `NUMBER` column
-larger stops the same way. Keep the larger type, or write the change yourself
-(`migrax new`): add a column with the new type, copy the values into it, drop the old column
-and give the new one its name. Check first that every value fits.
+**Oracle: a smaller NUMBER column in a key, index, unique constraint or check.** Oracle makes
+a `NUMBER` column smaller (fewer decimals or fewer digits before the point) only while the
+column is empty. For other columns Migrax moves the values through a new column, which rewrites
+the table while writes to it wait. Dropping a column in a key, index, unique constraint or check
+would drop those too, so there the migration stops with ORA-01440 once the table has rows, and
+changes nothing. The same goes for identity columns. Keep the larger type, or write the change
+yourself (`migrax new`): drop the key, index or constraint, add a column with the new type,
+copy the values into it, drop the old column, give the new one its name, and create the key,
+index or constraint again.
 
 ## Rolling back
 

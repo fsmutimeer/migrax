@@ -2,11 +2,21 @@ package org.migrax.dialect;
 
 import org.migrax.model.SchemaModel;
 import org.migrax.ops.AlterColumn;
+import org.migrax.ops.Operation;
+import org.migrax.ops.RenameColumn;
+import org.migrax.ops.RenameTable;
+import org.migrax.ops.RunSql;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Oracle database dialect (12c and newer).
@@ -17,6 +27,12 @@ import java.util.Set;
  * @since 0.1.0
  */
 public final class OracleDialect extends AbstractDialect {
+  /**
+   * The start of the new column a smaller NUMBER goes through ({@link #prepare}), short enough
+   * for Oracle's 30-character names. SqlLinter recognizes it.
+   */
+  private static final String TEMPORARY_COLUMN = "migrax_tmp_";
+
   private static final Set<String> RESERVED = Set.of(
       "access", "add", "audit", "char", "cluster", "comment", "compress", "connect", "current",
       "date", "decimal", "exclusive", "file", "float", "identified", "immediate", "increment",
@@ -157,6 +173,164 @@ public final class OracleDialect extends AbstractDialect {
       definition.append(after.nullable() ? " NULL" : " NOT NULL");
     }
     return "ALTER TABLE " + q(change.table()) + " MODIFY (" + definition + ")";
+  }
+
+  /**
+   * Oracle makes a NUMBER smaller (fewer digits before or after the point) only while the
+   * column is empty (ORA-01440). Such a change goes through a new column instead: first a check
+   * that every value fits unchanged, which stops the migration before anything is changed; then
+   * the new column, the table locked against writes while the values are copied, the old column
+   * dropped and the new one given its name, default, NOT NULL and comment. The table is
+   * rewritten and the column moves to its end. A column in a key, index, unique constraint or
+   * check, or an identity column, keeps the plain MODIFY, which Oracle refuses once the column
+   * has values: dropping it would drop those too.
+   */
+  @Override
+  public List<Operation> prepare(List<Operation> operations, SchemaModel before,
+                                 SchemaModel after) {
+    List<Operation> result = new ArrayList<>();
+    for (Operation operation : operations) {
+      int[] from = operation instanceof AlterColumn x ? number(x.before()) : null;
+      int[] to = operation instanceof AlterColumn x ? number(x.after()) : null;
+      if (from != null && to != null && smaller(from, to)
+          && !constrained((AlterColumn) operation, operations, before, after)) {
+        result.add(new RunSql(throughNewColumn((AlterColumn) operation, to), false));
+      } else {
+        result.add(operation);
+      }
+    }
+    return result;
+  }
+
+  /** {@code number(p,s)}, as Oracle gets it. */
+  private static final Pattern NUMBER = Pattern.compile("(?i)number\\((\\d+),(-?\\d+)\\)");
+
+  /**
+   * The precision and scale of the type Oracle gets for a column, or null when it isn't a
+   * sized NUMBER (an unsized decimal is number(38,2), an integer number(10,0)).
+   */
+  private int[] number(SchemaModel.Column column) {
+    Matcher type = NUMBER.matcher(renderType(column).replace(" ", ""));
+    return type.matches()
+        ? new int[] {Integer.parseInt(type.group(1)), Integer.parseInt(type.group(2))}
+        : null;
+  }
+
+  /** Fewer decimals, or fewer digits before the point. */
+  private static boolean smaller(int[] from, int[] to) {
+    return to[1] < from[1] || to[0] - to[1] < from[0] - from[1];
+  }
+
+  /**
+   * Whether dropping the column would take something with it, in the schema before or after
+   * this migration (before, under the names it had: renames in the same migration come first).
+   * Unknown counts as yes.
+   */
+  private static boolean constrained(AlterColumn change, List<Operation> operations,
+                                     SchemaModel before, SchemaModel after) {
+    SchemaModel.Column from = change.before();
+    SchemaModel.Column to = change.after();
+    SchemaModel.Table now = after.table(change.table());
+    if (now == null || from.identity() || to.identity() || from.unique() || to.unique()
+        || uses(after, now, to.name())) {
+      return true;
+    }
+    Set<String> tables = new HashSet<>(Set.of(change.table()));
+    Set<String> columns = new HashSet<>(List.of(to.name(), from.name()));
+    for (int i = operations.size() - 1; i >= 0; i--) {
+      if (operations.get(i) instanceof RenameTable x && tables.contains(x.to())) {
+        tables.add(x.from());
+      } else if (operations.get(i) instanceof RenameColumn x && columns.contains(x.to())) {
+        columns.add(x.from());
+      }
+    }
+    boolean found = false;
+    for (String table : tables) {
+      SchemaModel.Table old = before.table(table);
+      if (old == null) {
+        continue;
+      }
+      for (String column : columns) {
+        if (old.column(column) != null) {
+          found = true;
+          if (uses(before, old, column)) {
+            return true;
+          }
+        }
+      }
+    }
+    return !found;
+  }
+
+  /** Whether a key, index or check of the model uses the table's column. */
+  private static boolean uses(SchemaModel model, SchemaModel.Table table, String column) {
+    String lower = column.toLowerCase(Locale.ROOT);
+    return table.primaryKey() != null && table.primaryKey().columns().contains(column)
+        || table.indexes().stream().anyMatch(i -> i.columns().contains(column))
+        || table.foreignKeys().stream().anyMatch(k -> k.columns().contains(column))
+        || table.checks().stream()
+            .anyMatch(c -> c.expression().toLowerCase(Locale.ROOT).contains(lower))
+        || model.tables().stream().flatMap(other -> other.foreignKeys().stream())
+            .anyMatch(k -> k.referencedTable().equals(table.name())
+                && k.referencedColumns().contains(column));
+  }
+
+  /** The statements of a smaller NUMBER through a new column (see {@link #prepare}). */
+  private String throughNewColumn(AlterColumn change, int[] type) {
+    SchemaModel.Column after = change.after();
+    String table = q(change.table());
+    String column = q(after.name());
+    String copy = TEMPORARY_COLUMN + String.format(Locale.ROOT, "%08x",
+        (change.table() + "." + after.name()).toLowerCase(Locale.ROOT).hashCode());
+    int precision = type[0];
+    int scale = type[1];
+    // Without its default: a sequence default would spend a value on every row it copies.
+    SchemaModel.Column added = new SchemaModel.Column(copy, after.sqlType(), true,
+        after.length(), after.precision(), after.scale(), null, false, false, null,
+        after.logicalType(), null);
+    String target = "NUMBER(" + precision + "," + scale + ")";
+    String where = change.table() + "." + after.name();
+    List<String> statements = new ArrayList<>(List.of(
+        "-- Oracle makes a NUMBER smaller only while it is empty: " + after.name()
+            + " is moved through a new\n-- column, which rewrites the table (writes wait "
+            + "while the values are copied) and puts\n-- the column last. First, every value "
+            + "must fit unchanged.\n"
+            + "DECLARE\n  leftover NUMBER;\n  not_fitting NUMBER;\nBEGIN\n"
+            + "  -- A run that stopped after adding the new column left it behind: drop it while "
+            + "the\n  -- column itself still holds the values.\n"
+            + "  SELECT COUNT(*) INTO leftover FROM user_tab_columns\n"
+            + "    WHERE UPPER(table_name) = UPPER('" + change.table() + "')\n"
+            + "    AND UPPER(column_name) IN (UPPER('" + copy + "'), UPPER('" + after.name()
+            + "'));\n"
+            + "  IF leftover = 2 THEN\n"
+            + "    EXECUTE IMMEDIATE 'ALTER TABLE " + table + " DROP COLUMN " + copy + "';\n"
+            + "  END IF;\n"
+            + "  SELECT COUNT(*) INTO not_fitting FROM " + table + " WHERE " + column
+            + " IS NOT NULL\n    AND (ROUND(" + column + ", " + scale + ") <> " + column
+            + " OR ABS(" + column + ") >= POWER(10, " + (precision - scale) + "));\n"
+            + "  IF not_fitting > 0 THEN\n"
+            + "    RAISE_APPLICATION_ERROR(-20001, 'Migrax: ' || not_fitting || ' value(s) of "
+            + where + " do not fit " + target + "; nothing was changed. Fix or delete them, "
+            + "or keep the larger type.');\n"
+            + "  END IF;\nEND",
+        "ALTER TABLE " + table + " ADD (" + column(added) + ")",
+        "LOCK TABLE " + table + " IN EXCLUSIVE MODE",
+        "UPDATE " + table + " SET " + copy + " = " + column,
+        "ALTER TABLE " + table + " DROP COLUMN " + column,
+        "ALTER TABLE " + table + " RENAME COLUMN " + copy + " TO " + column));
+    String defaultValue = after.defaultValue() != null && !after.defaultValue().isBlank()
+        ? after.defaultValue()
+        : after.sequenceName() != null && !after.identity()
+            ? sequenceDefault(after.sequenceName()) : null;
+    if (defaultValue != null || !after.nullable()) {
+      statements.add("ALTER TABLE " + table + " MODIFY (" + column
+          + (defaultValue != null ? " DEFAULT " + defaultValue : "")
+          + (after.nullable() ? "" : " NOT NULL") + ")");
+    }
+    if (after.comment() != null) {
+      statements.add(columnComment(change.table(), after, after.comment()));
+    }
+    return String.join(";\n", statements);
   }
 
   @Override

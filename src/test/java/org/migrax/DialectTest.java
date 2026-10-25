@@ -488,4 +488,130 @@ class DialectTest {
     assertEquals("-- Derby keeps no comments",
         derby.render(new org.migrax.ops.SetComment("item", null, "Things")));
   }
+
+
+  // ---------------------------------------------------- Oracle: a smaller NUMBER with rows
+
+  private static SchemaModel.Column amount(String name, Integer precision, Integer scale,
+                                           String comment) {
+    return new SchemaModel.Column(name, "decimal", false, null, precision, scale, "0", false,
+        false, null, "decimal", comment);
+  }
+
+  private static SchemaModel payments(SchemaModel.Column amount, SchemaModel.PrimaryKey key,
+                                      List<SchemaModel.Index> indexes) {
+    return new SchemaModel(List.of(new SchemaModel.Table("payments", List.of(amount), key,
+        indexes, List.of())));
+  }
+
+  private static List<Operation> oracle(List<Operation> operations, SchemaModel before,
+                                        SchemaModel after) {
+    return new OracleDialect().prepare(operations, before, after);
+  }
+
+  private static Operation oracleChange(SchemaModel.Column from, SchemaModel.Column to) {
+    return oracle(List.of(new AlterColumn("payments", from, to)), payments(from, null, List.of()),
+        payments(to, null, List.of())).get(0);
+  }
+
+  @Test
+  void oracleMakesANumberSmallerThroughANewColumnAfterCheckingTheValues() {
+    var from = amount("amount", 14, 3, "Paid, in euros");
+    var to = amount("amount", 12, 2, "Paid, in euros");
+    String sql = ((org.migrax.ops.RunSql) oracleChange(from, to)).sql();
+
+    java.util.regex.Matcher name = java.util.regex.Pattern.compile("migrax_tmp_[0-9a-f]{8}")
+        .matcher(sql);
+    assertTrue(name.find(), sql);
+    String copy = name.group();
+    assertTrue(copy.length() <= 30, copy);
+    assertTrue(sql.contains("EXECUTE IMMEDIATE 'ALTER TABLE payments DROP COLUMN " + copy + "'"),
+        sql);
+    assertTrue(sql.contains("AND (ROUND(amount, 2) <> amount OR ABS(amount) >= POWER(10, 10))"),
+        sql);
+    assertTrue(sql.contains("do not fit NUMBER(12,2); nothing was changed. Fix or delete them, "
+        + "or keep the larger type."), sql);
+    assertTrue(sql.contains("ALTER TABLE payments ADD (" + copy + " number(12,2));\n"
+        + "LOCK TABLE payments IN EXCLUSIVE MODE;\n"
+        + "UPDATE payments SET " + copy + " = amount;\n"
+        + "ALTER TABLE payments DROP COLUMN amount;\n"
+        + "ALTER TABLE payments RENAME COLUMN " + copy + " TO amount;\n"
+        + "ALTER TABLE payments MODIFY (amount DEFAULT 0 NOT NULL);\n"
+        + "COMMENT ON COLUMN payments.amount IS 'Paid, in euros'"), sql);
+    // One warning for the move, none for its drop, rename and copy.
+    var findings = org.migrax.lint.SqlLinter.lint("0002_smaller.sql", sql + ";", "oracle");
+    assertEquals(List.of("MX003"), findings.stream().map(f -> f.code()).toList(), sql);
+  }
+
+  @Test
+  void oracleFindsSmallerNumbersByTheTypeOracleGets() {
+    // An unsized decimal is number(38,2): a precision of 12 makes it smaller.
+    assertInstanceOf(org.migrax.ops.RunSql.class,
+        oracleChange(amount("amount", null, null, null), amount("amount", 12, 2, null)));
+    // Fewer digits before the point, the same number of decimals... and the same precision.
+    assertInstanceOf(org.migrax.ops.RunSql.class,
+        oracleChange(amount("amount", 10, 2, null), amount("amount", 10, 4, null)));
+    // bigint to integer: number(19,0) to number(10,0).
+    var big = new SchemaModel.Column("amount", "bigint", false, null, null, null, null, false,
+        false, null, "bigint");
+    var small = new SchemaModel.Column("amount", "integer", false, null, null, null, null,
+        false, false, null, "integer");
+    assertInstanceOf(org.migrax.ops.RunSql.class, oracleChange(big, small));
+    // Larger, and a text column with a precision: Oracle changes those in place.
+    assertInstanceOf(AlterColumn.class,
+        oracleChange(amount("amount", 12, 2, null), amount("amount", 14, 2, null)));
+    var text = new SchemaModel.Column("amount", "varchar", false, 20, 12, null, null, false,
+        false, null, "varchar");
+    var shorter = new SchemaModel.Column("amount", "varchar", false, 10, 10, null, null, false,
+        false, null, "varchar");
+    assertInstanceOf(AlterColumn.class, oracleChange(text, shorter));
+  }
+
+  @Test
+  void oracleKeepsThePlainModifyWhereANewColumnWouldLoseSomething() {
+    var from = amount("amount", 14, 2, null);
+    var to = amount("amount", 12, 2, null);
+    var change = new AlterColumn("payments", from, to);
+    var other = new SchemaModel.Column("payment_amount", "decimal", true, null, 14, 2, null,
+        false, false, null, "decimal");
+    // In the primary key, an index, a unique constraint, a check, its own key or another
+    // table's key pointing at it: dropping the column would drop those.
+    var key = new SchemaModel.PrimaryKey(List.of("amount"), "payments_pkey");
+    assertInstanceOf(AlterColumn.class, oracle(List.of(change), payments(from, key, List.of()),
+        payments(to, key, List.of())).get(0));
+    var index = List.of(new SchemaModel.Index("ix_amount", List.of("amount"), false));
+    assertInstanceOf(AlterColumn.class, oracle(List.of(change), payments(from, null, index),
+        payments(to, null, index)).get(0));
+    var unique = new SchemaModel.Column("amount", "decimal", false, null, 12, 2, "0", true,
+        false, null, "decimal");
+    assertInstanceOf(AlterColumn.class, oracleChange(from, unique));
+    var identity = new SchemaModel.Column("amount", "decimal", false, null, 12, 2, null, false,
+        true, null, "decimal");
+    assertInstanceOf(AlterColumn.class, oracleChange(from, identity));
+    var checked = new SchemaModel(List.of(new SchemaModel.Table("payments", List.of(to), null,
+        List.of(), List.of(), List.of(new SchemaModel.Check("ck_amount", "amount >= 0")), null)));
+    assertInstanceOf(AlterColumn.class, oracle(List.of(change), payments(from, null, List.of()),
+        checked).get(0));
+    var ownKey = new SchemaModel(List.of(new SchemaModel.Table("payments", List.of(to), null,
+        List.of(), List.of(new SchemaModel.ForeignKey("fk_payments_amount", List.of("amount"),
+            "ledger", List.of("total"))))));
+    assertInstanceOf(AlterColumn.class, oracle(List.of(change), payments(from, null, List.of()),
+        ownKey).get(0));
+    var pointedAt = new SchemaModel(List.of(
+        new SchemaModel.Table("payments", List.of(to), null, List.of(), List.of()),
+        new SchemaModel.Table("refunds", List.of(other), null, List.of(), List.of(
+            new SchemaModel.ForeignKey("fk_refunds_payment", List.of("payment_amount"),
+                "payments", List.of("amount"))))));
+    assertInstanceOf(AlterColumn.class, oracle(List.of(change), payments(from, null, List.of()),
+        pointedAt).get(0));
+    // A table that isn't in the schema: unknown counts as constrained.
+    assertInstanceOf(AlterColumn.class, oracle(List.of(change), payments(from, null, List.of()),
+        new SchemaModel(List.of())).get(0));
+    // Renamed in the same migration: the index is found under the column's old name.
+    var renamed = amount("total", 14, 2, null);
+    var indexedTotal = List.of(new SchemaModel.Index("ix_total", List.of("total"), false));
+    assertInstanceOf(AlterColumn.class, oracle(
+        List.of(new org.migrax.ops.RenameColumn("payments", "total", "amount"), change),
+        payments(renamed, null, indexedTotal), payments(to, null, List.of())).get(1));
+  }
 }
