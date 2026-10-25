@@ -134,7 +134,9 @@ What is different:
 ## Oracle
 
 Migrax's migration lock uses `DBMS_LOCK`, so the account that runs the migrations needs
-`GRANT EXECUTE ON SYS.DBMS_LOCK TO <user>`.
+`GRANT EXECUTE ON SYS.DBMS_LOCK TO <user>`. Making a `NUMBER` column smaller in a table with rows
+uses a trigger for a moment, so it also needs `CREATE TRIGGER` (`CREATE ANY TRIGGER` when
+`--schemas` points at another schema).
 
 Oracle 23ai has a `boolean` type, and Hibernate uses it there, while on older versions a
 `boolean` field is a `number(1,0)` column. Migrax asks the database for its version and writes

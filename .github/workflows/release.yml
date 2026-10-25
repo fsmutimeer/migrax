@@ -19,6 +19,8 @@ jobs:
       attestations: write  # to store it, so 'gh attestation verify' finds it
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false  # nothing below pushes with the token
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
@@ -157,6 +159,8 @@ jobs:
       contents: read  # to download the release's zip
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false  # nothing below pushes with the token
       - name: Point the tap and the bucket at this release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
