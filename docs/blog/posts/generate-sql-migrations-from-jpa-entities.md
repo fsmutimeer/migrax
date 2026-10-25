@@ -157,8 +157,9 @@ ALTER TABLE customers ADD COLUMN phone varchar(30);
 The file name describes the change. The rollback script is
 `ALTER TABLE customers DROP COLUMN phone;`. Apply it with `migrax migrate`, as before.
 
-Renaming a column, undoing a migration and changing a column type without losing data each
-get their own article.
+[Renaming a column](renaming-columns-and-tables-without-losing-data.md) and [undoing a
+migration](applying-and-undoing-migrations.md) have their own articles. Changing a column
+type without losing data gets one soon.
 
 ## Keeping entities and migrations in sync
 
