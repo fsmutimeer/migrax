@@ -267,13 +267,41 @@ final class Project implements AutoCloseable {
     return MigrationLoader.rollbackScript(folderOf(version), version);
   }
 
-  /** The next migration number after the highest one in any migration folder. */
+  /**
+   * The next migration number after the highest one in any migration folder or among the Java
+   * migrations: a generated file must not take the number of a Java migration.
+   */
   int nextNumber() throws Exception {
+    int next = nextSqlNumber();
+    for (Path source : javaMigrationSources()) {
+      next = Math.max(next, MigrationFiles.javaNumber(source) + 1);
+    }
+    return next;
+  }
+
+  /** The next migration number after the highest SQL file in any migration folder. */
+  int nextSqlNumber() throws Exception {
     int next = 1;
     for (Path folder : migrationFolders()) {
       next = Math.max(next, MigrationFiles.nextNumber(folder));
     }
     return next;
+  }
+
+  /** The folder of the Java migrations' sources: src/main/java plus the Java package. */
+  Path javaMigrationFolder() throws Exception {
+    return root.resolve("src/main/java").resolve(javaPackage().replace('.', '/'));
+  }
+
+  /** Java migration sources ({@code V<number>__<Name>.java}) in {@link #javaMigrationFolder}. */
+  List<Path> javaMigrationSources() throws Exception {
+    Path folder = javaMigrationFolder();
+    if (!Files.isDirectory(folder)) {
+      return List.of();
+    }
+    try (var files = Files.list(folder)) {
+      return files.filter(file -> MigrationFiles.javaNumber(file) > 0).sorted().toList();
+    }
   }
 
   String packageName() throws Exception {

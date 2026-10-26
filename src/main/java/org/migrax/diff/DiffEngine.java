@@ -36,8 +36,8 @@ import java.util.Set;
  * {@link Operation}s required to transform the earlier schema into the newer schema.
  *
  * <p><strong>Note on column renames:</strong> Column name changes between snapshots produce
- * a {@link org.migrax.ops.DropColumn} followed by an {@link org.migrax.ops.AddColumn} pair
- * (a destructive change). To preserve table data on production systems, review the generated
+ * an {@link org.migrax.ops.AddColumn} and a {@link org.migrax.ops.DropColumn} (a destructive
+ * change). To preserve table data on production systems, review the generated
  * migration script and replace the drop/add pair with an explicit {@code RENAME COLUMN} operation
  * before applying.
  *
@@ -122,9 +122,19 @@ public final class DiffEngine {
         }
       }
 
+      // Dropped columns go last: on databases that commit each DDL statement, a failed add or
+      // alter then stops the migration while the old column and its data are still there.
+      // Except where the add can't run while the old column exists: the same name in other
+      // letters, or a second identity column (one per table on several databases).
+      List<Operation> laterDrops = new ArrayList<>();
       for (SchemaModel.Column oldColumn : oldTable.columns()) {
         if (newTable.column(oldColumn.name()) == null) {
-          changes.add(new DropColumn(newTable.name(), oldColumn.name()));
+          boolean inTheWay = newTable.columns().stream()
+              .anyMatch(c -> oldTable.column(c.name()) == null
+                  && (c.name().equalsIgnoreCase(oldColumn.name())
+                      || c.identity() && oldColumn.identity()));
+          (inTheWay ? changes : laterDrops)
+              .add(new DropColumn(newTable.name(), oldColumn.name()));
         }
       }
       for (SchemaModel.Column newColumn : newTable.columns()) {
@@ -146,6 +156,7 @@ public final class DiffEngine {
           drops.add(new DropUnique(newTable.name(), newColumn.name(), uniqueName));
         }
       }
+      changes.addAll(laterDrops);
 
       if (!samePrimaryKey(oldTable.primaryKey(), newTable.primaryKey())
           && newTable.primaryKey() != null) {

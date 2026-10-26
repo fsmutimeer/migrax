@@ -209,7 +209,8 @@ final class DoctorCommand implements Command {
     Map<String, List<String>> duplicates =
         DuplicateMigrations.unresolved(project, context.migrationRunner());
     if (!duplicates.isEmpty()) {
-      doctor.fail("Migrations share numbers: " + duplicates.values(), "Run 'migrax merge'.");
+      doctor.fail("Migrations share numbers: " + duplicates.values(),
+          DuplicateMigrations.advice(duplicates));
     }
     if (Files.exists(project.snapshot())) {
       doctor.ok("Snapshot: " + project.display(project.snapshot()));

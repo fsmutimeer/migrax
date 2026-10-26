@@ -41,6 +41,58 @@ class DiffEngineTest {
     assertInstanceOf(AddColumn.class, operations.get(0));
   }
 
+  // Databases that commit each DDL statement keep the old column when an add or alter fails.
+  @Test
+  void dropsColumnsAfterAddingAndChangingTheOthers() {
+    var id = new SchemaModel.Column("id", "bigint", false, null, null, null, null, false);
+    var full = new SchemaModel.Column("full_name", "varchar(200)", false, 200, null, null, null,
+        false);
+    var firstNullable = new SchemaModel.Column("first_name", "varchar(100)", true, 100, null,
+        null, null, false);
+    var first = new SchemaModel.Column("first_name", "varchar(100)", false, 100, null, null,
+        null, false);
+    var last = new SchemaModel.Column("last_name", "varchar(100)", false, 100, null, null, null,
+        false);
+    var old = new SchemaModel(List.of(new SchemaModel.Table("customer",
+        List.of(id, full, firstNullable), null, List.of(), List.of())));
+    var now = new SchemaModel(List.of(new SchemaModel.Table("customer",
+        List.of(id, first, last), null, List.of(), List.of())));
+
+    var operations = new DiffEngine().diff(old, now);
+
+    assertEquals(List.of(AlterColumn.class, AddColumn.class, DropColumn.class),
+        operations.stream().map(Object::getClass).toList());
+  }
+
+  // Unquoted names fold, so ADD COLUMN email fails while Email still exists.
+  @Test
+  void dropsAColumnFirstWhenOnlyTheLetterCaseOfItsNameChanges() {
+    var operations = new DiffEngine().diff(
+        oneColumn(new SchemaModel.Column("Email", "varchar", true, 100, null, null, null, false)),
+        oneColumn(new SchemaModel.Column("email", "varchar", true, 100, null, null, null, false)));
+
+    assertEquals(List.of(DropColumn.class, AddColumn.class),
+        operations.stream().map(Object::getClass).toList());
+  }
+
+  // SQL Server, Oracle and Derby allow one identity column per table.
+  @Test
+  void dropsAnIdentityColumnFirstWhenAnotherOneReplacesIt() {
+    var operations = new DiffEngine().diff(
+        oneColumn(new SchemaModel.Column("id", "bigint", false, null, null, null, null, false,
+            true, null, "bigint")),
+        oneColumn(new SchemaModel.Column("customer_id", "bigint", false, null, null, null, null,
+            false, true, null, "bigint")));
+
+    assertEquals(List.of(DropColumn.class, AddColumn.class),
+        operations.stream().map(Object::getClass).toList());
+  }
+
+  private static SchemaModel oneColumn(SchemaModel.Column column) {
+    return new SchemaModel(List.of(new SchemaModel.Table("customer", List.of(column), null,
+        List.of(), List.of())));
+  }
+
   @Test
   void detectsDefaultChangesButIgnoresWhitespace() {
     var before = column("varchar", "varchar", 255, "'legacy default'");

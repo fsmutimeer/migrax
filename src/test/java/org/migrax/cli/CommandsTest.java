@@ -294,6 +294,19 @@ class CommandsTest {
   }
 
   @Test
+  void theBaselineNeedsNumberOneFreeOfJavaMigrations() throws Exception {
+    setUp();
+    existingDatabaseWithoutMigrations();
+    assertEquals(0, cli("new", "seed", "--java").code());
+
+    Result generate = cli("generate");
+    assertEquals(1, generate.code(), generate.all());
+    assertTrue(generate.err().contains("the Java migration V0001__Seed.java has number 0001"),
+        generate.all());
+    assertFalse(Files.exists(migrations().resolve("0001_baseline.sql")), generate.all());
+  }
+
+  @Test
   void firstGenerateWritesTheBaselineBeforeTheChanges() throws Exception {
     setUp();
     existingDatabaseWithoutMigrations();
@@ -608,6 +621,38 @@ class CommandsTest {
     assertEquals(0, java.code(), java.all());
     Path file = project.resolve("src/main/java/db/migration/V0002__FixTotals.java");
     assertTrue(Files.readString(file).contains("implements JavaMigration"));
+  }
+
+  @Test
+  void generateNumbersAfterJavaMigrations() throws Exception {
+    setUp();
+    generateAndMigrate();
+    assertEquals(0, cli("new", "split names", "--java").code());
+    renameInSnapshotAndDatabase();
+
+    Result generated = cli("generate", "--rename", "sample_entity.old_name=name");
+    assertEquals(0, generated.code(), generated.all());
+    try (var files = Files.list(migrations())) {
+      assertTrue(files.anyMatch(f -> f.getFileName().toString().startsWith("0003_rename_")),
+          generated.out());
+    }
+  }
+
+  @Test
+  void aSqlAndAJavaMigrationWithTheSameNumberAreReported() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate").code());
+    Path java = project.resolve("src/main/java/db/migration/V0001__SplitNames.java");
+    Files.createDirectories(java.getParent());
+    Files.writeString(java, "package db.migration;\n");
+
+    Result check = cli("check");
+    assertEquals(1, check.code(), check.all());
+    assertTrue(check.err().contains("[0001_initial.sql, V0001__SplitNames]"), check.all());
+    assertTrue(check.err().contains("rename the one that is not applied yet"), check.all());
+    Result generate = cli("generate");
+    assertEquals(1, generate.code(), generate.all());
+    assertTrue(generate.err().startsWith("error[MXE"), generate.all());
   }
 
   @Test

@@ -258,9 +258,9 @@ Edit the file, for example rename `name` to `full_name` and add a `phone` column
 ```console
 $ migrax check
 3 change(s) in db/schema.sql have no migration:
-  - drop column customer.name
   - add column customer.full_name
   - add column customer.phone
+  - drop column customer.name
 Run 'migrax generate' and commit the result.
 ```
 

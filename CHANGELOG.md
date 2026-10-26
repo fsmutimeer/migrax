@@ -6,7 +6,23 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `generate` and `diff` now drop columns after adding and changing the table's other columns.
+  MySQL, MariaDB, Oracle and H2 commit each schema change at once, so when a later statement
+  of a migration failed, for example making a new column NOT NULL while it still has empty
+  rows, the old column and its data were already gone. Now the migration stops while they are
+  still there. The order of the summary lines changes the same way, and so can the name of
+  the generated file.
+
 ### Fixed
+
+- `generate` gave its file the number of a Java migration written with `migrax new --java`
+  when that number was the highest one, because it counted only SQL files. Both migrations
+  then ran in an order nobody chose (the SQL file first). Java migrations now count, and
+  `generate`, `check` and `doctor` report a SQL file and a Java migration that share a number,
+  with how to fix it: rename the one that is not applied yet. A project that already has such
+  a pair fails `check` (exit code 1) until then, unless both are applied in its database.
 
 - Quarkus: the `migrax.migrations.applied` and `migrax.migrations.failed` counters and the
   `migrax.run` timer of the migrations at startup could stay at 0 in the application's
