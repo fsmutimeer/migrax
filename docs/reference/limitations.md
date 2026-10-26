@@ -30,6 +30,27 @@ migration.
 [repeatable migrations](../guides/advanced-migrations.md#repeatable-migrations), not in the
 schema file.
 
+## Projects without Java
+
+**Migrax itself runs on Java 17 or newer.** Projects in other languages don't need Java on
+their machines: use the [container image](../guides/containers-and-kubernetes.md). They still
+get generated migrations: describe the schema in a
+[schema file](../guides/sql-migrations-for-any-language.md#let-migrax-write-the-migrations),
+or export it from your ORM ([Schema file from your ORM](../guides/schema-from-orm.md)), and
+`migrax generate` writes the migrations and their rollback scripts from it.
+
+**Migrating at startup** works in Java applications (Spring Boot, Quarkus, Micronaut, Helidon,
+Jakarta EE). Elsewhere, run `migrax migrate` before the application starts, for example as a
+step of the deployment or an init container.
+
+## Moving data
+
+**Migrax changes the structure, not the values.** It adds, renames, changes and drops columns
+and tables, and keeps the values of renamed ones, but it can't know how values should change
+shape, such as splitting `full_name` into `first_name` and `last_name`. Write that step
+yourself, in Java or SQL, between two generated migrations:
+[Moving data between columns](../guides/advanced-migrations.md#moving-data-between-columns).
+
 ## Changing columns
 
 **Oracle: a smaller NUMBER column in a key, index, unique constraint or check.** Oracle makes
