@@ -21,6 +21,28 @@ final class DuplicateMigrations {
 
   /** Migration numbers used by more than one versioned file, excluding squashed ranges. */
   static Map<String, List<String>> find(Path folder) throws Exception {
+    Map<String, List<String>> groups = groups(folder);
+    groups.values().removeIf(list -> list.size() < 2);
+    return groups;
+  }
+
+  /**
+   * Like {@link #find}, with the project's Java migrations too: a SQL file and a Java migration
+   * with the same number would run in an order nobody chose.
+   */
+  static Map<String, List<String>> find(Project project) throws Exception {
+    Map<String, List<String>> groups = groups(project.migrations());
+    for (Path source : project.javaMigrationSources()) {
+      String name = source.getFileName().toString().replaceFirst("\\.java$", "");
+      groups.computeIfAbsent(MigrationRunner.versionParts(name).toString(),
+          k -> new ArrayList<>()).add(name);
+    }
+    groups.values().removeIf(list -> list.size() < 2);
+    return groups;
+  }
+
+  /** Versioned files per migration number, excluding squashed ranges. */
+  private static Map<String, List<String>> groups(Path folder) throws Exception {
     List<Path> files = MigrationLoader.sqlFiles(folder);
     Set<String> replaced = new HashSet<>();
     for (Path file : files) {
@@ -37,7 +59,6 @@ final class DuplicateMigrations {
         groups.computeIfAbsent(version.toString(), k -> new ArrayList<>()).add(name);
       }
     }
-    groups.values().removeIf(list -> list.size() < 2);
     return groups;
   }
 
@@ -48,7 +69,7 @@ final class DuplicateMigrations {
    */
   static Map<String, List<String>> unresolved(Project project, MigrationRunner runner)
       throws Exception {
-    Map<String, List<String>> duplicates = find(project.migrations());
+    Map<String, List<String>> duplicates = find(project);
     if (duplicates.isEmpty() || !project.hasUrl()) {
       return duplicates;
     }
@@ -62,8 +83,23 @@ final class DuplicateMigrations {
     Map<String, List<String>> duplicates = unresolved(project, runner);
     if (!duplicates.isEmpty()) {
       throw new UsageException(ErrorCode.DUPLICATE_NUMBERS, "Migrations share numbers: " + duplicates.values() + ".",
-          "This usually follows a git merge of two branches. Run 'migrax merge'.");
+          withJava(duplicates) ? advice(duplicates)
+              : "This usually follows a git merge of two branches. Run 'migrax merge'.");
     }
+  }
+
+  /** What to do about the duplicates: 'migrax merge', or renaming when a Java migration is in. */
+  static String advice(Map<String, List<String>> duplicates) {
+    return withJava(duplicates)
+        ? "Give each migration its own number: rename the one that is not applied yet, the SQL"
+            + " file (with its rollback script) or the Java migration's class and file."
+            + " 'migrax merge' renumbers SQL files only."
+        : "Run 'migrax merge'.";
+  }
+
+  private static boolean withJava(Map<String, List<String>> duplicates) {
+    return duplicates.values().stream().flatMap(List::stream)
+        .anyMatch(name -> !name.endsWith(".sql"));
   }
 
   private static Set<String> appliedVersions(Project project, MigrationRunner runner) {

@@ -50,8 +50,8 @@ Created src/main/resources/db/migration/0007_rename_customer_email_expand.sql (e
   - add column customer.email_address
   - copy customer.email to email_address and keep both equal (trigger)
 Waiting in .migrax/pending/0007_rename_customer_email_contract.sql (contract: for the next release):
-  - drop column customer.email
   - alter column customer.email_address
+  - drop column customer.email
   - remove the trigger that keeps customer.email and email_address equal
 Rollback scripts written to src/main/resources/db/migration/rollback and .migrax/pending/rollback.
 src/main/resources/db/migration/0007_rename_customer_email_expand.sql, statement 5: warning MX009
@@ -83,14 +83,14 @@ CREATE TRIGGER migrax_sync_customer_email_address BEFORE INSERT OR UPDATE ON cus
 UPDATE customer SET email_address = email;
 ```
 
-The contract migration removes the trigger and the old column, and makes the new column
-NOT NULL:
+The contract migration removes the trigger, makes the new column NOT NULL, and drops the old
+column:
 
 ```sql
 DROP TRIGGER migrax_sync_customer_email_address ON customer;
 DROP FUNCTION migrax_sync_customer_email_address();
-ALTER TABLE customer DROP COLUMN email;
 ALTER TABLE customer ALTER COLUMN email_address SET NOT NULL;
+ALTER TABLE customer DROP COLUMN email;
 ```
 
 ## What goes where

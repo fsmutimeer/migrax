@@ -140,7 +140,18 @@ final class GenerateCommand implements Command {
     // also writes those tables as a baseline migration, so the migrations alone can build an
     // empty database.
     boolean baseline = !hasSnapshot && !changes.previous().tables().isEmpty()
-        && project.nextNumber() == 1;
+        && project.nextSqlNumber() == 1;
+    if (baseline) {
+      for (Path source : project.javaMigrationSources()) {
+        if (MigrationFiles.javaNumber(source) == 1) {
+          throw new UsageException("The database already has tables, so the first migration is "
+              + "the baseline " + BASELINE + ".sql, but the Java migration "
+              + source.getFileName() + " has number 0001.",
+              "Give the Java migration a higher number (rename its class and file), then run "
+                  + "'migrax generate' again.");
+        }
+      }
+    }
     if (operations.isEmpty()) {
       out.println("No changes detected.");
       if (!hasSnapshot) {
@@ -475,8 +486,13 @@ final class GenerateCommand implements Command {
                                       List<Operation> operations) throws Exception {
     String name = args.option("--name");
     if (Project.blank(name)) {
-      return Migrations.nextName(project.migrationFolders(), previous.tables().isEmpty(),
-          operations);
+      String generated = Migrations.nextName(project.migrationFolders(),
+          previous.tables().isEmpty(), operations);
+      // nextName counts the SQL files only; Java migrations take numbers too.
+      int separator = generated.indexOf('_');
+      int next = Math.max(project.nextNumber(),
+          Integer.parseInt(generated.substring(0, separator)));
+      return String.format(Locale.ROOT, "%04d_%s", next, generated.substring(separator + 1));
     }
     name = name.trim();
     if (name.endsWith(".sql")) {

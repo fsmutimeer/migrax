@@ -24,12 +24,12 @@ database (the one Migrax normally connects to, or `--url`):
 $ migrax diff jdbc:postgresql://staging:5432/shop --url jdbc:postgresql://prod:5432/shop
 To make jdbc:postgresql://prod:5432/shop match jdbc:postgresql://staging:5432/shop:
 7 change(s) for postgresql:
-  1. drop column customer.legacy_code  [DESTRUCTIVE]
-     ALTER TABLE customer DROP COLUMN legacy_code;
-  2. alter column customer.name
+  1. alter column customer.name
      ALTER TABLE customer ALTER COLUMN name TYPE varchar(100);
-  3. add column customer.email
+  2. add column customer.email
      ALTER TABLE customer ADD COLUMN email varchar(200);
+  3. drop column customer.legacy_code  [DESTRUCTIVE]
+     ALTER TABLE customer DROP COLUMN legacy_code;
   4. comment on customer
      COMMENT ON TABLE customer IS 'People who buy';
   5. add index idx_customer_email on customer

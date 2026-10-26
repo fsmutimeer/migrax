@@ -66,8 +66,8 @@ final class CheckCommand implements Command {
           "conflicts", new ArrayList<>(duplicates.values()))));
     } else {
       if (!duplicates.isEmpty()) {
-        err.println("Migrations share numbers: " + duplicates.values()
-            + ". Run 'migrax merge'.");
+        err.println("Migrations share numbers: " + duplicates.values() + ". "
+            + DuplicateMigrations.advice(duplicates));
       }
       boolean schemaFile = project.schemaFile() != null;
       if (changes.operations().isEmpty()) {

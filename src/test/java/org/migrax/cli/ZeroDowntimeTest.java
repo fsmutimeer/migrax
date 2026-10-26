@@ -68,9 +68,9 @@ class ZeroDowntimeTest {
     assertEquals(List.of(
         new RunSql("DROP TRIGGER " + trigger + " ON customer", true),
         new RunSql("DROP FUNCTION " + trigger + "()", true),
-        new DropColumn("customer", "email"),
         new AlterColumn("customer", column("email_address", true),
-            column("email_address", false))), plan.contract());
+            column("email_address", false)),
+        new DropColumn("customer", "email")), plan.contract());
   }
 
   @Test

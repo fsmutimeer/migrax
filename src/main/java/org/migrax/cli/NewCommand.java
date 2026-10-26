@@ -9,8 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** {@code migrax new}: create an empty SQL or Java migration. */
 final class NewCommand implements Command {
@@ -67,21 +65,9 @@ final class NewCommand implements Command {
     }
     Path folder = project.migrations();
     Files.createDirectories(folder);
-    int next = project.nextNumber() - 1;
+    int next = project.nextNumber();
     String javaPackage = project.javaPackage();
-    Path javaFolder = project.root().resolve("src/main/java").resolve(javaPackage.replace('.', '/'));
-    if (Files.isDirectory(javaFolder)) {
-      Pattern javaVersion = Pattern.compile("^V(\\d+)__");
-      try (var stream = Files.list(javaFolder)) {
-        for (Path file : stream.toList()) {
-          Matcher matcher = javaVersion.matcher(file.getFileName().toString());
-          if (matcher.find()) {
-            next = Math.max(next, Integer.parseInt(matcher.group(1)));
-          }
-        }
-      }
-    }
-    next++;
+    Path javaFolder = project.javaMigrationFolder();
     String number = String.format(Locale.ROOT, "%04d", next);
     if (args.flag("--java")) {
       StringBuilder camel = new StringBuilder();
