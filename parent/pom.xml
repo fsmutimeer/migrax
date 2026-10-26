@@ -8,7 +8,7 @@
        builds don't use the profile. -->
   <groupId>org.migrax</groupId>
   <artifactId>migrax-parent</artifactId>
-  <version>0.17.2-SNAPSHOT</version>
+  <version>0.17.2-rc.1</version>
   <packaging>pom</packaging>
   <name>Migrax parent</name>
   <description>Shared build settings of the Migrax artifacts.</description>
