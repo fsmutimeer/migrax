@@ -41,6 +41,110 @@ public class V0006__BackfillFullNames implements JavaMigration {
 - Add `org.migrax:migrax` as a `provided` (Maven) or `compileOnly` (Gradle) dependency so the
   class compiles. With the Spring Boot starter, `JavaMigration` beans are picked up too.
 
+## Moving data between columns
+
+Migrax writes the changes to the structure. When values have to change shape, for example
+when `full_name` becomes `first_name` and `last_name`, only you know the rule. Write that step
+yourself, between two generated migrations.
+
+**1. Add the new columns and keep the old one.** Add `first_name` and `last_name` to the
+entity as nullable fields, leave `full_name` in place, and generate:
+
+```console
+$ migrax generate
+Created src/main/resources/db/migration/0002_add_customer_first_name_add_customer_last_name.sql:
+  - add column customer.first_name
+  - add column customer.last_name
+Rollback script written to src/main/resources/db/migration/rollback.
+Review the SQL, then run 'migrax migrate'.
+```
+
+**2. Move the values.** Create a Java migration and write the rule in Java:
+
+```console
+$ migrax new split_full_name --java
+Created src/main/java/db/migration/V0003__SplitFullName.java.
+```
+
+```java title="src/main/java/db/migration/V0003__SplitFullName.java"
+package db.migration;
+
+import org.migrax.api.JavaMigration;
+import java.sql.Connection;
+
+public class V0003__SplitFullName implements JavaMigration {
+    @Override
+    public void migrate(Connection connection) throws Exception {
+        try (var select = connection.prepareStatement(
+                 "SELECT id, full_name FROM customer WHERE first_name IS NULL");
+             var update = connection.prepareStatement(
+                 "UPDATE customer SET first_name = ?, last_name = ? WHERE id = ?");
+             var rows = select.executeQuery()) {
+            while (rows.next()) {
+                String name = rows.getString("full_name").trim();
+                int space = name.lastIndexOf(' ');
+                update.setString(1, space < 0 ? name : name.substring(0, space));
+                update.setString(2, space < 0 ? "" : name.substring(space + 1));
+                update.setLong(3, rows.getLong("id"));
+                update.addBatch();
+            }
+            update.executeBatch();
+        }
+    }
+
+    @Override
+    public void rollback(Connection connection) throws Exception {
+        try (var statement = connection.createStatement()) {
+            statement.executeUpdate("UPDATE customer SET first_name = NULL, last_name = NULL");
+        }
+    }
+}
+```
+
+A SQL migration (`migrax new split_full_name`) works too, with your database's string
+functions.
+
+**3. Remove the old column.** Delete `full_name` from the entity, make the new fields required,
+and generate again:
+
+```console
+$ migrax generate --allow-destructive
+Created src/main/resources/db/migration/0004_alter_customer_first_name_and_more.sql:
+  - alter column customer.first_name
+  - alter column customer.last_name
+  - drop column customer.full_name
+Rollback script written to src/main/resources/db/migration/rollback.
+src/main/resources/db/migration/0004_alter_customer_first_name_and_more.sql, statement 3: warning MX007
+  ALTER TABLE customer DROP COLUMN full_name
+  This deletes data, and running application instances that still use it will fail.
+  Fix: Deploy code that no longer uses it first, then drop it in a later release (expand/contract: 'migrax generate --zero-downtime' does this).
+Review the SQL, then run 'migrax migrate'.
+```
+
+`migrax migrate` runs the three in order:
+
+```console
+$ migrax migrate
+Applying migration '0002_add_customer_first_name_add_customer_last_name.sql'...
+Successfully applied migration '0002_add_customer_first_name_add_customer_last_name.sql'.
+Applying migration 'V0003__SplitFullName'...
+Successfully applied migration 'V0003__SplitFullName'.
+Applying migration '0004_alter_customer_first_name_and_more.sql'...
+Successfully applied migration '0004_alter_customer_first_name_and_more.sql'.
+Applied 3 migration(s); 4 total in src/main/resources/db/migration.
+```
+
+- The column is dropped last. If making `first_name` required fails because a row has no
+  value, the migration stops with `full_name` still there.
+- During a rolling deployment the old version keeps writing `full_name` only. Release step 3
+  later, with a second copy of the Java migration (its `WHERE first_name IS NULL` only touches
+  the rows that are left), or let [zero-downtime changes](zero-downtime.md) split the release.
+- Rolling back step 3 brings `full_name` back empty. Generate it with `--keep-data` to restore
+  its values: see [Keeping dropped data](rollbacks-and-recovery.md#keeping-dropped-data).
+- With Migrax 0.17.1 and older, `generate` can give its file the number of a Java migration
+  that has the highest number. If it does, rename the file and its rollback script to the next
+  free number before you migrate.
+
 ## Repeatable migrations
 
 Files named `R__<name>.sql` run after the versioned migrations, and again whenever their content
