@@ -58,9 +58,9 @@ class MigraxProcessor {
   }
 
   /**
-   * Metrics (replayed after startup) and spans of the migrations, only in applications with
-   * Micrometer or OpenTelemetry. Elsewhere their classes are kept out of the application, or a
-   * native build would fail on the missing types.
+   * Metrics (replayed once Quarkus attaches its registries) and spans of the migrations, only
+   * in applications with Micrometer or OpenTelemetry. Elsewhere their classes are kept out of
+   * the application, or a native build would fail on the missing types.
    */
   @BuildStep
   void observability(BuildProducer<AdditionalBeanBuildItem> beans,

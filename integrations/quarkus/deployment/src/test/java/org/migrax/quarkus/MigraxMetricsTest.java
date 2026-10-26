@@ -1,12 +1,17 @@
 package org.migrax.quarkus;
 
 import db.migration.V0002__AddNote;
+import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.quarkus.test.QuarkusUnitTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
+import org.migrax.api.MigrationListener;
 import org.migrax.quarkus.app.Note;
+
+import java.time.Duration;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -40,5 +45,29 @@ class MigraxMetricsTest {
     assertEquals(2.0, registry.get("migrax.migrations.applied").counter().count());
     assertEquals(1, registry.get("migrax.run").tag("outcome", "success").timer().count());
     assertEquals(0.0, registry.get("migrax.migrations.pending").gauge().value());
+  }
+
+  // Quarkus does not order the StartupEvent and the attaching of its registries; when the
+  // event came first, the counters reached the registries at 0 (seen on CI).
+  @Test
+  void nothingIsLostWhenTheStartupEventComesBeforeTheRegistries() {
+    CompositeMeterRegistry root = new CompositeMeterRegistry();
+    SimpleMeterRegistry attached = new SimpleMeterRegistry();
+    MigraxMetricsReplay replay = new MigraxMetricsReplay();
+    MigrationListener recorded = replay.listener(Map.of(), "late");
+    recorded.migrationApplied("0001_notes.sql", Duration.ZERO);
+    recorded.migrationApplied("V0002__AddNote", Duration.ZERO);
+    replay.onStart(null);
+    root.add(attached);
+    replay.bindTo(root);
+    assertEquals(2.0, applied(attached));
+
+    recorded.migrationApplied("0003_later.sql", Duration.ZERO);
+    replay.onStart(null);
+    assertEquals(3.0, applied(attached));
+  }
+
+  private static double applied(SimpleMeterRegistry registry) {
+    return registry.get("migrax.migrations.applied").tag("database", "late").counter().count();
   }
 }

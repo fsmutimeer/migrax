@@ -27,7 +27,7 @@ final class MigraxListeners {
 
   /**
    * The metrics of the runs during startup, per database, until {@link MigraxMetricsReplay}
-   * hands them to the registry: Quarkus attaches its registries after the migrations ran.
+   * hands them to the registry: Quarkus may attach its registries after the migrations ran.
    */
   static final Map<String, org.migrax.observe.RecordingListener> STARTUP_METRICS =
       new java.util.concurrent.ConcurrentHashMap<>();

@@ -9,8 +9,8 @@ import java.util.function.Consumer;
 
 /**
  * Keeps the events of migration runs to tell another listener later, for metrics backends
- * that are not ready yet when the migrations run (Quarkus attaches its registries after
- * startup). Durations are kept as measured.
+ * that are not ready yet when the migrations run (Quarkus may attach its registries after
+ * the migrations ran). Durations are kept as measured.
  *
  * @since 0.13.0
  */

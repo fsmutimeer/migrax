@@ -6,6 +6,13 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Quarkus: the `migrax.migrations.applied` and `migrax.migrations.failed` counters and the
+  `migrax.run` timer of the migrations at startup could stay at 0 in the application's
+  registries (Prometheus, OTLP, ...), depending on the order in which Quarkus ran its startup
+  steps. They now always count the startup run.
+
 ## [0.17.1] - 2026-10-25
 
 ### Added
