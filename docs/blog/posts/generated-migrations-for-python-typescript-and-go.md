@@ -33,7 +33,7 @@ the same loop with Drizzle in TypeScript and GORM in Go.
 
 !!! info "Tested with"
 
-    Migrax 0.17.1, PostgreSQL 17, SQLAlchemy 2.1.6 (Python 3.13), Drizzle ORM 0.45.4 with
+    Migrax 0.17.2-rc.1, PostgreSQL 17, SQLAlchemy 2.1.6 (Python 3.13), Drizzle ORM 0.45.4 with
     drizzle-kit 0.31.11 (Node.js 24), GORM 1.31.2 (Go 1.25). Docker runs the throwaway
     databases. Every output below was copied from a real run.
 
@@ -206,10 +206,10 @@ where nobody can answer, it stops before dropping anything:
 $ migrax generate
 Possible rename: customer.name to customer.full_name. To keep the data, rerun with --rename customer.name=full_name.
 2 change(s) for postgresql:
-  1. drop column customer.name  [DESTRUCTIVE]
-     ALTER TABLE customer DROP COLUMN name;
-  2. add column customer.full_name
+  1. add column customer.full_name
      ALTER TABLE customer ADD COLUMN full_name varchar(100) NOT NULL;
+  2. drop column customer.name  [DESTRUCTIVE]
+     ALTER TABLE customer DROP COLUMN name;
 error[MXE108]: 1 destructive change(s) detected (marked [DESTRUCTIVE] above).
 Review them, then run 'migrax generate --allow-destructive'. If a column or table was renamed, pass --rename table.old=new or --rename-table old=new instead.
 $ migrax generate --rename customer.name=full_name
@@ -239,12 +239,12 @@ $ python read.py
 ### Proving the migrations
 
 The migrations now describe the schema in three steps. `migrax verify` checks that they
-really build what the schema file says, on an empty throwaway database, and that every
-rollback script works:
+really build what the schema file says, on an empty throwaway database of your server's
+version, and that every rollback script works:
 
 ```console
 $ migrax verify
-Starting a throwaway postgresql database (postgres:16-alpine)...
+Starting a throwaway postgresql database (postgres:17-alpine)...
 Applying migration '0001_initial.sql'...
 ...
 Applied 3 migration(s) to a fresh postgresql database.
@@ -260,9 +260,9 @@ And `migrax status` shows where the real database is:
 ```console
 $ migrax status
 Migrations in db/migrations for jdbc:postgresql://localhost:55432/shop
-  [X] 0001_initial.sql               applied 2026-10-26 15:25:12
-  [X] 0002_add_customer_phone.sql    applied 2026-10-26 15:25:32
-  [X] 0003_rename_customer_name.sql  applied 2026-10-26 15:25:48
+  [X] 0001_initial.sql               applied 2026-10-26 16:02:43
+  [X] 0002_add_customer_phone.sql    applied 2026-10-26 16:02:51
+  [X] 0003_rename_customer_name.sql  applied 2026-10-26 16:02:58
 3 applied.
 ```
 
