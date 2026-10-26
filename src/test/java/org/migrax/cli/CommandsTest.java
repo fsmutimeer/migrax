@@ -294,6 +294,40 @@ class CommandsTest {
   }
 
   @Test
+  void aJavaMigrationWithAHugeNumberIsReportedNotACrash() throws Exception {
+    setUp();
+    generateAndMigrate();
+    Path java = project.resolve("src/main/java/db/migration/V99999999999__Big.java");
+    Files.createDirectories(java.getParent());
+    Files.writeString(java, "package db.migration;\n");
+
+    Result check = cli("check");
+    assertEquals(0, check.code(), check.all());
+    Result generate = cli("new", "next");
+    assertEquals(1, generate.code(), generate.all());
+    assertTrue(generate.err().contains("V99999999999__Big.java has a number above 1073741823"),
+        generate.all());
+  }
+
+  @Test
+  void theJavaPackageMustBeAPackageName() throws Exception {
+    setUp();
+    for (String bad : java.util.List.of("../outside", "/tmp/abs", "..secret", "a;b")) {
+      Result created = cli("new", "x", "--java", "--java-package", bad);
+      assertEquals(1, created.code(), bad + ": " + created.all());
+      assertTrue(created.err().contains("Invalid Java package '" + bad + "'"), created.all());
+    }
+    // The migration loader takes a comma list and trims; new writes into the first package.
+    for (String good : java.util.List.of("com.example.migrations", "db.café ",
+        "db.more,!db.more.old")) {
+      Result created = cli("new", "x", "--java", "--java-package", good);
+      assertEquals(0, created.code(), good + ": " + created.all());
+      String folder = good.split(",")[0].trim().replace('.', '/');
+      assertTrue(Files.isDirectory(project.resolve("src/main/java/" + folder)), created.all());
+    }
+  }
+
+  @Test
   void theBaselineNeedsNumberOneFreeOfJavaMigrations() throws Exception {
     setUp();
     existingDatabaseWithoutMigrations();

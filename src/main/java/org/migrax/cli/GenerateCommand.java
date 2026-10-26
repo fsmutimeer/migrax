@@ -27,6 +27,7 @@ import org.migrax.runner.MigrationRunner;
 import org.migrax.util.Log;
 
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.sql.Connection;
 import java.nio.file.Path;
@@ -143,7 +144,7 @@ final class GenerateCommand implements Command {
         && project.nextSqlNumber() == 1;
     if (baseline) {
       for (Path source : project.javaMigrationSources()) {
-        if (MigrationFiles.javaNumber(source) == 1) {
+        if (BigInteger.ONE.equals(MigrationFiles.javaNumber(source))) {
           throw new UsageException("The database already has tables, so the first migration is "
               + "the baseline " + BASELINE + ".sql, but the Java migration "
               + source.getFileName() + " has number 0001.",

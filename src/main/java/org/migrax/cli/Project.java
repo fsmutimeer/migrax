@@ -19,6 +19,7 @@ import org.migrax.util.Log;
 import org.migrax.verify.ScratchDatabase;
 
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -274,7 +275,13 @@ final class Project implements AutoCloseable {
   int nextNumber() throws Exception {
     int next = nextSqlNumber();
     for (Path source : javaMigrationSources()) {
-      next = Math.max(next, MigrationFiles.javaNumber(source) + 1);
+      BigInteger number = MigrationFiles.javaNumber(source);
+      if (number.bitLength() > 30) {
+        throw new UsageException("The Java migration " + source.getFileName()
+            + " has a number above 1073741823, the highest Migrax numbers after.",
+            "Rename its class and file to a smaller number, such as V0005__Big.java.");
+      }
+      next = Math.max(next, number.intValue() + 1);
     }
     return next;
   }
@@ -288,19 +295,23 @@ final class Project implements AutoCloseable {
     return next;
   }
 
-  /** The folder of the Java migrations' sources: src/main/java plus the Java package. */
+  /**
+   * The folder of the Java migrations' sources: src/main/java plus {@link #javaSourcePackage}.
+   * Null when that is not a package name: a path such as /tmp/x or ..x would leave the project.
+   */
   Path javaMigrationFolder() throws Exception {
-    return root.resolve("src/main/java").resolve(javaPackage().replace('.', '/'));
+    String name = javaSourcePackage();
+    return name == null ? null : root.resolve("src/main/java").resolve(name.replace('.', '/'));
   }
 
   /** Java migration sources ({@code V<number>__<Name>.java}) in {@link #javaMigrationFolder}. */
   List<Path> javaMigrationSources() throws Exception {
     Path folder = javaMigrationFolder();
-    if (!Files.isDirectory(folder)) {
+    if (folder == null || !Files.isDirectory(folder)) {
       return List.of();
     }
     try (var files = Files.list(folder)) {
-      return files.filter(file -> MigrationFiles.javaNumber(file) > 0).sorted().toList();
+      return files.filter(MigrationFiles::isJavaMigration).sorted().toList();
     }
   }
 
@@ -376,6 +387,21 @@ final class Project implements AutoCloseable {
   String javaPackage() throws Exception {
     String value = setting("--java-package", "java-package");
     return blank(value) ? MigrationLoader.DEFAULT_JAVA_PACKAGE : value;
+  }
+
+  /**
+   * The package of the Java migrations' sources: the first one of the Java package setting,
+   * which the migration loader takes as a comma list. Null when it is not a package name.
+   */
+  String javaSourcePackage() throws Exception {
+    String first = javaPackage().split(",")[0].trim();
+    for (String part : first.split("\\.", -1)) {
+      if (part.isEmpty() || !Character.isJavaIdentifierStart(part.codePointAt(0))
+          || !part.codePoints().skip(1).allMatch(Character::isJavaIdentifierPart)) {
+        return null;
+      }
+    }
+    return first;
   }
 
   /** Schemas for multi-tenant runs, or an empty list for the connection's default schema. */

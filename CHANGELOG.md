@@ -23,6 +23,9 @@ All notable changes to Migrax are listed here. The format follows
   `generate`, `check` and `doctor` report a SQL file and a Java migration that share a number,
   with how to fix it: rename the one that is not applied yet. A project that already has such
   a pair fails `check` (exit code 1) until then, unless both are applied in its database.
+- `migrax new --java` refuses a `--java-package` or `migrax.java-package` that is not a Java
+  package name. A value such as `/tmp/x` or `..x` made it write the class outside the project.
+  With a comma list of packages, the class goes into the first one.
 
 - Quarkus: the `migrax.migrations.applied` and `migrax.migrations.failed` counters and the
   `migrax.run` timer of the migrations at startup could stay at 0 in the application's

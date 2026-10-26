@@ -66,10 +66,14 @@ final class NewCommand implements Command {
     Path folder = project.migrations();
     Files.createDirectories(folder);
     int next = project.nextNumber();
-    String javaPackage = project.javaPackage();
-    Path javaFolder = project.javaMigrationFolder();
     String number = String.format(Locale.ROOT, "%04d", next);
     if (args.flag("--java")) {
+      String javaPackage = project.javaSourcePackage();
+      if (javaPackage == null) {
+        throw new UsageException("Invalid Java package '" + project.javaPackage() + "'.",
+            "Set --java-package or migrax.java-package to a package name such as db.migration.");
+      }
+      Path javaFolder = project.javaMigrationFolder();
       StringBuilder camel = new StringBuilder();
       for (String part : description.split("_")) {
         if (!part.isEmpty()) {
