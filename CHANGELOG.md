@@ -8,6 +8,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Changed
 
+- `verify` starts its throwaway PostgreSQL, MySQL or MariaDB container in the version of your
+  database server when Migrax can reach it, as reading a schema file already did, so the
+  migrations are proven on the version they will run on. Before, it always used its default
+  image (`postgres:16-alpine` for PostgreSQL). `--image` still picks another one.
+
 - `generate` and `diff` now drop columns after adding and changing the table's other columns.
   MySQL, MariaDB, Oracle and H2 commit each schema change at once, so when a later statement
   of a migration failed, for example making a new column NOT NULL while it still has empty

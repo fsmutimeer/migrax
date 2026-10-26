@@ -171,7 +171,9 @@ migrax report --html migrax-report.html   # keep it as a build artifact
 ```
 
 `verify` starts a throwaway database: in memory for H2, HSQLDB and Derby projects, or a container of your engine
-when Docker is available. Without Docker, point it at an empty scratch database:
+when Docker is available. The container runs your server's version when Migrax can reach the
+configured database (since Migrax 0.17.2), or else its default image; `--image` picks another.
+Without Docker, point it at an empty scratch database:
 
 ```bash
 migrax verify --url jdbc:postgresql://ci-db:5432/scratch

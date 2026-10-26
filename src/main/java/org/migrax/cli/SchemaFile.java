@@ -10,7 +10,6 @@ import org.migrax.runner.SqlScript;
 import org.migrax.util.Json;
 import org.migrax.util.Log;
 import org.migrax.verify.ScratchDatabase;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -215,20 +214,8 @@ final class SchemaFile {
   private static ScratchDatabase startScratch(Project project, String source, Dialect dialect,
                                               ClassLoader loader) throws Exception {
     try {
-      String image = project.setting("--image", "scratch-image");
       // The server's own version: a dump of it may use settings older versions don't know.
-      String own = Project.blank(image) && dialect.scratchImage() == null
-          ? project.serverImage(dialect) : null;
-      if (own != null) {
-        try {
-          return ScratchDatabase.start(dialect.id(), own, loader);
-        } catch (IOException e) {
-          Log.warn("Could not start {}, so Migrax uses its default image: {}", own,
-              Errors.describe(e));
-        }
-      }
-      return ScratchDatabase.start(dialect.id(),
-          Project.blank(image) ? dialect.scratchImage() : image, loader);
+      return project.startScratch(dialect, project.setting("--image", "scratch-image"), loader);
     } catch (IllegalStateException e) {
       String hint = "Start Docker, pass --scratch-url with an empty database, or commit "
           + CACHE + " from a machine that has Docker: while " + source

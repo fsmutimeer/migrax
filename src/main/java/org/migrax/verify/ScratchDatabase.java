@@ -53,6 +53,19 @@ public final class ScratchDatabase implements AutoCloseable {
   }
 
   /**
+   * Whether {@link #imageFor} has images per server version for the dialect, so asking the
+   * server for its version is worth a connection.
+   *
+   * @since 0.17.2
+   */
+  public static boolean hasVersionImages(String dialect) {
+    return switch (dialect) {
+      case "postgresql", "mysql", "mariadb" -> true;
+      default -> false;
+    };
+  }
+
+  /**
    * The image of a server's own version, for SQL that only that version (or newer) runs, such
    * as the settings pg_dump writes; null when there is no such image.
    *
