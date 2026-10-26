@@ -345,4 +345,22 @@ class SchemaFileTest {
     assertEquals("mariadb:11.4", ScratchDatabase.imageFor("mariadb", 11, 4));
     assertNull(ScratchDatabase.imageFor("sqlserver", 16, 0));
   }
+
+  // verify and the schema file share this choice; VerifyCommand only passes its --image.
+  @Test
+  void theThrowawayImageFollowsTheServerAndOpensNoDatabaseFile() throws Exception {
+    Files.createDirectories(project.resolve(".migrax"));
+    Files.writeString(project.resolve(".migrax/snapshot.json"),
+        "{\"dialect\": \"postgresql\", \"server\": \"17.2\", \"tables\": []}");
+    Project recorded = new Project(Args.parse(new String[] {"verify", "--dir",
+        project.toString(), "--no-build"}), System.err);
+    assertEquals("postgres:17-alpine", recorded.scratchImage(Dialects.byName("postgresql"), null));
+    assertEquals("custom:1", recorded.scratchImage(Dialects.byName("postgresql"), "custom:1"));
+
+    Path file = project.resolve("app.db");
+    Project sqlite = new Project(Args.parse(new String[] {"verify", "--dir", project.toString(),
+        "--url", "jdbc:sqlite:" + file}), System.err);
+    assertNull(sqlite.scratchImage(Dialects.byName("sqlite"), null));
+    assertFalse(Files.exists(file), "the application's database is not opened to pick an image");
+  }
 }

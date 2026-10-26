@@ -497,6 +497,39 @@ final class Project implements AutoCloseable {
     return version.length == 2 ? dialect.forServer(version[0], version[1]) : dialect;
   }
 
+  /**
+   * Starts a throwaway database: {@code image} when given, else one of the configured server's
+   * own version when it is known (its SQL may use what older versions don't have), else the
+   * dialect's default.
+   */
+  ScratchDatabase startScratch(Dialect dialect, String image, ClassLoader loader)
+      throws Exception {
+    String chosen = scratchImage(dialect, image);
+    if (chosen != null && blank(image)) {
+      try {
+        return ScratchDatabase.start(dialect.id(), chosen, loader);
+      } catch (java.io.IOException e) {
+        Log.warn("Could not start {}, so Migrax uses its default image: {}", chosen,
+            Errors.describe(e));
+      }
+    }
+    return ScratchDatabase.start(dialect.id(), blank(image) ? dialect.scratchImage() : image,
+        loader);
+  }
+
+  /**
+   * The image {@link #startScratch} tries first: {@code image} when given, else the server's own
+   * version's when the engine has such images and the version is known, else null (the
+   * default). Only then is the server asked, so an SQLite or H2 file is never opened for it.
+   */
+  String scratchImage(Dialect dialect, String image) throws Exception {
+    if (!blank(image)) {
+      return image;
+    }
+    return dialect.scratchImage() == null && ScratchDatabase.hasVersionImages(dialect.id())
+        ? serverImage(dialect) : null;
+  }
+
   /** The throwaway database image of the configured server's version, or null if unknown. */
   String serverImage(Dialect dialect) throws Exception {
     int[] version = serverVersion(dialect);
@@ -519,17 +552,25 @@ final class Project implements AutoCloseable {
   }
 
   private int[] askServerVersion(Dialect dialect) throws Exception {
-    if (!hasUrl() || !dialect.acceptsUrl(credentials().url())) {
+    if (serverUnreachable || !hasUrl() || !dialect.acceptsUrl(credentials().url())) {
       return new int[0];
     }
     try (Connection connection = connect()) {
-      java.sql.DatabaseMetaData metadata = connection.getMetaData();
-      return new int[] {metadata.getDatabaseMajorVersion(), metadata.getDatabaseMinorVersion()};
+      return versionOf(connection);
     } catch (Exception e) {
       Log.debug("Could not ask the database for its version: {}", e.getMessage());
+      serverUnreachable = true;
       return new int[0];
     }
   }
+
+  private static int[] versionOf(Connection connection) throws java.sql.SQLException {
+    java.sql.DatabaseMetaData metadata = connection.getMetaData();
+    return new int[] {metadata.getDatabaseMajorVersion(), metadata.getDatabaseMinorVersion()};
+  }
+
+  /** A connection to the server failed once in this command: don't wait for it again. */
+  private boolean serverUnreachable;
 
   private static int[] parseVersion(String version) {
     java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)")
@@ -580,10 +621,17 @@ final class Project implements AutoCloseable {
       return Dialects.byName("cockroachdb");
     }
     if (serverDialect == null) {
+      if (serverUnreachable) {
+        return fromUrl;
+      }
       try (Connection connection = connect()) {
         serverDialect = Dialects.forConnection(connection).orElse(fromUrl);
+        if (serverVersion == null) {
+          serverVersion = versionOf(connection);
+        }
       } catch (Exception e) {
         Log.debug("Could not ask the database which one it is: {}", e.getMessage());
+        serverUnreachable = true;
         return fromUrl;
       }
     }
