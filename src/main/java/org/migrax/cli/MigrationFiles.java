@@ -2,6 +2,7 @@ package org.migrax.cli;
 
 import org.migrax.runner.MigrationLoader;
 import org.migrax.runner.MigrationRunner;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -31,17 +32,25 @@ final class MigrationFiles {
         "Run 'migrax status' to list migrations in " + project.displayMigrations() + ".");
   }
 
-  /** The number of a Java migration source such as V0003__SplitFullName.java; 0 otherwise. */
-  static int javaNumber(Path source) {
+  /** Whether the file is a Java migration source such as V0003__SplitFullName.java. */
+  static boolean isJavaMigration(Path source) {
+    return JAVA_SOURCE.matcher(source.getFileName().toString()).matches();
+  }
+
+  /** The number of a Java migration source, which may be larger than an int. */
+  static BigInteger javaNumber(Path source) {
     Matcher matcher = JAVA_SOURCE.matcher(source.getFileName().toString());
-    return matcher.matches() ? Integer.parseInt(matcher.group(1)) : 0;
+    if (!matcher.matches()) {
+      throw new IllegalArgumentException("Not a Java migration: " + source);
+    }
+    return new BigInteger(matcher.group(1));
   }
 
   /** The next migration number after the highest one in the folder. */
   static int nextNumber(Path folder) throws Exception {
     int highest = 0;
     for (Path file : MigrationLoader.sqlFiles(folder)) {
-      List<java.math.BigInteger> version =
+      List<BigInteger> version =
           MigrationRunner.versionParts(file.getFileName().toString());
       if (!version.isEmpty()) {
         highest = Math.max(highest, version.get(0).intValue());
