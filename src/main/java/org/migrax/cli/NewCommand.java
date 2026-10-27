@@ -65,8 +65,7 @@ final class NewCommand implements Command {
     }
     Path folder = project.migrations();
     Files.createDirectories(folder);
-    int next = project.nextNumber();
-    String number = String.format(Locale.ROOT, "%04d", next);
+    String number = String.format(Locale.ROOT, "%04d", project.nextNumber());
     if (args.flag("--java")) {
       String javaPackage = project.javaSourcePackage();
       if (javaPackage == null) {

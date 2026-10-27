@@ -15,9 +15,26 @@ All notable changes to Migrax are listed here. The format follows
   to the database configured for the project (URL from the environment or the application's config)
   when you give neither `--url` nor `--image`. It only reads the server's version, and it moves on
   to the version recorded in the snapshot, or the default image, when the server can't be reached.
+- When the configured database doesn't answer, `verify` now waits at most 10 seconds while
+  asking it which database and version it is, instead of the driver's default (21 to 36 seconds
+  measured on MySQL). A connect timeout in the JDBC URL is kept. Other commands still wait as
+  long as the driver does, so a slow server is never taken for another database.
 
 ### Fixed
 
+- `new` and `generate` numbered the next migration wrongly after a migration with a number above
+  2147483647, such as `4294967297_x.sql`: the number wrapped around, so the new file could get
+  a small number and run before the others, and a numbered file that long made `generate` stop
+  with an error. They now count on from any number, also from date-style ones such as
+  `V20261027120000__x.sql`. The refusal of Java migrations numbered above 1073741823 in
+  0.17.2-rc.1 is gone too: such a number is simply followed.
+- With several databases, `migrax new --java --database <name>` and the CLI's Java migrations
+  for that database used the package `db.migration` of the default database. They now use
+  `db.<name>`, as the startup integrations and the documentation do. If you keep that
+  database's Java migrations in `db.migration`, set `migrax.databases.<name>.java-package`.
+- The Java migration package (`--java-package`, `migrax.java-package`) is refused when it
+  contains invisible characters such as control characters, which Java allows in names but
+  which hide in folder names.
 - `verify` stopped with `error[MXE000]: For input string: ...` when the server version recorded
   in `.migrax/snapshot.json` was a number too large to read, for example in a hand-edited
   snapshot. It now ignores that version and uses the default image.

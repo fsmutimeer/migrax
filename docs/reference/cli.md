@@ -137,7 +137,7 @@ For a database whose tables already exist (created by hand, by a script or by an
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
-| `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
+| `--java-package <pkg>` | Package of Java migrations (default: db.migration; `db.<name>` with --database) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
@@ -208,7 +208,7 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
-| `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
+| `--java-package <pkg>` | Package of Java migrations (default: db.migration; `db.<name>` with --database) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
@@ -234,7 +234,7 @@ Lists migrations as applied [X], pending [ ] or a problem [!], without changing 
 | `--password <secret>` | Database password (prefer env vars) |
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
-| `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
+| `--java-package <pkg>` | Package of Java migrations (default: db.migration; `db.<name>` with --database) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
@@ -308,7 +308,7 @@ Creates the next numbered SQL file for hand-written changes such as data migrati
 |---|---|
 | `--json` | Machine-readable output |
 | `--java` | Create a Java migration |
-| `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
+| `--java-package <pkg>` | Package of Java migrations (default: db.migration; `db.<name>` with --database) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
@@ -451,7 +451,7 @@ Asks each environment's database (`migrax.environments.<name>.url`) which migrat
 | `--timeout <duration>` | How long to wait for each database (default: 30s) |
 | `--json` | Machine-readable output |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
-| `--java-package <pkg>` | Package of Java migrations (default: db.migration) |
+| `--java-package <pkg>` | Package of Java migrations (default: db.migration; `db.<name>` with --database) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |

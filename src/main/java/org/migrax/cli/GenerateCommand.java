@@ -141,7 +141,7 @@ final class GenerateCommand implements Command {
     // also writes those tables as a baseline migration, so the migrations alone can build an
     // empty database.
     boolean baseline = !hasSnapshot && !changes.previous().tables().isEmpty()
-        && project.nextSqlNumber() == 1;
+        && project.noSqlMigrations();
     if (baseline) {
       for (Path source : project.javaMigrationSources()) {
         if (BigInteger.ONE.equals(MigrationFiles.javaNumber(source))) {
@@ -491,8 +491,8 @@ final class GenerateCommand implements Command {
           previous.tables().isEmpty(), operations);
       // nextName counts the SQL files only; Java migrations take numbers too.
       int separator = generated.indexOf('_');
-      int next = Math.max(project.nextNumber(),
-          Integer.parseInt(generated.substring(0, separator)));
+      BigInteger next = project.nextNumber()
+          .max(new BigInteger(generated.substring(0, separator)));
       return String.format(Locale.ROOT, "%04d_%s", next, generated.substring(separator + 1));
     }
     name = name.trim();

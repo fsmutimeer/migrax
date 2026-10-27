@@ -21,6 +21,7 @@ import org.migrax.ops.RenameColumn;
 import org.migrax.ops.RenameForeignKey;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -60,35 +61,36 @@ public final class Migrations {
    */
   public static String nextName(List<Path> folders, boolean baselineIsEmpty,
                                 List<Operation> operations) throws IOException {
-    int latest = 0;
+    BigInteger latest = BigInteger.ZERO;
     for (Path migrations : folders) {
-      latest = Math.max(latest, latestNumber(migrations));
+      latest = latest.max(latestNumber(migrations));
     }
-    if (latest == 0 && baselineIsEmpty) {
+    if (latest.signum() == 0 && baselineIsEmpty) {
       return "0001_initial";
     }
     String description = description(operations);
     if (description.isEmpty()) {
       description = "auto_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"));
     }
-    return String.format(Locale.ROOT, "%04d_%s", latest + 1, description);
+    return String.format(Locale.ROOT, "%04d_%s", latest.add(BigInteger.ONE), description);
   }
 
-  private static int latestNumber(Path migrations) throws IOException {
-    int latest = 0;
+  // BigInteger: a file such as 99999999999_x.sql must neither crash nor wrap to a small number.
+  private static BigInteger latestNumber(Path migrations) throws IOException {
+    BigInteger latest = BigInteger.ZERO;
     if (Files.isDirectory(migrations)) {
       try (Stream<Path> paths = Files.list(migrations)) {
         for (Path path : paths.filter(file -> file.getFileName().toString().endsWith(".sql")).toList()) {
           String filename = path.getFileName().toString();
           Matcher matcher = NUMBERED_MIGRATION.matcher(filename.substring(0, filename.length() - 4));
           if (matcher.matches()) {
-            latest = Math.max(latest, Integer.parseInt(matcher.group(1)));
+            latest = latest.max(new BigInteger(matcher.group(1)));
           } else {
             // V12__name.sql files, e.g. after 'migrax import'.
-            List<java.math.BigInteger> version =
+            List<BigInteger> version =
                 org.migrax.runner.MigrationRunner.versionParts(filename);
             if (!version.isEmpty()) {
-              latest = Math.max(latest, version.get(0).intValue());
+              latest = latest.max(version.get(0));
             }
           }
         }
