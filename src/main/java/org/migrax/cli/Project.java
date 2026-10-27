@@ -572,8 +572,9 @@ final class Project implements AutoCloseable {
   /** A connection to the server failed once in this command: don't wait for it again. */
   private boolean serverUnreachable;
 
-  private static int[] parseVersion(String version) {
-    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)")
+  /** "16.4" as {16, 4}; empty for anything else, also for numbers too big for an int. */
+  static int[] parseVersion(String version) {
+    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(\\d{1,9})\\.(\\d{1,9})")
         .matcher(version == null ? "" : version);
     return matcher.matches() ? new int[] {Integer.parseInt(matcher.group(1)),
         Integer.parseInt(matcher.group(2))} : new int[0];

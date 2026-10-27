@@ -120,8 +120,9 @@ public final class ScratchDatabase implements AutoCloseable {
     }
     Log.info("Starting a throwaway {} database ({})...", dialect, chosenImage);
     // The port by number: the Oracle images don't declare it, so -P would publish nothing.
+    // Only on 127.0.0.1: the database has a fixed password, other machines must not reach it.
     List<String> command = new ArrayList<>(List.of("docker", "run", "-d", "--rm", "-p",
-        String.valueOf(engine.port)));
+        "127.0.0.1::" + engine.port));
     for (String variable : engine.environment) {
       command.add("-e");
       command.add(variable);
@@ -214,28 +215,31 @@ public final class ScratchDatabase implements AutoCloseable {
     return text;
   }
 
-  /** Container settings per database engine. */
+  /**
+   * Container settings per database engine. The URLs use 127.0.0.1, not localhost: the port is
+   * published on IPv4 only.
+   */
   private enum Engine {
-    POSTGRESQL("postgres:16-alpine", 5432, "jdbc:postgresql://localhost:{port}/migrax",
+    POSTGRESQL("postgres:16-alpine", 5432, "jdbc:postgresql://127.0.0.1:{port}/migrax",
         "migrax", "migrax", 120, "POSTGRES_USER=migrax", "POSTGRES_PASSWORD=migrax",
         "POSTGRES_DB=migrax"),
     MYSQL("mysql:8.4", 3306,
-        "jdbc:mysql://localhost:{port}/migrax?allowPublicKeyRetrieval=true&useSSL=false",
+        "jdbc:mysql://127.0.0.1:{port}/migrax?allowPublicKeyRetrieval=true&useSSL=false",
         "root", "migrax", 180, "MYSQL_ROOT_PASSWORD=migrax", "MYSQL_DATABASE=migrax"),
-    MARIADB("mariadb:11.4", 3306, "jdbc:mariadb://localhost:{port}/migrax", "root", "migrax",
+    MARIADB("mariadb:11.4", 3306, "jdbc:mariadb://127.0.0.1:{port}/migrax", "root", "migrax",
         180, "MARIADB_ROOT_PASSWORD=migrax", "MARIADB_DATABASE=migrax"),
     SQLSERVER("mcr.microsoft.com/mssql/server:2022-latest", 1433,
-        "jdbc:sqlserver://localhost:{port};encrypt=false;trustServerCertificate=true", "sa",
+        "jdbc:sqlserver://127.0.0.1:{port};encrypt=false;trustServerCertificate=true", "sa",
         "Migrax_Passw0rd!", 300, "ACCEPT_EULA=Y", "MSSQL_SA_PASSWORD=Migrax_Passw0rd!"),
     // An ordinary user: system's schema holds Oracle's own tables.
     ORACLE("gvenzl/oracle-free:slim-faststart", 1521,
-        "jdbc:oracle:thin:@localhost:{port}/FREEPDB1", "migrax", "migrax", 300,
+        "jdbc:oracle:thin:@127.0.0.1:{port}/FREEPDB1", "migrax", "migrax", 300,
         "ORACLE_PASSWORD=migrax", "APP_USER=migrax", "APP_USER_PASSWORD=migrax"),
     COCKROACHDB("cockroachdb/cockroach:v24.3.11", 26257,
-        "jdbc:postgresql://localhost:{port}/defaultdb?sslmode=disable", "root", "", 180),
+        "jdbc:postgresql://127.0.0.1:{port}/defaultdb?sslmode=disable", "root", "", 180),
     YUGABYTEDB("yugabytedb/yugabyte:2026.1.2.0-b137", 5433,
-        "jdbc:postgresql://localhost:{port}/yugabyte", "yugabyte", "yugabyte", 240),
-    TIDB("pingcap/tidb:v8.5.3", 4000, "jdbc:mysql://localhost:{port}/test?useSSL=false", "root",
+        "jdbc:postgresql://127.0.0.1:{port}/yugabyte", "yugabyte", "yugabyte", 240),
+    TIDB("pingcap/tidb:v8.5.3", 4000, "jdbc:mysql://127.0.0.1:{port}/test?useSSL=false", "root",
         "", 120);
 
     final String image;

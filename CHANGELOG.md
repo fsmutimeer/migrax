@@ -6,6 +6,22 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The throwaway database that `verify` and a schema file start in Docker is now reachable only
+  from your own machine (port published on 127.0.0.1). Before, other machines on the same
+  network could connect to it while it ran, with its fixed password.
+- To pick the version of its throwaway PostgreSQL, MySQL or MariaDB database, `verify` connects once
+  to the database configured for the project (URL from the environment or the application's config)
+  when you give neither `--url` nor `--image`. It only reads the server's version, and it moves on
+  to the version recorded in the snapshot, or the default image, when the server can't be reached.
+
+### Fixed
+
+- `verify` stopped with `error[MXE000]: For input string: ...` when the server version recorded
+  in `.migrax/snapshot.json` was a number too large to read, for example in a hand-edited
+  snapshot. It now ignores that version and uses the default image.
+
 ## [0.17.2-rc.1] - 2026-10-27
 
 Release candidate for 0.17.2, for testing: Java migration numbering, the order of column drops,

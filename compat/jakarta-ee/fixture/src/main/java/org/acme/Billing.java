@@ -29,7 +29,8 @@ public class Billing extends HttpServlet {
          ResultSet rows = connection.createStatement().executeQuery("SELECT owner FROM invoice")) {
       response.getWriter().write(rows.next() ? rows.getString(1) : "no invoice");
     } catch (SQLException e) {
-      response.getWriter().write("error: " + e.getMessage());
+      getServletContext().log("Billing query failed", e);
+      response.getWriter().write("error");
     }
   }
 }
