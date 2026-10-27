@@ -6,7 +6,7 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
-## [0.17.2-rc.1] - 2026-10-26
+## [0.17.2-rc.1] - 2026-10-27
 
 Release candidate for 0.17.2, for testing: Java migration numbering, the order of column drops,
 verify in the server's version and the Quarkus startup metrics. It is not on Maven Central: use
