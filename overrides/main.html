@@ -4,6 +4,20 @@
     and the menus keep the page's own name. -#}
 {% extends "base.html" %}
 
+{% block site_meta %}
+  {{ super() }}
+  {#- A link such as /guides//observability/ serves the page, but its relative asset links
+      (../../assets/...) then count the empty segment and miss: no styles, no scripts. GitHub
+      Pages can't rewrite URLs, so the page sends the browser to the address with single
+      slashes before anything loads. -#}
+  <script>
+    if (location.pathname.indexOf("//") !== -1) {
+      location.replace(location.pathname.replace(/\/{2,}/g, "/") + location.search
+        + location.hash);
+    }
+  </script>
+{% endblock %}
+
 {% block htmltitle %}
   {%- if page.meta and page.meta.seo_title %}
     <title>{{ page.meta.seo_title }} - {{ config.site_name }}</title>

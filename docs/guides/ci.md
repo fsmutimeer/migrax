@@ -184,8 +184,9 @@ application configuration) unless you pass `--user` / `--password`.
 
 ## Machine-readable output
 
-`plan`, `status`, `check`, `lint`, `drift` and `verify` accept `--json`. Progress messages go to
-standard error, so standard output stays valid JSON:
+`migrate`, `rollback`, `status`, `plan`, `check`, `lint`, `drift`, `verify`, `diff`, `doctor`,
+`baseline`, `repair`, `clean`, `new`, `merge`, `squash`, `backups` and `environments` accept
+`--json`. Progress messages go to standard error, so standard output stays valid JSON:
 
 ```console
 $ migrax check --json
