@@ -36,8 +36,31 @@ Applied 1 migration(s); 1 total in /migrations.
 
 `migrate`, `status`, `rollback`, `repair`, `clean`, `lint`, `drift` and `doctor` work in the
 image; `doctor` checks the migrations and the database connection there.
-`generate`, `check` and `verify` read your entities, so they run where your project is built
-(your machine or CI), not in the image.
+`generate`, `check` and `verify` read your entities, so in a Java project they run where it is
+built (your machine or CI), not in the image. A project with a
+[schema file](sql-migrations-for-any-language.md#let-migrax-write-the-migrations) can run them
+in the image too: mount the project at `/workspace` and give Migrax an empty database of its
+own with `MIGRAX_SCRATCH_URL`, because inside a container it can't start the throwaway
+database itself:
+
+```console
+$ docker run --rm -v "$PWD:/workspace" -w /workspace \
+    -e MIGRAX_DATABASE_URL=jdbc:postgresql://db:5432/shop \
+    -e MIGRAX_DATABASE_USER=shop -e MIGRAX_DATABASE_PASSWORD=secret \
+    -e MIGRAX_LOCATIONS=filesystem:db/migrations -e MIGRAX_SCHEMA_FILE=db/schema.sql \
+    -e MIGRAX_SCRATCH_URL=jdbc:postgresql://scratch:5432/scratch \
+    ghcr.io/fsmutimeer/migrax:0.17.1 generate
+Read db/schema.sql: 1 table(s).
+No snapshot yet: using the current database schema as the baseline.
+Created db/migrations/0001_initial.sql:
+  - create table customer
+Rollback script written to db/migrations/rollback.
+Review the SQL, then run 'migrax migrate'.
+```
+
+The scratch database connects with the same user and password as your database. `verify`
+also builds the migrations on an empty database, which it can't start either: pass a second
+empty one with `--url`, for example `verify --url jdbc:postgresql://verify:5432/verify`.
 
 ### Your migrations in an image
 
