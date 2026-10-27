@@ -198,6 +198,37 @@ class ProjectDatabaseConfigTest {
   }
 
   @Test
+  void sanitizesOracleAndSqlServerPasswordForms() {
+    java.util.function.UnaryOperator<String> clean = org.migrax.plugin.RuntimeJdbc::sanitizeUrl;
+    assertEquals("jdbc:oracle:thin:scott/***@db:1521/FREEPDB1",
+        clean.apply("jdbc:oracle:thin:scott/tiger@db:1521/FREEPDB1"));
+    assertEquals("jdbc:oracle:thin:scott/***@//db:1521/FREEPDB1",
+        clean.apply("jdbc:oracle:thin:scott/tiger@//db:1521/FREEPDB1"));
+    // Without credentials nothing changes.
+    assertEquals("jdbc:oracle:thin:@//db:1521/FREEPDB1",
+        clean.apply("jdbc:oracle:thin:@//db:1521/FREEPDB1"));
+    assertEquals("jdbc:sqlserver://db;user=sa;password=***;encrypt=false",
+        clean.apply("jdbc:sqlserver://db;user=sa;password={abc;def}};x};encrypt=false"));
+    assertEquals("jdbc:sqlserver://db;user=sa;pwd=***",
+        clean.apply("jdbc:sqlserver://db;user=sa;pwd=secret"));
+    assertEquals("jdbc:mysql://db/shop?user=root&password1=***&password2=***",
+        clean.apply("jdbc:mysql://db/shop?user=root&password1=one&password2=two"));
+    // An @ in the password, with a port before it, used to end a user:password@ match early.
+    assertEquals("jdbc:sqlserver://db:1433;user=sa;password=***",
+        clean.apply("jdbc:sqlserver://db:1433;user=sa;password={a@b;c}"));
+    assertEquals("jdbc:postgresql://host:5432/db?user=a&password=***",
+        clean.apply("jdbc:postgresql://host:5432/db?user=a&password=p@q"));
+    assertEquals("jdbc:mysql://root:***@db/shop", clean.apply("jdbc:mysql://root:pa;ss@db/shop"));
+    assertEquals("jdbc:oracle:thin:scott/***@db:1521/svc",
+        clean.apply("jdbc:oracle:thin:scott/\"p@ss\"@db:1521/svc"));
+    // A malformed braced value is hidden whole, and a very long one doesn't overflow the stack.
+    assertEquals("jdbc:sqlserver://db;password=***",
+        clean.apply("jdbc:sqlserver://db;password={a}}"));
+    assertEquals("jdbc:sqlserver://db;password=***",
+        clean.apply("jdbc:sqlserver://db;password={" + "x".repeat(200_000) + "}"));
+  }
+
+  @Test
   void findsHibernateSchemaGenerationThatFightsWithMigrations() {
     Map<String, String> config = new java.util.LinkedHashMap<>();
     config.put("quarkus.hibernate-orm.schema-management.strategy", "update");

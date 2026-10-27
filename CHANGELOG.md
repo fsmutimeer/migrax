@@ -28,6 +28,13 @@ not on Maven Central: use the CLI from the Download page or the container image
 
 ### Fixed
 
+- The database password was shown in plain text by `doctor`, `status`, `init`, the `report`
+  HTML file, `@MigraxTest` and connection error messages when the JDBC URL carried it in some
+  forms: Oracle's `user/password@host` (also quoted), a SQL Server password in braces that
+  contains `;`, and a password containing `@` in a URL with a port. These are now shown as
+  `***`, as are MySQL's `password1=` to `password3=` and SQL Server's `pwd=`. Such output often
+  ends up in CI logs and kept reports: if you used these URL forms, consider changing the
+  password.
 - `new` and `generate` numbered the next migration wrongly after a migration with a number above
   2147483647, such as `4294967297_x.sql`: the number wrapped around, so the new file could get
   a small number and run before the others, and a numbered file that long made `generate` stop
