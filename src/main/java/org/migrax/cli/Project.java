@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -272,27 +273,21 @@ final class Project implements AutoCloseable {
    * The next migration number after the highest one in any migration folder or among the Java
    * migrations: a generated file must not take the number of a Java migration.
    */
-  int nextNumber() throws Exception {
-    int next = nextSqlNumber();
-    for (Path source : javaMigrationSources()) {
-      BigInteger number = MigrationFiles.javaNumber(source);
-      if (number.bitLength() > 30) {
-        throw new UsageException("The Java migration " + source.getFileName()
-            + " has a number above 1073741823, the highest Migrax numbers after.",
-            "Rename its class and file to a smaller number, such as V0005__Big.java.");
-      }
-      next = Math.max(next, number.intValue() + 1);
-    }
-    return next;
+  BigInteger nextNumber() throws Exception {
+    List<Path> files = new ArrayList<>(MigrationLoader.sqlFiles(migrationFolders()));
+    files.addAll(javaMigrationSources());
+    return MigrationFiles.nextNumber(files);
   }
 
-  /** The next migration number after the highest SQL file in any migration folder. */
-  int nextSqlNumber() throws Exception {
-    int next = 1;
-    for (Path folder : migrationFolders()) {
-      next = Math.max(next, MigrationFiles.nextNumber(folder));
+  /** Whether no migration folder has a numbered SQL migration yet. */
+  boolean noSqlMigrations() throws Exception {
+    for (Path file : MigrationLoader.sqlFiles(migrationFolders())) {
+      BigInteger number = MigrationFiles.number(file);
+      if (number != null && number.signum() > 0) {
+        return false;
+      }
     }
-    return next;
+    return true;
   }
 
   /**
@@ -386,7 +381,11 @@ final class Project implements AutoCloseable {
 
   String javaPackage() throws Exception {
     String value = setting("--java-package", "java-package");
-    return blank(value) ? MigrationLoader.DEFAULT_JAVA_PACKAGE : value;
+    if (!blank(value)) {
+      return value;
+    }
+    // A further database keeps its Java migrations apart, as at startup (Databases).
+    return database == null ? MigrationLoader.DEFAULT_JAVA_PACKAGE : "db." + database;
   }
 
   /**
@@ -396,8 +395,10 @@ final class Project implements AutoCloseable {
   String javaSourcePackage() throws Exception {
     String first = javaPackage().split(",")[0].trim();
     for (String part : first.split("\\.", -1)) {
+      // Ignorable characters (controls, format marks) are valid Java but invisible in a path.
       if (part.isEmpty() || !Character.isJavaIdentifierStart(part.codePointAt(0))
-          || !part.codePoints().skip(1).allMatch(Character::isJavaIdentifierPart)) {
+          || !part.codePoints().skip(1).allMatch(Character::isJavaIdentifierPart)
+          || part.codePoints().anyMatch(Character::isIdentifierIgnorable)) {
         return null;
       }
     }
@@ -555,7 +556,7 @@ final class Project implements AutoCloseable {
     if (serverUnreachable || !hasUrl() || !dialect.acceptsUrl(credentials().url())) {
       return new int[0];
     }
-    try (Connection connection = connect()) {
+    try (Connection connection = connectBriefly()) {
       return versionOf(connection);
     } catch (Exception e) {
       Log.debug("Could not ask the database for its version: {}", e.getMessage());
@@ -563,6 +564,52 @@ final class Project implements AutoCloseable {
       return new int[0];
     }
   }
+
+  /**
+   * A connection for asking the server which database and version it is. When the command can
+   * do without the server ({@link #serverOptional}), it waits for it briefly: verify only uses
+   * the answer to pick a dialect and an image. Other commands wait as long as the driver does,
+   * so a slow server is never taken for another database.
+   */
+  private Connection connectBriefly() throws Exception {
+    if (!serverOptional) {
+      return connect();
+    }
+    ProjectDatabaseConfig.Credentials c = requireUrl();
+    return RuntimeJdbc.connect(loader(false), c.url(), c.user(), c.password(),
+        versionLookupTimeout(c.url()));
+  }
+
+  /** The command works without the server: ask it which database it is only briefly. */
+  void serverOptional() {
+    serverOptional = true;
+  }
+
+  private boolean serverOptional;
+
+  /**
+   * A 10-second connect timeout instead of the driver's default (21 to 36 s measured on MySQL).
+   * Each driver names the setting differently; a timeout the URL sets itself is left alone.
+   */
+  static Properties versionLookupTimeout(String url) {
+    Properties properties = new Properties();
+    String lower = url.toLowerCase(Locale.ROOT);
+    if (CONNECT_TIMEOUT_KEYS.stream().anyMatch(lower::contains)) {
+      return properties;
+    }
+    if (lower.startsWith("jdbc:mysql:") || lower.startsWith("jdbc:mariadb:")) {
+      properties.setProperty("connectTimeout", "10000");
+    } else if (lower.startsWith("jdbc:postgresql:") || lower.startsWith("jdbc:yugabytedb:")) {
+      properties.setProperty("connectTimeout", "10");
+      properties.setProperty("loginTimeout", "10");
+    } else if (lower.startsWith("jdbc:oracle:")) {
+      properties.setProperty("oracle.net.CONNECT_TIMEOUT", "10000");
+    }
+    return properties;
+  }
+
+  private static final List<String> CONNECT_TIMEOUT_KEYS = List.of(
+      "connecttimeout", "logintimeout", "connect_timeout", "oracle.net.connect_timeout");
 
   private static int[] versionOf(Connection connection) throws java.sql.SQLException {
     java.sql.DatabaseMetaData metadata = connection.getMetaData();
@@ -625,7 +672,7 @@ final class Project implements AutoCloseable {
       if (serverUnreachable) {
         return fromUrl;
       }
-      try (Connection connection = connect()) {
+      try (Connection connection = connectBriefly()) {
         serverDialect = Dialects.forConnection(connection).orElse(fromUrl);
         if (serverVersion == null) {
           serverVersion = versionOf(connection);

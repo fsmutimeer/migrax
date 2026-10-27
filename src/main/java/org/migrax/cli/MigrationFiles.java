@@ -47,15 +47,32 @@ final class MigrationFiles {
   }
 
   /** The next migration number after the highest one in the folder. */
-  static int nextNumber(Path folder) throws Exception {
-    int highest = 0;
-    for (Path file : MigrationLoader.sqlFiles(folder)) {
-      List<BigInteger> version =
-          MigrationRunner.versionParts(file.getFileName().toString());
-      if (!version.isEmpty()) {
-        highest = Math.max(highest, version.get(0).intValue());
+  static BigInteger nextNumber(Path folder) throws Exception {
+    return nextNumber(MigrationLoader.sqlFiles(folder));
+  }
+
+  /**
+   * The number after the highest one of these SQL files and Java migration sources. A
+   * BigInteger: date-style numbers such as 20261027120000 are common and must not wrap around
+   * to a small number that would run before the others.
+   */
+  static BigInteger nextNumber(List<Path> files) {
+    BigInteger highest = BigInteger.ZERO;
+    for (Path file : files) {
+      BigInteger number = number(file);
+      if (number != null) {
+        highest = highest.max(number);
       }
     }
-    return highest + 1;
+    return highest.add(BigInteger.ONE);
+  }
+
+  /** The number of a SQL migration or Java migration source; null when it has none. */
+  static BigInteger number(Path file) {
+    if (isJavaMigration(file)) {
+      return javaNumber(file);
+    }
+    List<BigInteger> version = MigrationRunner.versionParts(file.getFileName().toString());
+    return version.isEmpty() ? null : version.get(0);
   }
 }

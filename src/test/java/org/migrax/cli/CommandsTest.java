@@ -294,7 +294,7 @@ class CommandsTest {
   }
 
   @Test
-  void aJavaMigrationWithAHugeNumberIsReportedNotACrash() throws Exception {
+  void aJavaMigrationWithAHugeNumberIsFollowedNotACrash() throws Exception {
     setUp();
     generateAndMigrate();
     Path java = project.resolve("src/main/java/db/migration/V99999999999__Big.java");
@@ -303,16 +303,38 @@ class CommandsTest {
 
     Result check = cli("check");
     assertEquals(0, check.code(), check.all());
-    Result generate = cli("new", "next");
-    assertEquals(1, generate.code(), generate.all());
-    assertTrue(generate.err().contains("V99999999999__Big.java has a number above 1073741823"),
-        generate.all());
+    Result created = cli("new", "next");
+    assertEquals(0, created.code(), created.all());
+    assertTrue(Files.exists(project.resolve(
+        "src/main/resources/db/migration/100000000000_next.sql")), created.all());
+  }
+
+  @Test
+  void numbersAboveAnIntAreFollowedNotWrappedAround() throws Exception {
+    setUp();
+    generateAndMigrate();
+    // 4294967297 wrapped to 1 as an int, so the next file used to become 0002 again.
+    Path folder = project.resolve("src/main/resources/db/migration");
+    Files.writeString(folder.resolve("4294967297_far.sql"), "SELECT 1;\n");
+    Result created = cli("new", "next");
+    assertEquals(0, created.code(), created.all());
+    assertTrue(Files.exists(folder.resolve("4294967298_next.sql")), created.all());
+
+    // Date-style numbers, common after 'migrax import', keep counting up as well.
+    Path java = project.resolve("src/main/java/db/migration/V20261027120000__Dated.java");
+    Files.createDirectories(java.getParent());
+    Files.writeString(java, "package db.migration;\n");
+    created = cli("new", "later", "--java");
+    assertEquals(0, created.code(), created.all());
+    assertTrue(Files.exists(java.resolveSibling("V20261027120001__Later.java")), created.all());
   }
 
   @Test
   void theJavaPackageMustBeAPackageName() throws Exception {
     setUp();
-    for (String bad : java.util.List.of("../outside", "/tmp/abs", "..secret", "a;b")) {
+    // "db.mig\\u0001ration" is a valid Java name, but the control character hides in the path.
+    for (String bad : java.util.List.of("../outside", "/tmp/abs", "..secret", "a;b",
+        "db.mig\u0001ration")) {
       Result created = cli("new", "x", "--java", "--java-package", bad);
       assertEquals(1, created.code(), bad + ": " + created.all());
       assertTrue(created.err().contains("Invalid Java package '" + bad + "'"), created.all());

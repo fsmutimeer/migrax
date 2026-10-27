@@ -137,6 +137,18 @@ class DatabaseOptionTest {
   }
 
   @Test
+  void javaMigrationsOfAFurtherDatabaseDefaultToItsOwnPackage() throws Exception {
+    setUp("");
+    // The same default as at startup (Databases): db.<name>, never the default database's.
+    Result created = cli("new", "seed", "--java", "--database", "billing");
+    assertEquals(0, created.code(), created.all());
+    Path source = project.resolve("src/main/java/db/billing/V0001__Seed.java");
+    assertTrue(Files.isRegularFile(source), created.all());
+    assertTrue(Files.readString(source).startsWith("package db.billing;"), created.all());
+    assertFalse(Files.exists(project.resolve("src/main/java/db/migration")), created.all());
+  }
+
+  @Test
   void theDatabaseCanBeChosenWithASystemProperty() throws Exception {
     setUp("");
     Files.createDirectories(project.resolve("src/main/resources/db/billing"));

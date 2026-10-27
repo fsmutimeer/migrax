@@ -68,6 +68,7 @@ final class VerifyCommand implements Command {
   @Override
   public int run(CommandContext context) throws Exception {
     Project project = context.project();
+    project.serverOptional();
     Args args = context.args();
     PrintStream out = context.out();
     Dialect dialect = project.dialect(false, out);

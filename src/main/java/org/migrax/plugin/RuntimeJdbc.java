@@ -33,7 +33,21 @@ public final class RuntimeJdbc {
 
   public static Connection connect(
       ClassLoader runtimeLoader, String url, String user, String password) throws SQLException {
+    return connect(runtimeLoader, url, user, password, new Properties());
+  }
+
+  /**
+   * Connects with extra driver properties, such as a connect timeout. Which one wins when the
+   * URL sets the same property depends on the driver.
+   *
+   * @since 0.17.2
+   */
+  public static Connection connect(ClassLoader runtimeLoader, String url, String user,
+      String password, Properties extra) throws SQLException {
     Properties properties = new Properties();
+    if (extra != null) {
+      properties.putAll(extra);
+    }
     if (user != null && !user.isBlank()) {
       properties.setProperty("user", user);
     }
