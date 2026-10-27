@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.17.2-rc.2] - 2026-10-27
+
+Second release candidate for 0.17.2, for testing: fixes from the security review of rc.1. It is
+not on Maven Central: use the CLI from the Download page or the container image
+`ghcr.io/fsmutimeer/migrax:0.17.2-rc.2`.
+
 ### Changed
 
 - The throwaway database that `verify` and a schema file start in Docker is now reachable only
@@ -906,7 +912,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.1...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.2...HEAD
+[0.17.2-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.1...v0.17.2-rc.2
 [0.17.2-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...v0.17.2-rc.1
 [0.17.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/fsmutimeer/migrax/compare/v0.16.0...v0.17.0

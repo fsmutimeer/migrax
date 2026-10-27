@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.17.2-SNAPSHOT</version>
+    <version>0.17.2-rc.2</version>
     <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-helidon</artifactId>
-  <version>0.17.2-SNAPSHOT</version>
+  <version>0.17.2-rc.2</version>
   <name>Migrax for Helidon MP</name>
   <description>Applies Migrax migrations when a Helidon MP application starts.</description>
 
@@ -36,7 +36,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.17.2-SNAPSHOT</version>
+      <version>0.17.2-rc.2</version>
     </dependency>
     <dependency>
       <groupId>jakarta.enterprise</groupId>
