@@ -184,6 +184,34 @@ so a CronJob fails and your cluster's alerting for failed jobs tells you
 Someone changed the database outside migrations. Write a migration for intended changes ('migrax new <name>'), or revert them.
 ```
 
+## Watching the migration job
+
+The [metrics and traces](observability.md) come from the startup integrations; the image
+doesn't send any. A migration that runs as a Job is watched through what it leaves behind:
+
+- **The exit code.** A failed migration ends the container with exit code 1, so the Job fails
+  and your cluster's alerting for failed Jobs tells you, as for the drift check above. In a
+  deploy pipeline, the failed step stops the rollout.
+- **One line of JSON in the logs.** With `--json`, `migrate` prints its result as a single
+  JSON line on standard output (progress messages go to standard error):
+
+    ```yaml
+    args: ["migrate", "--json", "--lock-timeout", "2m"]
+    ```
+
+    ```console
+    {"ok":true,"exitCode":0,"schemas":[{"schema":null,"applied":1,"total":3}]}
+    ```
+
+    When a migration fails, `ok` is false and `error` has the error code and the message:
+
+    ```console
+    {"ok":false,"exitCode":1,"error":{"code":"MXE102","message":"Migration '0004_broken.sql' failed and was not recorded as applied. ...","hint":null}}
+    ```
+
+    Log tools such as Loki, CloudWatch Logs or Datadog Logs can count these lines and alert on
+    `"ok":false`, or chart `applied` per release.
+
 ## Startup integrations in several instances
 
 The Spring Boot, Quarkus, Micronaut and Helidon integrations migrate when the application
