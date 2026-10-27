@@ -28,11 +28,17 @@ not on Maven Central: use the CLI from the Download page or the container image
 
 ### Fixed
 
-- The database password was shown in plain text by `doctor`, `status`, `init`, the `report`
-  HTML file, `@MigraxTest` and connection error messages when the JDBC URL carried it in some
-  forms: Oracle's `user/password@host` (also quoted), a SQL Server password in braces that
-  contains `;`, and a password containing `@` in a URL with a port. These are now shown as
-  `***`, as are MySQL's `password1=` to `password3=` and SQL Server's `pwd=`. Such output often
+- The database password was shown in plain text when the JDBC URL carried it:
+  - `clean` printed the URL as it was, with any password in it.
+  - `diff`, `environments` and the MCP server's `environments` tool (which sends it to the AI
+    assistant), as well as `doctor`, `status`, `init`, the `report` HTML file, `@MigraxTest`
+    and connection error messages, missed some forms: Oracle's `user/password@host` (also
+    quoted), a SQL Server password in braces that contains `;`, and a password containing
+    `@` in a URL with a port.
+
+  These are now shown as `***`, as are MySQL's `password1=` to `password3=`, SQL Server's
+  `pwd=`, `keyStoreSecret=` and `aadSecurePrincipalSecret=`, and an SQLCipher `key=` in a
+  SQLite URL. Such output often
   ends up in CI logs and kept reports: if you used these URL forms, consider changing the
   password.
 - `new` and `generate` numbered the next migration wrongly after a migration with a number above

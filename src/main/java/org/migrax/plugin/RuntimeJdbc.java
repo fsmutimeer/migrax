@@ -26,12 +26,14 @@ public final class RuntimeJdbc {
     if (url == null) {
       return "";
     }
-    // password=, MySQL's password1= to password3=, SQL Server's pwd=, and SQL Server's braced
-    // values, which may contain ; (a closing brace inside is written }}). First, so a password
-    // with @ in it can't be taken for the end of a user:password@ part below. Possessive
-    // quantifiers: a very long value must not overflow the stack.
-    String sanitized = url.replaceAll(
-        "(?i)((?:password\\d*|pwd)\\s*=\\s*)(\\{(?:[^}]++|\\}\\})*+\\}|[^&;]+)", "$1***");
+    // password=, MySQL's password1= to password3=, SQL Server's pwd=, keyStoreSecret= and
+    // aadSecurePrincipalSecret= (any name ending in secret),
+    // SQLCipher's key= in a SQLite URL, and SQL Server's braced values, which may contain ; (a
+    // closing brace inside is written }}). First, so a password with @ in it can't be taken
+    // for the end of a user:password@ part below. Possessive quantifiers: a very long value
+    // must not overflow the stack. Hiding a harmless setting by mistake is fine.
+    String sanitized = url.replaceAll("(?i)((?:password\\d*|pwd|secret|key)\\s*=\\s*)"
+        + "(\\{(?:[^}]++|\\}\\})*+\\}|[^&;]+)", "$1***");
     // Oracle's thin URL can carry user/password@ right after the driver type; the password may
     // be quoted and then contain @.
     sanitized = sanitized.replaceAll(

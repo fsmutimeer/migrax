@@ -130,9 +130,8 @@ final class DiffCommand implements Command {
     return System.getenv("MIGRAX_SOURCE_PASSWORD");
   }
 
-  /** A JDBC URL without the password it may contain. */
+  /** A JDBC URL without the password it may contain: the same masking as everywhere else. */
   static String masked(String url) {
-    return url.replaceAll("(?i)((?:password|pwd)=)[^;&]*", "$1***")
-        .replaceAll("(//[^/:@]+:)[^@/]*@", "$1***@");
+    return RuntimeJdbc.sanitizeUrl(url);
   }
 }

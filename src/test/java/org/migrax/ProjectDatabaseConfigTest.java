@@ -219,6 +219,11 @@ class ProjectDatabaseConfigTest {
     assertEquals("jdbc:postgresql://host:5432/db?user=a&password=***",
         clean.apply("jdbc:postgresql://host:5432/db?user=a&password=p@q"));
     assertEquals("jdbc:mysql://root:***@db/shop", clean.apply("jdbc:mysql://root:pa;ss@db/shop"));
+    // Other secrets in the URL: SQL Server's key store and service principal, SQLCipher's key.
+    assertEquals("jdbc:sqlserver://db;keyStoreSecret=***;aadSecurePrincipalSecret=***",
+        clean.apply("jdbc:sqlserver://db;keyStoreSecret=s1;aadSecurePrincipalSecret=s2"));
+    assertEquals("jdbc:sqlite:app.db?cipher=sqlcipher&key=***",
+        clean.apply("jdbc:sqlite:app.db?cipher=sqlcipher&key=s3"));
     assertEquals("jdbc:oracle:thin:scott/***@db:1521/svc",
         clean.apply("jdbc:oracle:thin:scott/\"p@ss\"@db:1521/svc"));
     // A malformed braced value is hidden whole, and a very long one doesn't overflow the stack.
