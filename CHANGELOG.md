@@ -6,13 +6,18 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.17.2-rc.1] - 2026-10-27
+
+Release candidate for 0.17.2, for testing: Java migration numbering, the order of column drops,
+verify in the server's version and the Quarkus startup metrics. It is not on Maven Central: use
+the CLI from the Download page or the container image `ghcr.io/fsmutimeer/migrax:0.17.2-rc.1`.
+
 ### Changed
 
 - `verify` starts its throwaway PostgreSQL, MySQL or MariaDB container in the version of your
   database server when Migrax can reach it, as reading a schema file already did, so the
   migrations are proven on the version they will run on. Before, it always used its default
   image (`postgres:16-alpine` for PostgreSQL). `--image` still picks another one.
-
 - `generate` and `diff` now drop columns after adding and changing the table's other columns.
   MySQL, MariaDB, Oracle and H2 commit each schema change at once, so when a later statement
   of a migration failed, for example making a new column NOT NULL while it still has empty
@@ -31,7 +36,6 @@ All notable changes to Migrax are listed here. The format follows
 - `migrax new --java` refuses a `--java-package` or `migrax.java-package` that is not a Java
   package name. A value such as `/tmp/x` or `..x` made it write the class outside the project.
   With a comma list of packages, the class goes into the first one.
-
 - Quarkus: the `migrax.migrations.applied` and `migrax.migrations.failed` counters and the
   `migrax.run` timer of the migrations at startup could stay at 0 in the application's
   registries (Prometheus, OTLP, ...), depending on the order in which Quarkus ran its startup
@@ -869,7 +873,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.1...HEAD
+[0.17.2-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...v0.17.2-rc.1
 [0.17.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/fsmutimeer/migrax/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/fsmutimeer/migrax/compare/v0.15.0...v0.16.0
