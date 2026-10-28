@@ -5,13 +5,13 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.17.2-rc.3</version>
+    <version>0.17.2-SNAPSHOT</version>
     <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <!-- Gradle plugin marker: lets plugins { id("org.migrax") version "0.1.0" } find the plugin. -->
   <groupId>org.migrax</groupId>
   <artifactId>org.migrax.gradle.plugin</artifactId>
-  <version>0.17.2-rc.3</version>
+  <version>0.17.2-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>Migrax Gradle plugin marker</name>
   <description>Lets Gradle find the Migrax plugin by its ID, org.migrax.</description>
@@ -20,7 +20,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax-gradle-plugin</artifactId>
-      <version>0.17.2-rc.3</version>
+      <version>0.17.2-SNAPSHOT</version>
     </dependency>
   </dependencies>
 </project>

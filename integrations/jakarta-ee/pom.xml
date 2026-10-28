@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.17.2-rc.3</version>
+    <version>0.17.2-SNAPSHOT</version>
     <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-jakarta-ee</artifactId>
-  <version>0.17.2-rc.3</version>
+  <version>0.17.2-SNAPSHOT</version>
   <name>Migrax for Jakarta EE</name>
   <description>
     Applies Migrax migrations when an application starts on a Jakarta EE server, using the data
@@ -26,7 +26,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.17.2-rc.3</version>
+      <version>0.17.2-SNAPSHOT</version>
     </dependency>
     <!-- The server provides these. -->
     <dependency>
