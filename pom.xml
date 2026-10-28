@@ -3,12 +3,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.17.2-SNAPSHOT</version>
+    <version>0.17.2-rc.3</version>
     <relativePath>parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax</artifactId>
-  <version>0.17.2-SNAPSHOT</version>
+  <version>0.17.2-rc.3</version>
   <packaging>maven-plugin</packaging>
   <name>Migrax</name>
   <description>
