@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.17.2-rc.3] - 2026-10-28
+
+Third release candidate for 0.17.2, for testing: fixes the last two findings of the security
+review of rc.2. It is not on Maven Central: use the CLI from the Download page or the container
+image `ghcr.io/fsmutimeer/migrax:0.17.2-rc.3`.
+
 ### Fixed
 
 - A password with a raw `@` in a `//user:password@host` URL is now hidden whole, and so is the
@@ -933,7 +939,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.2...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.3...HEAD
+[0.17.2-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.2...v0.17.2-rc.3
 [0.17.2-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.1...v0.17.2-rc.2
 [0.17.2-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...v0.17.2-rc.1
 [0.17.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.0...v0.17.1
