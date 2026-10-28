@@ -6,7 +6,7 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
-## [0.17.2-rc.2] - 2026-10-27
+## [0.17.2-rc.2] - 2026-10-28
 
 Second release candidate for 0.17.2, for testing: fixes from the security review of rc.1. It is
 not on Maven Central: use the CLI from the Download page or the container image
