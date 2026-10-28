@@ -6,6 +6,14 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A password with a raw `@` in a `//user:password@host` URL is now hidden whole, and so is the
+  second password of a multi-host URL (`//u1:p1@h1,u2:p2@h2`). Before, the part after the first
+  `@` showed in `doctor`, `status`, connection errors and the other places that print the URL.
+- Hiding the password in a very long, unusual JDBC URL no longer takes seconds (26 seconds
+  measured for a 160 KB URL, 11 seconds for a 150 KB Oracle one; now under 30 milliseconds).
+
 ## [0.17.2-rc.2] - 2026-10-28
 
 Second release candidate for 0.17.2, for testing: fixes from the security review of rc.1. It is

@@ -5,6 +5,8 @@ import java.sql.Driver;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.ServiceLoader;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Dynamic JDBC connection factory using the runtime class loader.
@@ -12,6 +14,10 @@ import java.util.ServiceLoader;
  * @since 0.1.0
  */
 public final class RuntimeJdbc {
+  private static final Pattern ORACLE_USER =
+      Pattern.compile("(?i)(jdbc:oracle:[a-z0-9]+:[^/@:;]*/)(?:\"[^\"]*\"|[^@]+)@");
+  private static final Pattern USER_INFO = Pattern.compile("//[^:/?#;@]+:");
+
   private RuntimeJdbc() {}
 
   /**
@@ -34,14 +40,26 @@ public final class RuntimeJdbc {
     // must not overflow the stack. Hiding a harmless setting by mistake is fine.
     String sanitized = url.replaceAll("(?i)((?:password\\d*|pwd|secret|key)\\s*=\\s*)"
         + "(\\{(?:[^}]++|\\}\\})*+\\}|[^&;]+)", "$1***");
+    // The two rules below end at an @, so they search only up to the last one: searched to the
+    // end of a long URL without an @, they would scan the rest of it from every start (seconds).
     // Oracle's thin URL can carry user/password@ right after the driver type; the password may
     // be quoted and then contain @.
-    sanitized = sanitized.replaceAll(
-        "(?i)(jdbc:oracle:[a-z0-9]+:[^/@:;]*/)(?:\"[^\"]*\"|[^@]+)@", "$1***@");
-    // //user:password@host. The password may contain ; or / (Connector/J accepts them), so it
-    // runs to the next @; a password= value is already *** by now, so its @ can't be that one.
-    // At worst this hides more than the password, such as a query value containing @.
-    sanitized = sanitized.replaceAll("(?i)(//[^:/?#;@]+:)[^@]+@", "$1***@");
+    int lastAt = sanitized.lastIndexOf('@');
+    if (lastAt >= 0) {
+      sanitized = ORACLE_USER.matcher(sanitized.substring(0, lastAt + 1)).replaceAll("$1***@")
+          + sanitized.substring(lastAt + 1);
+    }
+    // //user:password@host. The password may contain ;, / or a raw @ (Connector/J accepts
+    // them), so it runs to the last @; a password= value is already *** by now, so its @ can't
+    // be that one. At worst this hides more than the password, such as the host when a query
+    // value contains @.
+    lastAt = sanitized.lastIndexOf('@');
+    if (lastAt >= 0) {
+      Matcher userInfo = USER_INFO.matcher(sanitized).region(0, lastAt);
+      if (userInfo.find() && userInfo.end() < lastAt) {
+        sanitized = sanitized.substring(0, userInfo.end()) + "***" + sanitized.substring(lastAt);
+      }
+    }
     return sanitized;
   }
 

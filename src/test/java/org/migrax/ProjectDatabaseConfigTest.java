@@ -6,10 +6,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 
 class ProjectDatabaseConfigTest {
   @TempDir
@@ -219,6 +221,17 @@ class ProjectDatabaseConfigTest {
     assertEquals("jdbc:postgresql://host:5432/db?user=a&password=***",
         clean.apply("jdbc:postgresql://host:5432/db?user=a&password=p@q"));
     assertEquals("jdbc:mysql://root:***@db/shop", clean.apply("jdbc:mysql://root:pa;ss@db/shop"));
+    // A raw @ in the password: the part after it used to show.
+    assertEquals("jdbc:mysql://root:***@db/shop", clean.apply("jdbc:mysql://root:p@ss@db/shop"));
+    // A second user:password@ in a multi-host URL used to show.
+    assertEquals("jdbc:mysql://u1:***@h2/db", clean.apply("jdbc:mysql://u1:p1@h1,u2:p2@h2/db"));
+    // An @ in a later query value hides the host too: more than needed, but no password shows.
+    assertEquals("jdbc:mysql://root:***@b", clean.apply("jdbc:mysql://root:pw@host/db?x=a@b"));
+    // Many //user: or Oracle parts without an @ used to take seconds (each scanned to the end).
+    String users = "jdbc:x:" + "//a:".repeat(40_000);
+    assertEquals(users, assertTimeout(Duration.ofSeconds(2), () -> clean.apply(users)));
+    String oracle = "jdbc:oracle:a:/".repeat(10_000);
+    assertEquals(oracle, assertTimeout(Duration.ofSeconds(2), () -> clean.apply(oracle)));
     // Other secrets in the URL: SQL Server's key store and service principal, SQLCipher's key.
     assertEquals("jdbc:sqlserver://db;keyStoreSecret=***;aadSecurePrincipalSecret=***",
         clean.apply("jdbc:sqlserver://db;keyStoreSecret=s1;aadSecurePrincipalSecret=s2"));
