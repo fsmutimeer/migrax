@@ -546,6 +546,23 @@ class CommandsTest {
     assertEquals("jdbc:sqlserver://db;user=a;password=***",
         DiffCommand.masked("jdbc:sqlserver://db;user=a;password=secret"));
     assertEquals("jdbc:mysql://a:***@db/shop", DiffCommand.masked("jdbc:mysql://a:secret@db/shop"));
+    // The forms its own weaker masking missed (diff, environments, the MCP environments tool).
+    assertEquals("jdbc:oracle:thin:scott/***@db:1521/FREE",
+        DiffCommand.masked("jdbc:oracle:thin:scott/secret@db:1521/FREE"));
+    assertEquals("jdbc:sqlserver://db;password=***",
+        DiffCommand.masked("jdbc:sqlserver://db;password={sec;ret}"));
+    assertEquals("jdbc:mysql://db/shop?password1=***", DiffCommand.masked(
+        "jdbc:mysql://db/shop?password1=secret"));
+  }
+
+  @Test
+  void cleanNeverShowsThePassword() throws Exception {
+    setUp();
+    // A database of its own, created with this password, so clean connects and names it.
+    Result dryRun = cli("clean", "--dry-run", "--url",
+        "jdbc:h2:mem:clean_password_" + (++databases) + ";DB_CLOSE_DELAY=-1;PASSWORD=TopSecret");
+    assertFalse(dryRun.all().contains("TopSecret"), dryRun.all());
+    assertTrue(dryRun.out().contains("PASSWORD=***"), dryRun.all());
   }
 
   @Test

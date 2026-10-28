@@ -9,12 +9,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.17.2-SNAPSHOT</version>
+    <version>0.17.2-rc.2</version>
     <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-central-bundle</artifactId>
-  <version>0.17.2-SNAPSHOT</version>
+  <version>0.17.2-rc.2</version>
   <packaging>pom</packaging>
   <name>Migrax Maven Central bundle</name>
 

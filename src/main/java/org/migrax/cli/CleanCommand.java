@@ -10,6 +10,7 @@ import org.migrax.ops.DropForeignKey;
 import org.migrax.ops.DropSequence;
 import org.migrax.ops.DropTable;
 import org.migrax.plugin.DatabaseSchemaReader;
+import org.migrax.plugin.RuntimeJdbc;
 import org.migrax.runner.DatabaseMigrationLock;
 
 import java.io.PrintStream;
@@ -80,7 +81,8 @@ final class CleanCommand implements Command {
     }
     project.requireUrl();
     Dialect dialect = project.dialect(false, out);
-    String url = project.credentials().url();
+    // Only shown to the user (project.connect() connects): never with its password.
+    String url = RuntimeJdbc.sanitizeUrl(project.credentials().url());
     try (Connection connection = project.connect()) {
       for (String schema : schemas(project, args)) {
         if (schema != null) {

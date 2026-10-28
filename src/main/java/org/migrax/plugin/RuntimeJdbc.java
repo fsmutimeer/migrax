@@ -26,8 +26,22 @@ public final class RuntimeJdbc {
     if (url == null) {
       return "";
     }
-    String sanitized = url.replaceAll("(?i)(//[^:]+:)[^@]+@", "$1***@");
-    sanitized = sanitized.replaceAll("(?i)(password=)[^&;]+", "$1***");
+    // password=, MySQL's password1= to password3=, SQL Server's pwd=, keyStoreSecret= and
+    // aadSecurePrincipalSecret= (any name ending in secret),
+    // SQLCipher's key= in a SQLite URL, and SQL Server's braced values, which may contain ; (a
+    // closing brace inside is written }}). First, so a password with @ in it can't be taken
+    // for the end of a user:password@ part below. Possessive quantifiers: a very long value
+    // must not overflow the stack. Hiding a harmless setting by mistake is fine.
+    String sanitized = url.replaceAll("(?i)((?:password\\d*|pwd|secret|key)\\s*=\\s*)"
+        + "(\\{(?:[^}]++|\\}\\})*+\\}|[^&;]+)", "$1***");
+    // Oracle's thin URL can carry user/password@ right after the driver type; the password may
+    // be quoted and then contain @.
+    sanitized = sanitized.replaceAll(
+        "(?i)(jdbc:oracle:[a-z0-9]+:[^/@:;]*/)(?:\"[^\"]*\"|[^@]+)@", "$1***@");
+    // //user:password@host. The password may contain ; or / (Connector/J accepts them), so it
+    // runs to the next @; a password= value is already *** by now, so its @ can't be that one.
+    // At worst this hides more than the password, such as a query value containing @.
+    sanitized = sanitized.replaceAll("(?i)(//[^:/?#;@]+:)[^@]+@", "$1***@");
     return sanitized;
   }
 
