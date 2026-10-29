@@ -735,6 +735,18 @@ class CommandsTest {
     assertEquals(0, plan.code(), plan.all());
     Object parsedPlan = new Json.Parser(plan.out()).parse();
     assertTrue(parsedPlan.toString().contains("create_table"), plan.out());
+    assertTrue(plan.out().contains("\"entity\":\"org.migrax.cli.fixture.SampleEntity\""),
+        plan.out());
+    var changed = json(cli("check", "--json"));
+    assertEquals(false, changed.get("ok"), changed.toString());
+    var operation =
+        (java.util.Map<?, ?>) ((java.util.List<?>) changed.get("operations")).get(0);
+    assertEquals("create_table", operation.get("kind"), changed.toString());
+    assertEquals("sample_entity", operation.get("table"), changed.toString());
+    assertEquals("org.migrax.cli.fixture.SampleEntity", operation.get("entity"),
+        changed.toString());
+    assertTrue(changed.get("changes").toString().contains("create table sample_entity"),
+        changed.toString());
 
     generateAndMigrate();
     Result status = cli("status", "--json");

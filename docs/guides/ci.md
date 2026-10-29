@@ -189,6 +189,8 @@ application configuration) unless you pass `--user` / `--password`.
 `--json`. Progress messages go to standard error, so standard output stays valid JSON:
 
 ```console
-$ migrax check --json
-{"ok":false,"changes":["add column orders.notes"],"conflicts":[]}
+$ migrax check --json    # one line, wrapped here
+{"ok":false,"changes":["add column orders.notes"],"operations":[{"kind":"add_column",
+"summary":"add column orders.notes","table":"orders","column":"notes",
+"entity":"com.example.Order"}],"conflicts":[]}
 ```

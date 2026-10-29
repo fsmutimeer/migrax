@@ -12,14 +12,19 @@ import java.nio.file.Files;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The entity changes since the snapshot: the models before and after, and the operations
  * between them. Used by {@code generate}, {@code plan} and {@code check}.
+ *
+ * @param entities table name to the entity class that owns it; empty when the reader does not
+ *     tell
  */
 record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> operations,
                      List<Renames.TableRename> tableRenames,
-                     List<Renames.ColumnRename> columnRenames, String source) {
+                     List<Renames.ColumnRename> columnRenames, String source,
+                     Map<String, String> entities) {
 
   /**
    * Compares the entities with the snapshot (or the database on the first run), asking about
@@ -78,7 +83,8 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
       }
     }
     List<Operation> operations = Renames.diff(previous, current, tables, columns);
-    return new EntityChanges(previous, current, operations, tables, columns, extracted.source());
+    return new EntityChanges(previous, current, operations, tables, columns, extracted.source(),
+        extracted.entities());
   }
 
   /** Asks about a rename, or prints how to answer it with an option when Migrax can't ask. */

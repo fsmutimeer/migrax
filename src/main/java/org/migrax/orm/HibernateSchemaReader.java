@@ -60,6 +60,9 @@ public final class HibernateSchemaReader {
   /** Whether enum checks are kept for this read. */
   private boolean enumChecks;
 
+  /** Table name to the entity class that owns it, from the last read. */
+  private final Map<String, String> entities = new LinkedHashMap<>();
+
   /** Discriminator columns: Hibernate 6+ checks their values; Migrax leaves that out. */
   private final java.util.Set<Column> discriminators =
       java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
@@ -135,9 +138,35 @@ public final class HibernateSchemaReader {
         applyBeanValidation(metadata);
       }
       enumChecks = "true".equalsIgnoreCase(settings.get(ENUM_CHECKS));
+      readEntities(metadata);
       return convert(metadata, dialect);
     } finally {
       StandardServiceRegistryBuilder.destroy(registry);
+    }
+  }
+
+  /**
+   * Table name to the class name of the entity that owns it, from the last {@link #read}. A
+   * single-table hierarchy maps to its root class.
+   *
+   * @since 0.18.0
+   */
+  public Map<String, String> entities() {
+    return Map.copyOf(entities);
+  }
+
+  private void readEntities(Metadata metadata) {
+    entities.clear();
+    for (PersistentClass entity : metadata.getEntityBindings()) {
+      Table table = entity.getTable();
+      if (table == null || entity.getClassName() == null) {
+        continue;
+      }
+      if (entity.getSuperclass() == null) {
+        entities.put(table.getName(), entity.getClassName());
+      } else {
+        entities.putIfAbsent(table.getName(), entity.getClassName());
+      }
     }
   }
 

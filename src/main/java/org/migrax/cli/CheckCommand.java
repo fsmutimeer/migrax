@@ -63,6 +63,8 @@ final class CheckCommand implements Command {
       out.println(JsonOut.write(JsonOut.object(
           "ok", duplicates.isEmpty() && changes.operations().isEmpty(),
           "changes", changes.operations().stream().map(Migrations::summary).toList(),
+          "operations", changes.operations().stream()
+              .map(o -> Reports.operationJson(o, changes.entities())).toList(),
           "conflicts", new ArrayList<>(duplicates.values()))));
     } else {
       if (!duplicates.isEmpty()) {

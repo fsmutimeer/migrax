@@ -65,6 +65,18 @@ public final class JpaExtractor {
    * @since 0.1.0
    */
   public SchemaModel extract(String basePackage) throws Exception {
+    return extractWithEntities(basePackage).model();
+  }
+
+  /**
+   * The model and the entity class that owns each table.
+   *
+   * @param entities table name to class name; a single-table hierarchy maps to its root
+   */
+  record Extraction(SchemaModel model, Map<String, String> entities) {}
+
+  /** Like {@link #extract}, and also tells which entity class owns each table. */
+  Extraction extractWithEntities(String basePackage) throws Exception {
     // Per-invocation mutable state — this method is re-entrant and thread-safe.
     Map<Class<?>, String> tableNames = new HashMap<>();
     Map<Class<?>, SchemaModel.Table> built = new HashMap<>();
@@ -106,7 +118,13 @@ public final class JpaExtractor {
     addElementCollectionTables(tables, entities, ctx);
     tables.replaceAll(table -> withChecksAndComment(table, entities, tableNames));
     tables.sort(Comparator.comparing(SchemaModel.Table::name));
-    return new SchemaModel(tables, dedupeSequences(sequences));
+    Map<String, String> owners = new LinkedHashMap<>();
+    for (Class<?> e : entities) {
+      if (shouldHavePhysicalTable(e)) {
+        owners.putIfAbsent(tableNames.get(e), e.getName());
+      }
+    }
+    return new Extraction(new SchemaModel(tables, dedupeSequences(sequences)), owners);
   }
 
   // ------------------------------------------------------------------ checks and comments
