@@ -6,6 +6,15 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `plan --json` and `check --json` name the entity class and the column of each change
+  (`entity`, `column`), so an editor can point at the class that needs a migration. `check
+  --json` also lists each change as an object in `operations`; `changes` stays as it was.
+  `entity` is filled when the entities are read with Hibernate 5 or newer or by annotation
+  scanning, and is null for the other readers for now, and for join, collection and secondary
+  tables.
+
 ## [0.17.2-rc.3] - 2026-10-28
 
 Third release candidate for 0.17.2, for testing: fixes the last two findings of the security

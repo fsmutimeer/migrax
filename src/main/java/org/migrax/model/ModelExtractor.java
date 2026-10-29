@@ -80,8 +80,19 @@ public final class ModelExtractor {
     }
   }
 
-  /** The model and a description of how it was read. */
-  public record Result(SchemaModel model, String source) {}
+  /**
+   * The model, a description of how it was read, and the entity class that owns each table
+   * (table name to class name; empty when the reader does not tell).
+   */
+  public record Result(SchemaModel model, String source, Map<String, String> entities) {
+    public Result {
+      entities = entities == null ? Map.of() : Map.copyOf(entities);
+    }
+
+    public Result(SchemaModel model, String source) {
+      this(model, source, Map.of());
+    }
+  }
 
   private ModelExtractor() {}
 
@@ -135,8 +146,8 @@ public final class ModelExtractor {
             && (mode == Mode.HIBERNATE || matchingEntities(loader, basePackage, version));
         if (usable) {
           try {
-            return new Result(readWithHibernate(loader, basePackage, naming, dialect,
-                hibernateSettings), "Hibernate " + version + " mapping");
+            return readWithHibernate(loader, basePackage, naming, dialect, hibernateSettings,
+                "Hibernate " + version + " mapping");
           } catch (Exception | LinkageError e) {
             if (mode == Mode.HIBERNATE) {
               throw new IllegalStateException("Hibernate could not read the entity mapping: "
@@ -153,8 +164,9 @@ public final class ModelExtractor {
       }
       boolean enumChecks = hibernateSettings != null && "true".equalsIgnoreCase(
           hibernateSettings.get("migrax.enum-checks"));
-      return new Result(new JpaExtractor(naming, enumChecks).extract(basePackage),
-          "JPA annotations");
+      JpaExtractor.Extraction scanned =
+          new JpaExtractor(naming, enumChecks).extractWithEntities(basePackage);
+      return new Result(scanned.model(), "JPA annotations", scanned.entities());
     } finally {
       thread.setContextClassLoader(previous);
     }
@@ -410,6 +422,19 @@ public final class ModelExtractor {
     }
   }
 
+  /** The reader's table-to-entity map; empty when the reader has none (Hibernate 4). */
+  @SuppressWarnings("unchecked")
+  private static Map<String, String> entities(Class<?> reader, Object instance)
+      throws ReflectiveOperationException {
+    java.lang.reflect.Method method;
+    try {
+      method = reader.getMethod("entities");
+    } catch (NoSuchMethodException e) {
+      return Map.of();
+    }
+    return (Map<String, String>) method.invoke(instance);
+  }
+
   /** Hibernate's version on the class loader, or null when Hibernate is absent. */
   public static String hibernateVersion(ClassLoader loader) {
     try {
@@ -421,12 +446,13 @@ public final class ModelExtractor {
   }
 
   @SuppressWarnings("unchecked")
-  private static SchemaModel readWithHibernate(ClassLoader loader, String basePackage,
-                                               NamingStrategy naming, Dialect dialect,
-                                               Map<String, String> settings) throws Exception {
+  private static Result readWithHibernate(ClassLoader loader, String basePackage,
+                                          NamingStrategy naming, Dialect dialect,
+                                          Map<String, String> settings, String source)
+      throws Exception {
     List<Class<?>> classes = new ArrayList<>(JpaExtractor.scanEntities(loader, basePackage));
     if (classes.isEmpty()) {
-      return SchemaModel.empty();
+      return new Result(SchemaModel.empty(), source);
     }
     String version = hibernateVersion(loader);
     if (!matchingEntities(loader, basePackage, version)) {
@@ -440,9 +466,10 @@ public final class ModelExtractor {
         : READER);
     Object instance = reader.getConstructor().newInstance();
     try {
-      return (SchemaModel) reader.getMethod("read", List.class, Map.class, NamingStrategy.class,
-          Dialect.class).invoke(instance, classes, settings == null ? Map.of() : settings, naming,
-          dialect);
+      SchemaModel model = (SchemaModel) reader.getMethod("read", List.class, Map.class,
+          NamingStrategy.class, Dialect.class).invoke(instance, classes,
+          settings == null ? Map.of() : settings, naming, dialect);
+      return new Result(model, source, entities(reader, instance));
     } catch (java.lang.reflect.InvocationTargetException e) {
       Throwable cause = e.getCause();
       if (cause instanceof Exception exception) {

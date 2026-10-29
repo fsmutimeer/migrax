@@ -71,6 +71,43 @@ final class Reports {
     return null;
   }
 
+  /** The column an operation adds, drops, changes or renames (its new name), or null. */
+  static String column(Operation o) {
+    if (o instanceof AddColumn x) return x.column().name();
+    if (o instanceof DropColumn x) return x.column();
+    if (o instanceof AlterColumn x) return x.after().name();
+    if (o instanceof RenameColumn x) return x.to();
+    return null;
+  }
+
+  /**
+   * The entity class that owns the operation's table (the new name of a renamed table), or
+   * null when no entity maps it, e.g. a dropped table.
+   */
+  static String entity(Operation o, Map<String, String> entities) {
+    // A dropped table has no entity, even when an entity maps the same name in another case.
+    String table = o instanceof RenameTable x ? x.to() : o instanceof DropTable ? null : table(o);
+    if (table == null || entities.isEmpty()) {
+      return null;
+    }
+    String entity = entities.get(table);
+    if (entity != null) {
+      return entity;
+    }
+    for (Map.Entry<String, String> e : entities.entrySet()) {
+      if (e.getKey().equalsIgnoreCase(table)) {
+        return e.getValue();
+      }
+    }
+    return null;
+  }
+
+  /** One operation as JSON for {@code check}: what changes, where, and which entity owns it. */
+  static Object operationJson(Operation o, Map<String, String> entities) {
+    return JsonOut.object("kind", o.kind(), "summary", Migrations.summary(o),
+        "table", table(o), "column", column(o), "entity", entity(o, entities));
+  }
+
   static List<Object> findingsJson(List<SqlLinter.Finding> findings) {
     return findings.stream().map(f -> (Object) JsonOut.object("code", f.code(),
         "severity", f.severity(), "file", f.file(), "statement", f.statement(),

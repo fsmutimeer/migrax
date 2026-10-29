@@ -93,6 +93,8 @@ final class PlanCommand implements Command {
         operations.add(JsonOut.object("kind", operation.kind(),
             "summary", Migrations.summary(operation), "sql", dialect.render(operation),
             "destructive", operation.destructive(), "table", Reports.table(operation),
+            "column", Reports.column(operation),
+            "entity", Reports.entity(operation, changes.entities()),
             "rows", table == null ? null : table.rows(),
             "bytes", table == null ? null : table.bytes()));
       }

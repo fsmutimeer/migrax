@@ -33,6 +33,21 @@ $ migrax migrate --json 2>/dev/null
 `status`, `plan`, `check`, `drift`, `lint`, `verify` and `init` keep the JSON shapes they had
 before 0.3.0; see their sections in the [CLI reference](cli.md).
 
+Each change in `plan --json` (`operations`) and `check --json` (`operations`, next to the
+plain-text `changes`) names its `kind`, `table`, `column` (null when the change is not about one
+column) and `entity`: the class of the entity that maps the table, such as
+`com.example.Customer`. Editors and other tools use it to point at the class. `entity` is null
+for a dropped table, for tables no entity class maps directly (join, collection and secondary
+tables), for a schema file, and when the entities are read with Hibernate 4, EclipseLink,
+OpenJPA, Spring Data JDBC or Micronaut Data. A single-table hierarchy names its root class.
+
+```console
+$ migrax check --json    # one line, wrapped here
+{"ok":false,"changes":["add column orders.notes"],"operations":[{"kind":"add_column",
+"summary":"add column orders.notes","table":"orders","column":"notes",
+"entity":"com.example.Order"}],"conflicts":[]}
+```
+
 ### When a command fails
 
 With `--json`, a failure is also one JSON object on standard output, with the exit code 1:
