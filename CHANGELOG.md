@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.18.0-rc.1] - 2026-10-29
+
+First release candidate for 0.18.0, for testing: it includes everything in 0.17.2-rc.3 and
+adds the entity class to the JSON of `plan` and `check`. It is not on Maven Central: use the
+CLI from the Download page or the container image `ghcr.io/fsmutimeer/migrax:0.18.0-rc.1`.
+
 ### Added
 
 - `plan --json` and `check --json` name the entity class and the column of each change
@@ -948,7 +954,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.3...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.1...HEAD
+[0.18.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.3...v0.18.0-rc.1
 [0.17.2-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.2...v0.17.2-rc.3
 [0.17.2-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.1...v0.17.2-rc.2
 [0.17.2-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...v0.17.2-rc.1
