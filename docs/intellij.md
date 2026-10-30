@@ -12,8 +12,11 @@ The plugin has no migration logic of its own. Every button runs the Migrax comma
 background and shows its answer, so the IDE gives exactly the result your terminal and your CI
 give.
 
-!!! note "Not on the JetBrains Marketplace yet"
-    The plugin is in early development. This page describes the coming first release.
+!!! note "In review on the JetBrains Marketplace"
+    The first version, 0.1.0, is waiting for the JetBrains review. Once it is approved, it can
+    be installed from its [Marketplace page](https://plugins.jetbrains.com/plugin/35665-migrax)
+    or from **Settings > Plugins** in the IDE. The source code is on
+    [GitHub](https://github.com/fsmutimeer/migrax-intellij).
 
 ## Requirements
 
