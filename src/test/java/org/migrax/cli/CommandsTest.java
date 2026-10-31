@@ -149,6 +149,33 @@ class CommandsTest {
         "Did you rename customers.name to customers.country? [y/N]"), answered.out());
     assertTrue(answered.out().contains("rename column customers.name to country"),
         answered.out());
+
+    // Input that ends (Ctrl-D) stops the questions; the unanswered one becomes a hint.
+    Result ended = ask("", "generate", "--package", after);
+    assertEquals(1, ended.out().split("Did you rename ", -1).length - 1, ended.out());
+    assertTrue(ended.out().contains("Possible rename: customers.name to customers.full_name. "
+        + "To keep the data, rerun with --rename customers.name=full_name."), ended.out());
+  }
+
+  @Test
+  void asksAtMostThreeQuestionsPerColumn() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate", "--package", "org.migrax.cli.renames.before").code());
+    Result answered = ask("n\nn\nn\nn\n", "generate", "--package",
+        "org.migrax.cli.renames.many");
+    assertEquals(3, answered.out().split("Did you rename ", -1).length - 1, answered.out());
+  }
+
+  @Test
+  void aNoLeavesTheNewColumnFreeForTheNextDroppedOne() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate", "--package", "org.migrax.cli.renames.twodropped").code());
+    Result answered = ask("n\ny\n", "generate", "--package", "org.migrax.cli.renames.onename",
+        "--allow-destructive");
+    assertTrue(answered.out().contains(
+        "Did you rename customers.nickname to customers.full_name? [y/N]"), answered.out());
+    assertTrue(answered.out().contains("rename column customers.nickname to full_name"),
+        answered.out());
   }
 
   @Test
