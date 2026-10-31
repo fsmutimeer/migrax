@@ -30,7 +30,7 @@ final class JsonOut {
     if (value == null) {
       out.append("null");
     } else if (value instanceof String s) {
-      out.append(Json.q(s));
+      out.append(quote(s));
     } else if (value instanceof Number || value instanceof Boolean) {
       out.append(value);
     } else if (value instanceof Map<?, ?> map) {
@@ -41,7 +41,7 @@ final class JsonOut {
           out.append(',');
         }
         first = false;
-        out.append(Json.q(String.valueOf(entry.getKey()))).append(':');
+        out.append(quote(String.valueOf(entry.getKey()))).append(':');
         write(out, entry.getValue());
       }
       out.append('}');
@@ -57,10 +57,32 @@ final class JsonOut {
       }
       out.append(']');
     } else if (value instanceof Enum<?> e) {
-      out.append(Json.q(e.name().toLowerCase(java.util.Locale.ROOT)));
+      out.append(quote(e.name().toLowerCase(java.util.Locale.ROOT)));
     } else {
-      out.append(Json.q(String.valueOf(value)));
+      out.append(quote(String.valueOf(value)));
     }
+  }
+
+  /**
+   * A JSON string with every character above ~ (DEL and everything outside ASCII) written as a
+   * JSON unicode escape, so the output is plain ASCII and reads the same whatever encoding the
+   * console uses (Windows pipes use Cp1252).
+   */
+  private static String quote(String value) {
+    String quoted = Json.q(value);
+    StringBuilder out = null;
+    for (int i = 0; i < quoted.length(); i++) {
+      char c = quoted.charAt(i);
+      if (c > 0x7E) {
+        if (out == null) {
+          out = new StringBuilder(quoted.length() + 16).append(quoted, 0, i);
+        }
+        out.append(String.format("\\u%04x", (int) c));
+      } else if (out != null) {
+        out.append(c);
+      }
+    }
+    return out == null ? quoted : out.toString();
   }
 
   static List<Object> list(Collection<?> items) {
