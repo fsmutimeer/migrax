@@ -1,6 +1,5 @@
 ---
-date: 2026-11-01T10:00:00
-draft: true
+date: 2026-10-31T11:45:00
 slug: generated-migrations-for-python-typescript-and-go
 authors:
   - feroz
