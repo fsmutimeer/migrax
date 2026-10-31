@@ -158,6 +158,15 @@ class CommandsTest {
   }
 
   @Test
+  void renameHintsQuoteNamesAShellWouldRun() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate", "--package", "org.migrax.cli.renames.before").code());
+    Result hint = cli("generate", "--package", "org.migrax.cli.renames.oddname", "--dry-run");
+    assertTrue(hint.out().contains("rerun with --rename 'customers.name=full$(id)'."),
+        hint.out());
+  }
+
+  @Test
   void asksAtMostThreeQuestionsPerColumn() throws Exception {
     setUp();
     assertEquals(0, cli("generate", "--package", "org.migrax.cli.renames.before").code());

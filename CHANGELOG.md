@@ -6,6 +6,16 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `--json` output (and the MCP server's replies) writes characters outside ASCII as `\u`
+  escapes, so an entity, table or column name like `Kündé` arrives intact when the output is
+  piped on Windows. Before, Windows wrote those characters in its own code page, which is not
+  valid UTF-8, and JSON readers such as the IntelliJ plugin got garbled names.
+- The `--rename` and `--rename-table` hints put a name in single quotes when it has
+  characters a shell would interpret, so pasting the hint into a POSIX shell (or PowerShell)
+  can't run part of a name as a command.
+
 ## [0.18.0-rc.1] - 2026-10-31
 
 First release candidate for 0.18.0, for testing: it includes everything in 0.17.2-rc.3, adds
