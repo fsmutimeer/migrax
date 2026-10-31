@@ -11,8 +11,10 @@ import org.migrax.util.Log;
 import java.nio.file.Files;
 import java.sql.Connection;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The entity changes since the snapshot: the models before and after, and the operations
@@ -75,10 +77,24 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
         new ArrayList<>(Renames.parseColumns(args.option("--rename")));
     if (ask) {
       SchemaModel renamed = Renames.applyColumns(renamedTables, columns);
-      for (Renames.ColumnRename candidate : Renames.columnCandidates(renamed, current)) {
-        if (confirmRename(context, "Did you rename " + candidate.table() + "." + candidate.from()
-            + " to " + candidate.table() + "." + candidate.to() + "?", "--rename " + candidate)) {
-          columns.add(candidate);
+      Set<String> taken = new HashSet<>();
+      for (List<Renames.ColumnRename> choices : Renames.columnChoices(renamed, current)) {
+        // After a "no", the next likely new name is asked about; without a terminal only the
+        // most likely one is printed.
+        for (Renames.ColumnRename candidate : choices) {
+          String target = candidate.table() + "." + candidate.to();
+          if (taken.contains(target)) {
+            continue;
+          }
+          boolean yes = confirmRename(context, "Did you rename " + candidate.table() + "."
+              + candidate.from() + " to " + target + "?", "--rename " + candidate);
+          if (yes) {
+            columns.add(candidate);
+          }
+          if (yes || !context.interactive()) {
+            taken.add(target);
+            break;
+          }
         }
       }
     }

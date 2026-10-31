@@ -130,6 +130,28 @@ class CommandsTest {
   }
 
   @Test
+  void asksAboutTheNextLikelyNameAfterANo() throws Exception {
+    setUp();
+    String before = "org.migrax.cli.renames.before";
+    String after = "org.migrax.cli.renames.after";
+    Result first = cli("generate", "--package", before);
+    assertEquals(0, first.code(), first.all());
+
+    Result hint = cli("generate", "--package", after, "--dry-run");
+    assertEquals(1, hint.out().split("Possible rename: ", -1).length - 1, hint.out());
+    assertTrue(hint.out().contains("--rename customers.name=full_name"), hint.out());
+
+    Result answered = ask("n\ny\n", "generate", "--package", after);
+    assertEquals(1, answered.code(), "renaming name to country narrows it: " + answered.all());
+    assertTrue(answered.out().contains(
+        "Did you rename customers.name to customers.full_name? [y/N]"), answered.out());
+    assertTrue(answered.out().contains(
+        "Did you rename customers.name to customers.country? [y/N]"), answered.out());
+    assertTrue(answered.out().contains("rename column customers.name to country"),
+        answered.out());
+  }
+
+  @Test
   void forgetRemovesMigrationsDeletedOnPurpose() throws Exception {
     setUp();
     generateAndMigrate();

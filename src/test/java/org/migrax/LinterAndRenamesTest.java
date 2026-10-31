@@ -187,6 +187,47 @@ class LinterAndRenamesTest {
   }
 
   @Test
+  void proposesTheMostSimilarNewColumnFirstAndKeepsTheOthersAsChoices() {
+    // name -> fullName while a country column is added: country comes first in the table.
+    SchemaModel before = model(table("customers", column("id", "bigint"),
+        sized("name", 100)));
+    SchemaModel after = model(table("customers", column("id", "bigint"),
+        sized("country", 2), sized("full_name", 100)));
+    assertEquals(List.of(new Renames.ColumnRename("customers", "name", "full_name")),
+        Renames.columnCandidates(before, after));
+    assertEquals(List.of(List.of(new Renames.ColumnRename("customers", "name", "full_name"),
+            new Renames.ColumnRename("customers", "name", "country"))),
+        Renames.columnChoices(before, after));
+
+    // Shared words count too (phone_number -> mobileNumber), and so does the same size.
+    SchemaModel words = model(table("customers", column("id", "bigint"),
+        sized("note", 30), sized("mobileNumber", 30)));
+    assertEquals(List.of(new Renames.ColumnRename("customers", "phone_number", "mobileNumber")),
+        Renames.columnCandidates(model(table("customers", column("id", "bigint"),
+            sized("phone_number", 30))), words));
+    SchemaModel sizes = model(table("customers", column("id", "bigint"),
+        sized("label", 20), sized("title", 100)));
+    assertEquals(List.of(new Renames.ColumnRename("customers", "name", "title")),
+        Renames.columnCandidates(before, sizes));
+  }
+
+  @Test
+  void twoDroppedColumnsNeverGetTheSameCandidate() {
+    SchemaModel before = model(table("customers", column("id", "bigint"),
+        column("first", "varchar"), column("second", "varchar")));
+    SchemaModel after = model(table("customers", column("id", "bigint"),
+        column("one", "varchar"), column("two", "varchar")));
+    assertEquals(List.of(new Renames.ColumnRename("customers", "first", "one"),
+            new Renames.ColumnRename("customers", "second", "two")),
+        Renames.columnCandidates(before, after));
+  }
+
+  private static SchemaModel.Column sized(String name, int length) {
+    return new SchemaModel.Column(name, "varchar", true, length, null, null, null, false, false,
+        null, "varchar");
+  }
+
+  @Test
   void renamesBecomeRenameOperationsAndReverseCleanly() {
     SchemaModel before = model(table("customer", column("id", "bigint"),
         column("email", "varchar")));
