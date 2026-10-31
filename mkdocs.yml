@@ -221,6 +221,7 @@ nav:
       - Python, Node.js, Go and others: frameworks/any-language.md
       - Maven plugin: frameworks/maven.md
       - Gradle plugin: frameworks/gradle.md
+      - IntelliJ IDEA plugin: intellij.md
   - Reference:
       - CLI commands: reference/cli.md
       - Configuration: reference/configuration.md
