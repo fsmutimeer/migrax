@@ -6,11 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
-## [0.18.0-rc.1] - 2026-10-29
+## [0.18.0-rc.1] - 2026-10-31
 
-First release candidate for 0.18.0, for testing: it includes everything in 0.17.2-rc.3 and
-adds the entity class to the JSON of `plan` and `check`. It is not on Maven Central: use the
-CLI from the Download page or the container image `ghcr.io/fsmutimeer/migrax:0.18.0-rc.1`.
+First release candidate for 0.18.0, for testing: it includes everything in 0.17.2-rc.3, adds
+the entity class to the JSON of `plan` and `check`, and makes `generate` ask about the most
+likely rename first. It is not on Maven Central: use the CLI from the Download page or the
+container image `ghcr.io/fsmutimeer/migrax:0.18.0-rc.1`.
 
 ### Added
 
