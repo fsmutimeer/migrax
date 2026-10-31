@@ -21,7 +21,10 @@ All notable changes to Migrax are listed here. The format follows
   asks about the most similar one first (`name` -> `full_name` before `name` -> `country`)
   and, after a "no", asks about the next one. Before, it asked only about the first new column
   in the table, and the "Possible rename" hint printed without a terminal pointed at that one
-  too.
+  too. At most three questions are asked per column, and Migrax stops asking when the input
+  ends (Ctrl-D).
+- The container image is built on a newer `eclipse-temurin:21-jre`, which fixes
+  CVE-2026-111497 in the operating system's Brotli library (`libbrotli1`).
 
 ## [0.17.2-rc.3] - 2026-10-28
 

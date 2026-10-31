@@ -27,6 +27,8 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
                      List<Renames.TableRename> tableRenames,
                      List<Renames.ColumnRename> columnRenames, String source,
                      Map<String, String> entities) {
+  /** Questions asked about one dropped column before Migrax treats it as dropped. */
+  private static final int MAX_RENAME_QUESTIONS = 3;
 
   /**
    * Compares the entities with the snapshot (or the database on the first run), asking about
@@ -79,8 +81,9 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
       SchemaModel renamed = Renames.applyColumns(renamedTables, columns);
       Set<String> taken = new HashSet<>();
       for (List<Renames.ColumnRename> choices : Renames.columnChoices(renamed, current)) {
-        // After a "no", the next likely new name is asked about; without a terminal only the
-        // most likely one is printed.
+        // After a "no", the next likely new name is asked about (at most three questions per
+        // column); without a terminal only the most likely one is printed.
+        int asked = 0;
         for (Renames.ColumnRename candidate : choices) {
           String target = candidate.table() + "." + candidate.to();
           if (taken.contains(target)) {
@@ -88,11 +91,14 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
           }
           boolean yes = confirmRename(context, "Did you rename " + candidate.table() + "."
               + candidate.from() + " to " + target + "?", "--rename " + candidate);
-          if (yes) {
-            columns.add(candidate);
-          }
           if (yes || !context.interactive()) {
+            if (yes) {
+              columns.add(candidate);
+            }
             taken.add(target);
+            break;
+          }
+          if (++asked == MAX_RENAME_QUESTIONS) {
             break;
           }
         }
@@ -106,11 +112,15 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
   /** Asks about a rename, or prints how to answer it with an option when Migrax can't ask. */
   private static boolean confirmRename(CommandContext context, String question, String option)
       throws Exception {
-    if (!context.interactive()) {
-      context.out().println("Possible rename: " + question.replace("Did you rename ", "")
-          .replace("?", "") + ". To keep the data, rerun with " + option + ".");
-      return false;
+    if (context.interactive()) {
+      boolean yes = context.confirm(question);
+      if (yes || context.interactive()) {
+        return yes;
+      }
+      // The input ended without an answer: print the hint as when Migrax can't ask.
     }
-    return context.confirm(question);
+    context.out().println("Possible rename: " + question.replace("Did you rename ", "")
+        .replace("?", "") + ". To keep the data, rerun with " + option + ".");
+    return false;
   }
 }

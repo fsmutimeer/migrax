@@ -15,6 +15,8 @@ final class CommandContext {
   private final BufferedReader in;
   private final Project project;
   private final Services services;
+  // True once the input ended (Ctrl-D, a script that stopped answering): stop asking.
+  private boolean inputEnded;
 
   /**
    * @param in answers to questions, or null when Migrax must not ask
@@ -75,7 +77,7 @@ final class CommandContext {
 
   /** Whether Migrax may ask questions (a console is attached and --no-input is not set). */
   boolean interactive() {
-    return in != null;
+    return in != null && !inputEnded;
   }
 
   Project project() {
@@ -107,12 +109,17 @@ final class CommandContext {
 
   /** Asks a yes/no question; false when Migrax can't ask. */
   boolean confirm(String question) throws IOException {
-    if (in == null) {
+    if (!interactive()) {
       return false;
     }
     out.print(question + " [y/N] ");
     out.flush();
     String answer = in.readLine();
-    return answer != null && answer.trim().toLowerCase(Locale.ROOT).startsWith("y");
+    if (answer == null) {
+      inputEnded = true;
+      out.println();
+      return false;
+    }
+    return answer.trim().toLowerCase(Locale.ROOT).startsWith("y");
   }
 }
