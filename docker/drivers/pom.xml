@@ -20,7 +20,7 @@
     <dependency>
       <groupId>org.mariadb.jdbc</groupId>
       <artifactId>mariadb-java-client</artifactId>
-      <version>3.5.11</version>
+      <version>4.0.0</version>
       <exclusions>
         <!-- Windows logins (GSSAPI through Waffle); not used in a Linux container. -->
         <exclusion>
