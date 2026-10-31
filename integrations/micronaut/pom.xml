@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.18.0-rc.1</version>
+    <version>0.18.0-SNAPSHOT</version>
     <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-micronaut</artifactId>
-  <version>0.18.0-rc.1</version>
+  <version>0.18.0-SNAPSHOT</version>
   <name>Migrax for Micronaut</name>
   <description>
     Applies Migrax migrations when a Micronaut DataSource is created, before Hibernate starts.
@@ -62,7 +62,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.18.0-rc.1</version>
+      <version>0.18.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>io.micronaut</groupId>

@@ -5,12 +5,12 @@
   <parent>
     <groupId>org.migrax</groupId>
     <artifactId>migrax-parent</artifactId>
-    <version>0.18.0-rc.1</version>
+    <version>0.18.0-SNAPSHOT</version>
     <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-spring-boot-starter</artifactId>
-  <version>0.18.0-rc.1</version>
+  <version>0.18.0-SNAPSHOT</version>
   <name>Migrax Spring Boot starter</name>
   <description>Applies Migrax migrations when a Spring Boot application starts, before JPA.</description>
 
@@ -46,7 +46,7 @@
     <dependency>
       <groupId>org.migrax</groupId>
       <artifactId>migrax</artifactId>
-      <version>0.18.0-rc.1</version>
+      <version>0.18.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
