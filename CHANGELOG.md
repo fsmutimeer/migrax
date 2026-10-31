@@ -21,6 +21,14 @@ CLI from the Download page or the container image `ghcr.io/fsmutimeer/migrax:0.1
   scanning, and is null for the other readers for now, and for join, collection and secondary
   tables.
 
+### Fixed
+
+- When a column disappears and several new columns of the same type appear, `generate` now
+  asks about the most similar one first (`name` -> `full_name` before `name` -> `country`)
+  and, after a "no", asks about the next one. Before, it asked only about the first new column
+  in the table, and the "Possible rename" hint printed without a terminal pointed at that one
+  too.
+
 ## [0.17.2-rc.3] - 2026-10-28
 
 Third release candidate for 0.17.2, for testing: fixes the last two findings of the security

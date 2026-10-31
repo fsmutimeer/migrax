@@ -6,6 +6,8 @@ import org.migrax.ops.RenameColumn;
 import org.migrax.ops.RenameTable;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -128,10 +130,31 @@ public final class Renames {
 
   /**
    * Columns that disappeared from a table while a column of the same type appeared. Each
-   * dropped column is proposed at most once.
+   * dropped column is proposed at most once, with its most likely new name.
    */
   public static List<ColumnRename> columnCandidates(SchemaModel previous, SchemaModel current) {
     List<ColumnRename> candidates = new ArrayList<>();
+    Set<String> used = new HashSet<>();
+    for (List<ColumnRename> choices : columnChoices(previous, current)) {
+      for (ColumnRename choice : choices) {
+        if (used.add(choice.table() + "." + choice.to())) {
+          candidates.add(choice);
+          break;
+        }
+      }
+    }
+    return candidates;
+  }
+
+  /**
+   * For each column that disappeared from a table, every new column it may have been renamed
+   * to, the most likely first, so a "no" to one can be followed by the next.
+   *
+   * @since 0.18.0
+   */
+  public static List<List<ColumnRename>> columnChoices(SchemaModel previous,
+                                                       SchemaModel current) {
+    List<List<ColumnRename>> choices = new ArrayList<>();
     for (SchemaModel.Table now : current.tables()) {
       SchemaModel.Table old = previous.table(now.name());
       if (old == null) {
@@ -150,27 +173,64 @@ public final class Renames {
               && looseName(dropped.name()).equals(looseName(added.name()))) {
             used.add(added.name());
             matched.add(dropped.name());
-            candidates.add(new ColumnRename(now.name(), dropped.name(), added.name()));
+            choices.add(List.of(new ColumnRename(now.name(), dropped.name(), added.name())));
             break;
           }
         }
       }
-      // Second pass: any new column of the same type.
+      // Second pass: any new column of the same type, similar names and sizes first
+      // (name -> full_name before name -> country).
       for (SchemaModel.Column dropped : old.columns()) {
         if (now.column(dropped.name()) != null || matched.contains(dropped.name())) {
           continue;
         }
-        for (SchemaModel.Column added : now.columns()) {
-          if (old.column(added.name()) == null && !used.contains(added.name())
-              && sameType(dropped, added)) {
-            used.add(added.name());
-            candidates.add(new ColumnRename(now.name(), dropped.name(), added.name()));
-            break;
+        List<SchemaModel.Column> added = new ArrayList<>();
+        for (SchemaModel.Column column : now.columns()) {
+          if (old.column(column.name()) == null && !used.contains(column.name())
+              && sameType(dropped, column)) {
+            added.add(column);
           }
+        }
+        added.sort(Comparator.comparingInt(
+            (SchemaModel.Column column) -> likeness(dropped, column)).reversed());
+        if (!added.isEmpty()) {
+          choices.add(added.stream()
+              .map(column -> new ColumnRename(now.name(), dropped.name(), column.name()))
+              .toList());
         }
       }
     }
-    return candidates;
+    return choices;
+  }
+
+  /** Higher when two columns of the same type look like the same column under a new name. */
+  private static int likeness(SchemaModel.Column dropped, SchemaModel.Column added) {
+    int score = 0;
+    String from = looseName(dropped.name());
+    String to = looseName(added.name());
+    // A short name like "id" is part of too many others to say anything.
+    boolean contained = Math.min(from.length(), to.length()) >= 3
+        && (from.contains(to) || to.contains(from));
+    if (contained || !Collections.disjoint(words(dropped.name()), words(added.name()))) {
+      score += 2;
+    }
+    if (Objects.equals(dropped.length(), added.length())
+        && Objects.equals(dropped.precision(), added.precision())
+        && Objects.equals(dropped.scale(), added.scale())) {
+      score += 1;
+    }
+    return score;
+  }
+
+  /** The words of a snake_case or camelCase name, lowercase. */
+  private static Set<String> words(String name) {
+    Set<String> words = new HashSet<>();
+    for (String word : name.split("_|(?<=[a-z0-9])(?=[A-Z])")) {
+      if (!word.isEmpty()) {
+        words.add(word.toLowerCase(Locale.ROOT));
+      }
+    }
+    return words;
   }
 
   /** A column name without case or underscores, so created_at and createdAt compare equal. */
