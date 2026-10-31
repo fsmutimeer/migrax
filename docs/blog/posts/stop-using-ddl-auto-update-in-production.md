@@ -1,7 +1,6 @@
 ---
-date: 2026-11-01T10:00:00
+date: 2026-10-31T11:30:00
 slug: stop-using-ddl-auto-update-in-production
-draft: true
 authors:
   - feroz
 categories:
