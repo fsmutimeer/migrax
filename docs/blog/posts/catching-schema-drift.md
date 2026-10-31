@@ -1,7 +1,6 @@
 ---
-date: 2026-11-01T10:00:00
+date: 2026-10-31T11:35:00
 slug: catching-schema-drift
-draft: true
 authors:
   - feroz
 categories:
