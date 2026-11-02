@@ -69,8 +69,27 @@ public final class SqlServerDialect extends AbstractDialect {
 
   @Override
   public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return java.util.List.of("org.hibernate.dialect.SQLServer2012Dialect",
+          "org.hibernate.dialect.SQLServer2008Dialect");
+    }
     return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.SQLServer2012Dialect"
         : "org.hibernate.dialect.SQLServerDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.SQLServerPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "sqlserver";
+  }
+
+  @Override
+  public java.util.Optional<String> micronautDataUuidDefault() {
+    return java.util.Optional.of("newid()");
   }
 
   @Override

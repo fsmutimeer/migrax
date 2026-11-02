@@ -414,11 +414,12 @@ public interface Dialect {
 
   /**
    * The Hibernate dialect classes Migrax sets when it reads the entities with Hibernate, best
-   * first: the first one Hibernate can load is used, else the last one. Empty leaves the
-   * project's own {@code hibernate.dialect} setting in charge. The default is empty.
+   * first: the first one Hibernate can load is used, else the last one (Hibernate 4: else
+   * the project has to set {@code hibernate.dialect}). Empty leaves the project's own
+   * {@code hibernate.dialect} setting in charge. The default is empty.
    *
-   * @param hibernateMajor Hibernate's major version: 5 selects the names for Hibernate 5, any
-   *     other version the ones for Hibernate 6 and newer
+   * @param hibernateMajor Hibernate's major version: 4 and 5 select the names for those
+   *     versions, any other version the ones for Hibernate 6 and newer
    * @since 0.19.0
    */
   default java.util.List<String> hibernateDialects(int hibernateMajor) {
@@ -444,6 +445,92 @@ public interface Dialect {
    */
   default boolean hibernateValidationWorks() {
     return true;
+  }
+
+  /**
+   * The EclipseLink platform class Migrax sets when it reads the entities with EclipseLink,
+   * for the database's default column types. The default is EclipseLink's generic
+   * {@code DatabasePlatform}.
+   *
+   * @since 0.19.0
+   */
+  default String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.DatabasePlatform";
+  }
+
+  /**
+   * The OpenJPA dictionary (a short name or a class name) Migrax sets when it reads the
+   * entities with OpenJPA. The default is OpenJPA's generic {@code DBDictionary}.
+   *
+   * @since 0.19.0
+   */
+  default String openJpaDictionary() {
+    return "org.apache.openjpa.jdbc.sql.DBDictionary";
+  }
+
+  /**
+   * Whether table names are case-sensitive (as on MySQL on Linux), so that the entity readers
+   * keep a table name as the ORM spells it instead of writing it in lower case. The default is
+   * {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean caseSensitiveTableNames() {
+    return false;
+  }
+
+  /**
+   * Whether large objects (serialized values, byte and char arrays) read with EclipseLink or
+   * OpenJPA get the ORM's column type, because Migrax's own large-object type doesn't fit what
+   * the ORM writes (the PostgreSQL family's oid, the MySQL family's 64 KB blob). The default
+   * is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean largeObjectTypesFromOrm() {
+    return false;
+  }
+
+  /**
+   * The column type for a byte array that a data mapper (Spring Data JDBC, Micronaut Data)
+   * writes as plain bytes, where it differs from Migrax's large-object type; empty when that
+   * type fits. The default is empty.
+   *
+   * @since 0.19.0
+   */
+  default java.util.Optional<String> plainBytesType() {
+    return java.util.Optional.empty();
+  }
+
+  /**
+   * Whether Micronaut Data draws ids with {@code GeneratedValue.Type.AUTO} from a sequence on
+   * this database instead of an identity column. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean micronautDataSequenceIds() {
+    return false;
+  }
+
+  /**
+   * Whether Micronaut Data stores UUIDs as text ({@code VARCHAR(36)}) on this database. Where
+   * it does and no {@link #micronautDataUuidDefault()} exists, it puts a new UUID into the
+   * insert itself. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean micronautDataTextUuids() {
+    return false;
+  }
+
+  /**
+   * The database function Micronaut Data relies on for a generated UUID column's default;
+   * empty when there is none. The default is empty.
+   *
+   * @since 0.19.0
+   */
+  default java.util.Optional<String> micronautDataUuidDefault() {
+    return java.util.Optional.empty();
   }
 
   /**

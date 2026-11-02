@@ -38,9 +38,7 @@ class DialectBoundaryTest {
    */
   private static final Map<String, Integer> ALLOWED_DIALECT_CLASS_USES = Map.ofEntries(
       Map.entry("org/migrax/cli/CleanCommand.java", 2),
-      Map.entry("org/migrax/cli/GenerateCommand.java", 2),
-      Map.entry("org/migrax/orm/MicronautDataSchemaReader.java", 1),
-      Map.entry("org/migrax/orm/SpringDataJdbcSchemaReader.java", 1));
+      Map.entry("org/migrax/cli/GenerateCommand.java", 2));
 
   /** Lines outside the dialect package that check for a database by name: file, count. */
   private static final Map<String, Integer> ALLOWED_DATABASE_NAME_CHECKS = Map.ofEntries(
@@ -50,10 +48,6 @@ class DialectBoundaryTest {
       Map.entry("org/migrax/cli/MigrationSql.java", 2),
       Map.entry("org/migrax/cli/Project.java", 1),
       Map.entry("org/migrax/lint/SqlLinter.java", 7),
-      Map.entry("org/migrax/orm/EclipseLinkSchemaReader.java", 16),
-      Map.entry("org/migrax/orm/Hibernate4SchemaReader.java", 11),
-      Map.entry("org/migrax/orm/MicronautDataSchemaReader.java", 7),
-      Map.entry("org/migrax/orm/OpenJpaSchemaReader.java", 16),
       Map.entry("org/migrax/plugin/DatabaseSchemaReader.java", 17),
       Map.entry("org/migrax/runner/MigrationRunner.java", 5),
       Map.entry("org/migrax/runner/MigrationScript.java", 6),

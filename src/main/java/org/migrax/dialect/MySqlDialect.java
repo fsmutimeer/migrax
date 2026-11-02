@@ -61,8 +61,39 @@ public class MySqlDialect extends AbstractDialect {
    */
   @Override
   public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return java.util.List.of("org.hibernate.dialect.MySQL5InnoDBDialect");
+    }
     return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.MySQL8Dialect"
         : "org.hibernate.dialect.MySQLDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.MySQLPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "mysql";
+  }
+
+  /** Table names are case-sensitive on Linux. */
+  @Override
+  public boolean caseSensitiveTableNames() {
+    return true;
+  }
+
+  /** Migrax's blob holds 64 KB; the ORMs pick larger types. */
+  @Override
+  public boolean largeObjectTypesFromOrm() {
+    return true;
+  }
+
+  /** Micronaut Data's MySQL dialect (also used for MariaDB and TiDB) keeps UUIDs as text. */
+  @Override
+  public boolean micronautDataTextUuids() {
+    return true;
   }
 
   /** MySQL has no sequences: Hibernate keeps them as tables. */

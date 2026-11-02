@@ -16,8 +16,16 @@ public final class MariaDbDialect extends MySqlDialect {
 
   @Override
   public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return super.hibernateDialects(hibernateMajor);
+    }
     return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.MariaDB103Dialect"
         : "org.hibernate.dialect.MariaDBDialect");
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "mariadb";
   }
 
   /** MariaDB has sequences. */

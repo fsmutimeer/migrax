@@ -67,8 +67,36 @@ public final class OracleDialect extends AbstractDialect {
 
   @Override
   public List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return List.of("org.hibernate.dialect.Oracle10gDialect");
+    }
     return List.of(hibernateMajor == 5 ? "org.hibernate.dialect.Oracle12cDialect"
         : "org.hibernate.dialect.OracleDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.OraclePlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "oracle";
+  }
+
+  @Override
+  public boolean micronautDataSequenceIds() {
+    return true;
+  }
+
+  @Override
+  public boolean micronautDataTextUuids() {
+    return true;
+  }
+
+  @Override
+  public java.util.Optional<String> micronautDataUuidDefault() {
+    return java.util.Optional.of("sys_guid()");
   }
 
   @Override

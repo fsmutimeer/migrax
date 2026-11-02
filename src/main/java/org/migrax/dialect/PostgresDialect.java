@@ -47,8 +47,39 @@ public class PostgresDialect extends AbstractDialect {
    */
   @Override
   public List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return List.of("org.hibernate.dialect.PostgreSQL9Dialect",
+          "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect");
+    }
     return List.of(hibernateMajor == 5 ? "org.hibernate.dialect.PostgreSQL10Dialect"
         : "org.hibernate.dialect.PostgreSQLDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.PostgreSQLPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "postgres";
+  }
+
+  /** Large objects go to oid columns, where the ORMs write bytea or text. */
+  @Override
+  public boolean largeObjectTypesFromOrm() {
+    return true;
+  }
+
+  /** Plain bytes go to bytea, not to a large object. */
+  @Override
+  public java.util.Optional<String> plainBytesType() {
+    return java.util.Optional.of("bytea");
+  }
+
+  @Override
+  public java.util.Optional<String> micronautDataUuidDefault() {
+    return java.util.Optional.of("gen_random_uuid()");
   }
 
   @Override

@@ -38,6 +38,9 @@ public final class CockroachDialect extends PostgresDialect {
 
   @Override
   public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return super.hibernateDialects(hibernateMajor);
+    }
     return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.CockroachDB201Dialect"
         : "org.hibernate.dialect.CockroachDialect");
   }

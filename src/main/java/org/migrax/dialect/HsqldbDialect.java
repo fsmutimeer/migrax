@@ -43,6 +43,16 @@ public final class HsqldbDialect extends AbstractDialect {
   }
 
   @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.HSQLPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "hsql";
+  }
+
+  @Override
   public java.util.List<String> aliases() {
     return java.util.List.of("hsql", "hypersql");
   }

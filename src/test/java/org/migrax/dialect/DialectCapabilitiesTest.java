@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
@@ -33,6 +34,59 @@ class DialectCapabilitiesTest {
         "mysql", "tidb", "sqlite");
     assertDialects("hibernateValidationWorks", d -> !d.hibernateValidationWorks(), "sqlite");
     assertDialects("migrationLockLimit", d -> d.migrationLockLimit().isPresent(), "h2");
+    assertDialects("caseSensitiveTableNames", Dialect::caseSensitiveTableNames,
+        "mysql", "mariadb", "tidb");
+    assertDialects("largeObjectTypesFromOrm", Dialect::largeObjectTypesFromOrm,
+        "mysql", "mariadb", "tidb", "postgresql", "cockroachdb", "yugabytedb");
+    assertDialects("plainBytesType", d -> d.plainBytesType().equals(Optional.of("bytea")),
+        "postgresql", "cockroachdb", "yugabytedb");
+    assertDialects("plainBytesType present", d -> d.plainBytesType().isPresent(),
+        "postgresql", "cockroachdb", "yugabytedb");
+    assertDialects("micronautDataSequenceIds", Dialect::micronautDataSequenceIds, "oracle");
+    assertDialects("micronautDataTextUuids", Dialect::micronautDataTextUuids,
+        "mysql", "mariadb", "tidb", "oracle");
+  }
+
+  @Test
+  void ormSettingsPerDatabase() {
+    String platforms = "org.eclipse.persistence.platform.database.";
+    Map<String, String> eclipseLink = Map.ofEntries(
+        Map.entry("postgresql", platforms + "PostgreSQLPlatform"),
+        Map.entry("cockroachdb", platforms + "PostgreSQLPlatform"),
+        Map.entry("yugabytedb", platforms + "PostgreSQLPlatform"),
+        Map.entry("mysql", platforms + "MySQLPlatform"),
+        Map.entry("mariadb", platforms + "MySQLPlatform"),
+        Map.entry("tidb", platforms + "MySQLPlatform"),
+        Map.entry("sqlserver", platforms + "SQLServerPlatform"),
+        Map.entry("oracle", platforms + "OraclePlatform"),
+        Map.entry("h2", platforms + "H2Platform"),
+        Map.entry("sqlite", platforms + "DatabasePlatform"),
+        Map.entry("hsqldb", platforms + "HSQLPlatform"),
+        Map.entry("derby", platforms + "DerbyPlatform"));
+    Map<String, String> openJpa = Map.ofEntries(
+        Map.entry("postgresql", "postgres"),
+        Map.entry("cockroachdb", "postgres"),
+        Map.entry("yugabytedb", "postgres"),
+        Map.entry("mysql", "mysql"),
+        Map.entry("tidb", "mysql"),
+        Map.entry("mariadb", "mariadb"),
+        Map.entry("sqlserver", "sqlserver"),
+        Map.entry("oracle", "oracle"),
+        Map.entry("h2", "h2"),
+        Map.entry("sqlite", "org.apache.openjpa.jdbc.sql.DBDictionary"),
+        Map.entry("hsqldb", "hsql"),
+        Map.entry("derby", "derby"));
+    Map<String, String> uuidDefaults = Map.of(
+        "postgresql", "gen_random_uuid()", "cockroachdb", "gen_random_uuid()",
+        "yugabytedb", "gen_random_uuid()", "h2", "random_uuid()", "sqlserver", "newid()",
+        "oracle", "sys_guid()");
+    for (String name : Dialects.NAMES) {
+      Dialect dialect = Dialects.byName(name);
+      assertEquals(eclipseLink.get(name), dialect.eclipseLinkPlatform(), name + ", EclipseLink");
+      assertEquals(openJpa.get(name), dialect.openJpaDictionary(), name + ", OpenJPA");
+      assertEquals(Optional.ofNullable(uuidDefaults.get(name)),
+          dialect.micronautDataUuidDefault(), name + ", Micronaut Data UUID default");
+    }
   }
 
   @Test
@@ -64,11 +118,29 @@ class DialectCapabilitiesTest {
         Map.entry("sqlite", List.of()),
         Map.entry("hsqldb", List.of("org.hibernate.dialect.HSQLDialect")),
         Map.entry("derby", List.of("org.hibernate.dialect.DerbyTenSevenDialect")));
+    List<String> postgres4 = List.of("org.hibernate.dialect.PostgreSQL9Dialect",
+        "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect");
+    List<String> mysql4 = List.of("org.hibernate.dialect.MySQL5InnoDBDialect");
+    Map<String, List<String>> hibernate4 = Map.ofEntries(
+        Map.entry("postgresql", postgres4),
+        Map.entry("cockroachdb", postgres4),
+        Map.entry("yugabytedb", postgres4),
+        Map.entry("mysql", mysql4),
+        Map.entry("mariadb", mysql4),
+        Map.entry("tidb", mysql4),
+        Map.entry("sqlserver", List.of("org.hibernate.dialect.SQLServer2012Dialect",
+            "org.hibernate.dialect.SQLServer2008Dialect")),
+        Map.entry("oracle", List.of("org.hibernate.dialect.Oracle10gDialect")),
+        Map.entry("h2", List.of("org.hibernate.dialect.H2Dialect")),
+        Map.entry("sqlite", List.of()),
+        Map.entry("hsqldb", List.of("org.hibernate.dialect.HSQLDialect")),
+        Map.entry("derby", List.of("org.hibernate.dialect.DerbyTenSevenDialect")));
     for (String name : Dialects.NAMES) {
       Dialect dialect = Dialects.byName(name);
       assertEquals(hibernate6.get(name), dialect.hibernateDialects(6), name + ", Hibernate 6");
       assertEquals(hibernate6.get(name), dialect.hibernateDialects(7), name + ", Hibernate 7");
       assertEquals(hibernate5.get(name), dialect.hibernateDialects(5), name + ", Hibernate 5");
+      assertEquals(hibernate4.get(name), dialect.hibernateDialects(4), name + ", Hibernate 4");
     }
   }
 

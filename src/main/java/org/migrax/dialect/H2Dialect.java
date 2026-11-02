@@ -38,6 +38,21 @@ public final class H2Dialect extends AbstractDialect {
   }
 
   @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.H2Platform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "h2";
+  }
+
+  @Override
+  public java.util.Optional<String> micronautDataUuidDefault() {
+    return java.util.Optional.of("random_uuid()");
+  }
+
+  @Override
   public java.util.Optional<String> migrationLockLimit() {
     return java.util.Optional.of("H2 locks only within one process; use it for development only");
   }

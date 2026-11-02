@@ -53,9 +53,19 @@ public final class DerbyDialect extends AbstractDialect {
    */
   @Override
   public List<String> hibernateDialects(int hibernateMajor) {
-    return hibernateMajor == 5 ? List.of("org.hibernate.dialect.DerbyTenSevenDialect")
+    return hibernateMajor <= 5 ? List.of("org.hibernate.dialect.DerbyTenSevenDialect")
         : List.of("org.hibernate.dialect.DerbyDialect",
             "org.hibernate.community.dialect.DerbyDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.DerbyPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "derby";
   }
 
   /** The driver reports "Apache Derby". */

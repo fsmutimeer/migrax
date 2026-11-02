@@ -84,7 +84,7 @@ public final class SqliteDialect extends AbstractDialect {
    */
   @Override
   public List<String> hibernateDialects(int hibernateMajor) {
-    return hibernateMajor == 5 ? List.of()
+    return hibernateMajor <= 5 ? List.of()
         : List.of("org.hibernate.community.dialect.SQLiteDialect");
   }
 

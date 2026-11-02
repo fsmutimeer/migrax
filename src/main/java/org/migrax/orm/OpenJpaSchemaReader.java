@@ -40,21 +40,6 @@ import org.apache.openjpa.meta.ValueStrategies;
  * lower case, except table names on MySQL and MariaDB, which are case-sensitive on Linux.
  */
 public final class OpenJpaSchemaReader {
-  /** OpenJPA's dictionary per Migrax dialect. */
-  private static final Map<String, String> DICTIONARIES = Map.ofEntries(
-      Map.entry("postgresql", "postgres"),
-      Map.entry("cockroachdb", "postgres"),
-      Map.entry("yugabytedb", "postgres"),
-      Map.entry("mysql", "mysql"),
-      Map.entry("tidb", "mysql"),
-      Map.entry("mariadb", "mariadb"),
-      Map.entry("sqlserver", "sqlserver"),
-      Map.entry("oracle", "oracle"),
-      Map.entry("h2", "h2"),
-      Map.entry("sqlite", "org.apache.openjpa.jdbc.sql.DBDictionary"),
-      Map.entry("hsqldb", "hsql"),
-      Map.entry("derby", "derby"));
-
   private boolean caseSensitiveTables;
   private boolean ownLobTypes;
   private DBDictionary dictionary;
@@ -68,16 +53,13 @@ public final class OpenJpaSchemaReader {
         properties.put(key, value);
       }
     });
-    properties.put("openjpa.jdbc.DBDictionary", DICTIONARIES.getOrDefault(dialect.id(),
-        "org.apache.openjpa.jdbc.sql.DBDictionary"));
+    properties.put("openjpa.jdbc.DBDictionary", dialect.openJpaDictionary());
     properties.put("openjpa.Log", "DefaultLevel=ERROR");
     // Only the mapping is read: the classes don't have to be enhanced.
     properties.put("openjpa.RuntimeUnenhancedClasses", "supported");
     properties.put("openjpa.DynamicEnhancementAgent", "false");
-    caseSensitiveTables = dialect.id().equals("mysql") || dialect.id().equals("mariadb")
-        || dialect.id().equals("tidb");
-    ownLobTypes = caseSensitiveTables || dialect.id().equals("postgresql")
-        || dialect.id().equals("cockroachdb") || dialect.id().equals("yugabytedb");
+    caseSensitiveTables = dialect.caseSensitiveTableNames();
+    ownLobTypes = dialect.largeObjectTypesFromOrm();
 
     Object factory = createFactory(classes, properties, loader);
     try {
