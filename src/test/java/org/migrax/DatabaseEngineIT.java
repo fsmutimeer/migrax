@@ -29,97 +29,156 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseEngineIT {
   /**
-   * Every engine, or with {@code -Dmigrax.it.engines=PostgreSQL,Oracle} only those whose name
-   * contains one of the given words.
+   * Every engine runs every check, or with {@code -Dmigrax.it.engines=PostgreSQL,Oracle} only
+   * the engines whose name contains one of the given words.
    */
   @TestFactory
   Stream<DynamicTest> appliesAndTracksMigrationsOnSupportedEngines() {
     String only = System.getProperty("migrax.it.engines", "");
-    return engines().filter(test -> only.isBlank() || java.util.Arrays.stream(only.split(","))
-        .anyMatch(word -> test.getDisplayName().toLowerCase(java.util.Locale.ROOT)
-            .contains(word.trim().toLowerCase(java.util.Locale.ROOT))));
+    return ENGINES.stream().filter(engine -> only.isBlank() || java.util.Arrays.stream(
+            only.split(",")).anyMatch(word -> engine.name().toLowerCase(java.util.Locale.ROOT)
+            .contains(word.trim().toLowerCase(java.util.Locale.ROOT))))
+        .map(engine -> DynamicTest.dynamicTest(engine.name(), () -> runChecks(engine)));
   }
 
-  private Stream<DynamicTest> engines() {
-    return Stream.of(
-        database("MySQL 8", () -> new MySQLContainer<>("mysql:8.4")
-            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
-        // How MySQL runs on Windows and macOS: table names are stored in lower case.
-        database("MySQL 8 (lower_case_table_names=1)", () -> new MySQLContainer<>("mysql:8.4")
-            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")
-            .withCommand("--lower-case-table-names=1")),
-        database("MariaDB 11", () -> new MariaDBContainer<>("mariadb:11.4")
-            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
-        database("PostgreSQL 17", () -> new PostgreSQLContainer<>("postgres:17")
-            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
-        database("SQL Server 2022", () -> new MSSQLServerContainer<>(
-            "mcr.microsoft.com/mssql/server:2022-latest").acceptLicense()),
-        database("Oracle XE 21", () -> new OracleContainer("gvenzl/oracle-xe:21-slim-faststart")),
-        // Oracle 23ai has a boolean type, which Hibernate uses there.
-        database("Oracle Free 23ai", () -> new org.testcontainers.oracle.OracleContainer(
-            "gvenzl/oracle-free:23-slim-faststart")),
-        database("CockroachDB 24.3", () -> new CockroachContainer(
-            "cockroachdb/cockroach:v24.3.11")),
-        // Reached with the PostgreSQL driver, as most applications do.
-        database("YugabyteDB 2026.1", () -> new YugabyteWithPostgresDriver(
-            "yugabytedb/yugabyte:2026.1.2.0-b137")
-            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
-        database("TiDB 8.5", () -> new org.testcontainers.tidb.TiDBContainer(
-            "pingcap/tidb:v8.5.3")),
-        // The 7.5 long-term line.
-        database("TiDB 7.5", () -> new org.testcontainers.tidb.TiDBContainer(
-            "pingcap/tidb:v7.5.6")),
-        // The 2024.2 long-term line: PostgreSQL 11 based, no advisory locks.
-        database("YugabyteDB 2024.2", () -> new YugabyteWithPostgresDriver(
-            "yugabytedb/yugabyte:2024.2.11.0-b36")
-            .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
-        DynamicTest.dynamicTest("Derby 10.16", () -> {
-          Database derby = new Database("jdbc:derby:memory:migrax_it;create=true", "", "");
-          exerciseRunner(derby);
-          exerciseGeneratedSchema(derby);
-          exerciseProcedures(derby);
-          exerciseCheckAndCommentChanges(derby);
-          exerciseUnnamedCheck(derby);
-          exerciseKeepData(derby);
-          exerciseZeroDowntime(derby);
-          exerciseRenames(derby);
-          exerciseScriptTimestamps(derby);
-          exerciseSchemas(derby);
-          exerciseSchemaFile(derby);
-        }),
-        // In memory: every connection of this JVM shares the database by its name.
-        DynamicTest.dynamicTest("HSQLDB 2.7", () -> {
-          Database hsqldb = new Database("jdbc:hsqldb:mem:migrax_it", "SA", "");
-          exerciseRunner(hsqldb);
-          exerciseGeneratedSchema(hsqldb);
-          exerciseProcedures(hsqldb);
-          exerciseCheckAndCommentChanges(hsqldb);
-          exerciseUnnamedCheck(hsqldb);
-          exerciseKeepData(hsqldb);
-          exerciseZeroDowntime(hsqldb);
-          exerciseRenames(hsqldb);
-          exerciseScriptTimestamps(hsqldb);
-          exerciseSchemas(hsqldb);
-          exerciseSchemaFile(hsqldb);
-        }),
-        DynamicTest.dynamicTest("SQLite", () -> {
-          Path file = Files.createTempFile("migrax-it-", ".db");
-          try {
-            Database sqlite = new Database("jdbc:sqlite:" + file, "", "");
-            exerciseRunner(sqlite);
-            exerciseGeneratedSchema(sqlite);
-            exerciseProcedures(sqlite);
-            exerciseCheckAndCommentChanges(sqlite);
-            exerciseUnnamedCheck(sqlite);
-            exerciseKeepData(sqlite);
-            exerciseZeroDowntime(sqlite);
-            exerciseRenames(sqlite);
-            exerciseSchemaFile(sqlite);
-          } finally {
-            Files.deleteIfExists(file);
-            Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
-          }
-        }));
+  /**
+   * The contract every database passes, in this order: later checks start from what earlier
+   * ones leave behind. A check of one database's own behavior returns at once on the others.
+   */
+  private static final List<Check> CHECKS = List.of(
+      new Check("runner", DatabaseEngineIT::exerciseRunner),
+      new Check("generated schema", DatabaseEngineIT::exerciseGeneratedSchema),
+      new Check("procedures", DatabaseEngineIT::exerciseProcedures),
+      new Check("check and comment changes", DatabaseEngineIT::exerciseCheckAndCommentChanges),
+      new Check("unnamed check", DatabaseEngineIT::exerciseUnnamedCheck),
+      new Check("CockroachDB type change", DatabaseEngineIT::exerciseCockroachTypeChange),
+      new Check("keep data", DatabaseEngineIT::exerciseKeepData),
+      new Check("zero downtime", DatabaseEngineIT::exerciseZeroDowntime),
+      new Check("renames", DatabaseEngineIT::exerciseRenames),
+      new Check("Oracle smaller number", DatabaseEngineIT::exerciseOracleSmallerNumber),
+      new Check("script timestamps", DatabaseEngineIT::exerciseScriptTimestamps),
+      new Check("schemas", DatabaseEngineIT::exerciseSchemas),
+      new Check("schema file", DatabaseEngineIT::exerciseSchemaFile));
+
+  /**
+   * The databases the checks run on. An entry only says how to start the database and prepare
+   * it; a new database adds one entry here and runs every check.
+   */
+  private static final List<Engine> ENGINES = List.of(
+      container("MySQL 8", () -> new MySQLContainer<>("mysql:8.4")
+          .withDatabaseName("migrax_test").withUsername("test").withPassword("test"),
+          DatabaseEngineIT::allowMySqlTriggers),
+      // How MySQL runs on Windows and macOS: table names are stored in lower case.
+      container("MySQL 8 (lower_case_table_names=1)", () -> new MySQLContainer<>("mysql:8.4")
+          .withDatabaseName("migrax_test").withUsername("test").withPassword("test")
+          .withCommand("--lower-case-table-names=1"),
+          DatabaseEngineIT::allowMySqlTriggers),
+      container("MariaDB 11", () -> new MariaDBContainer<>("mariadb:11.4")
+          .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+      container("PostgreSQL 17", () -> new PostgreSQLContainer<>("postgres:17")
+          .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+      container("SQL Server 2022", () -> new MSSQLServerContainer<>(
+          "mcr.microsoft.com/mssql/server:2022-latest").acceptLicense()),
+      container("Oracle XE 21", () -> new OracleContainer("gvenzl/oracle-xe:21-slim-faststart"),
+          DatabaseEngineIT::grantOracleLockPermission),
+      // Oracle 23ai has a boolean type, which Hibernate uses there.
+      container("Oracle Free 23ai", () -> new org.testcontainers.oracle.OracleContainer(
+          "gvenzl/oracle-free:23-slim-faststart"),
+          DatabaseEngineIT::grantOracleLockPermission),
+      container("CockroachDB 24.3", () -> new CockroachContainer(
+          "cockroachdb/cockroach:v24.3.11")),
+      // Reached with the PostgreSQL driver, as most applications do.
+      container("YugabyteDB 2026.1", () -> new YugabyteWithPostgresDriver(
+          "yugabytedb/yugabyte:2026.1.2.0-b137")
+          .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+      container("TiDB 8.5", () -> new org.testcontainers.tidb.TiDBContainer(
+          "pingcap/tidb:v8.5.3"), DatabaseEngineIT::enableTidbCheckConstraints),
+      // The 7.5 long-term line.
+      container("TiDB 7.5", () -> new org.testcontainers.tidb.TiDBContainer(
+          "pingcap/tidb:v7.5.6"), DatabaseEngineIT::enableTidbCheckConstraints),
+      // The 2024.2 long-term line: PostgreSQL 11 based, no advisory locks.
+      container("YugabyteDB 2024.2", () -> new YugabyteWithPostgresDriver(
+          "yugabytedb/yugabyte:2024.2.11.0-b36")
+          .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+      embedded("Derby 10.16", () -> Started.of(
+          new Database("jdbc:derby:memory:migrax_it;create=true", "", ""))),
+      // In memory: every connection of this JVM shares the database by its name.
+      embedded("HSQLDB 2.7", () -> Started.of(
+          new Database("jdbc:hsqldb:mem:migrax_it", "SA", ""))),
+      embedded("SQLite", () -> {
+        Path file = Files.createTempFile("migrax-it-", ".db");
+        return new Started(new Database("jdbc:sqlite:" + file, "", ""), () -> {
+          Files.deleteIfExists(file);
+          Files.deleteIfExists(file.resolveSibling(file.getFileName() + ".migrax-lock"));
+        });
+      }));
+
+  /** A check of the contract; its name tells which one failed. */
+  private record Check(String name, CheckBody body) {
+  }
+
+  @FunctionalInterface
+  private interface CheckBody {
+    void run(Database database) throws Exception;
+  }
+
+  /** A database the checks run on: its name in the test report and how to start it. */
+  private record Engine(String name, Starter starter) {
+  }
+
+  @FunctionalInterface
+  private interface Starter {
+    Started start() throws Exception;
+  }
+
+  /** A started database: where to reach it, and how to stop it and remove its files. */
+  private record Started(Database database, AutoCloseable stop) {
+    /** In memory: nothing to stop or remove. */
+    static Started of(Database database) {
+      return new Started(database, () -> { });
+    }
+  }
+
+  /** Prepares a started container before the checks, for example grants a permission. */
+  @FunctionalInterface
+  private interface Setup {
+    void prepare(JdbcDatabaseContainer<?> container) throws Exception;
+  }
+
+  private static Engine container(String name,
+      java.util.function.Supplier<JdbcDatabaseContainer<?>> create, Setup... setup) {
+    return new Engine(name, () -> {
+      JdbcDatabaseContainer<?> container = create.get();
+      try {
+        container.start();
+        for (Setup step : setup) {
+          step.prepare(container);
+        }
+      } catch (Throwable e) {
+        container.close();
+        throw e;
+      }
+      return new Started(Database.of(container), container);
+    });
+  }
+
+  /** In-process databases: no container to start. */
+  private static Engine embedded(String name, Starter starter) {
+    return new Engine(name, starter);
+  }
+
+  private static void runChecks(Engine engine) throws Exception {
+    Started started = engine.starter().start();
+    try (AutoCloseable stop = started.stop()) {
+      for (Check check : CHECKS) {
+        try {
+          check.body().run(started.database());
+        } catch (Exception | AssertionError e) {
+          throw new AssertionError(engine.name() + ": check '" + check.name() + "' failed: "
+              + e.getMessage(), e);
+        }
+      }
+    }
   }
 
   /** YugabyteDB through the PostgreSQL driver instead of its own. */
@@ -152,46 +211,20 @@ class DatabaseEngineIT {
     }
   }
 
-  private static DynamicTest database(
-      String name, java.util.function.Supplier<JdbcDatabaseContainer<?>> createContainer) {
-    return DynamicTest.dynamicTest(name, () -> {
-      try (JdbcDatabaseContainer<?> container = createContainer.get()) {
-        container.start();
-        if (container.getDockerImageName().contains("gvenzl/oracle")) {
-          grantOracleLockPermission(container);
-        }
-        if (container instanceof MySQLContainer<?> mysql) {
-          allowMySqlTriggers(mysql);
-        }
-        if (container instanceof org.testcontainers.tidb.TiDBContainer) {
-          // Off by default: TiDB parses check constraints and ignores them.
-          try (Connection root = Database.of(container).connect();
-               Statement statement = root.createStatement()) {
-            statement.execute("SET GLOBAL tidb_enable_check_constraint = ON");
-          }
-        }
-        exerciseRunner(Database.of(container));
-        exerciseGeneratedSchema(Database.of(container));
-        exerciseProcedures(Database.of(container));
-        exerciseCheckAndCommentChanges(Database.of(container));
-        exerciseUnnamedCheck(Database.of(container));
-        exerciseCockroachTypeChange(Database.of(container));
-        exerciseKeepData(Database.of(container));
-        exerciseZeroDowntime(Database.of(container));
-        exerciseRenames(Database.of(container));
-        exerciseOracleSmallerNumber(Database.of(container));
-        exerciseScriptTimestamps(Database.of(container));
-        exerciseSchemas(Database.of(container));
-        exerciseSchemaFile(Database.of(container));
-      }
-    });
+  /** Off by default: TiDB parses check constraints and ignores them. */
+  private static void enableTidbCheckConstraints(JdbcDatabaseContainer<?> container)
+      throws Exception {
+    try (Connection root = Database.of(container).connect();
+         Statement statement = root.createStatement()) {
+      statement.execute("SET GLOBAL tidb_enable_check_constraint = ON");
+    }
   }
 
   /**
    * MySQL with binary logging (its default) lets only SUPER users create triggers, unless
    * log_bin_trust_function_creators is set, as on most managed servers that allow triggers.
    */
-  private static void allowMySqlTriggers(MySQLContainer<?> container) throws Exception {
+  private static void allowMySqlTriggers(JdbcDatabaseContainer<?> container) throws Exception {
     try (Connection root = DriverManager.getConnection(container.getJdbcUrl(), "root",
         container.getPassword()); Statement statement = root.createStatement()) {
       statement.execute("SET GLOBAL log_bin_trust_function_creators = 1");
