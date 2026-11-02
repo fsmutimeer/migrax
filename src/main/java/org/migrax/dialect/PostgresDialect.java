@@ -29,6 +29,18 @@ public class PostgresDialect extends AbstractDialect {
     return "postgresql";
   }
 
+  @Override
+  public java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.of("SELECT c.reltuples::bigint, pg_total_relation_size(c.oid) "
+        + "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+        + "WHERE c.relname = ? AND n.nspname = current_schema()");
+  }
+
+  @Override
+  public boolean rendersOnline() {
+    return true;
+  }
+
   /** pg_dump writes psql scripts. */
   @Override
   public boolean dumpsHavePsqlCommands() {
@@ -129,6 +141,7 @@ public class PostgresDialect extends AbstractDialect {
    * attached to a concurrently built index, and foreign keys and check constraints are added
    * NOT VALID and then validated without blocking writes.
    */
+  @Override
   public String renderOnline(org.migrax.ops.Operation operation) {
     if (operation instanceof org.migrax.ops.AddIndex x) {
       return "CREATE " + (x.index().unique() ? "UNIQUE " : "") + "INDEX CONCURRENTLY "

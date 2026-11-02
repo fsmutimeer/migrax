@@ -1,9 +1,10 @@
 package org.migrax.runner;
 
+import org.migrax.dialect.Dialect;
+import org.migrax.dialect.Dialects;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.Locale;
 import java.util.Map;
 import java.util.WeakHashMap;
 
@@ -33,12 +34,14 @@ public final class TargetSchema {
    * @throws IllegalArgumentException on SQLite, which has no schemas
    */
   public static void use(Connection connection, String schema) throws SQLException {
-    String product = product(connection);
-    if (product.contains("mysql") || product.contains("mariadb")) {
+    Dialect dialect = dialect(connection);
+    if (dialect == null) {
+      connection.setSchema(schema);
+    } else if (dialect.schemasAreDatabases()) {
       connection.setCatalog(schema);
-    } else if (product.contains("sqlite")) {
+    } else if (!dialect.hasSchemas()) {
       throw new IllegalArgumentException("SQLite has no schemas.");
-    } else if (product.contains("sql server")) {
+    } else if (!dialect.switchesSchemas()) {
       NAMED.put(connection, schema);
     } else {
       connection.setSchema(schema);
@@ -60,7 +63,8 @@ public final class TargetSchema {
       return named;
     }
     try {
-      String schema = product(connection).matches(".*(mysql|mariadb).*")
+      Dialect dialect = dialect(connection);
+      String schema = dialect != null && dialect.schemasAreDatabases()
           ? connection.getCatalog() : connection.getSchema();
       return schema == null || schema.isBlank() ? null : schema;
     } catch (SQLException | AbstractMethodError | UnsupportedOperationException e) {
@@ -74,7 +78,9 @@ public final class TargetSchema {
     return named == null ? name : "[" + named.replace("]", "]]") + "]." + name;
   }
 
-  private static String product(Connection connection) throws SQLException {
-    return connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
+  /** The connection's dialect, or null for a database Migrax doesn't know. */
+  private static Dialect dialect(Connection connection) throws SQLException {
+    return Dialects.forProduct(connection.getMetaData().getDatabaseProductName())
+        .orElse(null);
   }
 }

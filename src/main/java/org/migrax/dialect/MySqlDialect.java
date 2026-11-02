@@ -49,6 +49,17 @@ public class MySqlDialect extends AbstractDialect {
     return true;
   }
 
+  @Override
+  public boolean schemasAreDatabases() {
+    return true;
+  }
+
+  @Override
+  public java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.of("SELECT table_rows, data_length + index_length "
+        + "FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?");
+  }
+
   /** The MySQL driver also reaches TiDB. */
   @Override
   public boolean urlReachesOtherDatabases() {

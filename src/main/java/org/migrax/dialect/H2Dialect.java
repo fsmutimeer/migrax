@@ -33,6 +33,11 @@ public final class H2Dialect extends AbstractDialect {
   }
 
   @Override
+  public boolean countsRowsForTableSize() {
+    return true;
+  }
+
+  @Override
   public List<String> hibernateDialects(int hibernateMajor) {
     return List.of("org.hibernate.dialect.H2Dialect");
   }

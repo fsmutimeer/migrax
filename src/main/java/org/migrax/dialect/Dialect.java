@@ -569,6 +569,103 @@ public interface Dialect {
   }
 
   /**
+   * The query that estimates a table's size from the database catalog without scanning it.
+   * Its one parameter is {@link #tableSizeName(String)}; its two columns are the estimated rows
+   * and the bytes of the table and its indexes, each NULL when unknown. Empty when the catalog
+   * has no estimate. The default is empty.
+   *
+   * @since 0.19.0
+   */
+  default java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.empty();
+  }
+
+  /**
+   * A table's name as the parameter of {@link #tableSizeQuery()}. The default returns it
+   * unchanged.
+   *
+   * @since 0.19.0
+   */
+  default String tableSizeName(String table) {
+    return table;
+  }
+
+  /**
+   * Whether counting a table's rows is the way to learn its size, for small embedded databases
+   * without a {@link #tableSizeQuery()}. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean countsRowsForTableSize() {
+    return false;
+  }
+
+  /**
+   * Whether the database can drop a foreign key on its own. A dialect that returns
+   * {@code false} rewrites foreign key drops in {@link #prepare} (SQLite rebuilds the table
+   * from the model), and callers that drop tables skip the foreign keys of those tables. The
+   * default is {@code true}.
+   *
+   * @since 0.19.0
+   */
+  default boolean dropsForeignKeys() {
+    return true;
+  }
+
+  /**
+   * Whether a schema is a database of its own on this server, so that a connection points at
+   * one by switching its catalog. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean schemasAreDatabases() {
+    return false;
+  }
+
+  /**
+   * Whether {@link #renderOnline} gives operations on existing tables a form that doesn't
+   * block writes, for {@code migrax generate --safe}. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean rendersOnline() {
+    return false;
+  }
+
+  /**
+   * An operation on an existing table in a form that doesn't block writes, for a migration
+   * marked {@code -- migrax:no-transaction}; see {@link #rendersOnline()}. The default is
+   * {@link #render}.
+   *
+   * @since 0.19.0
+   */
+  default String renderOnline(Operation operation) {
+    return render(operation);
+  }
+
+  /**
+   * Whether the database builds indexes without blocking writes anyway, so that
+   * {@code migrax generate --safe} has nothing to do. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean buildsIndexesWithoutBlocking() {
+    return false;
+  }
+
+  /**
+   * Why a {@code --keep-data} rollback that restores values has to commit each statement on
+   * its own on this database, as SQL comment lines that end with a line break; empty when the
+   * rollback runs in one transaction. The caller adds the {@code -- migrax:no-transaction}
+   * line after the note. The default is empty.
+   *
+   * @since 0.19.0
+   */
+  default java.util.Optional<String> keepDataRestoreNote() {
+    return java.util.Optional.empty();
+  }
+
+  /**
    * The name of the trigger that {@link #syncColumns} creates: {@code migrax_sync_<table>_<new
    * column>}, or, when that is longer than {@code maxLength}, the start of the table name and a
    * hash.

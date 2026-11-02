@@ -27,6 +27,12 @@ public final class CockroachDialect extends PostgresDialect {
   }
 
   @Override
+  public java.util.Optional<String> keepDataRestoreNote() {
+    return java.util.Optional.of("-- CockroachDB can't fill a column in the transaction that "
+        + "added it, so each statement\n-- commits on its own:\n");
+  }
+
+  @Override
   public java.util.List<String> aliases() {
     return java.util.List.of("cockroach", "crdb");
   }

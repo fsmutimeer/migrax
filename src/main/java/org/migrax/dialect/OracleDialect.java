@@ -66,6 +66,17 @@ public final class OracleDialect extends AbstractDialect {
   }
 
   @Override
+  public java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.of("SELECT t.num_rows, (SELECT SUM(bytes) FROM user_segments s "
+        + "WHERE s.segment_name = t.table_name) FROM user_tables t WHERE t.table_name = ?");
+  }
+
+  @Override
+  public String tableSizeName(String table) {
+    return table.toUpperCase(Locale.ROOT);
+  }
+
+  @Override
   public List<String> hibernateDialects(int hibernateMajor) {
     if (hibernateMajor == 4) {
       return List.of("org.hibernate.dialect.Oracle10gDialect");

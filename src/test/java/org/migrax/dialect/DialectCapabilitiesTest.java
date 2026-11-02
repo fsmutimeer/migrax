@@ -45,6 +45,28 @@ class DialectCapabilitiesTest {
     assertDialects("micronautDataSequenceIds", Dialect::micronautDataSequenceIds, "oracle");
     assertDialects("micronautDataTextUuids", Dialect::micronautDataTextUuids,
         "mysql", "mariadb", "tidb", "oracle");
+    // The PostgreSQL and MySQL drivers report PostgreSQL and MySQL for the databases that
+    // speak their protocol, so those got the same size query. (A driver that reports its own
+    // name, such as TiDB, got no estimate before and now gets its family's.)
+    assertDialects("tableSizeQuery", d -> d.tableSizeQuery().isPresent(),
+        "postgresql", "cockroachdb", "yugabytedb", "mysql", "mariadb", "tidb", "sqlserver",
+        "oracle");
+    assertDialects("countsRowsForTableSize", Dialect::countsRowsForTableSize, "h2", "sqlite");
+    assertDialects("dropsForeignKeys", d -> !d.dropsForeignKeys(), "sqlite");
+    assertDialects("schemasAreDatabases", Dialect::schemasAreDatabases,
+        "mysql", "mariadb", "tidb");
+    assertDialects("rendersOnline", Dialect::rendersOnline,
+        "postgresql", "cockroachdb", "yugabytedb");
+    assertDialects("buildsIndexesWithoutBlocking", Dialect::buildsIndexesWithoutBlocking,
+        "yugabytedb");
+    assertDialects("keepDataRestoreNote", d -> d.keepDataRestoreNote().isPresent(),
+        "cockroachdb", "yugabytedb");
+  }
+
+  @Test
+  void tableSizeNames() {
+    assertEquals("BOOK_ORDER", new OracleDialect().tableSizeName("book_order"));
+    assertEquals("book_order", new PostgresDialect().tableSizeName("book_order"));
   }
 
   @Test

@@ -26,6 +26,17 @@ public final class YugabyteDialect extends PostgresDialect {
   }
 
   @Override
+  public boolean buildsIndexesWithoutBlocking() {
+    return true;
+  }
+
+  @Override
+  public java.util.Optional<String> keepDataRestoreNote() {
+    return java.util.Optional.of("-- YugabyteDB runs DDL outside the transaction, so SET NOT "
+        + "NULL wouldn't see the restored\n-- values: each statement commits on its own.\n");
+  }
+
+  @Override
   public java.util.List<String> aliases() {
     return java.util.List.of("yugabyte", "yb");
   }

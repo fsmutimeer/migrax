@@ -61,6 +61,13 @@ public final class SqlServerDialect extends AbstractDialect {
     return "sqlserver";
   }
 
+  @Override
+  public java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.of("SELECT SUM(p.rows), SUM(a.total_pages) * 8192 "
+        + "FROM sys.partitions p JOIN sys.allocation_units a ON a.container_id = p.partition_id "
+        + "WHERE p.object_id = OBJECT_ID(?) AND p.index_id IN (0, 1)");
+  }
+
   /** A SQL Server session keeps its user's default schema. */
   @Override
   public boolean switchesSchemas() {

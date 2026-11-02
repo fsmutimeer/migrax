@@ -134,8 +134,8 @@ final class KeepData {
       newForward.add(operation);
     }
 
-    boolean sqlite = "sqlite".equals(dialect.id());
-    if (sqlite) {
+    boolean rebuildsForeignKeys = !dialect.dropsForeignKeys();
+    if (rebuildsForeignKeys) {
       // SQLite drops a foreign key by rebuilding the table from the model, which a backup isn't
       // in: a kept table keeps its foreign keys (SQLite migrates with them switched off).
       newForward.removeIf(o -> o instanceof DropForeignKey key
@@ -155,7 +155,8 @@ final class KeepData {
       boolean partOfKeptTable = table != null && keptTables.containsKey(table)
           && (operation instanceof AddIndex || operation instanceof AddUnique
               || operation instanceof AddPrimaryKey || operation instanceof SetComment
-              || operation instanceof AddCheck || sqlite && operation instanceof AddForeignKey);
+              || operation instanceof AddCheck
+              || rebuildsForeignKeys && operation instanceof AddForeignKey);
       if (partOfKeptTable) {
         continue; // The renamed table still has them.
       }

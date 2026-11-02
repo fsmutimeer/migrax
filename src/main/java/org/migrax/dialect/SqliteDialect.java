@@ -78,6 +78,17 @@ public final class SqliteDialect extends AbstractDialect {
     return false;
   }
 
+  @Override
+  public boolean countsRowsForTableSize() {
+    return true;
+  }
+
+  /** {@link #prepare} rebuilds the table instead. */
+  @Override
+  public boolean dropsForeignKeys() {
+    return false;
+  }
+
   /**
    * In hibernate-community-dialects, which SQLite projects add. Hibernate 5 has no SQLite
    * dialect: the project's own hibernate.dialect setting applies.

@@ -3,8 +3,6 @@ package org.migrax.cli;
 import static org.migrax.cli.ExitCode.OK;
 
 import org.migrax.dialect.Dialect;
-import org.migrax.dialect.SqlServerDialect;
-import org.migrax.dialect.SqliteDialect;
 import org.migrax.model.SchemaModel;
 import org.migrax.ops.DropForeignKey;
 import org.migrax.ops.DropSequence;
@@ -143,10 +141,9 @@ final class CleanCommand implements Command {
     return project.schemasOrDefault();
   }
 
-  /** SQL Server can't switch schemas: its statements name the schema instead. */
+  /** Databases that can't switch schemas name the schema in their statements instead. */
   static Dialect inSchema(Dialect dialect, String schema) {
-    return schema != null && dialect instanceof SqlServerDialect sqlServer
-        ? sqlServer.inSchema(schema) : dialect;
+    return schema != null ? dialect.inSchema(schema) : dialect;
   }
 
   /** Whether the schema (null: the connection's default) has nothing {@link #empty} drops. */
@@ -175,7 +172,7 @@ final class CleanCommand implements Command {
         dropViews(connection, dialect, schema, objects.views);
         // SQLite drops tables in any order while the lock has foreign keys switched off, and it
         // can't drop a foreign key on its own.
-        if (!(dialect instanceof SqliteDialect)) {
+        if (dialect.dropsForeignKeys()) {
           for (SchemaModel.Table table : objects.schema.tables()) {
             // The model folds names; the table list has them as the database spells them.
             String name = objects.tables.stream().filter(t -> t.equalsIgnoreCase(table.name()))
@@ -221,7 +218,7 @@ final class CleanCommand implements Command {
   /** Views can depend on each other: drop what can go, then try the rest again. */
   private static void dropViews(Connection connection, Dialect dialect, String schema,
                                 List<String> views) throws SQLException {
-    String prefix = schema != null && dialect instanceof SqlServerDialect
+    String prefix = schema != null && !dialect.switchesSchemas()
         ? dialect.quote(schema) + "." : "";
     List<String> pending = new ArrayList<>(views);
     while (!pending.isEmpty()) {
