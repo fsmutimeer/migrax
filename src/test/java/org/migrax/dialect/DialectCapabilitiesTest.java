@@ -61,6 +61,12 @@ class DialectCapabilitiesTest {
         "yugabytedb");
     assertDialects("keepDataRestoreNote", d -> d.keepDataRestoreNote().isPresent(),
         "cockroachdb", "yugabytedb");
+    assertDialects("lintsLockingDdl", Dialect::lintsLockingDdl, "postgresql");
+    assertDialects("changesTypesThroughNewColumn", Dialect::changesTypesThroughNewColumn,
+        "oracle");
+    assertDialects("changesTypesWithAlterColumn", Dialect::changesTypesWithAlterColumn,
+        "sqlserver");
+    assertDialects("hasOnlineIndexOption", Dialect::hasOnlineIndexOption, "sqlserver", "oracle");
   }
 
   @Test

@@ -550,4 +550,16 @@ public final class OracleDialect extends AbstractDialect {
   public boolean transactionalDdl() {
     return false;
   }
+
+  /** A smaller NUMBER goes through a new {@code migrax_tmp_} column. */
+  @Override
+  public boolean changesTypesThroughNewColumn() {
+    return true;
+  }
+
+  /** {@code ONLINE}, on Enterprise edition. */
+  @Override
+  public boolean hasOnlineIndexOption() {
+    return true;
+  }
 }

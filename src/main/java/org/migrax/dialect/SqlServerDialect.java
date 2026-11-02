@@ -74,6 +74,18 @@ public final class SqlServerDialect extends AbstractDialect {
     return false;
   }
 
+  /** {@code ALTER COLUMN c varchar(5)} names the new type right after the column. */
+  @Override
+  public boolean changesTypesWithAlterColumn() {
+    return true;
+  }
+
+  /** {@code WITH (ONLINE = ON)}, on Enterprise edition. */
+  @Override
+  public boolean hasOnlineIndexOption() {
+    return true;
+  }
+
   @Override
   public java.util.List<String> hibernateDialects(int hibernateMajor) {
     if (hibernateMajor == 4) {

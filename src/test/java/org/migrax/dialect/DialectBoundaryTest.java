@@ -41,7 +41,6 @@ class DialectBoundaryTest {
   /** Lines outside the dialect package that check for a database by name: file, count. */
   private static final Map<String, Integer> ALLOWED_DATABASE_NAME_CHECKS = Map.ofEntries(
       Map.entry("org/migrax/cli/Project.java", 1),
-      Map.entry("org/migrax/lint/SqlLinter.java", 7),
       Map.entry("org/migrax/plugin/DatabaseSchemaReader.java", 17),
       Map.entry("org/migrax/runner/MigrationRunner.java", 5),
       Map.entry("org/migrax/runner/MigrationScript.java", 6),

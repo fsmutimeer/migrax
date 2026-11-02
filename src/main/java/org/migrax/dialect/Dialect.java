@@ -666,6 +666,49 @@ public interface Dialect {
   }
 
   /**
+   * Whether {@code migrax lint} runs its PostgreSQL checks: statements that block writes on a
+   * table with rows, with the non-blocking forms PostgreSQL offers ({@code CONCURRENTLY},
+   * {@code NOT VALID}, {@code USING INDEX}), and statements that can't run in a transaction.
+   * The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean lintsLockingDdl() {
+    return false;
+  }
+
+  /**
+   * Whether {@link #prepare} changes a column's type through a new column: add it, copy the
+   * values, drop the old column and give the new one its name. {@code migrax lint} then warns
+   * once for the move, not for the drop and the rename. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean changesTypesThroughNewColumn() {
+    return false;
+  }
+
+  /**
+   * Whether {@code ALTER COLUMN <column> <type>} changes a column's type, so that
+   * {@code migrax lint} warns about it (MX003). The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean changesTypesWithAlterColumn() {
+    return false;
+  }
+
+  /**
+   * Whether an index build locks the table unless it is written with an {@code ONLINE} option,
+   * so that {@code migrax lint} points to it (MX015). The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean hasOnlineIndexOption() {
+    return false;
+  }
+
+  /**
    * The name of the trigger that {@link #syncColumns} creates: {@code migrax_sync_<table>_<new
    * column>}, or, when that is longer than {@code maxLength}, the start of the table name and a
    * hash.

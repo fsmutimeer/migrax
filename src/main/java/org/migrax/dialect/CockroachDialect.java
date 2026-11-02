@@ -26,6 +26,12 @@ public final class CockroachDialect extends PostgresDialect {
     return "cockroachdb";
   }
 
+  /** PostgreSQL's lock checks describe PostgreSQL itself, not CockroachDB. */
+  @Override
+  public boolean lintsLockingDdl() {
+    return false;
+  }
+
   @Override
   public java.util.Optional<String> keepDataRestoreNote() {
     return java.util.Optional.of("-- CockroachDB can't fill a column in the transaction that "

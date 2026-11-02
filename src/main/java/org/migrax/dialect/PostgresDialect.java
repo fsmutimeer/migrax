@@ -41,6 +41,12 @@ public class PostgresDialect extends AbstractDialect {
     return true;
   }
 
+  /** The lock checks of {@code migrax lint} are written for PostgreSQL. */
+  @Override
+  public boolean lintsLockingDdl() {
+    return true;
+  }
+
   /** pg_dump writes psql scripts. */
   @Override
   public boolean dumpsHavePsqlCommands() {

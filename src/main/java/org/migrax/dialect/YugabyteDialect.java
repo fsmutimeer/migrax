@@ -30,6 +30,12 @@ public final class YugabyteDialect extends PostgresDialect {
     return true;
   }
 
+  /** PostgreSQL's lock checks describe PostgreSQL itself, not YugabyteDB. */
+  @Override
+  public boolean lintsLockingDdl() {
+    return false;
+  }
+
   @Override
   public java.util.Optional<String> keepDataRestoreNote() {
     return java.util.Optional.of("-- YugabyteDB runs DDL outside the transaction, so SET NOT "
