@@ -708,8 +708,9 @@ final class Project implements AutoCloseable {
     }
     String explicit = ProjectContext.explicitClasspath(args.raw);
     List<Path> resolved = List.of();
+    ProjectBuild.Result result = null;
     if (explicit == null && !noBuild()) {
-      ProjectBuild.Result result = new ProjectBuild(root, err)
+      result = new ProjectBuild(root, err)
           .prepare(new ProjectBuild.Request(compile, args.flag("--refresh")));
       result.notes().forEach(Log::debug);
       resolved = result.dependencies();
@@ -717,7 +718,10 @@ final class Project implements AutoCloseable {
       // --no-build: reuse the dependencies resolved by the last build, if there was one.
       resolved = ProjectBuild.cachedClasspath(root);
     }
-    loader = ProjectContext.runtimeLoader(root, explicit, resolved);
+    loader = result == null || result.classes() == null
+        ? ProjectContext.runtimeLoader(root, explicit, resolved)
+        : ProjectContext.runtimeLoader(root, explicit, resolved, result.classes(),
+            result.replaces());
     compiled = compile;
     return loader;
   }

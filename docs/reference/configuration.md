@@ -49,6 +49,7 @@ in values are resolved from the environment.
 | Empty database to read the schema file in | `--scratch-url`, `MIGRAX_SCRATCH_URL`, `migrax.scratch-url` | a throwaway one (Docker for server databases) |
 | Docker image for that throwaway database | `MIGRAX_SCRATCH_IMAGE`, `migrax.scratch-image` | as for `verify` |
 | Check constraints for enum columns | `MIGRAX_ENUM_CHECKS`, `migrax.enum-checks` (`true` / `false`) | `false` ([details](../guides/changing-entities.md#enum-columns)) |
+| Compile edited Java files without Maven or Gradle | `MIGRAX_QUICK_COMPILE`, `-Dmigrax.quick-compile` (`true` / `false`) | `true` ([details](#the-migrax-folder)) |
 | SQL dialect | `--dialect` | from the database URL |
 | Java migration package | `--java-package`, `migrax.java-package` | `db.migration` |
 | Environment (`-- migrax:env` migrations) | `--env`, `MIGRAX_ENV`, `migrax.env` | none: marked migrations are skipped |
@@ -91,4 +92,5 @@ left out, because Migrax never connects Hibernate to your database while reading
 | `history/` | yes | Snapshot after each migration |
 | `<name>/` | yes | `snapshot.json`, `history/` and `pending/` of a further database (`--database <name>`) |
 | `classpath.txt`, `classpath.hash`, `build.stamp` | no | Build cache; refresh with `--refresh` |
+| `classes/`, `classes.stamp`, `sources.txt` | no | Your Java sources compiled by Migrax after an edit, so commands don't wait for Maven or Gradle. The build tool still runs when a build file changed, a source was deleted, the project has Kotlin sources or annotation processors (Lombok, MapStruct), the code doesn't compile, or you built the project yourself since Migrax last did. `MIGRAX_QUICK_COMPILE=false` always uses the build tool. In a multi-module build only the module's own sources are compiled |
 | `.gitignore` | yes | Written by Migrax; ignores the caches |

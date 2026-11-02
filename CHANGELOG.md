@@ -6,6 +6,18 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `generate`, `check`, `plan` and the other commands that read entities no longer wait for
+  Maven or Gradle after you edit an entity: Migrax compiles the project's Java sources itself
+  with the JDK's compiler (in a typical Hibernate project, `generate` after an edit went from
+  about 9 seconds to about 4). The classes go to `.migrax/classes`; the project's own
+  `target/classes` or `build/classes` is never written. The build tool still runs when a build
+  file changed, a source file was deleted, the project has Kotlin sources or annotation
+  processors such as Lombok, the code doesn't compile, the project was built outside Migrax
+  since, or Migrax runs on a JRE without a compiler. Set `MIGRAX_QUICK_COMPILE=false` to
+  always use the build tool.
+
 ### Fixed
 
 - `--json` output (and the MCP server's replies) writes characters outside ASCII as `\u`
