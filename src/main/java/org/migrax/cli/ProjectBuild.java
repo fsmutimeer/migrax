@@ -10,8 +10,10 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -35,14 +37,30 @@ final class ProjectBuild {
   private static final List<String> SOURCE_DIRECTORIES = List.of(
       "src/main/java", "src/main/kotlin");
   private static final long TIMEOUT_MINUTES = 15;
+  private static final String IGNORE_HEADER =
+      "# Machine-local Migrax cache files. Keep snapshot.json under version control.";
+  private static final List<String> IGNORED = List.of(
+      "classpath.txt", "classpath.txt.new", "classpath.hash", "build.stamp",
+      "migrax-classpath.gradle", QuickCompile.SOURCES_FILE, QuickCompile.STAMP_FILE,
+      QuickCompile.CLASSES_DIRECTORY + "/",
+      QuickCompile.TEMPORARY_DIRECTORY + "/");
 
   enum Tool { MAVEN, GRADLE, NONE }
 
   /** What the caller needs from the build. */
   record Request(boolean compile, boolean refresh) {}
 
-  /** Resolved dependency entries plus a human-readable summary of what happened. */
-  record Result(Tool tool, List<Path> dependencies, List<String> notes) {}
+  /**
+   * Resolved dependency entries plus a human-readable summary of what happened. When the
+   * edited files were compiled without the build tool, {@code classes} holds them and stands
+   * in for the build tool's class folder {@code replaces}; both are null otherwise.
+   */
+  record Result(Tool tool, List<Path> dependencies, List<String> notes, Path classes,
+                Path replaces) {
+    Result(Tool tool, List<Path> dependencies, List<String> notes) {
+      this(tool, dependencies, notes, null, null);
+    }
+  }
 
   private final Path root;
   private final PrintStream status;
@@ -84,7 +102,8 @@ final class ProjectBuild {
         && Files.readString(hashFile).trim().equals(buildHash)
         && readClasspath(classpathFile).stream().allMatch(Files::exists);
 
-    String sourceStamp = request.compile() ? sourceStamp() : null;
+    Map<String, Long> sources = request.compile() ? sourceFiles() : null;
+    String sourceStamp = sources == null ? null : stamp(sources);
     boolean classesCurrent = !request.compile()
         || (sourceStamp != null
             && Files.isRegularFile(stampFile)
@@ -93,6 +112,18 @@ final class ProjectBuild {
 
     if (classpathCurrent && classesCurrent) {
       return new Result(tool, readClasspath(classpathFile), notes);
+    }
+    if (classpathCurrent && !quickCompileDisabled()) {
+      // Only sources changed: compile them directly, without the build tool.
+      QuickCompile quick = new QuickCompile(root, state);
+      List<Path> dependencies = readClasspath(classpathFile);
+      Path classes = quick.classes(tool, sources, sourceStamp, dependencies);
+      if (classes != null) {
+        notes.add("Compiled the Java sources into " + classes + " without "
+            + (tool == Tool.MAVEN ? "Maven" : "Gradle") + ".");
+        return new Result(tool, dependencies, notes, classes,
+            root.resolve(QuickCompile.outputDirectory(tool)));
+      }
     }
 
     List<String> work = new ArrayList<>();
@@ -121,9 +152,18 @@ final class ProjectBuild {
     Files.move(freshClasspath, classpathFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
     Files.writeString(hashFile, buildHash);
     if (request.compile()) {
-      Files.writeString(stampFile, sourceStamp());
+      Map<String, Long> built = sourceFiles();
+      Files.writeString(stampFile, stamp(built));
+      new QuickCompile(root, state).recordBuild(tool, built);
     }
     return new Result(tool, readClasspath(classpathFile), notes);
+  }
+
+  /** MIGRAX_QUICK_COMPILE=false (or -Dmigrax.quick-compile=false) always runs the build tool. */
+  private static boolean quickCompileDisabled() {
+    String value = System.getProperty("migrax.quick-compile",
+        System.getenv("MIGRAX_QUICK_COMPILE"));
+    return "false".equalsIgnoreCase(value == null ? null : value.trim());
   }
 
   /** Creates {@code .migrax/} with a .gitignore that keeps machine-local files out of git. */
@@ -132,17 +172,22 @@ final class ProjectBuild {
     Files.createDirectories(state);
     Path ignore = state.resolve(".gitignore");
     if (!Files.exists(ignore)) {
-      Files.writeString(ignore, """
-          # Machine-local Migrax cache files. Keep snapshot.json under version control.
-          classpath.txt
-          classpath.txt.new
-          classpath.hash
-          build.stamp
-          migrax-classpath.gradle
-          """);
+      Files.writeString(ignore, IGNORE_HEADER + "\n" + String.join("\n", IGNORED) + "\n");
+    } else {
+      // Folders set up by an older version: add the cache files it didn't know yet.
+      String text = Files.readString(ignore, StandardCharsets.UTF_8);
+      if (text.startsWith(IGNORE_HEADER)) {
+        List<String> lines = text.lines().map(String::trim).toList();
+        List<String> missing = IGNORED.stream().filter(line -> !lines.contains(line)).toList();
+        if (!missing.isEmpty()) {
+          Files.writeString(ignore, (text.endsWith("\n") ? text : text + "\n")
+              + String.join("\n", missing) + "\n", StandardCharsets.UTF_8);
+        }
+      }
     }
     return state;
   }
+
 
   /**
    * The dependency classpath saved by an earlier build, for --no-build. Entries that no longer
@@ -307,24 +352,34 @@ final class ProjectBuild {
     return HexFormat.of().formatHex(digest.digest());
   }
 
-  /** Fingerprint of source files: names and modification times, so edits and deletes count. */
-  private String sourceStamp() throws IOException {
-    MessageDigest digest = sha256();
+  /** Source files (relative path with forward slashes) and their modification times. */
+  private Map<String, Long> sourceFiles() throws IOException {
+    Map<String, Long> sources = new LinkedHashMap<>();
     for (String directory : SOURCE_DIRECTORIES) {
-      Path sources = root.resolve(directory);
-      if (!Files.isDirectory(sources)) {
+      Path folder = root.resolve(directory);
+      if (!Files.isDirectory(folder)) {
         continue;
       }
       List<Path> files;
-      try (Stream<Path> walk = Files.walk(sources)) {
+      try (Stream<Path> walk = Files.walk(folder)) {
         files = walk.filter(Files::isRegularFile).sorted().toList();
       }
       for (Path file : files) {
-        digest.update(root.relativize(file).toString().getBytes(StandardCharsets.UTF_8));
-        digest.update(Long.toString(Files.getLastModifiedTime(file).toMillis())
-            .getBytes(StandardCharsets.UTF_8));
+        sources.put(root.relativize(file).toString().replace(File.separatorChar, '/'),
+            Files.getLastModifiedTime(file).toMillis());
       }
     }
+    return sources;
+  }
+
+  /** Fingerprint of source files: names and modification times, so edits and deletes count. */
+  private static String stamp(Map<String, Long> sources) {
+    MessageDigest digest = sha256();
+    sources.forEach((file, time) -> {
+      // The platform separator, as earlier versions wrote it, so existing stamps stay valid.
+      digest.update(file.replace('/', File.separatorChar).getBytes(StandardCharsets.UTF_8));
+      digest.update(Long.toString(time).getBytes(StandardCharsets.UTF_8));
+    });
     return HexFormat.of().formatHex(digest.digest());
   }
 
@@ -334,7 +389,7 @@ final class ProjectBuild {
         .anyMatch(Files::isDirectory);
   }
 
-  private static MessageDigest sha256() {
+  static MessageDigest sha256() {
     try {
       return MessageDigest.getInstance("SHA-256");
     } catch (java.security.NoSuchAlgorithmException e) {

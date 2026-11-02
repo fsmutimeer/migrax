@@ -105,7 +105,18 @@ final class ProjectContext {
    */
   static URLClassLoader runtimeLoader(Path root, String explicit, List<Path> resolved)
       throws IOException {
+    return runtimeLoader(root, explicit, resolved, null, null);
+  }
+
+  /**
+   * As above, with {@code classes} standing in for the class folder {@code replaces} (the
+   * quickly compiled copy of {@link QuickCompile}); both null for none.
+   */
+  static URLClassLoader runtimeLoader(Path root, String explicit, List<Path> resolved,
+                                      Path classes, Path replaces) throws IOException {
     Set<Path> entries = new LinkedHashSet<>();
+    Path replaced = replaces == null ? null : replaces.toAbsolutePath().normalize();
+    Path replacement = classes == null ? null : classes.toAbsolutePath().normalize();
     if (explicit != null) {
       for (String item : explicit.split(java.util.regex.Pattern.quote(java.io.File.pathSeparator))) {
         if (!item.isBlank()) {
@@ -143,6 +154,18 @@ final class ProjectContext {
     // Last, so the project's own driver versions win.
     entries.addAll(driverJars());
 
+    if (replaced != null && replacement != null) {
+      // Same position, so the quick copy wins over the dependencies just as the folder did.
+      Set<Path> swapped = new LinkedHashSet<>();
+      if (!entries.contains(replaced)) {
+        // Never fall back to stale classes silently: the copy goes first.
+        swapped.add(replacement);
+      }
+      for (Path entry : entries) {
+        swapped.add(entry.equals(replaced) ? replacement : entry);
+      }
+      entries = swapped;
+    }
     List<URL> urls = new ArrayList<>();
     for (Path entry : entries) {
       if (!Files.exists(entry)) {
