@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.18.0-rc.2] - 2026-11-02
+
+Release candidate for 0.18.0, for testing.
+
 ### Changed
 
 - `generate`, `check`, `plan` and the other commands that read entities no longer wait for
@@ -988,7 +992,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.1...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.2...HEAD
+[0.18.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.1...v0.18.0-rc.2
 [0.18.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.3...v0.18.0-rc.1
 [0.17.2-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.2...v0.17.2-rc.3
 [0.17.2-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.1...v0.17.2-rc.2
