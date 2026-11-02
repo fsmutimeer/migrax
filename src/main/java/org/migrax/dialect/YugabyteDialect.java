@@ -30,6 +30,11 @@ public final class YugabyteDialect extends PostgresDialect {
     return java.util.List.of("yugabyte", "yb");
   }
 
+  @Override
+  public String describeServer(String product, String version) {
+    return "YugabyteDB, PostgreSQL " + version + " protocol";
+  }
+
   /** YugabyteDB's own driver; with the PostgreSQL driver, {@link #acceptsConnection} decides. */
   @Override
   public boolean acceptsUrl(String jdbcUrl) {

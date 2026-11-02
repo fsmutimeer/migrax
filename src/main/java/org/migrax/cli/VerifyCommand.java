@@ -115,12 +115,12 @@ final class VerifyCommand implements Command {
 
         String hibernate = ModelExtractor.hibernateVersion(loader);
         List<String> problems = new ArrayList<>();
-        // Hibernate's validator rejects the integer row-id columns that its own SQLite dialect
-        // creates for Long ids, so SQLite gets the structural comparison.
+        // Not every database passes Hibernate's validator (Dialect.hibernateValidationWorks);
+        // those get the structural comparison.
         boolean validated = false;
         boolean schemaFile = project.schemaFile() != null;
         if (!schemaFile && ModelExtractor.readsMapping(hibernate)
-            && !"sqlite".equals(dialect.id())
+            && dialect.hibernateValidationWorks()
             && project.extractorMode() != ModelExtractor.Mode.ANNOTATIONS
             && ModelExtractor.matchingEntities(loader, packageName, hibernate)) {
           try {

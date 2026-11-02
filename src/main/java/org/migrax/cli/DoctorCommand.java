@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 /** {@code migrax doctor}: check Java, build, entities and the database connection. */
 final class DoctorCommand implements Command {
@@ -226,30 +227,22 @@ final class DoctorCommand implements Command {
       try (Connection connection = project.connect()) {
         DatabaseMetaData metadata = connection.getMetaData();
         String product = metadata.getDatabaseProductName();
-        // CockroachDB and YugabyteDB answer through the PostgreSQL driver, which reports
-        // "PostgreSQL".
+        // Some databases answer through another one's driver, which reports that one's name.
         String version = metadata.getDatabaseProductVersion();
-        String server = Dialects.forConnection(connection).map(d -> switch (d.id()) {
-          case "cockroachdb" -> "CockroachDB (PostgreSQL protocol)";
-          case "yugabytedb" -> "YugabyteDB, PostgreSQL " + version + " protocol";
-          case "tidb" -> "TiDB " + version.replaceFirst(".*-TiDB-", "") + " (MySQL protocol)";
-          default -> null;
-        }).orElse(null);
-        doctor.ok("Connected: " + (server != null ? server : product + " " + version)
+        Optional<Dialect> server = Dialects.forConnection(connection);
+        doctor.ok("Connected: "
+            + server.map(d -> d.describeServer(product, version)).orElse(product + " " + version)
             + " (driver " + metadata.getDriverVersion() + ")");
-        if (entitiesHaveChecks && ignoresChecks(product, metadata.getDatabaseProductVersion())) {
-          doctor.warn("Check constraints: MySQL before 8.0.16 accepts them but doesn't enforce "
-              + "them; the entities' @Check conditions are not checked on this server");
-        }
-        if (entitiesHaveChecks && version.contains("TiDB") && !tidbChecksEnabled(connection)) {
-          doctor.warn("Check constraints: TiDB ignores them while tidb_enable_check_constraint "
-              + "is OFF; the entities' @Check conditions are not checked on this server. Set it "
-              + "with SET GLOBAL tidb_enable_check_constraint = ON");
+        Optional<String> unenforced = entitiesHaveChecks && server.isPresent()
+            ? server.get().unenforcedChecks(connection) : Optional.empty();
+        if (unenforced.isPresent()) {
+          doctor.warn("Check constraints: " + unenforced.get());
         }
         // Take and release the migration lock, as migrate does.
         try (AutoCloseable lock = DatabaseMigrationLock.acquire(connection)) {
-          if (product.toLowerCase(Locale.ROOT).contains("h2")) {
-            doctor.warn("Locking: H2 locks only within one process; use it for development only");
+          Optional<String> limit = server.flatMap(Dialect::migrationLockLimit);
+          if (limit.isPresent()) {
+            doctor.warn("Locking: " + limit.get());
           } else {
             doctor.ok("Locking: supported");
           }
@@ -333,34 +326,6 @@ final class DoctorCommand implements Command {
    * Explains a Hibernate auto-DDL setting (ddl-auto=update and the like): where it is, what it
    * does to a Migrax-managed database, and the exact line to write instead.
    */
-  /** MySQL before 8.0.16 parses check constraints and ignores them. MariaDB enforces them. */
-  static boolean ignoresChecks(String product, String version) {
-    if (!product.toLowerCase(Locale.ROOT).contains("mysql") || version == null
-        || version.toLowerCase(Locale.ROOT).contains("mariadb") || version.contains("TiDB")) {
-      return false;
-    }
-    java.util.regex.Matcher matcher =
-        java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)").matcher(version);
-    if (!matcher.find()) {
-      return false;
-    }
-    int major = Integer.parseInt(matcher.group(1));
-    int minor = Integer.parseInt(matcher.group(2));
-    int patch = Integer.parseInt(matcher.group(3));
-    return major < 8 || major == 8 && minor == 0 && patch < 16;
-  }
-
-  /** TiDB enforces check constraints only with tidb_enable_check_constraint (7.2 and newer). */
-  private static boolean tidbChecksEnabled(Connection connection) {
-    try (java.sql.Statement statement = connection.createStatement();
-         java.sql.ResultSet result = statement.executeQuery(
-             "SELECT @@tidb_enable_check_constraint")) {
-      return result.next() && result.getInt(1) == 1;
-    } catch (java.sql.SQLException e) {
-      return false;
-    }
-  }
-
   private static void adviseSchemaGeneration(Report doctor, Project project,
                                              ProjectDatabaseConfig.SchemaGeneration setting) {
     List<String> details = new ArrayList<>();

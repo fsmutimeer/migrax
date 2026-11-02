@@ -2,9 +2,6 @@ package org.migrax.cli;
 
 import org.migrax.dialect.Dialect;
 import org.migrax.dialect.Dialects;
-import org.migrax.dialect.MySqlDialect;
-import org.migrax.dialect.PostgresDialect;
-import org.migrax.dialect.SqlServerDialect;
 import org.migrax.diff.SnapshotStore;
 import org.migrax.model.ModelExtractor;
 import org.migrax.model.NamingStrategy;
@@ -425,8 +422,8 @@ final class Project implements AutoCloseable {
    * {@code ${migrax.schema}} placeholder.
    */
   Dialect generating(Dialect dialect) throws Exception {
-    return dialect instanceof SqlServerDialect sqlServer && !schemas().isEmpty()
-        ? sqlServer.inSchema("${" + TargetSchema.PLACEHOLDER + "}") : dialect;
+    return !dialect.switchesSchemas() && !schemas().isEmpty()
+        ? dialect.inSchema("${" + TargetSchema.PLACEHOLDER + "}") : dialect;
   }
 
   /** The schemas a command runs for: {@link #schemas()}, or one null for the default schema. */
@@ -638,8 +635,7 @@ final class Project implements AutoCloseable {
     if (hasUrl()) {
       Dialect fromUrl = Dialects.fromJdbcUrl(credentials().url());
       // The PostgreSQL and MySQL drivers also reach CockroachDB, YugabyteDB and TiDB.
-      return fromUrl instanceof PostgresDialect || fromUrl instanceof MySqlDialect
-          ? confirmedByServer(fromUrl) : fromUrl;
+      return fromUrl.urlReachesOtherDatabases() ? confirmedByServer(fromUrl) : fromUrl;
     }
     String recorded = SnapshotStore.dialect(snapshot());
     if (recorded != null) {
@@ -665,8 +661,12 @@ final class Project implements AutoCloseable {
       return fromUrl.getClass().isInstance(same) ? same : fromUrl;
     }
     String hibernate = hibernateSettings().get("hibernate.dialect");
-    if (hibernate != null && hibernate.toLowerCase(Locale.ROOT).contains("cockroach")) {
-      return Dialects.byName("cockroachdb");
+    if (hibernate != null) {
+      java.util.Optional<Dialect> named = Dialects.NAMES.stream().map(Dialects::byName)
+          .filter(dialect -> dialect.acceptsHibernateDialect(hibernate)).findFirst();
+      if (named.isPresent()) {
+        return named.get();
+      }
     }
     if (serverDialect == null) {
       if (serverUnreachable) {
@@ -765,8 +765,8 @@ final class Project implements AutoCloseable {
    * can't switch, so Migrax names the schema itself ({@link TargetSchema}).
    */
   static void useSchema(Connection connection, String schema) throws Exception {
-    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-    if (product.contains("sqlite")) {
+    if (!Dialects.forProduct(connection.getMetaData().getDatabaseProductName())
+        .map(Dialect::hasSchemas).orElse(true)) {
       throw new UsageException("SQLite has no schemas.",
           "Remove --schema/--schemas: each SQLite database is its own file.");
     }

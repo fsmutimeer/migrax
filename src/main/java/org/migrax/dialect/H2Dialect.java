@@ -33,6 +33,16 @@ public final class H2Dialect extends AbstractDialect {
   }
 
   @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return List.of("org.hibernate.dialect.H2Dialect");
+  }
+
+  @Override
+  public java.util.Optional<String> migrationLockLimit() {
+    return java.util.Optional.of("H2 locks only within one process; use it for development only");
+  }
+
+  @Override
   protected Set<String> reservedWords() {
     return RESERVED;
   }

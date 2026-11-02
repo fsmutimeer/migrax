@@ -43,6 +43,59 @@ public class MySqlDialect extends AbstractDialect {
     return RESERVED;
   }
 
+  /** Unless the session's sql_mode has NO_BACKSLASH_ESCAPES. */
+  @Override
+  public boolean backslashEscapes() {
+    return true;
+  }
+
+  /** The MySQL driver also reaches TiDB. */
+  @Override
+  public boolean urlReachesOtherDatabases() {
+    return true;
+  }
+
+  /**
+   * Hibernate 5's unversioned MySQLDialect describes very old servers; its resolver picks
+   * MySQL8Dialect for current ones.
+   */
+  @Override
+  public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.MySQL8Dialect"
+        : "org.hibernate.dialect.MySQLDialect");
+  }
+
+  /** MySQL has no sequences: Hibernate keeps them as tables. */
+  @Override
+  public boolean hibernateSequencesAreTables() {
+    return true;
+  }
+
+  @Override
+  public java.util.Optional<String> unenforcedChecks(Connection connection) throws SQLException {
+    return ignoresChecks(connection.getMetaData().getDatabaseProductVersion())
+        ? java.util.Optional.of("MySQL before 8.0.16 accepts them but doesn't enforce them; "
+            + "the entities' @Check conditions are not checked on this server")
+        : java.util.Optional.empty();
+  }
+
+  /** MySQL before 8.0.16 parses check constraints and ignores them. MariaDB enforces them. */
+  static boolean ignoresChecks(String version) {
+    if (version == null || version.toLowerCase(java.util.Locale.ROOT).contains("mariadb")
+        || version.contains("TiDB")) {
+      return false;
+    }
+    java.util.regex.Matcher matcher =
+        java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)").matcher(version);
+    if (!matcher.find()) {
+      return false;
+    }
+    int major = Integer.parseInt(matcher.group(1));
+    int minor = Integer.parseInt(matcher.group(2));
+    int patch = Integer.parseInt(matcher.group(3));
+    return major < 8 || major == 8 && minor == 0 && patch < 16;
+  }
+
   /** MySQL itself (or MariaDB); TiDB reports the same product name. */
   @Override
   public boolean acceptsConnection(Connection connection) throws SQLException {

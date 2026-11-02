@@ -1,7 +1,6 @@
 package org.migrax.cli;
 
 import org.migrax.dialect.Dialect;
-import org.migrax.dialect.PostgresDialect;
 import org.migrax.model.ModelExtractor;
 import org.migrax.model.SchemaModel;
 import org.migrax.plugin.DatabaseSchemaReader;
@@ -151,7 +150,7 @@ final class SchemaFile {
    * the cache key. Blanked rather than removed, so the line numbers in errors stay right.
    */
   static String withoutPsqlCommands(String sql, Dialect dialect) {
-    return dialect instanceof PostgresDialect ? PSQL_COMMAND.matcher(sql).replaceAll("") : sql;
+    return dialect.dumpsHavePsqlCommands() ? PSQL_COMMAND.matcher(sql).replaceAll("") : sql;
   }
 
   /** Warnings for the statements whose result Migrax leaves out of the model. */
@@ -233,8 +232,7 @@ final class SchemaFile {
   /** Runs the file statement by statement, naming the one that fails and its line. */
   private static void apply(Connection connection, String source, String sql, Dialect dialect)
       throws Exception {
-    boolean backslashEscapes = "mysql".equals(dialect.id()) || "mariadb".equals(dialect.id())
-        || "tidb".equals(dialect.id());
+    boolean backslashEscapes = dialect.backslashEscapes();
     List<String> statements;
     try {
       statements = SqlScript.split(sql, backslashEscapes);

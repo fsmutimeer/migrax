@@ -51,6 +51,7 @@ public final class SqlServerDialect extends AbstractDialect {
    * @return a dialect bound to that schema
    * @since 0.7.0
    */
+  @Override
   public SqlServerDialect inSchema(String schema) {
     return new SqlServerDialect(schema);
   }
@@ -58,6 +59,18 @@ public final class SqlServerDialect extends AbstractDialect {
   @Override
   public String id() {
     return "sqlserver";
+  }
+
+  /** A SQL Server session keeps its user's default schema. */
+  @Override
+  public boolean switchesSchemas() {
+    return false;
+  }
+
+  @Override
+  public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.SQLServer2012Dialect"
+        : "org.hibernate.dialect.SQLServerDialect");
   }
 
   @Override

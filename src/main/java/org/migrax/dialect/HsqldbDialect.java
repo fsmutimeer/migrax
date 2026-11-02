@@ -38,6 +38,11 @@ public final class HsqldbDialect extends AbstractDialect {
   }
 
   @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return List.of("org.hibernate.dialect.HSQLDialect");
+  }
+
+  @Override
   public java.util.List<String> aliases() {
     return java.util.List.of("hsql", "hypersql");
   }

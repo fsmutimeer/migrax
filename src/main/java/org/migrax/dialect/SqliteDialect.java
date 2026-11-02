@@ -68,6 +68,42 @@ public final class SqliteDialect extends AbstractDialect {
   }
 
   @Override
+  public boolean keepsComments() {
+    return false;
+  }
+
+  /** Each SQLite database is its own file. */
+  @Override
+  public boolean hasSchemas() {
+    return false;
+  }
+
+  /**
+   * In hibernate-community-dialects, which SQLite projects add. Hibernate 5 has no SQLite
+   * dialect: the project's own hibernate.dialect setting applies.
+   */
+  @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return hibernateMajor == 5 ? List.of()
+        : List.of("org.hibernate.community.dialect.SQLiteDialect");
+  }
+
+  /** SQLite has no sequences: Hibernate keeps them as tables. */
+  @Override
+  public boolean hibernateSequencesAreTables() {
+    return true;
+  }
+
+  /**
+   * Hibernate's validator rejects the integer row-id columns that its own SQLite dialect
+   * creates for Long ids.
+   */
+  @Override
+  public boolean hibernateValidationWorks() {
+    return false;
+  }
+
+  @Override
   protected Set<String> reservedWords() {
     return RESERVED;
   }

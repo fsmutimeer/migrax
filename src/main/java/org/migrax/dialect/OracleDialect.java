@@ -66,6 +66,12 @@ public final class OracleDialect extends AbstractDialect {
   }
 
   @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return List.of(hibernateMajor == 5 ? "org.hibernate.dialect.Oracle12cDialect"
+        : "org.hibernate.dialect.OracleDialect");
+  }
+
+  @Override
   public boolean dependsOnServerVersion() {
     return true;
   }

@@ -31,6 +31,22 @@ public final class CockroachDialect extends PostgresDialect {
     return java.util.List.of("cockroach", "crdb");
   }
 
+  @Override
+  public boolean acceptsHibernateDialect(String hibernateDialect) {
+    return hibernateDialect.toLowerCase(Locale.ROOT).contains("cockroach");
+  }
+
+  @Override
+  public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.CockroachDB201Dialect"
+        : "org.hibernate.dialect.CockroachDialect");
+  }
+
+  @Override
+  public String describeServer(String product, String version) {
+    return "CockroachDB (PostgreSQL protocol)";
+  }
+
   /** The URL is the PostgreSQL driver's: {@link #acceptsConnection} decides. */
   @Override
   public boolean acceptsUrl(String jdbcUrl) {

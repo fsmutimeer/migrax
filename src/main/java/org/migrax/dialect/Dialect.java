@@ -326,6 +326,162 @@ public interface Dialect {
   }
 
   /**
+   * Whether a backslash escapes the next character inside string literals, so that
+   * {@code 'it\'s'} is one string. Splitting a SQL script into statements needs to know. The
+   * default is {@code false}, as in standard SQL.
+   *
+   * @since 0.19.0
+   */
+  default boolean backslashEscapes() {
+    return false;
+  }
+
+  /**
+   * Whether this database's dump files are psql scripts, with psql's own backslash commands
+   * between the SQL statements. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean dumpsHavePsqlCommands() {
+    return false;
+  }
+
+  /**
+   * Whether the database keeps table and column comments, so that they can be read back. The
+   * default is {@code true}.
+   *
+   * @since 0.19.0
+   */
+  default boolean keepsComments() {
+    return true;
+  }
+
+  /**
+   * Whether the database has schemas a connection can be pointed at. The default is
+   * {@code true}.
+   *
+   * @since 0.19.0
+   */
+  default boolean hasSchemas() {
+    return true;
+  }
+
+  /**
+   * Whether a connection can switch its default schema. When it can't, SQL that runs once per
+   * schema names the schema in every table: see {@link #inSchema(String)}. The default is
+   * {@code true}.
+   *
+   * @since 0.19.0
+   */
+  default boolean switchesSchemas() {
+    return true;
+  }
+
+  /**
+   * This dialect, writing the schema in front of every table and sequence name, for databases
+   * whose connections can't switch schemas ({@link #switchesSchemas()}). The default returns
+   * this dialect, since the connection switches the schema instead.
+   *
+   * @param schema a schema name, or the placeholder {@code ${migrax.schema}}
+   * @since 0.19.0
+   */
+  default Dialect inSchema(String schema) {
+    return this;
+  }
+
+  /**
+   * Whether the JDBC driver for this dialect's URLs also reaches other databases (for example
+   * ones that speak the same protocol), so that the server has to confirm which one it is. The
+   * default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean urlReachesOtherDatabases() {
+    return false;
+  }
+
+  /**
+   * Whether a project's {@code hibernate.dialect} setting names this database, which tells it
+   * apart from others that share its JDBC driver. The default is {@code false}: the URL or the
+   * server decides.
+   *
+   * @param hibernateDialect the setting's value, a Hibernate dialect class name
+   * @since 0.19.0
+   */
+  default boolean acceptsHibernateDialect(String hibernateDialect) {
+    return false;
+  }
+
+  /**
+   * The Hibernate dialect classes Migrax sets when it reads the entities with Hibernate, best
+   * first: the first one Hibernate can load is used, else the last one. Empty leaves the
+   * project's own {@code hibernate.dialect} setting in charge. The default is empty.
+   *
+   * @param hibernateMajor Hibernate's major version: 5 selects the names for Hibernate 5, any
+   *     other version the ones for Hibernate 6 and newer
+   * @since 0.19.0
+   */
+  default java.util.List<String> hibernateDialects(int hibernateMajor) {
+    return java.util.List.of();
+  }
+
+  /**
+   * Whether the Hibernate dialect from {@link #hibernateDialects(int)} keeps sequences as
+   * one-column {@code next_val} tables, because the database has no sequences. The default is
+   * {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean hibernateSequencesAreTables() {
+    return false;
+  }
+
+  /**
+   * Whether Hibernate's own schema validation works on this database, so that
+   * {@code migrax verify} can use it. The default is {@code true}.
+   *
+   * @since 0.19.0
+   */
+  default boolean hibernateValidationWorks() {
+    return true;
+  }
+
+  /**
+   * How {@code migrax doctor} names the server it connected to. The default is the product
+   * name and version the driver reports.
+   *
+   * @param product the driver's database product name
+   * @param version the driver's database product version
+   * @since 0.19.0
+   */
+  default String describeServer(String product, String version) {
+    return product + " " + version;
+  }
+
+  /**
+   * The warning {@code migrax doctor} shows when the server accepts the entities' check
+   * constraints but doesn't enforce them; empty when it enforces them. The default is empty.
+   *
+   * @param connection an open connection to the server
+   * @throws java.sql.SQLException when the connection's metadata can't be read
+   * @since 0.19.0
+   */
+  default java.util.Optional<String> unenforcedChecks(java.sql.Connection connection)
+      throws java.sql.SQLException {
+    return java.util.Optional.empty();
+  }
+
+  /**
+   * What the migration lock from {@link #acquireMigrationLock} can't do, for
+   * {@code migrax doctor}; empty when it protects every process. The default is empty.
+   *
+   * @since 0.19.0
+   */
+  default java.util.Optional<String> migrationLockLimit() {
+    return java.util.Optional.empty();
+  }
+
+  /**
    * The name of the trigger that {@link #syncColumns} creates: {@code migrax_sync_<table>_<new
    * column>}, or, when that is longer than {@code maxLength}, the start of the table name and a
    * hash.

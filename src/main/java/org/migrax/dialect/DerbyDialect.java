@@ -42,6 +42,22 @@ public final class DerbyDialect extends AbstractDialect {
     return "derby";
   }
 
+  @Override
+  public boolean keepsComments() {
+    return false;
+  }
+
+  /**
+   * Derby's Hibernate dialect is in Hibernate 6 itself and in hibernate-community-dialects
+   * from Hibernate 7 on.
+   */
+  @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return hibernateMajor == 5 ? List.of("org.hibernate.dialect.DerbyTenSevenDialect")
+        : List.of("org.hibernate.dialect.DerbyDialect",
+            "org.hibernate.community.dialect.DerbyDialect");
+  }
+
   /** The driver reports "Apache Derby". */
   @Override
   public boolean acceptsProduct(String productName) {

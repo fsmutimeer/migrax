@@ -29,6 +29,28 @@ public class PostgresDialect extends AbstractDialect {
     return "postgresql";
   }
 
+  /** pg_dump writes psql scripts. */
+  @Override
+  public boolean dumpsHavePsqlCommands() {
+    return true;
+  }
+
+  /** The PostgreSQL driver also reaches CockroachDB and YugabyteDB. */
+  @Override
+  public boolean urlReachesOtherDatabases() {
+    return true;
+  }
+
+  /**
+   * Hibernate 5's unversioned PostgreSQLDialect describes very old servers; its resolver picks
+   * PostgreSQL10Dialect for current ones.
+   */
+  @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return List.of(hibernateMajor == 5 ? "org.hibernate.dialect.PostgreSQL10Dialect"
+        : "org.hibernate.dialect.PostgreSQLDialect");
+  }
+
   @Override
   public java.util.List<String> aliases() {
     return java.util.List.of("postgres", "pg");

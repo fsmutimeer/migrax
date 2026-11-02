@@ -71,40 +71,6 @@ public final class HibernateSchemaReader {
   private final java.util.Set<Column> orderColumns =
       java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
-  /** Hibernate dialect class per Migrax dialect id. */
-  private static final Map<String, String> DIALECTS = Map.ofEntries(
-      Map.entry("postgresql", "org.hibernate.dialect.PostgreSQLDialect"),
-      Map.entry("mysql", "org.hibernate.dialect.MySQLDialect"),
-      Map.entry("mariadb", "org.hibernate.dialect.MariaDBDialect"),
-      Map.entry("tidb", "org.hibernate.dialect.MySQLDialect"),
-      Map.entry("sqlserver", "org.hibernate.dialect.SQLServerDialect"),
-      Map.entry("oracle", "org.hibernate.dialect.OracleDialect"),
-      Map.entry("h2", "org.hibernate.dialect.H2Dialect"),
-      Map.entry("cockroachdb", "org.hibernate.dialect.CockroachDialect"),
-      Map.entry("yugabytedb", "org.hibernate.dialect.PostgreSQLDialect"),
-      // In hibernate-community-dialects, which SQLite projects add.
-      Map.entry("sqlite", "org.hibernate.community.dialect.SQLiteDialect"),
-      Map.entry("hsqldb", "org.hibernate.dialect.HSQLDialect"),
-      // From Hibernate 7 on (Hibernate 6 has its own, see read).
-      Map.entry("derby", "org.hibernate.community.dialect.DerbyDialect"));
-
-  /**
-   * Hibernate 5 dialects, as its resolver picks them for current database versions; its
-   * unversioned MySQLDialect and PostgreSQLDialect describe very old servers.
-   */
-  private static final Map<String, String> HIBERNATE5_DIALECTS = Map.ofEntries(
-      Map.entry("postgresql", "org.hibernate.dialect.PostgreSQL10Dialect"),
-      Map.entry("mysql", "org.hibernate.dialect.MySQL8Dialect"),
-      Map.entry("mariadb", "org.hibernate.dialect.MariaDB103Dialect"),
-      Map.entry("tidb", "org.hibernate.dialect.MySQL8Dialect"),
-      Map.entry("sqlserver", "org.hibernate.dialect.SQLServer2012Dialect"),
-      Map.entry("oracle", "org.hibernate.dialect.Oracle12cDialect"),
-      Map.entry("h2", "org.hibernate.dialect.H2Dialect"),
-      Map.entry("cockroachdb", "org.hibernate.dialect.CockroachDB201Dialect"),
-      Map.entry("yugabytedb", "org.hibernate.dialect.PostgreSQL10Dialect"),
-      Map.entry("hsqldb", "org.hibernate.dialect.HSQLDialect"),
-      Map.entry("derby", "org.hibernate.dialect.DerbyTenSevenDialect"));
-
   private static final String CAMEL_CASE_TO_UNDERSCORES =
       "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy";
 
@@ -179,16 +145,11 @@ public final class HibernateSchemaReader {
         .build();
     StandardServiceRegistryBuilder builder = new StandardServiceRegistryBuilder(bootstrap);
     Map<String, Object> config = new LinkedHashMap<>();
-    boolean hibernate5 = org.hibernate.Version.getVersionString().startsWith("5.");
-    // Hibernate 5 has no SQLite dialect: the project's own hibernate.dialect setting applies.
-    String hibernateDialect = (hibernate5 ? HIBERNATE5_DIALECTS : DIALECTS).get(dialect.id());
-    // Derby's dialect is in Hibernate 6 itself and in hibernate-community-dialects from 7 on.
-    if ("derby".equals(dialect.id()) && !hibernate5
-        && loads(loader, "org.hibernate.dialect.DerbyDialect")) {
-      hibernateDialect = "org.hibernate.dialect.DerbyDialect";
-    }
-    if (hibernateDialect != null) {
-      config.put("hibernate.dialect", hibernateDialect);
+    // Empty when the project's own hibernate.dialect setting applies.
+    List<String> hibernateDialects =
+        dialect.hibernateDialects(majorVersion(org.hibernate.Version.getVersionString()));
+    if (!hibernateDialects.isEmpty()) {
+      config.put("hibernate.dialect", firstLoadable(loader, hibernateDialects));
     }
     if (naming.micronaut()) {
       config.put("hibernate.physical_naming_strategy", micronautPhysicalStrategy(loader));
@@ -250,15 +211,14 @@ public final class HibernateSchemaReader {
     derivedCheckColumns(metadata);
     List<SchemaModel.Table> tables = new ArrayList<>();
     List<SchemaModel.Sequence> sequences = new ArrayList<>();
-    boolean tableSequences = "mysql".equals(dialect.id()) || "tidb".equals(dialect.id())
-        || "sqlite".equals(dialect.id());
+    boolean tableSequences = dialect.hibernateSequencesAreTables();
     for (Namespace namespace : metadata.getDatabase().getNamespaces()) {
       for (Table table : namespace.getTables()) {
         if (!table.isPhysicalTable() || isView(table) || table.getSubselect() != null
             || table.isAbstractUnionTable()) {
           continue;
         }
-        // MySQL and SQLite have no sequences: Hibernate maps them to one-column next_val tables.
+        // Without sequences (MySQL, SQLite), Hibernate maps them to one-column next_val tables.
         if (tableSequences && columns(table).size() == 1
             && "next_val".equalsIgnoreCase(columns(table).get(0).getName())) {
           sequences.add(new SchemaModel.Sequence(table.getName(), 1L, 50L));
@@ -802,6 +762,23 @@ public final class HibernateSchemaReader {
     } catch (ReflectiveOperationException e) {
       return null;
     }
+  }
+
+  /** The first of the class names that loads, else the last one. */
+  private static String firstLoadable(ClassLoader loader, List<String> names) {
+    for (String name : names.subList(0, names.size() - 1)) {
+      if (loads(loader, name)) {
+        return name;
+      }
+    }
+    return names.get(names.size() - 1);
+  }
+
+  /** 7 for "7.1.0.Final"; 0 when the version doesn't start with a number. */
+  static int majorVersion(String version) {
+    java.util.regex.Matcher matcher = Pattern.compile("^(\\d{1,9})")
+        .matcher(version == null ? "" : version);
+    return matcher.find() ? Integer.parseInt(matcher.group(1)) : 0;
   }
 
   private static boolean loads(ClassLoader loader, String name) {

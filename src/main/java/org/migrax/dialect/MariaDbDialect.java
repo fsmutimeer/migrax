@@ -15,6 +15,24 @@ public final class MariaDbDialect extends MySqlDialect {
   }
 
   @Override
+  public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.MariaDB103Dialect"
+        : "org.hibernate.dialect.MariaDBDialect");
+  }
+
+  /** MariaDB has sequences. */
+  @Override
+  public boolean hibernateSequencesAreTables() {
+    return false;
+  }
+
+  /** MariaDB enforces check constraints. */
+  @Override
+  public java.util.Optional<String> unenforcedChecks(java.sql.Connection connection) {
+    return java.util.Optional.empty();
+  }
+
+  @Override
   protected String uuidType() {
     return "uuid";
   }

@@ -25,6 +25,29 @@ public final class TidbDialect extends MySqlDialect {
     return "tidb";
   }
 
+  @Override
+  public String describeServer(String product, String version) {
+    return "TiDB " + version.replaceFirst(".*-TiDB-", "") + " (MySQL protocol)";
+  }
+
+  /** TiDB enforces check constraints only with tidb_enable_check_constraint (7.2 and newer). */
+  @Override
+  public java.util.Optional<String> unenforcedChecks(Connection connection) {
+    return checksEnabled(connection) ? java.util.Optional.empty()
+        : java.util.Optional.of("TiDB ignores them while tidb_enable_check_constraint is OFF; "
+            + "the entities' @Check conditions are not checked on this server. Set it with "
+            + "SET GLOBAL tidb_enable_check_constraint = ON");
+  }
+
+  private static boolean checksEnabled(Connection connection) {
+    try (Statement statement = connection.createStatement();
+         ResultSet result = statement.executeQuery("SELECT @@tidb_enable_check_constraint")) {
+      return result.next() && result.getInt(1) == 1;
+    } catch (SQLException e) {
+      return false;
+    }
+  }
+
   /** The URL is the MySQL driver's: {@link #acceptsConnection} decides. */
   @Override
   public boolean acceptsUrl(String jdbcUrl) {
