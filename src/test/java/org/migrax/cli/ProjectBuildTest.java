@@ -8,12 +8,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -183,7 +186,7 @@ class ProjectBuildTest {
     source("Item", "package demo; public class Item { broken }", time + 5_000);
     ProjectBuild.Result result = prepare(true, false);
     assertEquals(2, calls().size(), "a compile error should run Maven");
-    assertEquals(null, result.classes());
+    assertNull(result.classes());
 
     // The class folder changed since the last build (here: a failed build emptied it).
     source("Item", "package demo; public class Item { int fixed; }", time + 10_000);
@@ -245,7 +248,7 @@ class ProjectBuildTest {
     prepare(true, false);
     int before = calls().size();
     source("Item", "package demo; public class Item { int edited; }", time + 5_000);
-    assertEquals(null, prepare(true, false).classes());
+    assertNull(prepare(true, false).classes());
     assertEquals(before + 1, calls().size(), "a class the copy can't make should run Maven");
   }
 
@@ -267,6 +270,63 @@ class ProjectBuildTest {
     source("Item", "package demo; public class Item { int edited; }", time + 5_000);
     prepare(true, false);
     assertEquals(before + 2, calls().size(), "Lombok in the pom should run Maven");
+  }
+
+  /** A Windows junction (no admin rights needed) or, elsewhere, a symbolic link. */
+  private static void folderLink(Path link, Path target) throws Exception {
+    if (System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win")) {
+      Process process = new ProcessBuilder("cmd", "/c", "mklink", "/J", link.toString(),
+          target.toString()).redirectErrorStream(true).start();
+      process.getInputStream().readAllBytes();
+      assertEquals(0, process.waitFor());
+    } else {
+      Files.createSymbolicLink(link, target);
+    }
+  }
+
+  @Test
+  void deletingTheCopyNeverGoesThroughALink(@TempDir Path elsewhere) throws Exception {
+    Path precious = Files.writeString(
+        Files.createDirectories(elsewhere.resolve("sub")).resolve("precious.txt"), "keep");
+    Path folder = Files.createDirectories(project.resolve(".migrax/classes"));
+    Files.writeString(folder.resolve("A.class"), "x");
+    folderLink(folder.resolve("linked"), elsewhere);
+
+    QuickCompile.deleteTree(folder);
+    assertTrue(Files.notExists(folder));
+    assertEquals("keep", Files.readString(precious));
+
+    // The folder itself a link: only the link goes.
+    folderLink(folder, elsewhere);
+    QuickCompile.deleteTree(folder);
+    assertTrue(Files.notExists(folder, LinkOption.NOFOLLOW_LINKS));
+    assertEquals("keep", Files.readString(precious));
+  }
+
+  @Test
+  void aLinkedMigraxFolderRunsMaven(@TempDir Path elsewhere) throws Exception {
+    Path state = ProjectBuild.ensureStateDirectory(project);
+    assertTrue(QuickCompile.isPlainStateFolder(project, state));
+    QuickCompile.deleteTree(state);
+    folderLink(state, elsewhere);
+    try {
+      assertFalse(QuickCompile.isPlainStateFolder(project, state),
+          "a .migrax that is a link should never take the quick path");
+    } finally {
+      Files.delete(state);  // the link only, so the temporary folders clean up normally
+    }
+  }
+
+  @Test
+  void aCompilerPluginOnTheClasspathRunsMaven() throws Exception {
+    long time = builtProject();
+    Path plugin = project.resolve("plugin-classes/META-INF/services/com.sun.source.util.Plugin");
+    Files.createDirectories(plugin.getParent());
+    Files.writeString(plugin, "demo.Evil");
+    Files.writeString(project.resolve(".migrax/classpath.txt"),
+        dependency + java.io.File.pathSeparator + project.resolve("plugin-classes"));
+    source("Item", "package demo; public class Item { int edited; }", time + 5_000);
+    assertNull(prepare(true, false).classes(), "a compiler plugin should run Maven");
   }
 
   @Test

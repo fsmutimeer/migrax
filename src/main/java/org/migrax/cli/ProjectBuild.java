@@ -113,7 +113,10 @@ final class ProjectBuild {
     if (classpathCurrent && classesCurrent) {
       return new Result(tool, readClasspath(classpathFile), notes);
     }
-    if (classpathCurrent && !quickCompileDisabled()) {
+    // Only in a .migrax that is a plain folder of this project: the quick path deletes folders
+    // in it, and a link (or a Windows junction) would point those deletes somewhere else.
+    if (classpathCurrent && !quickCompileDisabled()
+        && QuickCompile.isPlainStateFolder(root, state)) {
       // Only sources changed: compile them directly, without the build tool.
       QuickCompile quick = new QuickCompile(root, state);
       List<Path> dependencies = readClasspath(classpathFile);

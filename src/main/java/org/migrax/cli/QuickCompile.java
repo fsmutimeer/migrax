@@ -7,12 +7,16 @@ import java.io.InputStream;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -25,6 +29,7 @@ import java.util.zip.ZipFile;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 import org.migrax.util.Log;
 
@@ -48,11 +53,13 @@ final class QuickCompile {
   static final String TEMPORARY_DIRECTORY = "classes.tmp";
   private static final String OUTPUT_PREFIX = "# output ";
   private static final String JAVA_SOURCES = "src/main/java/";
-  private static final String PROCESSOR_SERVICE =
-      "META-INF/services/javax.annotation.processing.Processor";
+  /** Services that make the compiler run code from the classpath: processors and plugins. */
+  private static final List<String> COMPILER_SERVICES = List.of(
+      "META-INF/services/javax.annotation.processing.Processor",
+      "META-INF/services/com.sun.source.util.Plugin");
   /** Words in a build file that mean an annotation processor (Lombok, MapStruct, ...) runs. */
   private static final List<String> PROCESSOR_HINTS = List.of(
-      "annotationprocessor", "<processor", "lombok", "kapt", "-processor");
+      "annotationprocessor", "<processor", "lombok", "kapt", "-processor", "-xplugin");
   private static final List<String> BUILD_FILES = List.of(
       "pom.xml", "build.gradle", "build.gradle.kts");
 
@@ -78,7 +85,9 @@ final class QuickCompile {
    */
   void recordBuild(ProjectBuild.Tool tool, Map<String, Long> sources) throws IOException {
     try {
-      deleteTree(state.resolve(CLASSES_DIRECTORY));
+      if (isPlainStateFolder(root, state)) {
+        deleteTree(state.resolve(CLASSES_DIRECTORY));
+      }
     } catch (IOException | UncheckedIOException e) {
       // Another Migrax process may hold it open; the stamp below stops its reuse anyway.
       Log.debug("Could not delete " + state.resolve(CLASSES_DIRECTORY) + ": " + e.getMessage());
@@ -195,15 +204,18 @@ final class QuickCompile {
     return null;
   }
 
-  private static boolean hasProcessor(Path dependency) throws IOException {
+  /** True when the entry could make the compiler run its code (or can't be read to tell). */
+  private static boolean hasProcessor(Path dependency) {
     if (Files.isDirectory(dependency)) {
-      return Files.exists(dependency.resolve(PROCESSOR_SERVICE));
+      return COMPILER_SERVICES.stream()
+          .anyMatch(service -> Files.exists(dependency.resolve(service)));
     }
-    if (!Files.isRegularFile(dependency) || !dependency.toString().endsWith(".jar")) {
+    if (!Files.isRegularFile(dependency)) {
       return false;
     }
+    // Every file, not only *.jar: the compiler reads any zip on the classpath.
     try (ZipFile jar = new ZipFile(dependency.toFile())) {
-      return jar.getEntry(PROCESSOR_SERVICE) != null;
+      return COMPILER_SERVICES.stream().anyMatch(service -> jar.getEntry(service) != null);
     } catch (IOException e) {
       return true;
     }
@@ -235,6 +247,9 @@ final class QuickCompile {
     StringWriter log = new StringWriter();
     try (StandardJavaFileManager files =
              compiler.getStandardFileManager(null, null, StandardCharsets.UTF_8)) {
+      // An empty processor path: the compiler then looks for processors and plugins there
+      // instead of on the classpath, so no code from a dependency runs inside Migrax.
+      files.setLocationFromPaths(StandardLocation.ANNOTATION_PROCESSOR_PATH, List.of());
       Iterable<? extends JavaFileObject> units = files.getJavaFileObjectsFromPaths(javaFiles);
       boolean compiled = compiler.getTask(log, files, null, options, null, units).call();
       if (!compiled) {
@@ -346,14 +361,66 @@ final class QuickCompile {
     }
   }
 
+  /**
+   * Deletes the folder and what is in it, but never goes through a link: a symbolic link or a
+   * Windows junction (which Java reports as a directory) is removed itself, and what it
+   * points to stays.
+   */
   static void deleteTree(Path folder) throws IOException {
-    if (!Files.exists(folder)) {
+    BasicFileAttributes start;
+    try {
+      start = Files.readAttributes(folder, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+    } catch (NoSuchFileException e) {
       return;
     }
-    try (Stream<Path> walk = Files.walk(folder)) {
-      for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
-        Files.delete(path);
+    if (!start.isDirectory() || isLink(start)) {
+      Files.delete(folder);
+      return;
+    }
+    Files.walkFileTree(folder, new SimpleFileVisitor<>() {
+      @Override
+      public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes)
+          throws IOException {
+        if (!directory.equals(folder) && isLink(attributes)) {
+          Files.delete(directory);
+          return FileVisitResult.SKIP_SUBTREE;
+        }
+        return FileVisitResult.CONTINUE;
       }
+
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)
+          throws IOException {
+        Files.delete(file);
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult postVisitDirectory(Path directory, IOException failure)
+          throws IOException {
+        if (failure != null) {
+          throw failure;
+        }
+        Files.delete(directory);
+        return FileVisitResult.CONTINUE;
+      }
+    });
+  }
+
+  /** A symbolic link, or a Windows junction (a directory that is also "other"). */
+  private static boolean isLink(BasicFileAttributes attributes) {
+    return attributes.isSymbolicLink() || attributes.isOther();
+  }
+
+  /** True when the folder is exactly root/.migrax, reached without any link on the way. */
+  static boolean isPlainStateFolder(Path root, Path state) {
+    try {
+      BasicFileAttributes attributes =
+          Files.readAttributes(state, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+      return attributes.isDirectory() && !isLink(attributes)
+          && state.toRealPath().equals(root.toRealPath().resolve(state.getFileName()));
+    } catch (IOException e) {
+      return false;
     }
   }
 }
