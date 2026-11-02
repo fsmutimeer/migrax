@@ -58,6 +58,13 @@
       <version>5.11.4</version>
       <scope>test</scope>
     </dependency>
+    <!-- Guard test: only org.migrax.dialect names concrete dialect classes. -->
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit</artifactId>
+      <version>1.5.1</version>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.hibernate.orm</groupId>
       <artifactId>hibernate-core</artifactId>
