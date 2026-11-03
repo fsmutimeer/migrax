@@ -153,6 +153,42 @@ class DatabaseSchemaReaderTest {
     }
   }
 
+  @Test
+  void findsASchemaWhoseNameDiffersOnlyInCaseUnlessTheMatchIsExactOrAmbiguous()
+      throws Exception {
+    try (var connection = DriverManager.getConnection("jdbc:h2:mem:schema-case");
+         var statement = connection.createStatement()) {
+      statement.execute("CREATE SCHEMA app");
+      statement.execute("CREATE TABLE app.upper_only (id INT)");
+      statement.execute("CREATE SCHEMA \"lower\"");
+      statement.execute("CREATE TABLE \"lower\".exact_lower (id INT)");
+      statement.execute("CREATE SCHEMA lower");
+      statement.execute("CREATE TABLE lower.upper_lower (id INT)");
+      statement.execute("CREATE SCHEMA \"Twice\"");
+      statement.execute("CREATE SCHEMA \"TWICE\"");
+      statement.execute("CREATE TABLE \"TWICE\".twice (id INT)");
+
+      assertEquals(List.of("UPPER_ONLY"),
+          DatabaseSchemaReader.objectNames(connection, "app", "TABLE"));
+      assertEquals(List.of("EXACT_LOWER"),
+          DatabaseSchemaReader.objectNames(connection, "lower", "TABLE"));
+      assertEquals(List.of(), DatabaseSchemaReader.objectNames(connection, "twice", "TABLE"));
+    }
+  }
+
+  @Test
+  void schemasAreDatabasesOnTheMySqlFamily() throws Exception {
+    try (var connection = DriverManager.getConnection("jdbc:h2:mem:catalog-for")) {
+      String own = connection.getCatalog();
+      for (String dialect : List.of("mysql", "mariadb", "tidb")) {
+        assertEquals("other", catalog(dialect).catalogFor(connection, " other "));
+        assertEquals(own, catalog(dialect).catalogFor(connection, null));
+        assertEquals(own, catalog(dialect).catalogFor(connection, " "));
+      }
+      assertEquals(own, catalog("postgresql").catalogFor(connection, "other"));
+    }
+  }
+
   private static SchemaCatalog catalog(String dialect) {
     return Dialects.byName(dialect).schemaCatalog();
   }

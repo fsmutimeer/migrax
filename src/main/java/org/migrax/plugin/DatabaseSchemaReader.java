@@ -44,7 +44,7 @@ public final class DatabaseSchemaReader {
                                  boolean exact) throws SQLException {
     DatabaseMetaData metadata = connection.getMetaData();
     SchemaCatalog schemaCatalog = schemaCatalog(connection);
-    String catalog = connection.getCatalog();
+    String catalog = schemaCatalog.catalogFor(connection, explicitSchema);
     String schema = resolveSchema(connection, metadata, explicitSchema, () -> schemaCatalog);
     Log.debug("Reading database schema metadata for catalog '{}', schema '{}'", catalog, schema);
     List<SchemaModel.Table> tables = new ArrayList<>();
@@ -164,7 +164,7 @@ public final class DatabaseSchemaReader {
   private static String resolveSchema(Connection connection, DatabaseMetaData metadata,
                                       String explicitSchema, Supplier<SchemaCatalog> catalog) {
     if (explicitSchema != null && !explicitSchema.isBlank()) {
-      return explicitSchema.trim();
+      return storedSchemaName(metadata, explicitSchema.trim());
     }
     String schema = null;
     try {
@@ -177,6 +177,30 @@ public final class DatabaseSchemaReader {
       return catalog.get().defaultSchema(metadata);
     } catch (Throwable ignored) {}
     return null;
+  }
+
+  /**
+   * The schema's name as the database stores it. A schema created without quotes is stored in
+   * upper case on H2, Derby, HSQLDB and Oracle, so {@code app} is found as {@code APP}. On any
+   * database, an exact match wins, then the one schema whose name differs only in case; a name
+   * that matches several schemas when case is ignored, or none, stays as it is.
+   */
+  private static String storedSchemaName(DatabaseMetaData metadata, String name) {
+    List<String> sameIgnoringCase = new ArrayList<>();
+    try (ResultSet schemas = metadata.getSchemas()) {
+      while (schemas.next()) {
+        String stored = schemas.getString("TABLE_SCHEM");
+        if (name.equals(stored)) {
+          return name;
+        }
+        if (name.equalsIgnoreCase(stored)) {
+          sameIgnoringCase.add(stored);
+        }
+      }
+    } catch (SQLException | RuntimeException e) {
+      return name;
+    }
+    return sameIgnoringCase.size() == 1 ? sameIgnoringCase.get(0) : name;
   }
 
   // ------------------------------------------------------------------ checks and comments
@@ -391,7 +415,10 @@ public final class DatabaseSchemaReader {
       throws SQLException {
     DatabaseMetaData metadata = connection.getMetaData();
     List<String> names = new ArrayList<>();
-    try (ResultSet result = metadata.getTables(connection.getCatalog(),
+    // Only a named schema needs the dialect; looking it up can cost a query.
+    String catalog = schema == null || schema.isBlank() ? connection.getCatalog()
+        : schemaCatalog(connection).catalogFor(connection, schema);
+    try (ResultSet result = metadata.getTables(catalog,
         resolveSchema(connection, metadata, schema, () -> schemaCatalog(connection)), "%",
         new String[]{type})) {
       while (result.next()) {
@@ -407,8 +434,9 @@ public final class DatabaseSchemaReader {
 
   /**
    * The sequences of one schema, as the database spells the names; empty when the database has
-   * none. Tries the standard view (PostgreSQL, CockroachDB, H2, SQL Server), then MariaDB's
-   * and Oracle's.
+   * none. The first listing the database understands answers: the standard view (PostgreSQL,
+   * CockroachDB, H2, SQL Server); MariaDB's, in the schema's database; Oracle's, for the
+   * schema's owner, or the login's own when the owner list can't be read; Derby's.
    *
    * @param schema the schema, or null for the connection's default
    * @since 0.2.0
@@ -417,26 +445,38 @@ public final class DatabaseSchemaReader {
       throws SQLException {
     String resolved = resolveSchema(connection, connection.getMetaData(), schema,
         () -> schemaCatalog(connection));
-    for (String sql : List.of(
-        "SELECT sequence_name FROM information_schema.sequences WHERE UPPER(sequence_schema) = "
-            + "UPPER(?)",
-        "SELECT table_name FROM information_schema.tables WHERE table_type = 'SEQUENCE' "
-            + "AND table_schema = DATABASE()",
-        "SELECT sequence_name FROM user_sequences WHERE sequence_name NOT LIKE 'ISEQ$$%'",
-        "SELECT q.SEQUENCENAME FROM SYS.SYSSEQUENCES q JOIN SYS.SYSSCHEMAS s ON s.SCHEMAID = "
-            + "q.SCHEMAID WHERE UPPER(s.SCHEMANAME) = UPPER(?)")) {
-      if (sql.contains("?") && resolved == null) {
+    String database = schema == null || schema.isBlank() ? connection.getCatalog()
+        : schemaCatalog(connection).catalogFor(connection, schema);
+    for (String[] listing : List.of(
+        new String[] {"SELECT sequence_name FROM information_schema.sequences WHERE "
+            + "UPPER(sequence_schema) = UPPER(?)", resolved},
+        new String[] {"SELECT table_name FROM information_schema.tables WHERE table_type = "
+            + "'SEQUENCE' AND table_schema = ?", database},
+        new String[] {"SELECT sequence_name FROM all_sequences WHERE sequence_owner = ? AND "
+            + "sequence_name NOT LIKE 'ISEQ$$%'", resolved},
+        // Only reached on Oracle when all_sequences can't be read.
+        new String[] {"SELECT sequence_name FROM user_sequences WHERE sequence_name NOT LIKE "
+            + "'ISEQ$$%'", null},
+        new String[] {"SELECT q.SEQUENCENAME FROM SYS.SYSSEQUENCES q JOIN SYS.SYSSCHEMAS s ON "
+            + "s.SCHEMAID = q.SCHEMAID WHERE UPPER(s.SCHEMANAME) = UPPER(?)", resolved})) {
+      String sql = listing[0];
+      String parameter = listing[1];
+      if (sql.contains("?") && parameter == null) {
         continue;
       }
       List<String> names = new ArrayList<>();
       try (java.sql.PreparedStatement statement = connection.prepareStatement(sql)) {
         if (sql.contains("?")) {
-          statement.setString(1, resolved);
+          statement.setString(1, parameter);
         }
         try (ResultSet result = statement.executeQuery()) {
           while (result.next()) {
             names.add(result.getString(1));
           }
+        }
+        if (names.isEmpty() && schema != null && !schema.isBlank()) {
+          // A login without rights on another schema sees none of its sequences either.
+          Log.debug("No sequences visible in schema '{}' ({})", resolved, sql);
         }
         return names;
       } catch (SQLException e) {
@@ -538,7 +578,9 @@ public final class DatabaseSchemaReader {
         schemaCatalog.uniqueConstraintIndexes(metadata.getConnection(), schema, table);
     java.util.Set<String> foreignKeyIndexes =
         schemaCatalog.foreignKeyIndexes(metadata.getConnection(), schema, table);
-    try (ResultSet result = metadata.getIndexInfo(catalog, schema, table, false, false)) {
+    // approximate=true: only names and columns are read, so the database needn't compute
+    // statistics (Oracle's driver gathers them, and fails on a quoted mixed-case table).
+    try (ResultSet result = metadata.getIndexInfo(catalog, schema, table, false, true)) {
       while (result.next()) {
         String name = result.getString("INDEX_NAME");
         String column = result.getString("COLUMN_NAME");

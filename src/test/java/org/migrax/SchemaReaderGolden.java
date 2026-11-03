@@ -38,10 +38,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <p>Not covered, because Migrax's model can't express them: unnamed checks, descending,
  * partial and expression indexes, and foreign key actions.
  *
- * <p>The files pin today's behavior, bugs included, so that a refactoring can't change it
- * unnoticed. Known wrong results, to be fixed separately (with a new recording): Oracle fails
- * on a quoted mixed-case table (ORA-20000); TiDB reads the default database's tables for the
- * second schema; H2, Derby and HSQLDB find no tables in a schema named in lower case.
+ * <p>The files pin what the reader returns, so that a change to it can't go unnoticed.
  */
 final class SchemaReaderGolden {
   static final Path EXPECTED = Path.of("src", "test", "resources", "org", "migrax",
@@ -52,17 +49,20 @@ final class SchemaReaderGolden {
 
   /**
    * Names the database makes up for unnamed constraints and indexes, with a number or hash
-   * that changes between runs; replaced by {@code <generated>} in the recorded output.
+   * that changes between runs; replaced by {@code <generated>} in the recorded output. Case is
+   * ignored: the reader lowercases names the database stored in upper case.
    */
   private static final Pattern GENERATED_NAME = Pattern.compile("\\b("
       // Oracle constraints.
       + "SYS_C\\d+"
       // HSQLDB indexes, primary keys and constraints.
       + "|SYS_IDX_[A-Za-z0-9_]*?\\d+|SYS_PK_\\d+|SYS_CT_\\d+"
-      // Derby constraints and indexes.
-      + "|SQL\\d{6,}"
+      // Derby constraints and indexes, with a UUID after the number for primary keys.
+      + "|SQL\\d{6,}(-[0-9A-F]{8}(-[0-9A-F]{4}){3}-[0-9A-F]{12})?"
+      // H2 constraints.
+      + "|CONSTRAINT_[0-9A-F]+"
       // SQL Server constraints: PK__table__hash.
-      + "|(PK|UQ|FK|DF|CK)__[A-Za-z0-9_]+__[0-9A-F]{8,})\\b");
+      + "|(PK|UQ|FK|DF|CK)__[A-Za-z0-9_]+__[0-9A-F]{8,})\\b", Pattern.CASE_INSENSITIVE);
 
   /** A database error code such as ORA-20000, kept instead of the driver's whole message. */
   private static final Pattern ERROR_CODE = Pattern.compile("\\b[A-Z]{2,5}-\\d{4,5}\\b");
@@ -194,7 +194,14 @@ final class SchemaReaderGolden {
       execute(connection, "CREATE " + kind + " " + OTHER_SCHEMA);
     } catch (SQLException e) {
       rollbackQuietly(connection);
-      return "none\n";
+      // Oracle's schemas are users.
+      try {
+        execute(connection, "CREATE USER " + OTHER_SCHEMA + " IDENTIFIED BY golden"
+            + " DEFAULT TABLESPACE USERS QUOTA UNLIMITED ON USERS");
+      } catch (SQLException notAUser) {
+        rollbackQuietly(connection);
+        return "none\n";
+      }
     }
     try {
       String table = "CREATE TABLE " + OTHER_SCHEMA + ".golden_parent (other_id INTEGER"
@@ -211,6 +218,15 @@ final class SchemaReaderGolden {
       model(out, DatabaseSchemaReader.read(connection, OTHER_SCHEMA));
       out.append("# read exact\n");
       model(out, DatabaseSchemaReader.read(connection, OTHER_SCHEMA, true));
+      // Its sequence, listed by the schema's name (clean drops what this lists).
+      try {
+        execute(connection, "CREATE SEQUENCE " + OTHER_SCHEMA + ".golden_b_seq");
+        out.append("sequences ")
+            .append(DatabaseSchemaReader.sequencesIn(connection, OTHER_SCHEMA)).append('\n');
+      } catch (SQLException e) {
+        rollbackQuietly(connection);
+        out.append("sequences: none created\n");
+      }
       return out.toString();
     } finally {
       dropOtherSchema(connection, dialect);
@@ -334,8 +350,8 @@ final class SchemaReaderGolden {
   }
 
   /**
-   * A table with an exact (quoted) mixed-case name, read on its own: Oracle's driver fails to
-   * read its indexes, and that failure is recorded too.
+   * A table with an exact (quoted) mixed-case name, read on its own. Oracle's driver used to
+   * fail reading its indexes when asked for exact statistics; a database error is recorded.
    */
   static SchemaModel quoted() {
     return new SchemaModel(List.of(new SchemaModel.Table("\"GoldenQuoted\"", List.of(
@@ -368,9 +384,15 @@ final class SchemaReaderGolden {
   private static void dropOtherSchema(Connection connection, Dialect dialect) {
     String kind = dialect.schemasAreDatabases() ? "DATABASE" : "SCHEMA";
     dropQuietly(connection, "DROP TABLE " + OTHER_SCHEMA + ".golden_parent");
+    dropQuietly(connection, "DROP SEQUENCE " + OTHER_SCHEMA + ".golden_b_seq");
+    dropQuietly(connection, "DROP SEQUENCE " + OTHER_SCHEMA + ".golden_b_seq RESTRICT");
     // Derby needs RESTRICT, SQL Server and MySQL reject it; the second try is a no-op.
     dropQuietly(connection, "DROP " + kind + " " + OTHER_SCHEMA);
     dropQuietly(connection, "DROP " + kind + " " + OTHER_SCHEMA + " RESTRICT");
+    // Oracle's schemas are users. Where schemas are databases, a user of that name is an account.
+    if (!dialect.schemasAreDatabases()) {
+      dropQuietly(connection, "DROP USER " + OTHER_SCHEMA + " CASCADE");
+    }
   }
 
   private static String render(Dialect dialect, SchemaModel before, SchemaModel after) {

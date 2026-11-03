@@ -80,11 +80,11 @@ class DatabaseEngineIT {
       container("SQL Server 2022", () -> new MSSQLServerContainer<>(
           "mcr.microsoft.com/mssql/server:2022-latest").acceptLicense()),
       container("Oracle XE 21", () -> new OracleContainer("gvenzl/oracle-xe:21-slim-faststart"),
-          DatabaseEngineIT::grantOracleLockPermission),
+          DatabaseEngineIT::grantOraclePermissions),
       // Oracle 23ai has a boolean type, which Hibernate uses there.
       container("Oracle Free 23ai", () -> new org.testcontainers.oracle.OracleContainer(
           "gvenzl/oracle-free:23-slim-faststart"),
-          DatabaseEngineIT::grantOracleLockPermission),
+          DatabaseEngineIT::grantOraclePermissions),
       container("CockroachDB 24.3", () -> new CockroachContainer(
           "cockroachdb/cockroach:v24.3.11")),
       // Reached with the PostgreSQL driver, as most applications do.
@@ -239,7 +239,11 @@ class DatabaseEngineIT {
     }
   }
 
-  private static void grantOracleLockPermission(JdbcDatabaseContainer<?> container)
+  /**
+   * The migration lock needs DBMS_LOCK; the schema reader's golden test creates, reads and drops
+   * a second schema (an Oracle user), as an administrator running clean --schema would.
+   */
+  private static void grantOraclePermissions(JdbcDatabaseContainer<?> container)
       throws Exception {
     String username = container.getUsername().toUpperCase(java.util.Locale.ROOT);
     java.util.Properties properties = new java.util.Properties();
@@ -249,6 +253,9 @@ class DatabaseEngineIT {
     try (Connection admin = DriverManager.getConnection(container.getJdbcUrl(), properties);
          Statement statement = admin.createStatement()) {
       statement.execute("GRANT EXECUTE ON SYS.DBMS_LOCK TO " + username);
+      statement.execute("GRANT CREATE USER, DROP USER, CREATE ANY TABLE, DROP ANY TABLE,"
+          + " CREATE ANY INDEX, SELECT ANY TABLE, CREATE ANY SEQUENCE, DROP ANY SEQUENCE,"
+          + " SELECT ANY SEQUENCE, SELECT ANY DICTIONARY TO " + username);
     }
   }
 

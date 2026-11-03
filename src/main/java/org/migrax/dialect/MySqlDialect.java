@@ -426,6 +426,12 @@ public class MySqlDialect extends AbstractDialect {
       this.bareTextDefaults = bareTextDefaults;
     }
 
+    /** A schema is a database here, and the driver reads the one named as the catalog. */
+    @Override
+    public String catalogFor(Connection connection, String schema) throws SQLException {
+      return schema == null || schema.isBlank() ? connection.getCatalog() : schema.trim();
+    }
+
     @Override
     public void readChecksAndComments(Connection connection, String catalog, String schema,
                                       List<String> tables, Details details) {

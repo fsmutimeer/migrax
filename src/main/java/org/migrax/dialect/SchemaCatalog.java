@@ -30,6 +30,19 @@ public class SchemaCatalog {
   public SchemaCatalog() {}
 
   /**
+   * The JDBC catalog to read a schema in.
+   *
+   * @param connection the connection
+   * @param schema the schema the caller names, or null
+   * @return the connection's catalog (the default); where schemas are databases, the named
+   *     schema
+   * @throws SQLException when the connection can't tell its catalog
+   */
+  public String catalogFor(Connection connection, String schema) throws SQLException {
+    return connection.getCatalog();
+  }
+
+  /**
    * The schema to read when neither the caller nor the connection names one.
    *
    * @param metadata the connection's metadata

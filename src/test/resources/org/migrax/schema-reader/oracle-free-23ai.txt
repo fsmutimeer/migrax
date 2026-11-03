@@ -129,7 +129,21 @@ GOLDEN_VIEW
 golden_seq
 
 ## other schema
-none
+tables [GOLDEN_PARENT]
+# read
+table golden_parent comment=null
+  Column[name=other_id, sqlType=decimal, nullable=false, length=null, precision=38, scale=0, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=decimal, comment=null]
+  Column[name=label, sqlType=varchar, nullable=true, length=30, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  PrimaryKey[columns=[other_id], constraintName=<generated>]
+# read exact
+table golden_parent comment=null
+  Column[name=other_id, sqlType=decimal, nullable=false, length=null, precision=38, scale=0, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=decimal, comment=null]
+  Column[name=label, sqlType=varchar, nullable=true, length=30, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  PrimaryKey[columns=[other_id], constraintName=<generated>]
+sequences [GOLDEN_B_SEQ]
 
 ## quoted name
-error ORA-20000
+table GoldenQuoted comment=null
+  Column[name=id, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=Value, sqlType=varchar, nullable=true, length=10, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  PrimaryKey[columns=[id], constraintName=goldenquoted_pkey]

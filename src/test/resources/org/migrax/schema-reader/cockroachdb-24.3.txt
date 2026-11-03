@@ -142,6 +142,7 @@ table golden_parent comment=null
   Column[name=other_id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
   Column[name=label, sqlType=varchar, nullable=true, length=30, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
   PrimaryKey[columns=[other_id], constraintName=golden_parent_pkey]
+sequences [golden_b_seq]
 
 ## quoted name
 table GoldenQuoted comment=null
