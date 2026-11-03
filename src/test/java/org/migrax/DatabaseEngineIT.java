@@ -170,6 +170,14 @@ class DatabaseEngineIT {
   private static void runChecks(Engine engine) throws Exception {
     Started started = engine.starter().start();
     try (AutoCloseable stop = started.stop()) {
+      // First, while the database is empty: the checks below assume they start from an empty
+      // database, and the golden test drops its fixture again before they run.
+      try (Connection connection = started.database().connect()) {
+        SchemaReaderGolden.check(connection, SchemaReaderGolden.fileName(engine.name()));
+      } catch (Exception | AssertionError e) {
+        throw new AssertionError(engine.name() + ": schema reader golden test failed: "
+            + e.getMessage(), e);
+      }
       for (Check check : CHECKS) {
         try {
           check.body().run(started.database());
