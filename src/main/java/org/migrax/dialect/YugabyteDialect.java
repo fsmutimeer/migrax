@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -44,7 +45,7 @@ public final class YugabyteDialect extends PostgresDialect {
 
   @Override
   public java.util.List<String> aliases() {
-    return java.util.List.of("yugabyte", "yb");
+    return List.of("yugabyte", "yb");
   }
 
   @Override
@@ -106,5 +107,16 @@ public final class YugabyteDialect extends PostgresDialect {
       return result.next() && result.getString(1) != null
           && result.getString(1).contains("-YB-");
     }
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("yugabytedb/yugabyte:2026.1.2.0-b137", 5433,
+        "jdbc:postgresql://127.0.0.1:{port}/yugabyte", "yugabyte", "yugabyte", 240) {
+      @Override
+      public List<String> command() {
+        return List.of("bin/yugabyted", "start", "--background=false");
+      }
+    };
   }
 }

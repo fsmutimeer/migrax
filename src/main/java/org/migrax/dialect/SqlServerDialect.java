@@ -360,4 +360,11 @@ public final class SqlServerDialect extends AbstractDialect {
   public boolean updatableViews() {
     return true;
   }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("mcr.microsoft.com/mssql/server:2022-latest", 1433,
+        "jdbc:sqlserver://127.0.0.1:{port};encrypt=false;trustServerCertificate=true", "sa",
+        "Migrax_Passw0rd!", 300, "ACCEPT_EULA=Y", "MSSQL_SA_PASSWORD=Migrax_Passw0rd!");
+  }
 }

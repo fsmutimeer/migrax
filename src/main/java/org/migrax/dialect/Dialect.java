@@ -290,6 +290,39 @@ public interface Dialect {
   }
 
   /**
+   * How {@code verify} starts a throwaway database of this engine, or null when it can't start
+   * one (the default; the user then passes the URL of an empty database).
+   *
+   * @return the setup, or null
+   * @since 0.19.0
+   */
+  default ScratchSetup scratch() {
+    return null;
+  }
+
+  /**
+   * Whether large objects are kept as {@code oid}, which can hold text or bytes, so that
+   * {@code verify} and {@code drift} don't compare their type family. The default is
+   * {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean largeObjectsAreOids() {
+    return false;
+  }
+
+  /**
+   * Whether every integer column holds the same range whatever its declared type (SQLite
+   * stores every integer in up to 8 bytes), so that {@code verify} and {@code drift} don't
+   * report a narrower integer column. The default is {@code false}.
+   *
+   * @since 0.19.0
+   */
+  default boolean integersShareOneSize() {
+    return false;
+  }
+
+  /**
    * Statements that keep two columns of a table equal while both exist, for a column renamed
    * with {@code generate --zero-downtime}: the old application version writes the old column,
    * the new version the new one, and the other column gets the value.

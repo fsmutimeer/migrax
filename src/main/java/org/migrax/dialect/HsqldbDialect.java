@@ -174,4 +174,9 @@ public final class HsqldbDialect extends AbstractDialect {
       throws SQLException {
     return TableMigrationLock.acquire(connection, resource, "timestamp");
   }
+
+  @Override
+  public ScratchSetup scratch() {
+    return ScratchSetup.inMemory("jdbc:hsqldb:mem:{name}", "SA", "");
+  }
 }

@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -40,7 +41,7 @@ public final class CockroachDialect extends PostgresDialect {
 
   @Override
   public java.util.List<String> aliases() {
-    return java.util.List.of("cockroach", "crdb");
+    return List.of("cockroach", "crdb");
   }
 
   @Override
@@ -53,7 +54,7 @@ public final class CockroachDialect extends PostgresDialect {
     if (hibernateMajor == 4) {
       return super.hibernateDialects(hibernateMajor);
     }
-    return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.CockroachDB201Dialect"
+    return List.of(hibernateMajor == 5 ? "org.hibernate.dialect.CockroachDB201Dialect"
         : "org.hibernate.dialect.CockroachDialect");
   }
 
@@ -219,18 +220,35 @@ public final class CockroachDialect extends PostgresDialect {
   /** CockroachDB has no triggers that change the row being written. */
   @Override
   public java.util.List<String> syncColumns(String table, String oldColumn, String newColumn) {
-    return java.util.List.of();
+    return List.of();
   }
 
   @Override
   public java.util.List<String> dropSyncColumns(String table, String oldColumn,
                                                 String newColumn) {
-    return java.util.List.of();
+    return List.of();
   }
 
   /** CockroachDB views don't accept writes. */
   @Override
   public boolean updatableViews() {
     return false;
+  }
+
+  /** CockroachDB keeps no oid large objects: its bytes and strings are compared by family. */
+  @Override
+  public boolean largeObjectsAreOids() {
+    return false;
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("cockroachdb/cockroach:v24.3.11", 26257,
+        "jdbc:postgresql://127.0.0.1:{port}/defaultdb?sslmode=disable", "root", "", 180) {
+      @Override
+      public List<String> command() {
+        return List.of("start-single-node", "--insecure");
+      }
+    };
   }
 }

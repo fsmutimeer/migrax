@@ -294,4 +294,9 @@ public final class DerbyDialect extends AbstractDialect {
       throws SQLException {
     return TableMigrationLock.acquire(connection, resource, "timestamp", false);
   }
+
+  @Override
+  public ScratchSetup scratch() {
+    return ScratchSetup.inMemory("jdbc:derby:memory:{name};create=true", "", "");
+  }
 }

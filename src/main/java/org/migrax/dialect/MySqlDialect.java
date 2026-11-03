@@ -384,4 +384,21 @@ public class MySqlDialect extends AbstractDialect {
   public boolean updatableViews() {
     return true;
   }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("mysql:8.4", 3306,
+        "jdbc:mysql://127.0.0.1:{port}/migrax?allowPublicKeyRetrieval=true&useSSL=false",
+        "root", "migrax", 180, "MYSQL_ROOT_PASSWORD=migrax", "MYSQL_DATABASE=migrax") {
+      @Override
+      public boolean hasVersionImages() {
+        return true;
+      }
+
+      @Override
+      public String versionImage(int major, int minor) {
+        return major >= 8 ? "mysql:" + major + "." + minor : null;
+      }
+    };
+  }
 }

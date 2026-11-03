@@ -65,4 +65,20 @@ public final class MariaDbDialect extends MySqlDialect {
   protected String sequenceDefault(String name) {
     return "NEXT VALUE FOR " + q(name);
   }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("mariadb:11.4", 3306, "jdbc:mariadb://127.0.0.1:{port}/migrax",
+        "root", "migrax", 180, "MARIADB_ROOT_PASSWORD=migrax", "MARIADB_DATABASE=migrax") {
+      @Override
+      public boolean hasVersionImages() {
+        return true;
+      }
+
+      @Override
+      public String versionImage(int major, int minor) {
+        return major >= 10 ? "mariadb:" + major + "." + minor : null;
+      }
+    };
+  }
 }

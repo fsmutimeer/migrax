@@ -104,4 +104,10 @@ public final class TidbDialect extends MySqlDialect {
   public boolean updatableViews() {
     return false;
   }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("pingcap/tidb:v8.5.3", 4000,
+        "jdbc:mysql://127.0.0.1:{port}/test?useSSL=false", "root", "", 120);
+  }
 }

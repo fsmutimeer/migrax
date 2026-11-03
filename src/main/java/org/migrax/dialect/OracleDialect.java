@@ -613,4 +613,28 @@ public final class OracleDialect extends AbstractDialect {
   public boolean hasOnlineIndexOption() {
     return true;
   }
+
+  /** An ordinary user: system's schema holds Oracle's own tables. */
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("gvenzl/oracle-free:slim-faststart", 1521,
+        "jdbc:oracle:thin:@127.0.0.1:{port}/FREEPDB1", "migrax", "migrax", 300,
+        "ORACLE_PASSWORD=migrax", "APP_USER=migrax", "APP_USER_PASSWORD=migrax") {
+      /** Oracle XE names its database XEPDB1, Oracle Free FREEPDB1. */
+      @Override
+      public String url(String image) {
+        return image.contains("oracle-xe") ? super.url(image).replace("FREEPDB1", "XEPDB1")
+            : super.url(image);
+      }
+
+      /** Migrax's lock on Oracle needs EXECUTE on DBMS_LOCK. */
+      @Override
+      public List<String> prepareCommand(String containerId, String jdbcUrl) {
+        String pdb = jdbcUrl.substring(jdbcUrl.lastIndexOf('/') + 1);
+        return List.of("docker", "exec", containerId, "bash", "-c",
+            "printf 'ALTER SESSION SET CONTAINER=" + pdb + ";\nGRANT EXECUTE ON SYS.DBMS_LOCK TO "
+                + user() + ";\n' | sqlplus -s / as sysdba");
+      }
+    };
+  }
 }

@@ -167,4 +167,9 @@ public final class H2Dialect extends AbstractDialect {
   public String renameForeignKey(String table, String from, String to) {
     return "ALTER TABLE " + tableName(table) + " RENAME CONSTRAINT " + q(from) + " TO " + q(to);
   }
+
+  @Override
+  public ScratchSetup scratch() {
+    return ScratchSetup.inMemory("jdbc:h2:mem:{name};DB_CLOSE_DELAY=-1", "sa", "");
+  }
 }

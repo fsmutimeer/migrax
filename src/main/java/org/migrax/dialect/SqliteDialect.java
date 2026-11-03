@@ -530,4 +530,14 @@ public final class SqliteDialect extends AbstractDialect {
       failure.addSuppressed(e);
     }
   }
+
+  @Override
+  public boolean integersShareOneSize() {
+    return true;
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return ScratchSetup.inFile("jdbc:sqlite:{file}", "", "");
+  }
 }

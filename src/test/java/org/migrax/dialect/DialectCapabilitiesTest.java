@@ -2,6 +2,7 @@ package org.migrax.dialect;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,6 +78,71 @@ class DialectCapabilitiesTest {
         "mysql", "mariadb", "tidb", "oracle");
     assertDialects("scriptTool generic", d -> d.scriptTool() == ScriptTool.GENERIC,
         "hsqldb", "derby");
+    assertDialects("largeObjectsAreOids", Dialect::largeObjectsAreOids,
+        "postgresql", "yugabytedb");
+    assertDialects("integersShareOneSize", Dialect::integersShareOneSize, "sqlite");
+    assertDialects("scratch", d -> d.scratch() != null, Dialects.NAMES.toArray(String[]::new));
+    assertDialects("scratch version images", d -> d.scratch().hasVersionImages(),
+        "postgresql", "mysql", "mariadb");
+  }
+
+  /** The settings {@code verify}'s scratch databases had before the dialects stated them. */
+  @Test
+  void scratchSetupsPerDatabase() {
+    assertScratch("sqlite", "FILE null 0 jdbc:sqlite:{file}   0 [] []");
+    assertScratch("h2", "MEMORY null 0 jdbc:h2:mem:{name};DB_CLOSE_DELAY=-1 sa  0 [] []");
+    assertScratch("derby", "MEMORY null 0 jdbc:derby:memory:{name};create=true   0 [] []");
+    assertScratch("hsqldb", "MEMORY null 0 jdbc:hsqldb:mem:{name} SA  0 [] []");
+    assertScratch("postgresql", "CONTAINER postgres:16-alpine 5432 "
+        + "jdbc:postgresql://127.0.0.1:{port}/migrax migrax migrax 120 [POSTGRES_USER=migrax, "
+        + "POSTGRES_PASSWORD=migrax, POSTGRES_DB=migrax] []");
+    assertScratch("mysql", "CONTAINER mysql:8.4 3306 jdbc:mysql://127.0.0.1:{port}/migrax"
+        + "?allowPublicKeyRetrieval=true&useSSL=false root migrax 180 "
+        + "[MYSQL_ROOT_PASSWORD=migrax, MYSQL_DATABASE=migrax] []");
+    assertScratch("mariadb", "CONTAINER mariadb:11.4 3306 jdbc:mariadb://127.0.0.1:{port}/migrax"
+        + " root migrax 180 [MARIADB_ROOT_PASSWORD=migrax, MARIADB_DATABASE=migrax] []");
+    assertScratch("sqlserver", "CONTAINER mcr.microsoft.com/mssql/server:2022-latest 1433 "
+        + "jdbc:sqlserver://127.0.0.1:{port};encrypt=false;trustServerCertificate=true sa "
+        + "Migrax_Passw0rd! 300 [ACCEPT_EULA=Y, MSSQL_SA_PASSWORD=Migrax_Passw0rd!] []");
+    assertScratch("oracle", "CONTAINER gvenzl/oracle-free:slim-faststart 1521 "
+        + "jdbc:oracle:thin:@127.0.0.1:{port}/FREEPDB1 migrax migrax 300 "
+        + "[ORACLE_PASSWORD=migrax, APP_USER=migrax, APP_USER_PASSWORD=migrax] []");
+    assertScratch("cockroachdb", "CONTAINER cockroachdb/cockroach:v24.3.11 26257 "
+        + "jdbc:postgresql://127.0.0.1:{port}/defaultdb?sslmode=disable root  180 [] "
+        + "[start-single-node, --insecure]");
+    assertScratch("yugabytedb", "CONTAINER yugabytedb/yugabyte:2026.1.2.0-b137 5433 "
+        + "jdbc:postgresql://127.0.0.1:{port}/yugabyte yugabyte yugabyte 240 [] "
+        + "[bin/yugabyted, start, --background=false]");
+    assertScratch("tidb", "CONTAINER pingcap/tidb:v8.5.3 4000 "
+        + "jdbc:mysql://127.0.0.1:{port}/test?useSSL=false root  120 [] []");
+
+    ScratchSetup oracle = Dialects.byName("oracle").scratch();
+    assertEquals("jdbc:oracle:thin:@127.0.0.1:{port}/XEPDB1",
+        oracle.url("gvenzl/oracle-xe:21-slim-faststart"));
+    assertEquals(List.of("docker", "exec", "c1", "bash", "-c", "printf 'ALTER SESSION SET "
+        + "CONTAINER=FREEPDB1;\nGRANT EXECUTE ON SYS.DBMS_LOCK TO migrax;\n' | sqlplus -s / "
+        + "as sysdba"), oracle.prepareCommand("c1", "jdbc:oracle:thin:@127.0.0.1:1/FREEPDB1"));
+    for (String name : Dialects.NAMES) {
+      if (!name.equals("oracle")) {
+        assertEquals(List.of(), Dialects.byName(name).scratch().prepareCommand("c1", "u"), name);
+      }
+    }
+    assertEquals("postgres:17-alpine", Dialects.byName("postgresql").scratch()
+        .versionImage(17, 6));
+    assertNull(Dialects.byName("postgresql").scratch().versionImage(11, 9));
+    assertEquals("mysql:8.0", Dialects.byName("mysql").scratch().versionImage(8, 0));
+    assertNull(Dialects.byName("mysql").scratch().versionImage(5, 7));
+    assertEquals("mariadb:10.6", Dialects.byName("mariadb").scratch().versionImage(10, 6));
+    assertNull(Dialects.byName("mariadb").scratch().versionImage(5, 5));
+    assertNull(Dialects.byName("cockroachdb").scratch().versionImage(24, 3));
+  }
+
+  private static void assertScratch(String name, String expected) {
+    ScratchSetup s = Dialects.byName(name).scratch();
+    assertEquals(expected, String.join(" ", s.kind().name(), String.valueOf(s.image()),
+        String.valueOf(s.port()), s.url(s.image()), s.user(), s.password(),
+        String.valueOf(s.startupSeconds()), s.environment().toString(),
+        s.command().toString()), name);
   }
 
   @Test

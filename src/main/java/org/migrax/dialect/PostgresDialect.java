@@ -301,4 +301,26 @@ public class PostgresDialect extends AbstractDialect {
   public String renameForeignKey(String table, String from, String to) {
     return "ALTER TABLE " + tableName(table) + " RENAME CONSTRAINT " + q(from) + " TO " + q(to);
   }
+
+  @Override
+  public boolean largeObjectsAreOids() {
+    return true;
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("postgres:16-alpine", 5432,
+        "jdbc:postgresql://127.0.0.1:{port}/migrax", "migrax", "migrax", 120,
+        "POSTGRES_USER=migrax", "POSTGRES_PASSWORD=migrax", "POSTGRES_DB=migrax") {
+      @Override
+      public boolean hasVersionImages() {
+        return true;
+      }
+
+      @Override
+      public String versionImage(int major, int minor) {
+        return major >= 12 ? "postgres:" + major + "-alpine" : null;
+      }
+    };
+  }
 }
