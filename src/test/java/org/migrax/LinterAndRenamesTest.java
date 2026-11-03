@@ -41,6 +41,24 @@ class LinterAndRenamesTest {
   }
 
   @Test
+  void suggestsOnlineIndexBuildsOnExistingTablesOnSqlServerAndOracle() {
+    for (String dialect : List.of("sqlserver", "oracle")) {
+      assertEquals(Set.of("MX015"), codes("CREATE INDEX i ON orders (customer_id);", dialect));
+      assertEquals(Set.of("MX015"),
+          codes("CREATE UNIQUE INDEX i ON orders (customer_id, code);", dialect));
+      assertEquals(Set.of(), codes("CREATE INDEX i ON orders (customer_id) ONLINE;", dialect));
+      assertEquals(Set.of(), codes(
+          "CREATE TABLE orders (id INT);\nCREATE INDEX i ON orders (id);", dialect));
+    }
+    assertEquals(Set.of(), codes(
+        "CREATE INDEX i ON orders (customer_id) WITH (ONLINE = ON);", "sqlserver"));
+    assertEquals(Set.of("MX015"), codes(
+        "CREATE INDEX i ON orders (customer_id) WITH (ONLINE = OFF);", "sqlserver"));
+    assertEquals(Set.of("MX015"), codes("CREATE INDEX ix_online ON online_orders (id);", "oracle"));
+    assertEquals(Set.of("MX001"), codes("CREATE INDEX i ON orders (customer_id);", "postgresql"));
+  }
+
+  @Test
   void lockChecksStayOnPostgresqlAndUnknownIdsGetTheCommonChecks() {
     String sql = "CREATE INDEX i ON orders (customer_id);\nDELETE FROM orders;";
     assertEquals(Set.of("MX001", "MX009"), codes(sql, "postgresql"));

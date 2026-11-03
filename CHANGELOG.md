@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `lint` on SQL Server and Oracle now reports MX015 (info) for a `CREATE INDEX` on an existing
+  table without `ONLINE`. Before, the rule never reported anything.
+
 ## [0.18.0-rc.2] - 2026-11-02
 
 Release candidate for 0.18.0, for testing.

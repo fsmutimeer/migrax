@@ -58,6 +58,8 @@ public final class SqlLinter {
   private static final Pattern CREATE_INDEX = Pattern.compile(
       "(?i)^CREATE\\s+(UNIQUE\\s+)?INDEX\\s+(CONCURRENTLY\\s+)?(?:IF\\s+NOT\\s+EXISTS\\s+)?"
           + "(?:" + IDENT + "\\s+)?ON\\s+(?:ONLY\\s+)?(" + IDENT + ")");
+  /** The ONLINE option of an index build, as a word (not part of a name), and not set OFF. */
+  private static final Pattern ONLINE = Pattern.compile("\\bONLINE\\b(?!\\s*=\\s*OFF\\b)");
   /** The table or sequence a statement creates, changes or writes to. */
   private static final Pattern TABLE_STATEMENT = Pattern.compile("(?i)^(?:CREATE\\s+TABLE"
       + "|ALTER\\s+TABLE|DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?|TRUNCATE\\s+TABLE"
@@ -199,9 +201,11 @@ public final class SqlLinter {
       boolean existing = table != null && !createdTables.contains(table);
 
       Matcher index = CREATE_INDEX.matcher(text);
+      boolean indexOnExisting = false;
       if (index.find()) {
         boolean concurrent = index.group(2) != null;
         boolean onExisting = !createdTables.contains(normalize(index.group(3)));
+        indexOnExisting = onExisting;
         if (lockChecks && !concurrent && onExisting) {
           found.add(finding("MX001", Severity.WARNING, file, number, text,
               "Building this index blocks writes to " + normalize(index.group(3))
@@ -323,7 +327,7 @@ public final class SqlLinter {
             "TRUNCATE deletes all rows and cannot be undone by a rollback script.",
             "Make sure this is intended and backed up."));
       }
-      if (onlineIndexes && index.matches() && !upper.contains("ONLINE")) {
+      if (onlineIndexes && indexOnExisting && !ONLINE.matcher(upper).find()) {
         found.add(finding("MX015", Severity.INFO, file, number, text,
             "Index builds lock the table unless they run online.",
             "Use WITH (ONLINE = ON) on SQL Server Enterprise or ONLINE on Oracle Enterprise "
