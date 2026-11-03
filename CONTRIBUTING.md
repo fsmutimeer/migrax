@@ -87,7 +87,20 @@ operations and lint findings) and `Errors`.
 2. List the class in `src/main/resources/META-INF/services/org.migrax.dialect.Dialect`.
    `--dialect`, detection from the JDBC URL, locking, `migrax doctor` and the help texts pick
    it up from there.
-3. Add it to the real-database suite (`DatabaseEngineIT`) and to `DialectTest`.
+3. Add one entry to `ENGINES` in the real-database suite (`DatabaseEngineIT`): how to start
+   the database (a Testcontainers container or an embedded URL). Every check in the suite then
+   runs on it. Record its schema reader file once with `-Dmigrax.golden.record=true` and
+   review it. Add the dialect to `DialectTest`.
+4. Document it in `docs/reference/databases.md` and the locking table in
+   `docs/guides/how-it-works.md`.
+
+Everything else the database does differently is a method on `Dialect` with a `default` that
+gives the standard SQL or JDBC behavior: override only what differs (quoting, type changes,
+history timestamps, table sizes, reading the live schema through `schemaCatalog()`, scratch
+databases for `verify`, the `migrate --sql` script tool, and so on). Code outside
+`org.migrax.dialect` never checks which database it runs on; `DialectBoundaryTest` fails the
+build if it does. When a database needs a new kind of difference, add a `default` method
+named after the behavior (for example `backslashEscapes()`, never `isMySql()`) and call it.
 
 ## Branches
 

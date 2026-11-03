@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,25 +23,13 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Database differences belong in {@code org.migrax.dialect}. Code outside it asks the dialect
- * instead of checking which database it is. These tests stop new checks from being added and
- * make the lists of today's checks shrink only: a file with more checks than allowed fails, and
- * so does a file with fewer, until its entry is lowered or removed.
+ * instead of checking which database it is. These tests fail on any class outside it that names
+ * a concrete dialect or checks for a database by name.
  */
 class DialectBoundaryTest {
   private static final String DIALECT_PACKAGE = "org.migrax.dialect";
 
-  /**
-   * Code outside the dialect package that uses concrete dialect classes: file, number of
-   * different dialect classes it uses. Counting classes, not references, keeps the number the
-   * same whichever JDK compiles the code.
-   */
-  private static final Map<String, Integer> ALLOWED_DIALECT_CLASS_USES = Map.of();
-
-  /** Lines outside the dialect package that check for a database by name: file, count. */
-  private static final Map<String, Integer> ALLOWED_DATABASE_NAME_CHECKS = Map.ofEntries(
-      Map.entry("org/migrax/cli/Project.java", 1));
-
-  /** Matches comments and strings too; fine for a list that only shrinks. */
+  /** Matches comments and strings too: name the database's behavior there instead. */
   private static final Pattern DATABASE_NAME_CHECK = Pattern.compile(
       "contains\\(\"(postgres|mysql|mariadb|oracle|sql server|microsoft|h2|hsql|derby|sqlite"
           + "|cockroach|tidb|yugabyte)"
@@ -67,11 +54,8 @@ class DialectBoundaryTest {
         }
       }
     }
-    Map<String, Integer> found = new TreeMap<>();
-    used.forEach((file, classes) -> found.put(file, classes.size()));
-    assertSameAsAllowed("Classes outside " + DIALECT_PACKAGE
-        + " that use concrete dialect classes", "ALLOWED_DIALECT_CLASS_USES", found,
-        ALLOWED_DIALECT_CLASS_USES);
+    assertNone("Classes outside " + DIALECT_PACKAGE + " that use concrete dialect classes",
+        used);
   }
 
   @Test
@@ -96,8 +80,7 @@ class DialectBoundaryTest {
         found.put(sources.relativize(file).toString().replace('\\', '/'), (int) lines);
       }
     }
-    assertSameAsAllowed("Lines outside " + DIALECT_PACKAGE + " that check for a database name",
-        "ALLOWED_DATABASE_NAME_CHECKS", found, ALLOWED_DATABASE_NAME_CHECKS);
+    assertNone("Lines outside " + DIALECT_PACKAGE + " that check for a database name", found);
   }
 
   private static boolean isConcreteDialect(JavaClass target) {
@@ -116,27 +99,10 @@ class DialectBoundaryTest {
     return outer.getName().replace('.', '/') + ".java";
   }
 
-  private static void assertSameAsAllowed(
-      String what, String list, Map<String, Integer> found, Map<String, Integer> allowed) {
-    List<String> problems = new ArrayList<>();
-    found.forEach((file, count) -> {
-      int limit = allowed.getOrDefault(file, 0);
-      if (count > limit) {
-        problems.add(file + ": " + count + " (allowed " + limit
-            + "). Add a method to Dialect (a default method, overridden where it differs)"
-            + " and call it instead.");
-      }
-    });
-    new TreeMap<>(allowed).forEach((file, limit) -> {
-      int count = found.getOrDefault(file, 0);
-      if (count < limit) {
-        problems.add(file + ": " + count + " (allowed " + limit
-            + "). Fewer than allowed: lower or remove its entry in " + list + ".");
-      }
-    });
-    if (!problems.isEmpty()) {
-      fail(what + ":\n  " + String.join("\n  ", problems)
-          + "\nFound now: " + found);
+  private static void assertNone(String what, Map<String, ?> found) {
+    if (!found.isEmpty()) {
+      fail(what + ": " + found + ". Add a method to Dialect (a default method, overridden where"
+          + " it differs) and call it instead.");
     }
   }
 }

@@ -643,7 +643,7 @@ final class Project implements AutoCloseable {
     }
     if (allowDefault) {
       out.println("No database URL configured: showing PostgreSQL SQL. Use --dialect to change.");
-      return Dialects.byName("postgresql");
+      return Dialects.fallback();
     }
     throw new UsageException("Cannot tell which database to write SQL for.",
         "Configure the database URL, or pass --dialect (" + String.join(", ", Dialects.NAMES) + ").");

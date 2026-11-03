@@ -64,6 +64,17 @@ public final class Dialects {
   }
 
   /**
+   * The dialect used to show SQL when nothing tells which database the project uses (no
+   * URL, no {@code --dialect}, no snapshot): PostgreSQL.
+   *
+   * @return the PostgreSQL dialect
+   * @since 0.19.0
+   */
+  public static Dialect fallback() {
+    return byName("postgresql");
+  }
+
+  /**
    * Resolves the dialect for a connection's database product name, for example
    * {@code PostgreSQL} or {@code Microsoft SQL Server}.
    *
