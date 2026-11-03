@@ -1,6 +1,8 @@
 package org.migrax.dialect;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -118,5 +120,46 @@ public final class YugabyteDialect extends PostgresDialect {
         return List.of("bin/yugabyted", "start", "--background=false");
       }
     };
+  }
+
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new Catalog() {
+      @Override
+      public ResultSet importedKeys(DatabaseMetaData metadata, String catalog, String schema,
+                                    String table) throws SQLException {
+        return foreignKeys(metadata.getConnection(), schema, table);
+      }
+    };
+  }
+
+  /**
+   * A table's foreign keys straight from {@code pg_constraint}, with the columns the driver's
+   * {@code getImportedKeys} returns. YugabyteDB sometimes leaves keys on other than the first
+   * column out of the driver's query (it joins the key arrays with {@code generate_series}),
+   * while {@code pg_constraint} has them.
+   */
+  private static ResultSet foreignKeys(Connection connection, String schema, String table)
+      throws SQLException {
+    PreparedStatement statement = connection.prepareStatement("SELECT c.conname AS fk_name, "
+        + "a.attname AS fkcolumn_name, ra.attname AS pkcolumn_name, r.relname AS pktable_name, "
+        + "k.n AS key_seq FROM pg_catalog.pg_constraint c "
+        + "JOIN pg_catalog.pg_class t ON t.oid = c.conrelid "
+        + "JOIN pg_catalog.pg_namespace ns ON ns.oid = t.relnamespace "
+        + "JOIN pg_catalog.pg_class r ON r.oid = c.confrelid "
+        + "CROSS JOIN LATERAL unnest(c.conkey, c.confkey) WITH ORDINALITY AS k(fk, pk, n) "
+        + "JOIN pg_catalog.pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.fk "
+        + "JOIN pg_catalog.pg_attribute ra ON ra.attrelid = c.confrelid AND ra.attnum = k.pk "
+        + "WHERE c.contype = 'f' AND t.relname = ? "
+        + "AND ns.nspname = coalesce(?, current_schema()) ORDER BY c.conname, k.n");
+    try {
+      statement.setString(1, table);
+      statement.setString(2, schema);
+      statement.closeOnCompletion();
+      return statement.executeQuery();
+    } catch (SQLException | RuntimeException e) {
+      statement.close();
+      throw e;
+    }
   }
 }

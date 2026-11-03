@@ -6,6 +6,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -400,5 +401,104 @@ public class MySqlDialect extends AbstractDialect {
         return major >= 8 ? "mysql:" + major + "." + minor : null;
       }
     };
+  }
+
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new Catalog(true);
+  }
+
+  /**
+   * MySQL's catalog, also MariaDB's and TiDB's: checks and comments in
+   * {@code information_schema} of the connection's database, timestamps read with their
+   * precision.
+   */
+  static class Catalog extends SchemaCatalog {
+
+    private final boolean bareTextDefaults;
+
+    /**
+     * A MySQL family catalog.
+     *
+     * @param bareTextDefaults whether the driver reports a text default without its quotes
+     */
+    Catalog(boolean bareTextDefaults) {
+      this.bareTextDefaults = bareTextDefaults;
+    }
+
+    @Override
+    public void readChecksAndComments(Connection connection, String catalog, String schema,
+                                      List<String> tables, Details details) {
+      // MySQL's schemas are databases: the connection's catalog is the one read.
+      String owner = catalog;
+      readChecks(connection, owner, tables, details);
+      for (String[] row : query(connection, "SELECT TABLE_NAME, NULL, TABLE_COMMENT FROM "
+          + "information_schema.TABLES WHERE TABLE_SCHEMA = ? UNION ALL SELECT TABLE_NAME, "
+          + "COLUMN_NAME, COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ?",
+          owner, owner)) {
+        details.addComment(row[0], row[1], row[2]);
+      }
+    }
+
+    /** The checks of the tables in the database {@code owner}. */
+    void readChecks(Connection connection, String owner, List<String> tables, Details details) {
+      addChecks(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
+          + "cc.CHECK_CLAUSE FROM information_schema.TABLE_CONSTRAINTS tc JOIN "
+          + "information_schema.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = "
+          + "tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME WHERE "
+          + "tc.CONSTRAINT_TYPE = 'CHECK' AND tc.TABLE_SCHEMA = ?", owner, details);
+    }
+
+    /** The checks a query returns as table, name, condition. */
+    final void addChecks(Connection connection, String sql, String owner, Details details) {
+      for (String[] row : query(connection, sql, owner)) {
+        // MariaDB's json type is longtext with a json_valid() check of its own.
+        if (row[2] != null && !row[2].toLowerCase(Locale.ROOT).contains("json_valid(")) {
+          details.addCheck(row[0], row[1], unwrapCheck(unescape(row[2])));
+        }
+      }
+    }
+
+    @Override
+    public String columnDefault(String logicalType, String value) {
+      if (bareTextDefaults && !value.startsWith("'") && !value.endsWith(")")
+          && ("varchar".equals(logicalType) || "nvarchar".equals(logicalType)
+              || "char".equals(logicalType) || "text".equals(logicalType))) {
+        // MySQL reports a text default without its quotes. A text column's default is a literal
+        // unless it is an expression, which ends in a parenthesis: (uuid()).
+        return "'" + value.replace("'", "''") + "'";
+      }
+      return value;
+    }
+
+    /**
+     * MySQL's timestamp is stored in UTC and its datetime isn't, and CURRENT_TIMESTAMP must have
+     * the column's precision: read exactly, they keep their own type, written in full.
+     */
+    @Override
+    public String exactDateTimeType(String type, Integer scale, Integer size) {
+      // MariaDB's driver leaves the scale out and puts the fraction into the size: 20 + n.
+      int fraction = scale != null ? scale : size != null && size > 19 ? size - 20 : 0;
+      return type + "(" + fraction + ")";
+    }
+
+    /**
+     * A check condition as MySQL reports it, with its quotes escaped
+     * ({@code email <> _utf8mb4\'\'}), back as SQL. Other databases report no backslashes there.
+     */
+    private static String unescape(String condition) {
+      if (condition.indexOf('\\') < 0) {
+        return condition;
+      }
+      StringBuilder sql = new StringBuilder(condition.length());
+      for (int i = 0; i < condition.length(); i++) {
+        char ch = condition.charAt(i);
+        if (ch == '\\' && i + 1 < condition.length()) {
+          ch = condition.charAt(++i);
+        }
+        sql.append(ch);
+      }
+      return sql.toString();
+    }
   }
 }

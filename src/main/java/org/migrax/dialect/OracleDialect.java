@@ -8,6 +8,7 @@ import org.migrax.ops.RenameTable;
 import org.migrax.ops.RunSql;
 import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -634,6 +635,34 @@ public final class OracleDialect extends AbstractDialect {
         return List.of("docker", "exec", containerId, "bash", "-c",
             "printf 'ALTER SESSION SET CONTAINER=" + pdb + ";\nGRANT EXECUTE ON SYS.DBMS_LOCK TO "
                 + user() + ";\n' | sqlplus -s / as sysdba");
+      }
+    };
+  }
+
+  /** The user's own schema by default; checks and comments in the {@code all_} views. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog() {
+      @Override
+      public String defaultSchema(DatabaseMetaData metadata) throws SQLException {
+        String user = metadata.getUserName();
+        return user != null && !user.isBlank() ? user.toUpperCase(Locale.ROOT) : null;
+      }
+
+      @Override
+      public void readChecksAndComments(Connection connection, String catalog, String owner,
+                                        List<String> tables, Details details) {
+        for (String[] row : query(connection, "SELECT table_name, constraint_name, "
+            + "search_condition_vc FROM all_constraints WHERE constraint_type = 'C' AND NOT "
+            + "(generated = 'GENERATED NAME' AND search_condition_vc LIKE '\"%\" IS NOT NULL') "
+            + "AND owner = ?", owner)) {
+          details.addCheck(row[0], row[1], row[2]);
+        }
+        for (String[] row : query(connection, "SELECT table_name, NULL, comments FROM "
+            + "all_tab_comments WHERE owner = ? UNION ALL SELECT table_name, column_name, comments "
+            + "FROM all_col_comments WHERE owner = ?", owner, owner)) {
+          details.addComment(row[0], row[1], row[2]);
+        }
       }
     };
   }

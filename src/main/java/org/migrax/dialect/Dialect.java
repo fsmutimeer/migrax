@@ -301,6 +301,18 @@ public interface Dialect {
   }
 
   /**
+   * What reading a live schema ({@code drift}, the first {@code generate}, {@code verify})
+   * needs to know about this database beyond standard JDBC metadata. The default gives the
+   * standard JDBC behavior.
+   *
+   * @return a new catalog
+   * @since 0.19.0
+   */
+  default SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog();
+  }
+
+  /**
    * Whether large objects are kept as {@code oid}, which can hold text or bytes, so that
    * {@code verify} and {@code drift} don't compare their type family. The default is
    * {@code false}.

@@ -172,4 +172,28 @@ public final class H2Dialect extends AbstractDialect {
   public ScratchSetup scratch() {
     return ScratchSetup.inMemory("jdbc:h2:mem:{name};DB_CLOSE_DELAY=-1", "sa", "");
   }
+
+  /** Checks and comments in {@code INFORMATION_SCHEMA}. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog() {
+      @Override
+      public void readChecksAndComments(Connection connection, String catalog, String owner,
+                                        List<String> tables, Details details) {
+        for (String[] row : query(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
+            + "cc.CHECK_CLAUSE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc JOIN "
+            + "INFORMATION_SCHEMA.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = "
+            + "tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME WHERE "
+            + "tc.CONSTRAINT_TYPE = 'CHECK' AND tc.TABLE_SCHEMA = ?", owner)) {
+          details.addCheck(row[0], row[1], row[2]);
+        }
+        for (String[] row : query(connection, "SELECT TABLE_NAME, NULL, REMARKS FROM "
+            + "INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? UNION ALL SELECT TABLE_NAME, "
+            + "COLUMN_NAME, REMARKS FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ?",
+            owner, owner)) {
+          details.addComment(row[0], row[1], row[2]);
+        }
+      }
+    };
+  }
 }

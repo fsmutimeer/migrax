@@ -2,9 +2,11 @@ package org.migrax.dialect;
 
 import org.migrax.model.SchemaModel;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -366,5 +368,56 @@ public final class SqlServerDialect extends AbstractDialect {
     return new ScratchSetup("mcr.microsoft.com/mssql/server:2022-latest", 1433,
         "jdbc:sqlserver://127.0.0.1:{port};encrypt=false;trustServerCertificate=true", "sa",
         "Migrax_Passw0rd!", 300, "ACCEPT_EULA=Y", "MSSQL_SA_PASSWORD=Migrax_Passw0rd!");
+  }
+
+  /** Checks and comments in {@code sys}, defaults in parentheses. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog() {
+      @Override
+      public String defaultSchema(DatabaseMetaData metadata) {
+        return "dbo";
+      }
+
+      @Override
+      public void readChecksAndComments(Connection connection, String catalog, String schema,
+                                        List<String> tables, Details details) {
+        String namespace = schema == null ? "SCHEMA_NAME()" : "?";
+        for (String[] row : query(connection, "SELECT t.name, cc.name, cc.definition FROM "
+            + "sys.check_constraints cc JOIN sys.tables t ON t.object_id = cc.parent_object_id "
+            + "WHERE SCHEMA_NAME(t.schema_id) = " + namespace, schema)) {
+          details.addCheck(row[0], row[1], unwrapCheck(row[2]));
+        }
+        for (String[] row : query(connection, "SELECT t.name, c.name, CAST(ep.value AS "
+            + "nvarchar(4000)) FROM sys.extended_properties ep JOIN sys.tables t ON t.object_id = "
+            + "ep.major_id LEFT JOIN sys.columns c ON c.object_id = ep.major_id AND c.column_id = "
+            + "ep.minor_id WHERE ep.class = 1 AND ep.name = 'MS_Description' AND "
+            + "SCHEMA_NAME(t.schema_id) = " + namespace, schema)) {
+          details.addComment(row[0], row[1], row[2]);
+        }
+      }
+
+      @Override
+      public String columnDefault(String logicalType, String value) {
+        // ('x'), ((0)), (getdate()): SQL Server wraps every default in parentheses.
+        while (value.startsWith("(") && value.endsWith(")") && wrapsAll(value)) {
+          value = value.substring(1, value.length() - 1).strip();
+        }
+        return value;
+      }
+    };
+  }
+
+  /** Whether the parentheses at both ends belong together: (a) + (b) is not wrapped. */
+  private static boolean wrapsAll(String text) {
+    int depth = 0;
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      depth += c == '(' ? 1 : c == ')' ? -1 : 0;
+      if (depth == 0 && i < text.length() - 1) {
+        return false;
+      }
+    }
+    return true;
   }
 }

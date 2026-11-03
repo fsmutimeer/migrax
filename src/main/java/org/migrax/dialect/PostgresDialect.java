@@ -3,6 +3,7 @@ package org.migrax.dialect;
 import org.migrax.model.SchemaModel;
 import org.migrax.ops.AlterColumn;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -10,6 +11,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * PostgreSQL database dialect.
@@ -322,5 +324,65 @@ public class PostgresDialect extends AbstractDialect {
         return major >= 12 ? "postgres:" + major + "-alpine" : null;
       }
     };
+  }
+
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new Catalog();
+  }
+
+  /**
+   * PostgreSQL's catalog, also CockroachDB's and YugabyteDB's: checks and comments in
+   * {@code pg_catalog}, defaults with type casts.
+   */
+  static class Catalog extends SchemaCatalog {
+
+    /** A PostgreSQL or CockroachDB type cast: ::character varying, :::INT8, ::numeric(10,2). */
+    private static final Pattern POSTGRES_CAST = Pattern.compile(
+        "(?i):{2,3}\\s*[a-z_][a-z0-9_ ]*(\\(\\s*\\d+(\\s*,\\s*\\d+)?\\s*\\))?(\\[])?");
+
+    @Override
+    public String defaultSchema(DatabaseMetaData metadata) {
+      return "public";
+    }
+
+    @Override
+    public void readChecksAndComments(Connection connection, String catalog, String schema,
+                                      List<String> tables, Details details) {
+      String namespace = schema == null ? "current_schema()" : "?";
+      for (String[] row : query(connection, "SELECT rel.relname, con.conname, "
+          + "pg_get_constraintdef(con.oid) FROM pg_constraint con JOIN pg_class rel ON rel.oid = "
+          + "con.conrelid JOIN pg_namespace n ON n.oid = rel.relnamespace WHERE con.contype = 'c' "
+          + "AND n.nspname = " + namespace, schema)) {
+        details.addCheck(row[0], row[1], unwrapCheck(row[2]));
+      }
+      for (String[] row : query(connection, "SELECT c.relname, NULL, obj_description(c.oid, "
+          + "'pg_class') FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE "
+          + "c.relkind = 'r' AND n.nspname = " + namespace + " UNION ALL SELECT c.relname, "
+          + "a.attname, col_description(c.oid, a.attnum) FROM pg_class c JOIN pg_namespace n ON "
+          + "n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid WHERE c.relkind = "
+          + "'r' AND a.attnum > 0 AND n.nspname = " + namespace, schema, schema)) {
+        details.addComment(row[0], row[1], row[2]);
+      }
+    }
+
+    @Override
+    public String columnDefault(String logicalType, String value) {
+      return withoutCasts(value).strip();
+    }
+
+    /** The default without type casts, leaving text inside quotes as it is. */
+    private static String withoutCasts(String value) {
+      // Parts at odd positions are inside quotes; '' inside a literal adds an empty part.
+      String[] parts = value.split("'", -1);
+      StringBuilder result = new StringBuilder();
+      for (int i = 0; i < parts.length; i++) {
+        if (i > 0) {
+          result.append('\'');
+        }
+        result.append(i % 2 == 0 ? POSTGRES_CAST.matcher(parts[i]).replaceAll("") : parts[i]);
+      }
+      return result.toString();
+    }
   }
 }

@@ -4,7 +4,10 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * TiDB dialect. TiDB speaks MySQL's protocol and is reached with the MySQL driver
@@ -109,5 +112,39 @@ public final class TidbDialect extends MySqlDialect {
   public ScratchSetup scratch() {
     return new ScratchSetup("pingcap/tidb:v8.5.3", 4000,
         "jdbc:mysql://127.0.0.1:{port}/test?useSSL=false", "root", "", 120);
+  }
+
+  /** A check in TiDB's SHOW CREATE TABLE: {@code CONSTRAINT `name` CHECK ((condition))}. */
+  private static final Pattern CHECK = Pattern.compile(
+      "(?m)CONSTRAINT `([^`]+)` CHECK \\((.*)\\)(?: /\\*.*\\*/)?(?: NOT ENFORCED)?,?$");
+
+  /** TiDB doesn't list checks in TABLE_CONSTRAINTS; its own view has their tables. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new Catalog(true) {
+      @Override
+      void readChecks(Connection connection, String owner, List<String> tables,
+                      Details details) {
+        if (query(connection, "SELECT 1 FROM information_schema.TABLES WHERE "
+            + "TABLE_SCHEMA = 'INFORMATION_SCHEMA' AND TABLE_NAME = 'TIDB_CHECK_CONSTRAINTS'")
+            .isEmpty()) {
+          // Older TiDB versions tell which table a check belongs to only in SHOW CREATE TABLE.
+          for (String table : tables) {
+            for (String[] row : query(connection, "SHOW CREATE TABLE `"
+                + table.replace("`", "``") + "`")) {
+              Matcher check = CHECK.matcher(row.length > 1 ? row[1] : "");
+              while (check.find()) {
+                details.addCheck(table, check.group(1), unwrapCheck(check.group(2)));
+              }
+            }
+          }
+          super.readChecks(connection, owner, tables, details);
+        } else {
+          addChecks(connection, "SELECT TABLE_NAME, CONSTRAINT_NAME, CHECK_CLAUSE FROM "
+              + "information_schema.TIDB_CHECK_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ?", owner,
+              details);
+        }
+      }
+    };
   }
 }

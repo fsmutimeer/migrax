@@ -81,4 +81,10 @@ public final class MariaDbDialect extends MySqlDialect {
       }
     };
   }
+
+  /** MariaDB's driver reports a text default with its quotes. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new Catalog(false);
+  }
 }
