@@ -68,6 +68,19 @@ public final class SqliteDialect extends AbstractDialect {
   }
 
   @Override
+  public ScriptTool scriptTool() {
+    return SQLITE3;
+  }
+
+  /** SQLite's sqlite3 shell. */
+  private static final ScriptTool SQLITE3 = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "sqlite3 -bail <database file> < <this file>";
+    }
+  };
+
+  @Override
   public boolean keepsComments() {
     return false;
   }

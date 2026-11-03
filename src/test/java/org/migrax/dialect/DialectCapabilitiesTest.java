@@ -67,6 +67,62 @@ class DialectCapabilitiesTest {
     assertDialects("changesTypesWithAlterColumn", Dialect::changesTypesWithAlterColumn,
         "sqlserver");
     assertDialects("hasOnlineIndexOption", Dialect::hasOnlineIndexOption, "sqlserver", "oracle");
+    assertDialects("historyTimestampType",
+        d -> d.historyTimestampType().equals("DATETIME2"), "sqlserver");
+    assertDialects("historyTimestampType other",
+        d -> !d.historyTimestampType().matches("TIMESTAMP|DATETIME2"));
+    assertDialects("currentTimestamp", d -> !d.currentTimestamp().equals("CURRENT_TIMESTAMP"),
+        "sqlserver", "oracle");
+    assertDialects("scriptTool transactions", d -> !d.scriptTool().transactions(),
+        "mysql", "mariadb", "tidb", "oracle");
+    assertDialects("scriptTool generic", d -> d.scriptTool() == ScriptTool.GENERIC,
+        "hsqldb", "derby");
+  }
+
+  @Test
+  void scriptToolsPerDatabase() {
+    Map<String, String> commands = Map.ofEntries(
+        Map.entry("postgresql", "psql -v ON_ERROR_STOP=1 -f <this file>"),
+        Map.entry("cockroachdb", "psql -v ON_ERROR_STOP=1 -f <this file>"),
+        Map.entry("yugabytedb", "psql -v ON_ERROR_STOP=1 -f <this file>"),
+        Map.entry("mysql", "mysql <database> < <this file>"),
+        Map.entry("mariadb", "mysql <database> < <this file>"),
+        Map.entry("tidb", "mysql <database> < <this file>"),
+        Map.entry("sqlserver", "sqlcmd -b -i <this file>"),
+        Map.entry("oracle", "sqlplus <user>@<database> @<this file>"),
+        Map.entry("h2", "java -cp h2.jar org.h2.tools.RunScript -url <url> -script <this file>"),
+        Map.entry("sqlite", "sqlite3 -bail <database file> < <this file>"),
+        Map.entry("hsqldb", "your database's SQL tool, stopping at the first error"),
+        Map.entry("derby", "your database's SQL tool, stopping at the first error"));
+    for (String name : Dialects.NAMES) {
+      assertEquals(commands.get(name), Dialects.byName(name).scriptTool().runCommand(), name);
+    }
+    ScriptTool oracle = new OracleDialect().scriptTool();
+    assertEquals("BEGIN NULL; END;\n/\n", oracle.terminate("BEGIN NULL; END;", true));
+    assertEquals("DROP TABLE t;\n", oracle.terminate("DROP TABLE t;  ", false));
+    assertFalse(oracle.transactions());
+    assertEquals("WHENEVER SQLERROR EXIT FAILURE ROLLBACK\n\n", oracle.start());
+    assertEquals("EXIT\n", oracle.end());
+    assertEquals("COMMIT;\n", oracle.afterEachMigration());
+    assertEquals("ALTER SESSION SET CURRENT_SCHEMA = app", oracle.useSchema("app"));
+    ScriptTool sqlServer = new SqlServerDialect().scriptTool();
+    assertEquals("BEGIN TRANSACTION\nGO\n", sqlServer.begin());
+    assertEquals("COMMIT\nGO\n", sqlServer.commit());
+    assertFalse(new TidbDialect().scriptTool().transactions());
+    assertEquals("SET SCHEMA app", new H2Dialect().scriptTool().useSchema("app"));
+    assertTrue(ScriptTool.GENERIC.transactions());
+    assertEquals("BEGIN;\n", ScriptTool.GENERIC.begin());
+    assertEquals("COMMIT;\n", ScriptTool.GENERIC.commit());
+    assertEquals("", ScriptTool.GENERIC.start() + ScriptTool.GENERIC.end()
+        + ScriptTool.GENERIC.afterEachMigration());
+    assertEquals("DELIMITER $$\nCREATE PROCEDURE p() BEGIN SELECT 1; END$$\nDELIMITER ;\n",
+        new MySqlDialect().scriptTool().terminate("CREATE PROCEDURE p() BEGIN SELECT 1; END",
+            true));
+    assertEquals("DROP TABLE t\nGO\n", new SqlServerDialect().scriptTool().terminate(
+        "DROP TABLE t", false));
+    assertEquals("DROP TABLE t;\n", ScriptTool.GENERIC.terminate("DROP TABLE t", false));
+    assertEquals("USE app", new MariaDbDialect().scriptTool().useSchema("app"));
+    assertEquals("SET search_path TO app", new YugabyteDialect().scriptTool().useSchema("app"));
   }
 
   @Test
@@ -226,6 +282,18 @@ class DialectCapabilitiesTest {
     // An older TiDB without the setting fails the query: its checks aren't enforced either.
     assertTrue(new TidbDialect().unenforcedChecks(server("8.0.11-TiDB-v6.5.0", null))
         .isPresent());
+  }
+
+  @Test
+  void connectionFactsDefaultToTheFixedOnes() throws Exception {
+    try (java.sql.Connection connection =
+             java.sql.DriverManager.getConnection("jdbc:h2:mem:capabilities")) {
+      H2Dialect h2 = new H2Dialect();
+      assertFalse(h2.backslashEscapes(connection));
+      assertEquals("CURRENT_TIMESTAMP", h2.scriptTimestamp(connection));
+      assertEquals("SYSTIMESTAMP", new OracleDialect().scriptTimestamp(connection));
+      assertEquals("TIMESTAMP", h2.historyTimestampType());
+    }
   }
 
   @Test

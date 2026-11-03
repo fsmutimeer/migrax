@@ -42,8 +42,6 @@ class DialectBoundaryTest {
   private static final Map<String, Integer> ALLOWED_DATABASE_NAME_CHECKS = Map.ofEntries(
       Map.entry("org/migrax/cli/Project.java", 1),
       Map.entry("org/migrax/plugin/DatabaseSchemaReader.java", 17),
-      Map.entry("org/migrax/runner/MigrationRunner.java", 5),
-      Map.entry("org/migrax/runner/MigrationScript.java", 6),
       Map.entry("org/migrax/verify/SchemaComparator.java", 4),
       Map.entry("org/migrax/verify/ScratchDatabase.java", 17));
 

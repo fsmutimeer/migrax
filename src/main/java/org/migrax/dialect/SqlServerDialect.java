@@ -62,6 +62,44 @@ public final class SqlServerDialect extends AbstractDialect {
   }
 
   @Override
+  public String historyTimestampType() {
+    return "DATETIME2";
+  }
+
+  @Override
+  public String currentTimestamp() {
+    return "SYSUTCDATETIME()";
+  }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return SQLCMD;
+  }
+
+  /** sqlcmd: every statement and transaction command ends with a GO line. */
+  private static final ScriptTool SQLCMD = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "sqlcmd -b -i <this file>";
+    }
+
+    @Override
+    public String begin() {
+      return "BEGIN TRANSACTION\nGO\n";
+    }
+
+    @Override
+    public String commit() {
+      return "COMMIT\nGO\n";
+    }
+
+    @Override
+    public String terminate(String statement, boolean procedural) {
+      return statement + "\nGO\n";
+    }
+  };
+
+  @Override
   public java.util.Optional<String> tableSizeQuery() {
     return java.util.Optional.of("SELECT SUM(p.rows), SUM(a.total_pages) * 8192 "
         + "FROM sys.partitions p JOIN sys.allocation_units a ON a.container_id = p.partition_id "

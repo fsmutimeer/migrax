@@ -709,6 +709,62 @@ public interface Dialect {
   }
 
   /**
+   * The column type for the times in Migrax's history tables. The default is
+   * {@code TIMESTAMP}.
+   *
+   * @since 0.19.0
+   */
+  default String historyTimestampType() {
+    return "TIMESTAMP";
+  }
+
+  /**
+   * The SQL expression for the current time that Migrax writes into its history tables. The
+   * default is {@code CURRENT_TIMESTAMP}.
+   *
+   * @since 0.19.0
+   */
+  default String currentTimestamp() {
+    return "CURRENT_TIMESTAMP";
+  }
+
+  /**
+   * The SQL expression for the current time in a migration script that the database's own tool
+   * runs ({@code migrate --sql}), so the rows it records match the ones Migrax writes itself.
+   * The default is {@link #currentTimestamp()}.
+   *
+   * @param connection an open connection to the database the script is for
+   * @throws java.sql.SQLException when the database can't be asked
+   * @since 0.19.0
+   */
+  default String scriptTimestamp(java.sql.Connection connection) throws java.sql.SQLException {
+    return currentTimestamp();
+  }
+
+  /**
+   * Whether this connection reads a backslash in a string literal as an escape character, which
+   * can depend on the session's settings. The default is {@link #backslashEscapes()}.
+   *
+   * @param connection an open connection to the database
+   * @throws java.sql.SQLException when the session's settings can't be read
+   * @since 0.19.0
+   */
+  default boolean backslashEscapes(java.sql.Connection connection)
+      throws java.sql.SQLException {
+    return backslashEscapes();
+  }
+
+  /**
+   * How a migration script is written for the database's own command line tool
+   * ({@code migrate --sql}). The default is {@link ScriptTool#GENERIC}.
+   *
+   * @since 0.19.0
+   */
+  default ScriptTool scriptTool() {
+    return ScriptTool.GENERIC;
+  }
+
+  /**
    * The name of the trigger that {@link #syncColumns} creates: {@code migrax_sync_<table>_<new
    * column>}, or, when that is longer than {@code maxLength}, the start of the table name and a
    * hash.

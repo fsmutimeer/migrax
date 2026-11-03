@@ -33,6 +33,24 @@ public final class H2Dialect extends AbstractDialect {
   }
 
   @Override
+  public ScriptTool scriptTool() {
+    return RUN_SCRIPT;
+  }
+
+  /** H2's RunScript tool. */
+  private static final ScriptTool RUN_SCRIPT = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "java -cp h2.jar org.h2.tools.RunScript -url <url> -script <this file>";
+    }
+
+    @Override
+    public String useSchema(String schema) {
+      return "SET SCHEMA " + schema;
+    }
+  };
+
+  @Override
   public boolean countsRowsForTableSize() {
     return true;
   }

@@ -5,6 +5,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -47,6 +49,15 @@ public class MySqlDialect extends AbstractDialect {
   @Override
   public boolean backslashEscapes() {
     return true;
+  }
+
+  @Override
+  public boolean backslashEscapes(Connection connection) throws SQLException {
+    try (Statement statement = connection.createStatement();
+         ResultSet result = statement.executeQuery("SELECT @@SESSION.sql_mode")) {
+      return !result.next() || !result.getString(1).toUpperCase(Locale.ROOT)
+          .contains("NO_BACKSLASH_ESCAPES");
+    }
   }
 
   @Override
@@ -149,6 +160,35 @@ public class MySqlDialect extends AbstractDialect {
   public boolean transactionalDdl() {
     return false;
   }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return MYSQL_CLIENT;
+  }
+
+  /** The mysql client: no transactions; a routine body is sent between DELIMITER lines. */
+  private static final ScriptTool MYSQL_CLIENT = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "mysql <database> < <this file>";
+    }
+
+    @Override
+    public boolean transactions() {
+      return false;
+    }
+
+    @Override
+    public String useSchema(String schema) {
+      return "USE " + schema;
+    }
+
+    @Override
+    public String terminate(String statement, boolean procedural) {
+      return statement.contains(";") ? "DELIMITER $$\n" + statement + "$$\nDELIMITER ;\n"
+          : statement + ";\n";
+    }
+  };
 
   @Override
   protected String logicalType(SchemaModel.Column c, String logical) {

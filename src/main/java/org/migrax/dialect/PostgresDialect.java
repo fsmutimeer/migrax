@@ -6,6 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -28,6 +29,35 @@ public class PostgresDialect extends AbstractDialect {
   public String id() {
     return "postgresql";
   }
+
+  /**
+   * {@code CURRENT_TIMESTAMP} goes into a {@code TIMESTAMP} column in the session's time zone,
+   * which is this machine's zone for Migrax but the server's zone for psql: the script names
+   * the zone, so its rows match the ones Migrax writes itself. CockroachDB and YugabyteDB
+   * inherit this.
+   */
+  @Override
+  public String scriptTimestamp(Connection connection) throws SQLException {
+    try (Statement statement = connection.createStatement();
+         ResultSet result = statement.executeQuery("SELECT current_setting('TimeZone')")) {
+      String zone = result.next() ? result.getString(1) : null;
+      return zone == null ? "CURRENT_TIMESTAMP"
+          : "(CURRENT_TIMESTAMP AT TIME ZONE '" + zone.replace("'", "''") + "')";
+    }
+  }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return PSQL;
+  }
+
+  /** PostgreSQL's psql. */
+  private static final ScriptTool PSQL = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "psql -v ON_ERROR_STOP=1 -f <this file>";
+    }
+  };
 
   @Override
   public java.util.Optional<String> tableSizeQuery() {

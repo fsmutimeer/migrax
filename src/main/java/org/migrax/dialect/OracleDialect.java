@@ -551,6 +551,57 @@ public final class OracleDialect extends AbstractDialect {
     return false;
   }
 
+  @Override
+  public String currentTimestamp() {
+    return "SYSTIMESTAMP";
+  }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return SQLPLUS;
+  }
+
+  /**
+   * SQL*Plus: no transactions, a commit after each migration, and a PL/SQL block ends with a
+   * {@code /} line.
+   */
+  private static final ScriptTool SQLPLUS = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "sqlplus <user>@<database> @<this file>";
+    }
+
+    @Override
+    public boolean transactions() {
+      return false;
+    }
+
+    @Override
+    public String start() {
+      return "WHENEVER SQLERROR EXIT FAILURE ROLLBACK\n\n";
+    }
+
+    @Override
+    public String end() {
+      return "EXIT\n";
+    }
+
+    @Override
+    public String afterEachMigration() {
+      return "COMMIT;\n";
+    }
+
+    @Override
+    public String useSchema(String schema) {
+      return "ALTER SESSION SET CURRENT_SCHEMA = " + schema;
+    }
+
+    @Override
+    public String terminate(String statement, boolean procedural) {
+      return procedural ? statement + "\n/\n" : statement.replaceAll(";\\s*$", "") + ";\n";
+    }
+  };
+
   /** A smaller NUMBER goes through a new {@code migrax_tmp_} column. */
   @Override
   public boolean changesTypesThroughNewColumn() {
