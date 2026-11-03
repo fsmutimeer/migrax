@@ -765,10 +765,10 @@ final class Project implements AutoCloseable {
    * can't switch, so Migrax names the schema itself ({@link TargetSchema}).
    */
   static void useSchema(Connection connection, String schema) throws Exception {
-    if (!Dialects.forProduct(connection.getMetaData().getDatabaseProductName())
-        .map(Dialect::hasSchemas).orElse(true)) {
-      throw new UsageException("SQLite has no schemas.",
-          "Remove --schema/--schemas: each SQLite database is its own file.");
+    String product = connection.getMetaData().getDatabaseProductName();
+    if (!Dialects.forProduct(product).map(Dialect::hasSchemas).orElse(true)) {
+      throw new UsageException(product + " has no schemas.",
+          "Remove --schema/--schemas: the URL already names the database.");
     }
     TargetSchema.use(connection, schema);
   }

@@ -7,6 +7,7 @@ import org.migrax.model.SchemaModel;
 import org.migrax.ops.Operation;
 import org.migrax.plugin.DatabaseSchemaReader;
 import org.migrax.runner.MigrationRunner;
+import org.migrax.runner.TargetSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -155,5 +156,14 @@ class SqliteDialectTest {
         + "customer (id))"), sql);
     assertFalse(sql.contains("ALTER TABLE orders ADD CONSTRAINT"), sql);
     assertTrue(sql.contains("id integer NOT NULL"), "identity ids are the row id: " + sql);
+  }
+
+  @Test
+  void aSchemaIsRefusedWithTheDatabaseName() throws Exception {
+    try (Connection connection = DriverManager.getConnection("jdbc:sqlite::memory:")) {
+      IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+          () -> TargetSchema.use(connection, "app"));
+      assertEquals("SQLite has no schemas.", refused.getMessage());
+    }
   }
 }

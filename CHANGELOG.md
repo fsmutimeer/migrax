@@ -10,6 +10,8 @@ All notable changes to Migrax are listed here. The format follows
 
 - `lint` on SQL Server and Oracle now reports MX015 (info) for a `CREATE INDEX` on an existing
   table without `ONLINE`. Before, the rule never reported anything.
+- `--schema` or `--schemas` on a database without schemas now names that database in the
+  error and tells you to remove the option.
 
 ## [0.18.0-rc.2] - 2026-11-02
 

@@ -31,7 +31,7 @@ public final class TargetSchema {
    * Points the connection at a schema: MySQL and MariaDB switch the database, SQL Server
    * remembers it, the others switch the default schema.
    *
-   * @throws IllegalArgumentException on SQLite, which has no schemas
+   * @throws IllegalArgumentException on a database without schemas, such as SQLite
    */
   public static void use(Connection connection, String schema) throws SQLException {
     Dialect dialect = dialect(connection);
@@ -40,7 +40,8 @@ public final class TargetSchema {
     } else if (dialect.schemasAreDatabases()) {
       connection.setCatalog(schema);
     } else if (!dialect.hasSchemas()) {
-      throw new IllegalArgumentException("SQLite has no schemas.");
+      throw new IllegalArgumentException(
+          connection.getMetaData().getDatabaseProductName() + " has no schemas.");
     } else if (!dialect.switchesSchemas()) {
       NAMED.put(connection, schema);
     } else {
