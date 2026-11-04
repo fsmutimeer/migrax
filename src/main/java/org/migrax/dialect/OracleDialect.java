@@ -595,7 +595,8 @@ public final class OracleDialect extends AbstractDialect {
 
     @Override
     public String useSchema(String schema) {
-      return "ALTER SESSION SET CURRENT_SCHEMA = " + schema;
+      return "ALTER SESSION SET CURRENT_SCHEMA = "
+          + ScriptNames.schema(schema, ScriptNames.PLAIN, '"');
     }
 
     @Override

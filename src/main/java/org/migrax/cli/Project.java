@@ -232,6 +232,9 @@ final class Project implements AutoCloseable {
    * same name is an error: both would be recorded under that name.
    */
   List<Path> migrationFiles() throws Exception {
+    if (args.flag("--migrations-only")) {
+      MigrationFiles.requireInFolders(this);
+    }
     List<Path> files = MigrationLoader.sqlFiles(migrationFolders());
     Map<String, Path> seen = new java.util.HashMap<>();
     for (Path file : files) {

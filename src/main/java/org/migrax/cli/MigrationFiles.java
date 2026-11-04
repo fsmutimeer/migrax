@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,6 +47,24 @@ final class MigrationFiles {
           "Pass a file name from 'migrax status', or rollback/<file name>.");
     }
     return migration;
+  }
+
+  /**
+   * Refuses a migration or rollback script that is really a file outside the migration folders,
+   * before anything reads it: a database error can quote what it was given. For callers that
+   * must not reach the project's other files (the MCP server).
+   */
+  static void requireInFolders(Project project) throws Exception {
+    List<Path> files = new ArrayList<>(MigrationLoader.sqlFiles(project.migrationFolders()));
+    for (Path folder : project.migrationFolders()) {
+      files.addAll(MigrationLoader.sqlFiles(folder.resolve("rollback")));
+    }
+    for (Path file : files) {
+      if (!isMigrationFile(project, file)) {
+        throw new UsageException(project.display(file) + " leads outside the migration folders.",
+            "Replace the link with the file itself.");
+      }
+    }
   }
 
   /**

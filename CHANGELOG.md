@@ -35,6 +35,15 @@ Release candidate for 0.19.0, for testing.
   two Oracle schemas differed only in case, they could list one and drop the tables of the
   other; they now stop with an error. Both also find a schema by a name that differs only in
   case, as the other commands do.
+- Security: every MCP tool refuses to run when a migration or rollback script links outside the
+  migration folders. Before, `verify` could show the linked file's content in a database error.
+- `--schema` no longer reads `_` and `%` as wildcards: `tenant_1` could also list the tables of
+  `tenantx1`, so a preview showed the wrong tables and a real run could stop halfway.
+- `clean --schemas` checks every schema before it drops anything.
+- `migrate --sql` quotes a schema name that needs it, so it stays one name in the script. On
+  PostgreSQL a mixed-case name keeps its case, as it does when Migrax runs the migration itself.
+- A JDBC URL with an empty user name (`jdbc:mysql://:password@db`), or an unquoted Oracle
+  password containing `@`, no longer shows the password in output.
 - Values of settings ending in `token` in a JDBC URL (for example SQL Server's `accessToken=`)
   are hidden in output, like a password.
 

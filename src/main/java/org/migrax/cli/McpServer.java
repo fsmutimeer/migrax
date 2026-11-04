@@ -89,7 +89,7 @@ final class McpServer {
     tool("show_migration", "Prints one migration file's SQL. Pass the file name, for example "
         + "0002_add_customer_email.sql; for its rollback script pass rollback/<file name>.",
         schema("name", "string", "Migration file name"),
-        args -> List.of("sql", "--migrations-only", migrationName(args)));
+        args -> List.of("sql", migrationName(args)));
     if (allowGenerate) {
       tool("generate", "Writes a new migration (SQL plus rollback script) for the entity "
           + "changes. Run 'plan' first and agree the result with the person. Pass renames "
@@ -264,6 +264,8 @@ final class McpServer {
     } catch (IllegalArgumentException e) {
       return error(id, -32602, "Invalid arguments: " + e.getMessage());
     }
+    // Tools run for an AI client: only migration files, never what a link leads to.
+    command.add("--migrations-only");
     command.add("--dir");
     command.add(project.toString());
     ByteArrayOutputStream stdout = new ByteArrayOutputStream();

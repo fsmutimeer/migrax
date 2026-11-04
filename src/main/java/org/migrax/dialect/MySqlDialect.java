@@ -183,7 +183,7 @@ public class MySqlDialect extends AbstractDialect {
 
     @Override
     public String useSchema(String schema) {
-      return "USE " + schema;
+      return "USE " + ScriptNames.schema(schema, ScriptNames.PLAIN, '`');
     }
 
     @Override
