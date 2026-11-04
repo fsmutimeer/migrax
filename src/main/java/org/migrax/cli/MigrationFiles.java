@@ -67,6 +67,18 @@ final class MigrationFiles {
     }
   }
 
+  /** Refuses a schema file that is really something else than SQL in the project folder. */
+  static void requireSchemaFile(Project project, Path file) throws Exception {
+    if (Files.exists(file)) {
+      Path real = file.toRealPath();
+      if (!real.getFileName().toString().endsWith(".sql")
+          || !real.startsWith(project.root().toRealPath())) {
+        throw new UsageException(project.display(file) + " is not a SQL file in the project.",
+            "Point migrax.schema-file at the schema's .sql file.");
+      }
+    }
+  }
+
   /**
    * Whether the real file, after links and short names, is a migration in a migration folder. A
    * folder can hold other files, be the project folder itself, or be a link to the real folder.

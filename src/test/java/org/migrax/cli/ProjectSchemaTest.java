@@ -1,8 +1,12 @@
 package org.migrax.cli;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.Proxy;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 
@@ -18,6 +22,20 @@ class ProjectSchemaTest {
       assertEquals("SQLite has no schemas.", refused.getMessage());
       assertEquals("Remove --schema/--schemas: the URL already names the database.",
           refused.hint);
+    }
+  }
+
+  @Test
+  void theHistoryTableOfASimilarSchemaIsNotUsed(@TempDir Path project) throws Exception {
+    String url = "jdbc:h2:mem:history_pattern;DB_CLOSE_DELAY=-1";
+    try (Connection connection = DriverManager.getConnection(url)) {
+      connection.createStatement().execute("CREATE SCHEMA T_1");
+      connection.createStatement().execute("CREATE SCHEMA TX1");
+      connection.createStatement().execute("CREATE TABLE TX1.MIGRAX_HISTORY (ID INT)");
+      ByteArrayOutputStream out = new ByteArrayOutputStream();
+      int code = Main.run(new String[] {"status", "--schemas", "T_1", "--url", url, "--no-build",
+          "--dir", project.toString()}, new PrintStream(out, true), new PrintStream(out, true));
+      assertEquals(0, code, out.toString());
     }
   }
 

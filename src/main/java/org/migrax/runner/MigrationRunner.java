@@ -1121,8 +1121,16 @@ public final class MigrationRunner {
 
   private static boolean tableExists(
       DatabaseMetaData metadata, String catalog, String schema, String name) throws SQLException {
+    // JDBC reads both names as patterns: _ matches any character.
     try (ResultSet tables = metadata.getTables(catalog, schema, name, new String[]{"TABLE"})) {
-      return tables.next();
+      while (tables.next()) {
+        String foundSchema = tables.getString("TABLE_SCHEM");
+        if (name.equalsIgnoreCase(tables.getString("TABLE_NAME"))
+            && (schema == null || foundSchema == null || schema.equalsIgnoreCase(foundSchema))) {
+          return true;
+        }
+      }
+      return false;
     }
   }
 

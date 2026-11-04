@@ -39,9 +39,14 @@ Release candidate for 0.19.0, for testing.
   migration folders. Before, `verify` could show the linked file's content in a database error.
 - `--schema` no longer reads `_` and `%` as wildcards: `tenant_1` could also list the tables of
   `tenantx1`, so a preview showed the wrong tables and a real run could stop halfway.
+- `--schemas` finds the history table of the schema it names, not of one that matches `_`.
 - `clean --schemas` checks every schema before it drops anything.
 - `migrate --sql` quotes a schema name that needs it, so it stays one name in the script. On
   PostgreSQL a mixed-case name keeps its case, as it does when Migrax runs the migration itself.
+- Security: a password no longer appears when the driver can't parse the URL. MySQL's error
+  quoted the URL's user and password, and PostgreSQL's driver logged them to the error output.
+- Security: through MCP, a schema file must be a `.sql` file in the project. Before,
+  `migrax.schema-file=.env` could show that file's content in a database error.
 - A JDBC URL with an empty user name (`jdbc:mysql://:password@db`), or an unquoted Oracle
   password containing `@`, no longer shows the password in output.
 - Values of settings ending in `token` in a JDBC URL (for example SQL Server's `accessToken=`)
