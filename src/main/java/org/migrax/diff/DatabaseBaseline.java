@@ -1,6 +1,7 @@
 package org.migrax.diff;
 
 import org.migrax.dialect.Dialect;
+import org.migrax.dialect.Dialects;
 import org.migrax.model.SchemaModel;
 import org.migrax.plugin.DatabaseSchemaReader;
 import java.sql.Connection;
@@ -45,9 +46,8 @@ public final class DatabaseBaseline {
     if (DatabaseSchemaReader.foldsNames(connection)) {
       database = database.withNameCaseFrom(entities);
     }
-    String product = connection.getMetaData().getDatabaseProductName()
-        .toLowerCase(java.util.Locale.ROOT);
-    boolean keepsComments = !product.contains("sqlite") && !product.contains("derby");
+    boolean keepsComments = Dialects.forProduct(connection.getMetaData()
+        .getDatabaseProductName()).map(Dialect::keepsComments).orElse(true);
     return withEntityChecks(withSequenceDefaults(database, entities), entities, keepsComments);
   }
 

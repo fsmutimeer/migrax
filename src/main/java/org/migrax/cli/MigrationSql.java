@@ -13,6 +13,7 @@ import org.migrax.runner.MigrationLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 /** Writes operations as migration SQL and rollback scripts. */
 final class MigrationSql {
@@ -63,13 +64,9 @@ final class MigrationSql {
                             SchemaModel after)
       throws Exception {
     String header = rollbackHeader(fileName, forward, plan.kept(), plan.notes());
-    if ("cockroachdb".equals(dialect.id()) && !plan.restores().isEmpty()) {
-      header += "-- CockroachDB can't fill a column in the transaction that added it, so each "
-          + "statement\n-- commits on its own:\n-- migrax:no-transaction\n";
-    } else if ("yugabytedb".equals(dialect.id()) && !plan.restores().isEmpty()) {
-      header += "-- YugabyteDB runs DDL outside the transaction, so SET NOT NULL wouldn't see "
-          + "the restored\n-- values: each statement commits on its own.\n"
-          + "-- migrax:no-transaction\n";
+    Optional<String> restoreNote = dialect.keepDataRestoreNote();
+    if (restoreNote.isPresent() && !plan.restores().isEmpty()) {
+      header += restoreNote.get() + "-- migrax:no-transaction\n";
     }
     StringBuilder sql = new StringBuilder(render(dialect, plan.reverse(), header, before,
         plan.middle()));

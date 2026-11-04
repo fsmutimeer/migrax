@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.data.jdbc.core.convert.JdbcCustomConversions;
@@ -212,10 +213,11 @@ public final class SpringDataJdbcSchemaReader {
       return new SchemaModel.Column(name, logical, false, null, null, null, null, false,
           generated, null, logical);
     }
-    if (type == byte[].class && dialect instanceof org.migrax.dialect.PostgresDialect) {
+    Optional<String> bytes = dialect.plainBytesType();
+    if (type == byte[].class && bytes.isPresent()) {
       // Spring Data JDBC writes bytes, which PostgreSQL keeps in bytea, not in a large object.
-      return new SchemaModel.Column(name, "bytea", !primitive, null, null, null, null, false,
-          false, null, "blob");
+      return new SchemaModel.Column(name, bytes.get(), !primitive, null, null, null, null,
+          false, false, null, "blob");
     }
     String logical = logicalType(type);
     Integer scale = type == java.math.BigInteger.class ? 0 : null;

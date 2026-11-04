@@ -45,28 +45,13 @@ import org.eclipse.persistence.tools.schemaframework.UniqueKeyConstraint;
  * and EclipseLink queries them as it spells them.
  */
 public final class EclipseLinkSchemaReader {
-  /** EclipseLink's platform per Migrax dialect, for the database's default types. */
-  private static final Map<String, String> PLATFORMS = Map.ofEntries(
-      Map.entry("postgresql", "org.eclipse.persistence.platform.database.PostgreSQLPlatform"),
-      Map.entry("cockroachdb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform"),
-      Map.entry("yugabytedb", "org.eclipse.persistence.platform.database.PostgreSQLPlatform"),
-      Map.entry("mysql", "org.eclipse.persistence.platform.database.MySQLPlatform"),
-      Map.entry("mariadb", "org.eclipse.persistence.platform.database.MySQLPlatform"),
-      Map.entry("tidb", "org.eclipse.persistence.platform.database.MySQLPlatform"),
-      Map.entry("sqlserver", "org.eclipse.persistence.platform.database.SQLServerPlatform"),
-      Map.entry("oracle", "org.eclipse.persistence.platform.database.OraclePlatform"),
-      Map.entry("h2", "org.eclipse.persistence.platform.database.H2Platform"),
-      Map.entry("sqlite", "org.eclipse.persistence.platform.database.DatabasePlatform"),
-      Map.entry("hsqldb", "org.eclipse.persistence.platform.database.HSQLPlatform"),
-      Map.entry("derby", "org.eclipse.persistence.platform.database.DerbyPlatform"));
   /** The sequence name EclipseLink gives GenerationType.IDENTITY. */
   private static final String IDENTITY = "SEQ_GEN_IDENTITY";
 
   public SchemaModel read(List<Class<?>> classes, Map<String, String> settings, Dialect dialect)
       throws Exception {
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    String platform = PLATFORMS.getOrDefault(dialect.id(),
-        "org.eclipse.persistence.platform.database.DatabasePlatform");
+    String platform = dialect.eclipseLinkPlatform();
     Map<String, Object> properties = new HashMap<>();
     settings.forEach((key, value) -> {
       if (key.startsWith("eclipselink.")) {
@@ -88,12 +73,9 @@ public final class EclipseLinkSchemaReader {
       session.initializeDescriptors();
       DatabasePlatform types = (DatabasePlatform) Class.forName(platform, true, loader)
           .getConstructor().newInstance();
-      boolean caseSensitiveTables = dialect.id().equals("mysql") || dialect.id().equals("mariadb")
-          || dialect.id().equals("tidb");
       EclipseLinkSchemaReader reader = new EclipseLinkSchemaReader();
-      reader.ownLobTypes = caseSensitiveTables || dialect.id().equals("postgresql")
-          || dialect.id().equals("cockroachdb") || dialect.id().equals("yugabytedb");
-      return reader.convert(session, types, caseSensitiveTables);
+      reader.ownLobTypes = dialect.largeObjectTypesFromOrm();
+      return reader.convert(session, types, dialect.caseSensitiveTableNames());
     } finally {
       factory.getClass().getMethod("close").invoke(factory);
     }

@@ -1,10 +1,15 @@
 package org.migrax.dialect;
 
 import org.migrax.model.SchemaModel;
+import org.migrax.util.Log;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -43,6 +48,110 @@ public class MySqlDialect extends AbstractDialect {
     return RESERVED;
   }
 
+  /** Unless the session's sql_mode has NO_BACKSLASH_ESCAPES. */
+  @Override
+  public boolean backslashEscapes() {
+    return true;
+  }
+
+  @Override
+  public boolean backslashEscapes(Connection connection) throws SQLException {
+    try (Statement statement = connection.createStatement();
+         ResultSet result = statement.executeQuery("SELECT @@SESSION.sql_mode")) {
+      return !result.next() || !result.getString(1).toUpperCase(Locale.ROOT)
+          .contains("NO_BACKSLASH_ESCAPES");
+    }
+  }
+
+  @Override
+  public boolean schemasAreDatabases() {
+    return true;
+  }
+
+  @Override
+  public java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.of("SELECT table_rows, data_length + index_length "
+        + "FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?");
+  }
+
+  /** The MySQL driver also reaches TiDB. */
+  @Override
+  public boolean urlReachesOtherDatabases() {
+    return true;
+  }
+
+  /**
+   * Hibernate 5's unversioned MySQLDialect describes very old servers; its resolver picks
+   * MySQL8Dialect for current ones.
+   */
+  @Override
+  public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return java.util.List.of("org.hibernate.dialect.MySQL5InnoDBDialect");
+    }
+    return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.MySQL8Dialect"
+        : "org.hibernate.dialect.MySQLDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.MySQLPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "mysql";
+  }
+
+  /** Table names are case-sensitive on Linux. */
+  @Override
+  public boolean caseSensitiveTableNames() {
+    return true;
+  }
+
+  /** Migrax's blob holds 64 KB; the ORMs pick larger types. */
+  @Override
+  public boolean largeObjectTypesFromOrm() {
+    return true;
+  }
+
+  /** Micronaut Data's MySQL dialect (also used for MariaDB and TiDB) keeps UUIDs as text. */
+  @Override
+  public boolean micronautDataTextUuids() {
+    return true;
+  }
+
+  /** MySQL has no sequences: Hibernate keeps them as tables. */
+  @Override
+  public boolean hibernateSequencesAreTables() {
+    return true;
+  }
+
+  @Override
+  public java.util.Optional<String> unenforcedChecks(Connection connection) throws SQLException {
+    return ignoresChecks(connection.getMetaData().getDatabaseProductVersion())
+        ? java.util.Optional.of("MySQL before 8.0.16 accepts them but doesn't enforce them; "
+            + "the entities' @Check conditions are not checked on this server")
+        : java.util.Optional.empty();
+  }
+
+  /** MySQL before 8.0.16 parses check constraints and ignores them. MariaDB enforces them. */
+  static boolean ignoresChecks(String version) {
+    if (version == null || version.toLowerCase(java.util.Locale.ROOT).contains("mariadb")
+        || version.contains("TiDB")) {
+      return false;
+    }
+    java.util.regex.Matcher matcher =
+        java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+)").matcher(version);
+    if (!matcher.find()) {
+      return false;
+    }
+    int major = Integer.parseInt(matcher.group(1));
+    int minor = Integer.parseInt(matcher.group(2));
+    int patch = Integer.parseInt(matcher.group(3));
+    return major < 8 || major == 8 && minor == 0 && patch < 16;
+  }
+
   /** MySQL itself (or MariaDB); TiDB reports the same product name. */
   @Override
   public boolean acceptsConnection(Connection connection) throws SQLException {
@@ -54,6 +163,35 @@ public class MySqlDialect extends AbstractDialect {
   public boolean transactionalDdl() {
     return false;
   }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return MYSQL_CLIENT;
+  }
+
+  /** The mysql client: no transactions; a routine body is sent between DELIMITER lines. */
+  private static final ScriptTool MYSQL_CLIENT = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "mysql <database> < <this file>";
+    }
+
+    @Override
+    public boolean transactions() {
+      return false;
+    }
+
+    @Override
+    public String useSchema(String schema) {
+      return "USE " + schema;
+    }
+
+    @Override
+    public String terminate(String statement, boolean procedural) {
+      return statement.contains(";") ? "DELIMITER $$\n" + statement + "$$\nDELIMITER ;\n"
+          : statement + ";\n";
+    }
+  };
 
   @Override
   protected String logicalType(SchemaModel.Column c, String logical) {
@@ -248,5 +386,157 @@ public class MySqlDialect extends AbstractDialect {
   @Override
   public boolean updatableViews() {
     return true;
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("mysql:8.4", 3306,
+        "jdbc:mysql://127.0.0.1:{port}/migrax?allowPublicKeyRetrieval=true&useSSL=false",
+        "root", "migrax", 180, "MYSQL_ROOT_PASSWORD=migrax", "MYSQL_DATABASE=migrax") {
+      @Override
+      public boolean hasVersionImages() {
+        return true;
+      }
+
+      @Override
+      public String versionImage(int major, int minor) {
+        return major >= 8 ? "mysql:" + major + "." + minor : null;
+      }
+    };
+  }
+
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new Catalog(true);
+  }
+
+  /**
+   * MySQL's catalog, also MariaDB's and TiDB's: checks and comments in
+   * {@code information_schema} of the connection's database, timestamps read with their
+   * precision.
+   */
+  static class Catalog extends SchemaCatalog {
+
+    private final boolean bareTextDefaults;
+
+    /**
+     * A MySQL family catalog.
+     *
+     * @param bareTextDefaults whether the driver reports a text default without its quotes
+     */
+    Catalog(boolean bareTextDefaults) {
+      this.bareTextDefaults = bareTextDefaults;
+    }
+
+    /** A schema is a database here, and the driver reads the one named as the catalog. */
+    @Override
+    public String catalogFor(Connection connection, String schema) throws SQLException {
+      return schema == null || schema.isBlank() ? connection.getCatalog() : schema.trim();
+    }
+
+    /** MariaDB and TiDB list sequences as tables; MySQL has none. */
+    @Override
+    public List<String> sequencesIn(Connection connection, String catalog, String schema)
+        throws SQLException {
+      return catalog == null ? List.of() : names(connection, "SELECT table_name FROM "
+          + "information_schema.tables WHERE table_type = 'SEQUENCE' AND table_schema = ?",
+          catalog);
+    }
+
+    /**
+     * The standard view where the server has it (TiDB), and the sequences MariaDB and TiDB list
+     * as tables of the connection's database.
+     */
+    @Override
+    public List<String> sequenceNames(Connection connection) throws SQLException {
+      List<String> found = new ArrayList<>();
+      try {
+        found.addAll(super.sequenceNames(connection));
+      } catch (SQLException e) {
+        Log.debug("No information_schema.sequences: {}", e.getMessage());
+      }
+      try {
+        found.addAll(names(connection, "SELECT table_name FROM information_schema.tables WHERE "
+            + "table_type = 'SEQUENCE' AND table_schema = DATABASE()"));
+      } catch (SQLException e) {
+        Log.debug("No sequences listed as tables: {}", e.getMessage());
+      }
+      return found;
+    }
+
+    @Override
+    public void readChecksAndComments(Connection connection, String catalog, String schema,
+                                      List<String> tables, Details details) {
+      // MySQL's schemas are databases: the connection's catalog is the one read.
+      String owner = catalog;
+      readChecks(connection, owner, tables, details);
+      for (String[] row : query(connection, "SELECT TABLE_NAME, NULL, TABLE_COMMENT FROM "
+          + "information_schema.TABLES WHERE TABLE_SCHEMA = ? UNION ALL SELECT TABLE_NAME, "
+          + "COLUMN_NAME, COLUMN_COMMENT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ?",
+          owner, owner)) {
+        details.addComment(row[0], row[1], row[2]);
+      }
+    }
+
+    /** The checks of the tables in the database {@code owner}. */
+    void readChecks(Connection connection, String owner, List<String> tables, Details details) {
+      addChecks(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
+          + "cc.CHECK_CLAUSE FROM information_schema.TABLE_CONSTRAINTS tc JOIN "
+          + "information_schema.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = "
+          + "tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME WHERE "
+          + "tc.CONSTRAINT_TYPE = 'CHECK' AND tc.TABLE_SCHEMA = ?", owner, details);
+    }
+
+    /** The checks a query returns as table, name, condition. */
+    final void addChecks(Connection connection, String sql, String owner, Details details) {
+      for (String[] row : query(connection, sql, owner)) {
+        // MariaDB's json type is longtext with a json_valid() check of its own.
+        if (row[2] != null && !row[2].toLowerCase(Locale.ROOT).contains("json_valid(")) {
+          details.addCheck(row[0], row[1], unwrapCheck(unescape(row[2])));
+        }
+      }
+    }
+
+    @Override
+    public String columnDefault(String logicalType, String value) {
+      if (bareTextDefaults && !value.startsWith("'") && !value.endsWith(")")
+          && ("varchar".equals(logicalType) || "nvarchar".equals(logicalType)
+              || "char".equals(logicalType) || "text".equals(logicalType))) {
+        // MySQL reports a text default without its quotes. A text column's default is a literal
+        // unless it is an expression, which ends in a parenthesis: (uuid()).
+        return "'" + value.replace("'", "''") + "'";
+      }
+      return value;
+    }
+
+    /**
+     * MySQL's timestamp is stored in UTC and its datetime isn't, and CURRENT_TIMESTAMP must have
+     * the column's precision: read exactly, they keep their own type, written in full.
+     */
+    @Override
+    public String exactDateTimeType(String type, Integer scale, Integer size) {
+      // MariaDB's driver leaves the scale out and puts the fraction into the size: 20 + n.
+      int fraction = scale != null ? scale : size != null && size > 19 ? size - 20 : 0;
+      return type + "(" + fraction + ")";
+    }
+
+    /**
+     * A check condition as MySQL reports it, with its quotes escaped
+     * ({@code email <> _utf8mb4\'\'}), back as SQL. Other databases report no backslashes there.
+     */
+    private static String unescape(String condition) {
+      if (condition.indexOf('\\') < 0) {
+        return condition;
+      }
+      StringBuilder sql = new StringBuilder(condition.length());
+      for (int i = 0; i < condition.length(); i++) {
+        char ch = condition.charAt(i);
+        if (ch == '\\' && i + 1 < condition.length()) {
+          ch = condition.charAt(++i);
+        }
+        sql.append(ch);
+      }
+      return sql.toString();
+    }
   }
 }

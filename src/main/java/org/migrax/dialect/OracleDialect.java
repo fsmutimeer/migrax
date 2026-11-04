@@ -6,8 +6,10 @@ import org.migrax.ops.Operation;
 import org.migrax.ops.RenameColumn;
 import org.migrax.ops.RenameTable;
 import org.migrax.ops.RunSql;
+import org.migrax.util.Log;
 import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -63,6 +65,51 @@ public final class OracleDialect extends AbstractDialect {
   @Override
   public String id() {
     return "oracle";
+  }
+
+  @Override
+  public java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.of("SELECT t.num_rows, (SELECT SUM(bytes) FROM user_segments s "
+        + "WHERE s.segment_name = t.table_name) FROM user_tables t WHERE t.table_name = ?");
+  }
+
+  @Override
+  public String tableSizeName(String table) {
+    return table.toUpperCase(Locale.ROOT);
+  }
+
+  @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return List.of("org.hibernate.dialect.Oracle10gDialect");
+    }
+    return List.of(hibernateMajor == 5 ? "org.hibernate.dialect.Oracle12cDialect"
+        : "org.hibernate.dialect.OracleDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.OraclePlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "oracle";
+  }
+
+  @Override
+  public boolean micronautDataSequenceIds() {
+    return true;
+  }
+
+  @Override
+  public boolean micronautDataTextUuids() {
+    return true;
+  }
+
+  @Override
+  public java.util.Optional<String> micronautDataUuidDefault() {
+    return java.util.Optional.of("sys_guid()");
   }
 
   @Override
@@ -504,5 +551,144 @@ public final class OracleDialect extends AbstractDialect {
   @Override
   public boolean transactionalDdl() {
     return false;
+  }
+
+  @Override
+  public String currentTimestamp() {
+    return "SYSTIMESTAMP";
+  }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return SQLPLUS;
+  }
+
+  /**
+   * SQL*Plus: no transactions, a commit after each migration, and a PL/SQL block ends with a
+   * {@code /} line.
+   */
+  private static final ScriptTool SQLPLUS = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "sqlplus <user>@<database> @<this file>";
+    }
+
+    @Override
+    public boolean transactions() {
+      return false;
+    }
+
+    @Override
+    public String start() {
+      return "WHENEVER SQLERROR EXIT FAILURE ROLLBACK\n\n";
+    }
+
+    @Override
+    public String end() {
+      return "EXIT\n";
+    }
+
+    @Override
+    public String afterEachMigration() {
+      return "COMMIT;\n";
+    }
+
+    @Override
+    public String useSchema(String schema) {
+      return "ALTER SESSION SET CURRENT_SCHEMA = " + schema;
+    }
+
+    @Override
+    public String terminate(String statement, boolean procedural) {
+      return procedural ? statement + "\n/\n" : statement.replaceAll(";\\s*$", "") + ";\n";
+    }
+  };
+
+  /** A smaller NUMBER goes through a new {@code migrax_tmp_} column. */
+  @Override
+  public boolean changesTypesThroughNewColumn() {
+    return true;
+  }
+
+  /** {@code ONLINE}, on Enterprise edition. */
+  @Override
+  public boolean hasOnlineIndexOption() {
+    return true;
+  }
+
+  /** An ordinary user: system's schema holds Oracle's own tables. */
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("gvenzl/oracle-free:slim-faststart", 1521,
+        "jdbc:oracle:thin:@127.0.0.1:{port}/FREEPDB1", "migrax", "migrax", 300,
+        "ORACLE_PASSWORD=migrax", "APP_USER=migrax", "APP_USER_PASSWORD=migrax") {
+      /** Oracle XE names its database XEPDB1, Oracle Free FREEPDB1. */
+      @Override
+      public String url(String image) {
+        return image.contains("oracle-xe") ? super.url(image).replace("FREEPDB1", "XEPDB1")
+            : super.url(image);
+      }
+
+      /** Migrax's lock on Oracle needs EXECUTE on DBMS_LOCK. */
+      @Override
+      public List<String> prepareCommand(String containerId, String jdbcUrl) {
+        String pdb = jdbcUrl.substring(jdbcUrl.lastIndexOf('/') + 1);
+        return List.of("docker", "exec", containerId, "bash", "-c",
+            "printf 'ALTER SESSION SET CONTAINER=" + pdb + ";\nGRANT EXECUTE ON SYS.DBMS_LOCK TO "
+                + user() + ";\n' | sqlplus -s / as sysdba");
+      }
+    };
+  }
+
+  /** The user's own schema by default; checks and comments in the {@code all_} views. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog() {
+      @Override
+      public String defaultSchema(DatabaseMetaData metadata) throws SQLException {
+        String user = metadata.getUserName();
+        return user != null && !user.isBlank() ? user.toUpperCase(Locale.ROOT) : null;
+      }
+
+      /**
+       * Leaves out the sequences of identity columns ({@code ISEQ$$_...}). A login that can't
+       * read {@code all_sequences} gets its own.
+       */
+      @Override
+      public List<String> sequencesIn(Connection connection, String catalog, String owner)
+          throws SQLException {
+        if (owner != null) {
+          try {
+            return names(connection, "SELECT sequence_name FROM all_sequences WHERE "
+                + "sequence_owner = ? AND sequence_name NOT LIKE 'ISEQ$$%'", owner);
+          } catch (SQLException e) {
+            Log.debug("Could not read all_sequences: {}", e.getMessage());
+          }
+        }
+        return names(connection, "SELECT sequence_name FROM user_sequences WHERE "
+            + "sequence_name NOT LIKE 'ISEQ$$%'");
+      }
+
+      @Override
+      public List<String> sequenceNames(Connection connection) throws SQLException {
+        return names(connection, "SELECT sequence_name FROM user_sequences");
+      }
+
+      @Override
+      public void readChecksAndComments(Connection connection, String catalog, String owner,
+                                        List<String> tables, Details details) {
+        for (String[] row : query(connection, "SELECT table_name, constraint_name, "
+            + "search_condition_vc FROM all_constraints WHERE constraint_type = 'C' AND NOT "
+            + "(generated = 'GENERATED NAME' AND search_condition_vc LIKE '\"%\" IS NOT NULL') "
+            + "AND owner = ?", owner)) {
+          details.addCheck(row[0], row[1], row[2]);
+        }
+        for (String[] row : query(connection, "SELECT table_name, NULL, comments FROM "
+            + "all_tab_comments WHERE owner = ? UNION ALL SELECT table_name, column_name, comments "
+            + "FROM all_col_comments WHERE owner = ?", owner, owner)) {
+          details.addComment(row[0], row[1], row[2]);
+        }
+      }
+    };
   }
 }

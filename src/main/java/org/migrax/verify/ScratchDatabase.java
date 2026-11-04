@@ -1,5 +1,8 @@
 package org.migrax.verify;
 
+import org.migrax.dialect.Dialect;
+import org.migrax.dialect.Dialects;
+import org.migrax.dialect.ScratchSetup;
 import org.migrax.plugin.RuntimeJdbc;
 import org.migrax.util.Log;
 
@@ -59,10 +62,8 @@ public final class ScratchDatabase implements AutoCloseable {
    * @since 0.17.2
    */
   public static boolean hasVersionImages(String dialect) {
-    return switch (dialect) {
-      case "postgresql", "mysql", "mariadb" -> true;
-      default -> false;
-    };
+    ScratchSetup setup = setup(dialect);
+    return setup != null && setup.hasVersionImages();
   }
 
   /**
@@ -76,12 +77,15 @@ public final class ScratchDatabase implements AutoCloseable {
    * @since 0.17.0
    */
   public static String imageFor(String dialect, int major, int minor) {
-    return switch (dialect) {
-      case "postgresql" -> major >= 12 ? "postgres:" + major + "-alpine" : null;
-      case "mysql" -> major >= 8 ? "mysql:" + major + "." + minor : null;
-      case "mariadb" -> major >= 10 ? "mariadb:" + major + "." + minor : null;
-      default -> null;
-    };
+    ScratchSetup setup = setup(dialect);
+    return setup == null ? null : setup.versionImage(major, minor);
+  }
+
+  /** The dialect's setup, by exact id; null for an unknown id or a dialect without one. */
+  private static ScratchSetup setup(String dialect) {
+    Dialect found = dialect != null && Dialects.NAMES.contains(dialect)
+        ? Dialects.byName(dialect) : null;
+    return found == null ? null : found.scratch();
   }
 
   /**
@@ -93,26 +97,23 @@ public final class ScratchDatabase implements AutoCloseable {
    */
   public static ScratchDatabase start(String dialect, String image, ClassLoader loader)
       throws Exception {
-    if ("sqlite".equals(dialect)) {
+    ScratchSetup setup = setup(dialect);
+    if (setup == null) {
+      throw new IllegalArgumentException("No scratch database for " + dialect);
+    }
+    if (setup.kind() == ScratchSetup.Kind.FILE) {
       Path file = Files.createTempFile("migrax-verify-", ".db");
-      ScratchDatabase database = new ScratchDatabase("jdbc:sqlite:" + file, "", "", null);
+      ScratchDatabase database = new ScratchDatabase(setup.url(null)
+          .replace("{file}", file.toString()), setup.user(), setup.password(), null);
       database.file = file;
       return database;
     }
-    if ("h2".equals(dialect)) {
-      return new ScratchDatabase("jdbc:h2:mem:migrax_verify_" + UUID.randomUUID()
-          .toString().replace("-", "") + ";DB_CLOSE_DELAY=-1", "sa", "", null);
+    if (setup.kind() == ScratchSetup.Kind.MEMORY) {
+      return new ScratchDatabase(setup.url(null).replace("{name}", "migrax_verify_"
+          + UUID.randomUUID().toString().replace("-", "")), setup.user(), setup.password(),
+          null);
     }
-    if ("derby".equals(dialect)) {
-      return new ScratchDatabase("jdbc:derby:memory:migrax_verify_" + UUID.randomUUID()
-          .toString().replace("-", "") + ";create=true", "", "", null);
-    }
-    if ("hsqldb".equals(dialect)) {
-      return new ScratchDatabase("jdbc:hsqldb:mem:migrax_verify_" + UUID.randomUUID()
-          .toString().replace("-", ""), "SA", "", null);
-    }
-    Engine engine = Engine.of(dialect);
-    String chosenImage = image == null || image.isBlank() ? engine.image : image;
+    String chosenImage = image == null || image.isBlank() ? setup.image() : image;
     if (!dockerAvailable()) {
       throw new IllegalStateException("Docker is not available, so Migrax cannot start a "
           + "throwaway " + dialect + " database. Start Docker, or pass --url with an empty "
@@ -122,26 +123,29 @@ public final class ScratchDatabase implements AutoCloseable {
     // The port by number: the Oracle images don't declare it, so -P would publish nothing.
     // Only on 127.0.0.1: the database has a fixed password, other machines must not reach it.
     List<String> command = new ArrayList<>(List.of("docker", "run", "-d", "--rm", "-p",
-        "127.0.0.1::" + engine.port));
-    for (String variable : engine.environment) {
+        "127.0.0.1::" + setup.port()));
+    for (String variable : setup.environment()) {
       command.add("-e");
       command.add(variable);
     }
     command.add(chosenImage);
-    command.addAll(engine.command());
+    command.addAll(setup.command());
     String id = run(command, 600).trim();
     id = id.lines().reduce((first, second) -> second).orElse(id).trim();
     try {
-      String mapping = run(List.of("docker", "port", id, engine.port + "/tcp"), 30);
+      String mapping = run(List.of("docker", "port", id, setup.port() + "/tcp"), 30);
       String hostPort = mapping.lines().filter(line -> line.contains(":"))
           .filter(line -> !line.startsWith("[")).findFirst()
           .orElseThrow(() -> new IllegalStateException("Docker did not publish port "
-              + engine.port + ": " + mapping));
+              + setup.port() + ": " + mapping));
       String port = hostPort.substring(hostPort.lastIndexOf(':') + 1).trim();
-      String url = engine.url(chosenImage).replace("{port}", port);
-      ScratchDatabase database = new ScratchDatabase(url, engine.user, engine.password, id);
-      database.awaitReady(loader, engine.startupSeconds);
-      engine.prepare(id, url);
+      String url = setup.url(chosenImage).replace("{port}", port);
+      ScratchDatabase database = new ScratchDatabase(url, setup.user(), setup.password(), id);
+      database.awaitReady(loader, setup.startupSeconds());
+      List<String> prepare = setup.prepareCommand(id, url);
+      if (!prepare.isEmpty()) {
+        run(prepare, 120);
+      }
       return database;
     } catch (Exception e) {
       remove(id);
@@ -213,89 +217,5 @@ public final class ScratchDatabase implements AutoCloseable {
       throw new IOException(String.join(" ", command) + " failed: " + text.strip());
     }
     return text;
-  }
-
-  /**
-   * Container settings per database engine. The URLs use 127.0.0.1, not localhost: the port is
-   * published on IPv4 only.
-   */
-  private enum Engine {
-    POSTGRESQL("postgres:16-alpine", 5432, "jdbc:postgresql://127.0.0.1:{port}/migrax",
-        "migrax", "migrax", 120, "POSTGRES_USER=migrax", "POSTGRES_PASSWORD=migrax",
-        "POSTGRES_DB=migrax"),
-    MYSQL("mysql:8.4", 3306,
-        "jdbc:mysql://127.0.0.1:{port}/migrax?allowPublicKeyRetrieval=true&useSSL=false",
-        "root", "migrax", 180, "MYSQL_ROOT_PASSWORD=migrax", "MYSQL_DATABASE=migrax"),
-    MARIADB("mariadb:11.4", 3306, "jdbc:mariadb://127.0.0.1:{port}/migrax", "root", "migrax",
-        180, "MARIADB_ROOT_PASSWORD=migrax", "MARIADB_DATABASE=migrax"),
-    SQLSERVER("mcr.microsoft.com/mssql/server:2022-latest", 1433,
-        "jdbc:sqlserver://127.0.0.1:{port};encrypt=false;trustServerCertificate=true", "sa",
-        "Migrax_Passw0rd!", 300, "ACCEPT_EULA=Y", "MSSQL_SA_PASSWORD=Migrax_Passw0rd!"),
-    // An ordinary user: system's schema holds Oracle's own tables.
-    ORACLE("gvenzl/oracle-free:slim-faststart", 1521,
-        "jdbc:oracle:thin:@127.0.0.1:{port}/FREEPDB1", "migrax", "migrax", 300,
-        "ORACLE_PASSWORD=migrax", "APP_USER=migrax", "APP_USER_PASSWORD=migrax"),
-    COCKROACHDB("cockroachdb/cockroach:v24.3.11", 26257,
-        "jdbc:postgresql://127.0.0.1:{port}/defaultdb?sslmode=disable", "root", "", 180),
-    YUGABYTEDB("yugabytedb/yugabyte:2026.1.2.0-b137", 5433,
-        "jdbc:postgresql://127.0.0.1:{port}/yugabyte", "yugabyte", "yugabyte", 240),
-    TIDB("pingcap/tidb:v8.5.3", 4000, "jdbc:mysql://127.0.0.1:{port}/test?useSSL=false", "root",
-        "", 120);
-
-    final String image;
-    final int port;
-    final String url;
-    final String user;
-    final String password;
-    final int startupSeconds;
-    final String[] environment;
-
-    Engine(String image, int port, String url, String user, String password, int startupSeconds,
-           String... environment) {
-      this.image = image;
-      this.port = port;
-      this.url = url;
-      this.user = user;
-      this.password = password;
-      this.startupSeconds = startupSeconds;
-      this.environment = environment;
-    }
-
-    /** The JDBC URL for the image: Oracle XE names its database XEPDB1, Oracle Free FREEPDB1. */
-    String url(String image) {
-      return this == ORACLE && image.contains("oracle-xe") ? url.replace("FREEPDB1", "XEPDB1")
-          : url;
-    }
-
-    /** Readies the started database: Migrax's lock on Oracle needs EXECUTE on DBMS_LOCK. */
-    void prepare(String containerId, String jdbcUrl) throws Exception {
-      if (this == ORACLE) {
-        String pdb = jdbcUrl.substring(jdbcUrl.lastIndexOf('/') + 1);
-        run(List.of("docker", "exec", containerId, "bash", "-c", "printf 'ALTER SESSION SET "
-            + "CONTAINER=" + pdb + ";\nGRANT EXECUTE ON SYS.DBMS_LOCK TO " + user
-            + ";\n' | sqlplus -s / as sysdba"), 120);
-      }
-    }
-
-    /** Arguments after the image name: CockroachDB's and YugabyteDB's images need a command. */
-    List<String> command() {
-      return this == COCKROACHDB ? List.of("start-single-node", "--insecure")
-          : this == YUGABYTEDB ? List.of("bin/yugabyted", "start", "--background=false")
-          : List.of();
-    }
-
-    static Engine of(String dialect) {
-      return switch (dialect) {
-        case "postgresql" -> POSTGRESQL;
-        case "mysql" -> MYSQL;
-        case "mariadb" -> MARIADB;
-        case "sqlserver" -> SQLSERVER;
-        case "oracle" -> ORACLE;
-        case "cockroachdb" -> COCKROACHDB;
-        case "yugabytedb" -> YUGABYTEDB;
-        case "tidb" -> TIDB;
-        default -> throw new IllegalArgumentException("No scratch database for " + dialect);
-      };
-    }
   }
 }

@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * HyperSQL (HSQLDB 2.7 and newer) dialect, in memory, in files or as a server. Its SQL is close
@@ -35,6 +36,21 @@ public final class HsqldbDialect extends AbstractDialect {
   @Override
   public String id() {
     return "hsqldb";
+  }
+
+  @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return List.of("org.hibernate.dialect.HSQLDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.HSQLPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "hsql";
   }
 
   @Override
@@ -158,5 +174,43 @@ public final class HsqldbDialect extends AbstractDialect {
   public AutoCloseable acquireMigrationLock(Connection connection, String resource)
       throws SQLException {
     return TableMigrationLock.acquire(connection, resource, "timestamp");
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return ScratchSetup.inMemory("jdbc:hsqldb:mem:{name}", "SA", "");
+  }
+
+  /** The schema and table HyperSQL puts before each column in a check: {@code PUBLIC.T.}. */
+  private static final Pattern QUALIFIER = Pattern.compile(
+      "\"?[A-Za-z_][A-Za-z0-9_$]*\"?\\.\"?[A-Za-z_][A-Za-z0-9_$]*\"?\\.(?=[\"A-Za-z_])");
+
+  /** Checks in {@code INFORMATION_SCHEMA}, comments in its {@code SYSTEM_COMMENTS}. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog() {
+      @Override
+      public void readChecksAndComments(Connection connection, String catalog, String owner,
+                                        List<String> tables, Details details) {
+        String namespace = owner == null ? "CURRENT_SCHEMA" : "?";
+        for (String[] row : query(connection, "SELECT tc.TABLE_NAME, tc.CONSTRAINT_NAME, "
+            + "cc.CHECK_CLAUSE FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS tc JOIN "
+            + "INFORMATION_SCHEMA.CHECK_CONSTRAINTS cc ON cc.CONSTRAINT_SCHEMA = "
+            + "tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME WHERE "
+            + "tc.CONSTRAINT_TYPE = 'CHECK' AND tc.TABLE_SCHEMA = " + namespace, owner)) {
+          // NOT NULL columns are checks of their own (SYS_CT_...: COLUMN IS NOT NULL).
+          if (row[2] != null && !(row[1].startsWith("SYS_CT_")
+              && row[2].toUpperCase(Locale.ROOT).endsWith(" IS NOT NULL"))) {
+            // HyperSQL names every column with its schema and table: PUBLIC.CUSTOMER.BALANCE>=0.
+            details.addCheck(row[0], row[1], QUALIFIER.matcher(row[2]).replaceAll(""));
+          }
+        }
+        for (String[] row : query(connection, "SELECT OBJECT_NAME, COLUMN_NAME, COMMENT FROM "
+            + "INFORMATION_SCHEMA.SYSTEM_COMMENTS WHERE OBJECT_TYPE IN ('TABLE', 'COLUMN') AND "
+            + "OBJECT_SCHEMA = " + namespace, owner)) {
+          details.addComment(row[0], row[1], row[2]);
+        }
+      }
+    };
   }
 }

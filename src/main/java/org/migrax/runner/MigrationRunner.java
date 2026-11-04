@@ -1,5 +1,8 @@
 package org.migrax.runner;
 
+import org.migrax.dialect.Dialect;
+import org.migrax.dialect.Dialects;
+import org.migrax.dialect.ScriptTool;
 import org.migrax.util.Log;
 
 import java.nio.file.Path;
@@ -420,8 +423,11 @@ public final class MigrationRunner {
           history(connection),
           TargetSchema.named(connection) != null, parse(migrations, options, connection)));
     }
-    return new MigrationScript(connection.getMetaData().getDatabaseProductName(),
-        scriptTimestamp(connection)).write(parts, callbacks(migrations));
+    Dialect dialect = dialect(connection);
+    ScriptTool tool = dialect == null ? ScriptTool.GENERIC : dialect.scriptTool();
+    String timestamp = dialect == null ? "CURRENT_TIMESTAMP"
+        : dialect.scriptTimestamp(connection);
+    return new MigrationScript(tool, timestamp).write(parts, callbacks(migrations));
   }
 
   /** One step of a migration run. */
@@ -1120,51 +1126,28 @@ public final class MigrationRunner {
     }
   }
 
+  /**
+   * The dialect for the connection's product name, or null for a database no dialect handles.
+   * The product name is enough here: databases that report another one's name (CockroachDB,
+   * YugabyteDB, TiDB) share these facts with it.
+   */
+  private static Dialect dialect(Connection connection) throws SQLException {
+    return Dialects.forProduct(connection.getMetaData().getDatabaseProductName()).orElse(null);
+  }
+
   private static boolean backslashEscapes(Connection connection) throws SQLException {
-    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-    if (!product.contains("mysql") && !product.contains("mariadb")) {
-      return false;
-    }
-    try (Statement statement = connection.createStatement();
-         ResultSet result = statement.executeQuery("SELECT @@SESSION.sql_mode")) {
-      return !result.next() || !result.getString(1).toUpperCase(Locale.ROOT)
-          .contains("NO_BACKSLASH_ESCAPES");
-    }
+    Dialect dialect = dialect(connection);
+    return dialect != null && dialect.backslashEscapes(connection);
   }
 
   private static String timestampType(Connection connection) throws SQLException {
-    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-    return product.contains("microsoft sql server") ? "DATETIME2" : "TIMESTAMP";
+    Dialect dialect = dialect(connection);
+    return dialect == null ? "TIMESTAMP" : dialect.historyTimestampType();
   }
 
   private static String currentTimestamp(Connection connection) throws SQLException {
-    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-    if (product.contains("microsoft sql server")) {
-      return "SYSUTCDATETIME()";
-    }
-    if (product.contains("oracle")) {
-      return "SYSTIMESTAMP";
-    }
-    return "CURRENT_TIMESTAMP";
-  }
-
-  /**
-   * The current time for a script that another tool runs. PostgreSQL and CockroachDB write
-   * {@code CURRENT_TIMESTAMP} into a {@code TIMESTAMP} column in the session's time zone, which
-   * is this machine's zone for Migrax but the server's zone for psql: the script names the zone,
-   * so its rows match the ones Migrax writes itself.
-   */
-  private static String scriptTimestamp(Connection connection) throws SQLException {
-    String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-    if (!product.contains("postgresql")) {
-      return currentTimestamp(connection);
-    }
-    try (Statement statement = connection.createStatement();
-         ResultSet result = statement.executeQuery("SELECT current_setting('TimeZone')")) {
-      String zone = result.next() ? result.getString(1) : null;
-      return zone == null ? "CURRENT_TIMESTAMP"
-          : "(CURRENT_TIMESTAMP AT TIME ZONE '" + zone.replace("'", "''") + "')";
-    }
+    Dialect dialect = dialect(connection);
+    return dialect == null ? "CURRENT_TIMESTAMP" : dialect.currentTimestamp();
   }
 
   private static FailureRecord findFailure(Connection connection, String version)

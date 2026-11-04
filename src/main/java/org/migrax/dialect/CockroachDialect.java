@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -26,9 +27,40 @@ public final class CockroachDialect extends PostgresDialect {
     return "cockroachdb";
   }
 
+  /** PostgreSQL's lock checks describe PostgreSQL itself, not CockroachDB. */
+  @Override
+  public boolean lintsLockingDdl() {
+    return false;
+  }
+
+  @Override
+  public java.util.Optional<String> keepDataRestoreNote() {
+    return java.util.Optional.of("-- CockroachDB can't fill a column in the transaction that "
+        + "added it, so each statement\n-- commits on its own:\n");
+  }
+
   @Override
   public java.util.List<String> aliases() {
-    return java.util.List.of("cockroach", "crdb");
+    return List.of("cockroach", "crdb");
+  }
+
+  @Override
+  public boolean acceptsHibernateDialect(String hibernateDialect) {
+    return hibernateDialect.toLowerCase(Locale.ROOT).contains("cockroach");
+  }
+
+  @Override
+  public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return super.hibernateDialects(hibernateMajor);
+    }
+    return List.of(hibernateMajor == 5 ? "org.hibernate.dialect.CockroachDB201Dialect"
+        : "org.hibernate.dialect.CockroachDialect");
+  }
+
+  @Override
+  public String describeServer(String product, String version) {
+    return "CockroachDB (PostgreSQL protocol)";
   }
 
   /** The URL is the PostgreSQL driver's: {@link #acceptsConnection} decides. */
@@ -188,18 +220,35 @@ public final class CockroachDialect extends PostgresDialect {
   /** CockroachDB has no triggers that change the row being written. */
   @Override
   public java.util.List<String> syncColumns(String table, String oldColumn, String newColumn) {
-    return java.util.List.of();
+    return List.of();
   }
 
   @Override
   public java.util.List<String> dropSyncColumns(String table, String oldColumn,
                                                 String newColumn) {
-    return java.util.List.of();
+    return List.of();
   }
 
   /** CockroachDB views don't accept writes. */
   @Override
   public boolean updatableViews() {
     return false;
+  }
+
+  /** CockroachDB keeps no oid large objects: its bytes and strings are compared by family. */
+  @Override
+  public boolean largeObjectsAreOids() {
+    return false;
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("cockroachdb/cockroach:v24.3.11", 26257,
+        "jdbc:postgresql://127.0.0.1:{port}/defaultdb?sslmode=disable", "root", "", 180) {
+      @Override
+      public List<String> command() {
+        return List.of("start-single-node", "--insecure");
+      }
+    };
   }
 }

@@ -1,5 +1,7 @@
 package org.migrax.lint;
 
+import org.migrax.dialect.Dialect;
+import org.migrax.dialect.Dialects;
 import org.migrax.runner.SqlScript;
 
 import java.util.ArrayList;
@@ -56,6 +58,8 @@ public final class SqlLinter {
   private static final Pattern CREATE_INDEX = Pattern.compile(
       "(?i)^CREATE\\s+(UNIQUE\\s+)?INDEX\\s+(CONCURRENTLY\\s+)?(?:IF\\s+NOT\\s+EXISTS\\s+)?"
           + "(?:" + IDENT + "\\s+)?ON\\s+(?:ONLY\\s+)?(" + IDENT + ")");
+  /** The ONLINE option of an index build, as a word (not part of a name), and not set OFF. */
+  private static final Pattern ONLINE = Pattern.compile("\\bONLINE\\b(?!\\s*=\\s*OFF\\b)");
   /** The table or sequence a statement creates, changes or writes to. */
   private static final Pattern TABLE_STATEMENT = Pattern.compile("(?i)^(?:CREATE\\s+TABLE"
       + "|ALTER\\s+TABLE|DROP\\s+TABLE(?:\\s+IF\\s+EXISTS)?|TRUNCATE\\s+TABLE"
@@ -113,16 +117,21 @@ public final class SqlLinter {
    * @since 0.7.0
    */
   public static List<Finding> lint(String file, String sql, String dialect, boolean schemas) {
-    boolean namedSchemas = schemas && "sqlserver".equals(dialect);
-    boolean postgres = "postgresql".equals(dialect);
+    // Exact ids only: an alias (postgres) or an unknown id gets the checks that hold on every
+    // database, as it always has.
+    Dialect database = Dialects.NAMES.contains(dialect) ? Dialects.byName(dialect) : null;
+    boolean namedSchemas = schemas && database != null && !database.switchesSchemas();
+    boolean lockChecks = database != null && database.lintsLockingDdl();
+    boolean alterColumnType = database != null && database.changesTypesWithAlterColumn();
+    boolean onlineIndexes = database != null && database.hasOnlineIndexOption();
+    boolean throughNewColumn = database != null && database.changesTypesThroughNewColumn();
     boolean transactional = !SqlScript.hasDirective(sql, "no-transaction");
     Set<String> fileIgnores = codes(IGNORE_FILE, sql);
     Set<String> createdTables = new HashSet<>();
     List<Finding> findings = new ArrayList<>();
     List<String> statements;
     try {
-      statements = SqlScript.split(sql, "mysql".equals(dialect) || "mariadb".equals(dialect)
-          || "tidb".equals(dialect));
+      statements = SqlScript.split(sql, database != null && database.backslashEscapes());
     } catch (IllegalArgumentException e) {
       findings.add(new Finding("MX000", Severity.ERROR, file, 0, "", e.getMessage(),
           "Close the quote or comment."));
@@ -142,7 +151,7 @@ public final class SqlLinter {
     // copied into the new one, which then takes its name.
     Set<String> copied = new HashSet<>();
     Set<String> moved = new HashSet<>();
-    for (String statement : "oracle".equals(dialect) ? statements : List.<String>of()) {
+    for (String statement : throughNewColumn ? statements : List.<String>of()) {
       String text = SqlScript.stripComments(statement).replaceAll("\\s+", " ").trim();
       Matcher copy = NEW_COLUMN_COPY.matcher(text);
       Matcher column = NEW_COLUMN_RENAME.matcher(text);
@@ -192,23 +201,25 @@ public final class SqlLinter {
       boolean existing = table != null && !createdTables.contains(table);
 
       Matcher index = CREATE_INDEX.matcher(text);
+      boolean indexOnExisting = false;
       if (index.find()) {
         boolean concurrent = index.group(2) != null;
         boolean onExisting = !createdTables.contains(normalize(index.group(3)));
-        if (postgres && !concurrent && onExisting) {
+        indexOnExisting = onExisting;
+        if (lockChecks && !concurrent && onExisting) {
           found.add(finding("MX001", Severity.WARNING, file, number, text,
               "Building this index blocks writes to " + normalize(index.group(3))
                   + " until it finishes.",
               "Use CREATE INDEX CONCURRENTLY in its own migration that starts with "
                   + "'-- migrax:no-transaction' ('migrax generate --safe' does this)."));
         }
-        if (postgres && concurrent && transactional) {
+        if (lockChecks && concurrent && transactional) {
           found.add(finding("MX012", Severity.ERROR, file, number, text,
               "CREATE INDEX CONCURRENTLY cannot run inside a transaction.",
               "Add a '-- migrax:no-transaction' line to this migration."));
         }
       }
-      if (postgres && transactional
+      if (lockChecks && transactional
           && upper.matches("^(DROP INDEX CONCURRENTLY|REINDEX .*CONCURRENTLY|VACUUM).*")) {
         found.add(finding("MX012", Severity.ERROR, file, number, text,
             "This statement cannot run inside a transaction.",
@@ -223,7 +234,8 @@ public final class SqlLinter {
             "Adding a NOT NULL column without a default fails when " + table + " has rows.",
             "Add a DEFAULT, or add the column as nullable, backfill it, then make it NOT NULL."));
       }
-      if (postgres && existing && upper.contains(" ADD ") && VOLATILE_DEFAULT.matcher(text).find()) {
+      if (lockChecks && existing && upper.contains(" ADD ")
+          && VOLATILE_DEFAULT.matcher(text).find()) {
         found.add(finding("MX011", Severity.WARNING, file, number, text,
             "A volatile default rewrites every row of " + table + " under an exclusive lock.",
             "Add the column without a default, set the default separately, then backfill "
@@ -233,7 +245,7 @@ public final class SqlLinter {
           || upper.matches(".* (MODIFY|CHANGE) (COLUMN )?.*")
               // Oracle's MODIFY of only the default or NULL / NOT NULL keeps the type.
               && !upper.matches(".* MODIFY \\(\\S+( DEFAULT \\S+)?( (NOT )?NULL)?\\)")
-          || "sqlserver".equals(dialect) && upper.matches(".* ALTER COLUMN \\S+ \\w+.*")
+          || alterColumnType && upper.matches(".* ALTER COLUMN \\S+ \\w+.*")
           && !upper.matches(".* ALTER COLUMN \\S+ (SET|DROP|ADD) .*"))) {
         found.add(finding("MX003", Severity.WARNING, file, number, text,
             "Changing a column type can rewrite or lock " + table + " and fails or truncates "
@@ -241,34 +253,34 @@ public final class SqlLinter {
             "Test on a production-size copy. For large tables add a new column, backfill it, "
                 + "switch the application, then drop the old column."));
       }
-      if (postgres && existing && upper.matches(".* ALTER COLUMN \\S+ SET NOT NULL.*")) {
+      if (lockChecks && existing && upper.matches(".* ALTER COLUMN \\S+ SET NOT NULL.*")) {
         found.add(finding("MX004", Severity.WARNING, file, number, text,
             "SET NOT NULL scans all of " + table + " while holding an exclusive lock.",
             "First ADD CONSTRAINT ... CHECK (column IS NOT NULL) NOT VALID, then VALIDATE "
                 + "CONSTRAINT in a later migration; PostgreSQL 12+ then sets NOT NULL without "
                 + "a scan."));
       }
-      if (postgres && existing && upper.contains(" FOREIGN KEY ")
+      if (lockChecks && existing && upper.contains(" FOREIGN KEY ")
           && upper.contains(" ADD CONSTRAINT ") && !upper.contains("NOT VALID")) {
         found.add(finding("MX005", Severity.WARNING, file, number, text,
             "Adding a foreign key checks every row while blocking writes to both tables.",
             "Add it with NOT VALID, then run ALTER TABLE ... VALIDATE CONSTRAINT in a later "
                 + "migration ('migrax generate --safe' does this)."));
       }
-      if (postgres && existing && upper.matches(".* ADD CONSTRAINT \\S+ UNIQUE .*")
+      if (lockChecks && existing && upper.matches(".* ADD CONSTRAINT \\S+ UNIQUE .*")
           && !upper.contains("USING INDEX")) {
         found.add(finding("MX006", Severity.WARNING, file, number, text,
             "Adding a unique constraint builds its index while blocking writes to " + table + ".",
             "CREATE UNIQUE INDEX CONCURRENTLY first, then ADD CONSTRAINT ... UNIQUE USING "
                 + "INDEX ('migrax generate --safe' does this)."));
       }
-      if (postgres && existing && upper.matches(".* ADD CONSTRAINT \\S+ CHECK .*")
+      if (lockChecks && existing && upper.matches(".* ADD CONSTRAINT \\S+ CHECK .*")
           && !upper.contains("NOT VALID")) {
         found.add(finding("MX014", Severity.WARNING, file, number, text,
             "Adding a check constraint scans " + table + " while holding an exclusive lock.",
             "Add it with NOT VALID, then VALIDATE CONSTRAINT in a later migration."));
       }
-      if (postgres && existing && upper.matches(".* ADD (CONSTRAINT \\S+ )?PRIMARY KEY.*")) {
+      if (lockChecks && existing && upper.matches(".* ADD (CONSTRAINT \\S+ )?PRIMARY KEY.*")) {
         found.add(finding("MX013", Severity.WARNING, file, number, text,
             "Adding a primary key builds an index while blocking writes to " + table + ".",
             "CREATE UNIQUE INDEX CONCURRENTLY, then ADD CONSTRAINT ... PRIMARY KEY USING INDEX."));
@@ -315,8 +327,7 @@ public final class SqlLinter {
             "TRUNCATE deletes all rows and cannot be undone by a rollback script.",
             "Make sure this is intended and backed up."));
       }
-      if (("sqlserver".equals(dialect) || "oracle".equals(dialect)) && index.matches()
-          && !upper.contains("ONLINE")) {
+      if (onlineIndexes && indexOnExisting && !ONLINE.matcher(upper).find()) {
         found.add(finding("MX015", Severity.INFO, file, number, text,
             "Index builds lock the table unless they run online.",
             "Use WITH (ONLINE = ON) on SQL Server Enterprise or ONLINE on Oracle Enterprise "

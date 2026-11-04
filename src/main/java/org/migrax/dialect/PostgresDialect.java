@@ -3,12 +3,15 @@ package org.migrax.dialect;
 import org.migrax.model.SchemaModel;
 import org.migrax.ops.AlterColumn;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * PostgreSQL database dialect.
@@ -27,6 +30,106 @@ public class PostgresDialect extends AbstractDialect {
   @Override
   public String id() {
     return "postgresql";
+  }
+
+  /**
+   * {@code CURRENT_TIMESTAMP} goes into a {@code TIMESTAMP} column in the session's time zone,
+   * which is this machine's zone for Migrax but the server's zone for psql: the script names
+   * the zone, so its rows match the ones Migrax writes itself. CockroachDB and YugabyteDB
+   * inherit this.
+   */
+  @Override
+  public String scriptTimestamp(Connection connection) throws SQLException {
+    try (Statement statement = connection.createStatement();
+         ResultSet result = statement.executeQuery("SELECT current_setting('TimeZone')")) {
+      String zone = result.next() ? result.getString(1) : null;
+      return zone == null ? "CURRENT_TIMESTAMP"
+          : "(CURRENT_TIMESTAMP AT TIME ZONE '" + zone.replace("'", "''") + "')";
+    }
+  }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return PSQL;
+  }
+
+  /** PostgreSQL's psql. */
+  private static final ScriptTool PSQL = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "psql -v ON_ERROR_STOP=1 -f <this file>";
+    }
+  };
+
+  @Override
+  public java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.of("SELECT c.reltuples::bigint, pg_total_relation_size(c.oid) "
+        + "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
+        + "WHERE c.relname = ? AND n.nspname = current_schema()");
+  }
+
+  @Override
+  public boolean rendersOnline() {
+    return true;
+  }
+
+  /** The lock checks of {@code migrax lint} are written for PostgreSQL. */
+  @Override
+  public boolean lintsLockingDdl() {
+    return true;
+  }
+
+  /** pg_dump writes psql scripts. */
+  @Override
+  public boolean dumpsHavePsqlCommands() {
+    return true;
+  }
+
+  /** The PostgreSQL driver also reaches CockroachDB and YugabyteDB. */
+  @Override
+  public boolean urlReachesOtherDatabases() {
+    return true;
+  }
+
+  /**
+   * Hibernate 5's unversioned PostgreSQLDialect describes very old servers; its resolver picks
+   * PostgreSQL10Dialect for current ones.
+   */
+  @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return List.of("org.hibernate.dialect.PostgreSQL9Dialect",
+          "org.hibernate.dialect.PostgreSQL82Dialect", "org.hibernate.dialect.PostgreSQLDialect");
+    }
+    return List.of(hibernateMajor == 5 ? "org.hibernate.dialect.PostgreSQL10Dialect"
+        : "org.hibernate.dialect.PostgreSQLDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.PostgreSQLPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "postgres";
+  }
+
+  /** Large objects go to oid columns, where the ORMs write bytea or text. */
+  @Override
+  public boolean largeObjectTypesFromOrm() {
+    return true;
+  }
+
+  /** Plain bytes go to bytea, not to a large object. */
+  @Override
+  public java.util.Optional<String> plainBytesType() {
+    return java.util.Optional.of("bytea");
+  }
+
+  @Override
+  public java.util.Optional<String> micronautDataUuidDefault() {
+    return java.util.Optional.of("gen_random_uuid()");
   }
 
   @Override
@@ -76,6 +179,7 @@ public class PostgresDialect extends AbstractDialect {
    * attached to a concurrently built index, and foreign keys and check constraints are added
    * NOT VALID and then validated without blocking writes.
    */
+  @Override
   public String renderOnline(org.migrax.ops.Operation operation) {
     if (operation instanceof org.migrax.ops.AddIndex x) {
       return "CREATE " + (x.index().unique() ? "UNIQUE " : "") + "INDEX CONCURRENTLY "
@@ -198,5 +302,87 @@ public class PostgresDialect extends AbstractDialect {
   @Override
   public String renameForeignKey(String table, String from, String to) {
     return "ALTER TABLE " + tableName(table) + " RENAME CONSTRAINT " + q(from) + " TO " + q(to);
+  }
+
+  @Override
+  public boolean largeObjectsAreOids() {
+    return true;
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("postgres:16-alpine", 5432,
+        "jdbc:postgresql://127.0.0.1:{port}/migrax", "migrax", "migrax", 120,
+        "POSTGRES_USER=migrax", "POSTGRES_PASSWORD=migrax", "POSTGRES_DB=migrax") {
+      @Override
+      public boolean hasVersionImages() {
+        return true;
+      }
+
+      @Override
+      public String versionImage(int major, int minor) {
+        return major >= 12 ? "postgres:" + major + "-alpine" : null;
+      }
+    };
+  }
+
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new Catalog();
+  }
+
+  /**
+   * PostgreSQL's catalog, also CockroachDB's and YugabyteDB's: checks and comments in
+   * {@code pg_catalog}, defaults with type casts.
+   */
+  static class Catalog extends SchemaCatalog {
+
+    /** A PostgreSQL or CockroachDB type cast: ::character varying, :::INT8, ::numeric(10,2). */
+    private static final Pattern POSTGRES_CAST = Pattern.compile(
+        "(?i):{2,3}\\s*[a-z_][a-z0-9_ ]*(\\(\\s*\\d+(\\s*,\\s*\\d+)?\\s*\\))?(\\[])?");
+
+    @Override
+    public String defaultSchema(DatabaseMetaData metadata) {
+      return "public";
+    }
+
+    @Override
+    public void readChecksAndComments(Connection connection, String catalog, String schema,
+                                      List<String> tables, Details details) {
+      String namespace = schema == null ? "current_schema()" : "?";
+      for (String[] row : query(connection, "SELECT rel.relname, con.conname, "
+          + "pg_get_constraintdef(con.oid) FROM pg_constraint con JOIN pg_class rel ON rel.oid = "
+          + "con.conrelid JOIN pg_namespace n ON n.oid = rel.relnamespace WHERE con.contype = 'c' "
+          + "AND n.nspname = " + namespace, schema)) {
+        details.addCheck(row[0], row[1], unwrapCheck(row[2]));
+      }
+      for (String[] row : query(connection, "SELECT c.relname, NULL, obj_description(c.oid, "
+          + "'pg_class') FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE "
+          + "c.relkind = 'r' AND n.nspname = " + namespace + " UNION ALL SELECT c.relname, "
+          + "a.attname, col_description(c.oid, a.attnum) FROM pg_class c JOIN pg_namespace n ON "
+          + "n.oid = c.relnamespace JOIN pg_attribute a ON a.attrelid = c.oid WHERE c.relkind = "
+          + "'r' AND a.attnum > 0 AND n.nspname = " + namespace, schema, schema)) {
+        details.addComment(row[0], row[1], row[2]);
+      }
+    }
+
+    @Override
+    public String columnDefault(String logicalType, String value) {
+      return withoutCasts(value).strip();
+    }
+
+    /** The default without type casts, leaving text inside quotes as it is. */
+    private static String withoutCasts(String value) {
+      // Parts at odd positions are inside quotes; '' inside a literal adds an empty part.
+      String[] parts = value.split("'", -1);
+      StringBuilder result = new StringBuilder();
+      for (int i = 0; i < parts.length; i++) {
+        if (i > 0) {
+          result.append('\'');
+        }
+        result.append(i % 2 == 0 ? POSTGRES_CAST.matcher(parts[i]).replaceAll("") : parts[i]);
+      }
+      return result.toString();
+    }
   }
 }

@@ -1,5 +1,7 @@
 package org.migrax.verify;
 
+import org.migrax.dialect.Dialect;
+import org.migrax.dialect.Dialects;
 import org.migrax.model.SchemaModel;
 
 import java.util.ArrayList;
@@ -33,12 +35,19 @@ public final class SchemaComparator {
     }
   }
 
+  /**
+   * Compares two schemas.
+   *
+   * @param id the dialect's exact id; an alias or an unknown id gets the comparison
+   *     every database shares
+   */
   public static List<Difference> compare(SchemaModel expected, SchemaModel actual,
-                                         String dialect) {
+                                         String id) {
+    Dialect dialect = id != null && Dialects.NAMES.contains(id) ? Dialects.byName(id) : null;
     List<Difference> differences = new ArrayList<>();
     Set<String> sequenceTables = new HashSet<>();
     // Databases without sequences, where Hibernate keeps the next value in a table.
-    if ("mysql".equals(dialect) || "tidb".equals(dialect) || "sqlite".equals(dialect)) {
+    if (dialect != null && dialect.hibernateSequencesAreTables()) {
       expected.sequences().forEach(s -> sequenceTables.add(key(s.name())));
     }
     for (SchemaModel.Table table : expected.tables()) {
@@ -62,7 +71,7 @@ public final class SchemaComparator {
   }
 
   private static void compareTable(SchemaModel.Table expected, SchemaModel.Table actual,
-                                   String dialect, List<Difference> differences) {
+                                   Dialect dialect, List<Difference> differences) {
     String table = expected.name();
     Set<String> primaryKey = new HashSet<>();
     if (expected.primaryKey() != null) {
@@ -129,7 +138,7 @@ public final class SchemaComparator {
    * hand-written ones) are not Migrax's and not reported. SQLite keeps no comments.
    */
   private static void compareChecksAndComments(SchemaModel.Table expected,
-                                               SchemaModel.Table actual, String dialect,
+                                               SchemaModel.Table actual, Dialect dialect,
                                                List<Difference> differences) {
     String table = expected.name();
     Set<String> actualChecks = new HashSet<>();
@@ -140,8 +149,7 @@ public final class SchemaComparator {
             + check.name() + " (" + check.expression() + ") is missing"));
       }
     }
-    // SQLite and Derby keep no comments.
-    if ("sqlite".equals(dialect) || "derby".equals(dialect)) {
+    if (dialect != null && !dialect.keepsComments()) {
       return;
     }
     if (expected.comment() != null
@@ -170,14 +178,14 @@ public final class SchemaComparator {
   }
 
   private static String typeProblem(SchemaModel.Column expected, SchemaModel.Column actual,
-                                    String dialect) {
+                                    Dialect dialect) {
     String want = family(expected, dialect);
     String have = family(actual, dialect);
     if (want.equals("unknown") || have.equals("unknown")) {
       return null;
     }
-    // SQLite stores every integer in up to 8 bytes, whatever the declared type.
-    if (want.equals("integer") && have.equals("integer") && "sqlite".equals(dialect)) {
+    if (want.equals("integer") && have.equals("integer") && dialect != null
+        && dialect.integersShareOneSize()) {
       return null;
     }
     if (want.equals("integer") && have.equals("integer")) {
@@ -209,7 +217,7 @@ public final class SchemaComparator {
         + have + " type (" + label(actual) + ")";
   }
 
-  private static String family(SchemaModel.Column column, String dialect) {
+  private static String family(SchemaModel.Column column, Dialect dialect) {
     String logical = column.logicalType() == null ? "" : column.logicalType().toLowerCase(Locale.ROOT);
     String sql = column.sqlType() == null ? "" : column.sqlType().toLowerCase(Locale.ROOT);
     if (sql.startsWith("enum")) {
@@ -217,13 +225,13 @@ public final class SchemaComparator {
     }
     return switch (logical) {
       case "varchar", "nvarchar", "text", "json" -> "text";
-      case "clob" -> postgres(dialect) ? "unknown" : "text";
+      case "clob" -> oidLargeObjects(dialect) ? "unknown" : "text";
       case "integer", "bigint" -> "integer";
       case "decimal", "double", "float" -> "number";
       case "boolean" -> "boolean";
       case "date", "time", "timestamp", "timestamptz" -> "time";
       case "varbinary" -> "binary";
-      case "blob" -> postgres(dialect) ? "unknown" : "binary";
+      case "blob" -> oidLargeObjects(dialect) ? "unknown" : "binary";
       default -> "unknown";
     };
   }
@@ -295,8 +303,8 @@ public final class SchemaComparator {
     return SchemaModel.bareName(name).toLowerCase(Locale.ROOT);
   }
 
-  /** PostgreSQL and YugabyteDB keep large objects as oid, which can hold text or bytes. */
-  private static boolean postgres(String dialect) {
-    return "postgresql".equals(dialect) || "yugabytedb".equals(dialect);
+  /** Large objects kept as oid can hold text or bytes. */
+  private static boolean oidLargeObjects(Dialect dialect) {
+    return dialect != null && dialect.largeObjectsAreOids();
   }
 }

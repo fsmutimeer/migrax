@@ -41,6 +41,51 @@ class LinterAndRenamesTest {
   }
 
   @Test
+  void suggestsOnlineIndexBuildsOnExistingTablesOnSqlServerAndOracle() {
+    for (String dialect : List.of("sqlserver", "oracle")) {
+      assertEquals(Set.of("MX015"), codes("CREATE INDEX i ON orders (customer_id);", dialect));
+      assertEquals(Set.of("MX015"),
+          codes("CREATE UNIQUE INDEX i ON orders (customer_id, code);", dialect));
+      assertEquals(Set.of(), codes("CREATE INDEX i ON orders (customer_id) ONLINE;", dialect));
+      assertEquals(Set.of(), codes(
+          "CREATE TABLE orders (id INT);\nCREATE INDEX i ON orders (id);", dialect));
+    }
+    assertEquals(Set.of(), codes(
+        "CREATE INDEX i ON orders (customer_id) WITH (ONLINE = ON);", "sqlserver"));
+    assertEquals(Set.of("MX015"), codes(
+        "CREATE INDEX i ON orders (customer_id) WITH (ONLINE = OFF);", "sqlserver"));
+    assertEquals(Set.of("MX015"), codes("CREATE INDEX ix_online ON online_orders (id);", "oracle"));
+    assertEquals(Set.of("MX001"), codes("CREATE INDEX i ON orders (customer_id);", "postgresql"));
+  }
+
+  @Test
+  void lockChecksStayOnPostgresqlAndUnknownIdsGetTheCommonChecks() {
+    String sql = "CREATE INDEX i ON orders (customer_id);\nDELETE FROM orders;";
+    assertEquals(Set.of("MX001", "MX009"), codes(sql, "postgresql"));
+    assertEquals(Set.of("MX009"), codes(sql, "cockroachdb"));
+    assertEquals(Set.of("MX009"), codes(sql, "yugabytedb"));
+    assertEquals(Set.of("MX009"), codes(sql, "no-such-database"));
+    assertEquals(Set.of("MX009"), codes(sql, "postgres"));
+    // SQL Server names the new type right after ALTER COLUMN; elsewhere that isn't a change.
+    String alter = "ALTER TABLE orders ALTER COLUMN total bigint;";
+    assertEquals(Set.of("MX003"), codes(alter, "sqlserver"));
+    assertEquals(Set.of(), codes(alter, "h2"));
+    // Oracle moves a smaller NUMBER through a new column: one MX003, no MX007 or MX008.
+    String move = """
+        ALTER TABLE book ADD (migrax_tmp_1a NUMBER(5));
+        UPDATE book SET migrax_tmp_1a = price;
+        ALTER TABLE book DROP COLUMN price;
+        ALTER TABLE book RENAME COLUMN migrax_tmp_1a TO price;
+        """;
+    assertEquals(Set.of("MX003"), codes(move, "oracle"));
+    assertEquals(Set.of("MX003", "MX007", "MX008"), codes(move, "h2"));
+    // A backslash escapes a quote only in the MySQL family.
+    String quote = "INSERT INTO orders (note) VALUES ('it\\'s; here');";
+    assertEquals(Set.of(), codes(quote, "mysql"));
+    assertEquals(Set.of("MX000"), codes(quote, "postgresql"));
+  }
+
+  @Test
   void warnsAboutTablesWithoutTheirSchemaInASqlServerProjectWithSchemas() {
     java.util.function.Function<String, Set<String>> tenants = sql ->
         SqlLinter.lint("test.sql", sql, "sqlserver", true).stream()

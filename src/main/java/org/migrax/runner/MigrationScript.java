@@ -1,7 +1,8 @@
 package org.migrax.runner;
 
+import org.migrax.dialect.ScriptTool;
+
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -10,24 +11,16 @@ import java.util.Map;
  * 'migrate' would record, so later runs see it as applied.
  */
 final class MigrationScript {
-  private enum Tool { POSTGRES, MYSQL, SQLSERVER, ORACLE, H2, SQLITE, OTHER }
-
-  private final Tool tool;
+  private final ScriptTool tool;
   private final String timestamp;
   private final StringBuilder out = new StringBuilder();
 
   /**
-   * @param product the database product name from the JDBC metadata
+   * @param tool how the database's own command line tool wants the script written
    * @param timestamp the SQL expression for the current time on this database
    */
-  MigrationScript(String product, String timestamp) {
-    String name = product.toLowerCase(Locale.ROOT);
-    this.tool = name.contains("postgres") || name.contains("cockroach") ? Tool.POSTGRES
-        : name.contains("mysql") || name.contains("mariadb") ? Tool.MYSQL
-        : name.contains("sql server") ? Tool.SQLSERVER
-        : name.contains("oracle") ? Tool.ORACLE
-        : name.contains("h2") ? Tool.H2
-        : name.contains("sqlite") ? Tool.SQLITE : Tool.OTHER;
+  MigrationScript(ScriptTool tool, String timestamp) {
+    this.tool = tool;
     this.timestamp = timestamp;
   }
 
@@ -60,23 +53,19 @@ final class MigrationScript {
         .append(parts.size() > 1 ? " in " + parts.size() + " schemas" : "").append(".\n");
     out.append("-- Review it, then run the whole file with the database's own tool; it must stop\n");
     out.append("-- at the first error:\n");
-    out.append("--   ").append(runCommand()).append('\n');
+    out.append("--   ").append(tool.runCommand()).append('\n');
     out.append("-- Each migration is recorded in migrax_history, so 'migrax status' and later\n");
     out.append("-- 'migrax migrate' runs see it as applied.\n");
-    if (tool == Tool.MYSQL || tool == Tool.ORACLE) {
+    if (!tool.transactions()) {
       out.append("-- This database commits DDL statements at once: if a migration fails halfway,\n");
       out.append("-- its earlier statements stay applied. Check the schema before running again.\n");
     }
     out.append('\n');
-    if (tool == Tool.ORACLE) {
-      out.append("WHENEVER SQLERROR EXIT FAILURE ROLLBACK\n\n");
-    }
+    out.append(tool.start());
     for (Part part : parts) {
       part(part, callbacks);
     }
-    if (tool == Tool.ORACLE) {
-      out.append("EXIT\n");
-    }
+    out.append(tool.end());
     return out.toString();
   }
 
@@ -85,7 +74,7 @@ final class MigrationScript {
     if (part.schema() != null) {
       out.append("-- Schema ").append(part.schema()).append('\n');
       if (!part.qualified()) {
-        out.append(terminated(useSchema(part.schema())));
+        out.append(terminated(tool.useSchema(part.schema())));
       }
       out.append('\n');
       if (part.plan().isEmpty() && part.stoppedAt() == null) {
@@ -118,14 +107,14 @@ final class MigrationScript {
         }
         out.append(terminated(insert(part.history(), skip.migration().version(),
             skip.migration().checksum())));
-        commitForOracle();
+        out.append(tool.afterEachMigration());
         out.append('\n');
       } else if (step instanceof MigrationRunner.Record record) {
         out.append("-- ").append(record.version())
             .append(": replaced by a squashed migration, recorded without running\n");
         out.append(terminated(insert(part.history(), record.version(),
             record.checksum())));
-        commitForOracle();
+        out.append(tool.afterEachMigration());
         out.append('\n');
       }
     }
@@ -143,22 +132,12 @@ final class MigrationScript {
     }
   }
 
-  /** The statement that makes {@code schema} the default for the statements after it. */
-  private String useSchema(String schema) {
-    return switch (tool) {
-      case MYSQL -> "USE " + schema;
-      case ORACLE -> "ALTER SESSION SET CURRENT_SCHEMA = " + schema;
-      case H2 -> "SET SCHEMA " + schema;
-      default -> "SET search_path TO " + schema;
-    };
-  }
-
   private void migration(MigrationRunner.Apply apply, String history,
                          Map<String, List<String>> statements,
                          Map<String, Migration> callbacks) {
     Migration migration = apply.migration();
     boolean transaction = !SqlScript.hasDirective(migration.sql(), "no-transaction")
-        && tool != Tool.MYSQL && tool != Tool.ORACLE;
+        && tool.transactions();
     out.append("-- ").append(migration.version())
         .append(transaction ? "" : " (runs without a transaction)").append('\n');
     for (Precondition precondition : Precondition.of(migration)) {
@@ -166,7 +145,7 @@ final class MigrationScript {
           .append(": met when this script was written\n");
     }
     if (transaction) {
-      out.append(tool == Tool.SQLSERVER ? "BEGIN TRANSACTION\nGO\n" : "BEGIN;\n");
+      out.append(tool.begin());
     }
     statements(callbacks.get("beforeEachMigrate.sql"), statements);
     statements(migration, statements);
@@ -177,9 +156,9 @@ final class MigrationScript {
     }
     out.append(terminated(insert(history, migration.version(), migration.checksum())));
     if (transaction) {
-      out.append(tool == Tool.SQLSERVER ? "COMMIT\nGO\n" : "COMMIT;\n");
+      out.append(tool.commit());
     }
-    commitForOracle();
+    out.append(tool.afterEachMigration());
     out.append('\n');
   }
 
@@ -197,22 +176,9 @@ final class MigrationScript {
     }
   }
 
-  private void commitForOracle() {
-    if (tool == Tool.ORACLE) {
-      out.append("COMMIT;\n");
-    }
-  }
-
   /** A statement with the end marker its database's tool expects. */
   private String terminated(String statement) {
-    return switch (tool) {
-      case SQLSERVER -> statement + "\nGO\n";
-      case ORACLE -> SqlScript.isPlsqlBlock(statement) ? statement + "\n/\n"
-          : statement.replaceAll(";\\s*$", "") + ";\n";
-      case MYSQL -> statement.contains(";") ? "DELIMITER $$\n" + statement + "$$\nDELIMITER ;\n"
-          : statement + ";\n";
-      default -> statement.endsWith(";") ? statement + "\n" : statement + ";\n";
-    };
+    return tool.terminate(statement, SqlScript.isPlsqlBlock(statement));
   }
 
   private String insert(String history, String version, String checksum) {
@@ -222,17 +188,5 @@ final class MigrationScript {
 
   private static String literal(String value) {
     return "'" + value.replace("'", "''") + "'";
-  }
-
-  private String runCommand() {
-    return switch (tool) {
-      case POSTGRES -> "psql -v ON_ERROR_STOP=1 -f <this file>";
-      case MYSQL -> "mysql <database> < <this file>";
-      case SQLSERVER -> "sqlcmd -b -i <this file>";
-      case ORACLE -> "sqlplus <user>@<database> @<this file>";
-      case H2 -> "java -cp h2.jar org.h2.tools.RunScript -url <url> -script <this file>";
-      case SQLITE -> "sqlite3 -bail <database file> < <this file>";
-      default -> "your database's SQL tool, stopping at the first error";
-    };
   }
 }

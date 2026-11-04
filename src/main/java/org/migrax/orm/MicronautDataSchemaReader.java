@@ -128,7 +128,7 @@ public final class MicronautDataSchemaReader {
     boolean uuid = property.getDataType() == DataType.UUID;
     if (type == GeneratedValue.Type.AUTO) {
       // Micronaut Data's rule: UUIDs from the database, sequences on Oracle, else identity.
-      type = uuid ? GeneratedValue.Type.UUID : dialect.id().equals("oracle")
+      type = uuid ? GeneratedValue.Type.UUID : dialect.micronautDataSequenceIds()
           ? GeneratedValue.Type.SEQUENCE : GeneratedValue.Type.IDENTITY;
     }
     if (type == GeneratedValue.Type.SEQUENCE) {
@@ -140,9 +140,9 @@ public final class MicronautDataSchemaReader {
       return plain;
     }
     if (type == GeneratedValue.Type.UUID) {
-      String generated = uuidDefault();
-      // On MySQL, Micronaut Data puts the new UUID into the insert itself: no default needed.
-      if (generated == null && !List.of("mysql", "mariadb", "tidb").contains(dialect.id())) {
+      String generated = dialect.micronautDataUuidDefault().orElse(null);
+      // With text UUIDs (MySQL), Micronaut Data puts the new UUID into the insert itself.
+      if (generated == null && !dialect.micronautDataTextUuids()) {
         Log.warn("{}.{}: Migrax knows no database default for a generated UUID on {}; the "
             + "column gets none.", entity.getSimpleName(), property.getName(), dialect.id());
       }
@@ -150,25 +150,6 @@ public final class MicronautDataSchemaReader {
     }
     return new SchemaModel.Column(plain.name(), plain.sqlType(), false, plain.length(),
         plain.precision(), plain.scale(), null, false, true, null, plain.logicalType());
-  }
-
-  /** The database function Micronaut Data uses for a generated UUID, or null. */
-  private String uuidDefault() {
-    return switch (dialect.id()) {
-      case "postgresql", "cockroachdb", "yugabytedb" -> "gen_random_uuid()";
-      case "h2" -> "random_uuid()";
-      case "sqlserver" -> "newid()";
-      case "oracle" -> "sys_guid()";
-      default -> null;
-    };
-  }
-
-  /** MySQL (and MariaDB, TiDB, through Micronaut's MySQL dialect) and Oracle: text UUIDs. */
-  private boolean textUuids() {
-    return switch (dialect.id()) {
-      case "mysql", "mariadb", "tidb", "oracle" -> true;
-      default -> false;
-    };
   }
 
   private static SchemaModel.Column withDefault(SchemaModel.Column c, String value) {
@@ -324,7 +305,7 @@ public final class MicronautDataSchemaReader {
       return null;
     }
     Integer length = null;
-    if (type == DataType.UUID && textUuids()) {
+    if (type == DataType.UUID && dialect.micronautDataTextUuids()) {
       // Micronaut Data stores UUIDs as text there: VARCHAR(36).
       return new SchemaModel.Column(name, "varchar", !required, 36, null, null, null, false,
           false, null, "varchar");
@@ -342,10 +323,11 @@ public final class MicronautDataSchemaReader {
         ? persistenceColumn(metadata, "precision").orElse(null) : null;
     Integer scale = type == DataType.BIGDECIMAL
         ? persistenceColumn(metadata, "scale").orElse(null) : null;
-    if (type == DataType.BYTE_ARRAY && dialect instanceof org.migrax.dialect.PostgresDialect) {
+    Optional<String> bytes = dialect.plainBytesType();
+    if (type == DataType.BYTE_ARRAY && bytes.isPresent()) {
       // Micronaut Data writes bytes, which PostgreSQL keeps in bytea, not in a large object.
-      return new SchemaModel.Column(name, "bytea", !required, null, null, null, null, false,
-          false, null, "blob");
+      return new SchemaModel.Column(name, bytes.get(), !required, null, null, null, null,
+          false, false, null, "blob");
     }
     return new SchemaModel.Column(name, logical, !required, length, precision, scale, null,
         false, false, null, logical);

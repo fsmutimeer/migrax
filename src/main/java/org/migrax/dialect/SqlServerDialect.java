@@ -2,9 +2,11 @@ package org.migrax.dialect;
 
 import org.migrax.model.SchemaModel;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -51,6 +53,7 @@ public final class SqlServerDialect extends AbstractDialect {
    * @return a dialect bound to that schema
    * @since 0.7.0
    */
+  @Override
   public SqlServerDialect inSchema(String schema) {
     return new SqlServerDialect(schema);
   }
@@ -58,6 +61,94 @@ public final class SqlServerDialect extends AbstractDialect {
   @Override
   public String id() {
     return "sqlserver";
+  }
+
+  @Override
+  public String historyTimestampType() {
+    return "DATETIME2";
+  }
+
+  @Override
+  public String currentTimestamp() {
+    return "SYSUTCDATETIME()";
+  }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return SQLCMD;
+  }
+
+  /** sqlcmd: every statement and transaction command ends with a GO line. */
+  private static final ScriptTool SQLCMD = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "sqlcmd -b -i <this file>";
+    }
+
+    @Override
+    public String begin() {
+      return "BEGIN TRANSACTION\nGO\n";
+    }
+
+    @Override
+    public String commit() {
+      return "COMMIT\nGO\n";
+    }
+
+    @Override
+    public String terminate(String statement, boolean procedural) {
+      return statement + "\nGO\n";
+    }
+  };
+
+  @Override
+  public java.util.Optional<String> tableSizeQuery() {
+    return java.util.Optional.of("SELECT SUM(p.rows), SUM(a.total_pages) * 8192 "
+        + "FROM sys.partitions p JOIN sys.allocation_units a ON a.container_id = p.partition_id "
+        + "WHERE p.object_id = OBJECT_ID(?) AND p.index_id IN (0, 1)");
+  }
+
+  /** A SQL Server session keeps its user's default schema. */
+  @Override
+  public boolean switchesSchemas() {
+    return false;
+  }
+
+  /** {@code ALTER COLUMN c varchar(5)} names the new type right after the column. */
+  @Override
+  public boolean changesTypesWithAlterColumn() {
+    return true;
+  }
+
+  /** {@code WITH (ONLINE = ON)}, on Enterprise edition. */
+  @Override
+  public boolean hasOnlineIndexOption() {
+    return true;
+  }
+
+  @Override
+  public java.util.List<String> hibernateDialects(int hibernateMajor) {
+    if (hibernateMajor == 4) {
+      return java.util.List.of("org.hibernate.dialect.SQLServer2012Dialect",
+          "org.hibernate.dialect.SQLServer2008Dialect");
+    }
+    return java.util.List.of(hibernateMajor == 5 ? "org.hibernate.dialect.SQLServer2012Dialect"
+        : "org.hibernate.dialect.SQLServerDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.SQLServerPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
+    return "sqlserver";
+  }
+
+  @Override
+  public java.util.Optional<String> micronautDataUuidDefault() {
+    return java.util.Optional.of("newid()");
   }
 
   @Override
@@ -269,6 +360,64 @@ public final class SqlServerDialect extends AbstractDialect {
 
   @Override
   public boolean updatableViews() {
+    return true;
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return new ScratchSetup("mcr.microsoft.com/mssql/server:2022-latest", 1433,
+        "jdbc:sqlserver://127.0.0.1:{port};encrypt=false;trustServerCertificate=true", "sa",
+        "Migrax_Passw0rd!", 300, "ACCEPT_EULA=Y", "MSSQL_SA_PASSWORD=Migrax_Passw0rd!");
+  }
+
+  /** Checks and comments in {@code sys}, defaults in parentheses. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog() {
+      @Override
+      public String defaultSchema(DatabaseMetaData metadata) {
+        return "dbo";
+      }
+
+      @Override
+      public void readChecksAndComments(Connection connection, String catalog, String schema,
+                                        List<String> tables, Details details) {
+        String namespace = schema == null ? "SCHEMA_NAME()" : "?";
+        for (String[] row : query(connection, "SELECT t.name, cc.name, cc.definition FROM "
+            + "sys.check_constraints cc JOIN sys.tables t ON t.object_id = cc.parent_object_id "
+            + "WHERE SCHEMA_NAME(t.schema_id) = " + namespace, schema)) {
+          details.addCheck(row[0], row[1], unwrapCheck(row[2]));
+        }
+        for (String[] row : query(connection, "SELECT t.name, c.name, CAST(ep.value AS "
+            + "nvarchar(4000)) FROM sys.extended_properties ep JOIN sys.tables t ON t.object_id = "
+            + "ep.major_id LEFT JOIN sys.columns c ON c.object_id = ep.major_id AND c.column_id = "
+            + "ep.minor_id WHERE ep.class = 1 AND ep.name = 'MS_Description' AND "
+            + "SCHEMA_NAME(t.schema_id) = " + namespace, schema)) {
+          details.addComment(row[0], row[1], row[2]);
+        }
+      }
+
+      @Override
+      public String columnDefault(String logicalType, String value) {
+        // ('x'), ((0)), (getdate()): SQL Server wraps every default in parentheses.
+        while (value.startsWith("(") && value.endsWith(")") && wrapsAll(value)) {
+          value = value.substring(1, value.length() - 1).strip();
+        }
+        return value;
+      }
+    };
+  }
+
+  /** Whether the parentheses at both ends belong together: (a) + (b) is not wrapped. */
+  private static boolean wrapsAll(String text) {
+    int depth = 0;
+    for (int i = 0; i < text.length(); i++) {
+      char c = text.charAt(i);
+      depth += c == '(' ? 1 : c == ')' ? -1 : 0;
+      if (depth == 0 && i < text.length() - 1) {
+        return false;
+      }
+    }
     return true;
   }
 }

@@ -5,6 +5,7 @@ import org.migrax.ops.AlterColumn;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -39,6 +40,32 @@ public final class DerbyDialect extends AbstractDialect {
 
   @Override
   public String id() {
+    return "derby";
+  }
+
+  @Override
+  public boolean keepsComments() {
+    return false;
+  }
+
+  /**
+   * Derby's Hibernate dialect is in Hibernate 6 itself and in hibernate-community-dialects
+   * from Hibernate 7 on.
+   */
+  @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return hibernateMajor <= 5 ? List.of("org.hibernate.dialect.DerbyTenSevenDialect")
+        : List.of("org.hibernate.dialect.DerbyDialect",
+            "org.hibernate.community.dialect.DerbyDialect");
+  }
+
+  @Override
+  public String eclipseLinkPlatform() {
+    return "org.eclipse.persistence.platform.database.DerbyPlatform";
+  }
+
+  @Override
+  public String openJpaDictionary() {
     return "derby";
   }
 
@@ -267,5 +294,73 @@ public final class DerbyDialect extends AbstractDialect {
   public AutoCloseable acquireMigrationLock(Connection connection, String resource)
       throws SQLException {
     return TableMigrationLock.acquire(connection, resource, "timestamp", false);
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return ScratchSetup.inMemory("jdbc:derby:memory:{name};create=true", "", "");
+  }
+
+  /** Checks in {@code SYS} (Derby keeps no comments); indexes of its own for constraints. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog() {
+      @Override
+      public List<String> sequencesIn(Connection connection, String catalog, String owner)
+          throws SQLException {
+        return owner == null ? List.of() : names(connection, "SELECT q.SEQUENCENAME FROM "
+            + "SYS.SYSSEQUENCES q JOIN SYS.SYSSCHEMAS s ON s.SCHEMAID = q.SCHEMAID WHERE "
+            + "UPPER(s.SCHEMANAME) = UPPER(?)", owner);
+      }
+
+      @Override
+      public List<String> sequenceNames(Connection connection) throws SQLException {
+        return names(connection, "SELECT SEQUENCENAME FROM SYS.SYSSEQUENCES");
+      }
+
+      @Override
+      public void readChecksAndComments(Connection connection, String catalog, String owner,
+                                        List<String> tables, Details details) {
+        for (String[] row : query(connection, "SELECT t.TABLENAME, c.CONSTRAINTNAME, "
+            + "k.CHECKDEFINITION FROM SYS.SYSCONSTRAINTS c JOIN SYS.SYSCHECKS k ON "
+            + "k.CONSTRAINTID = c.CONSTRAINTID JOIN SYS.SYSTABLES t ON t.TABLEID = c.TABLEID "
+            + "JOIN SYS.SYSSCHEMAS s ON s.SCHEMAID = t.SCHEMAID WHERE s.SCHEMANAME = "
+            + (owner == null ? "CURRENT SCHEMA" : "?"), owner)) {
+          details.addCheck(row[0], row[1], row[2]);
+        }
+      }
+
+      /** On a nullable column the constraint checks, and its index says it is not unique. */
+      @Override
+      public Set<String> uniqueConstraintIndexes(Connection connection, String schema,
+                                                 String table) {
+        return constraintIndexes(connection, schema, table, "U");
+      }
+
+      @Override
+      public Set<String> foreignKeyIndexes(Connection connection, String schema, String table) {
+        return constraintIndexes(connection, schema, table, "F");
+      }
+    };
+  }
+
+  /**
+   * The indexes Derby makes for a table's constraints of a type: {@code U} for unique keys,
+   * {@code F} for foreign keys.
+   */
+  private static Set<String> constraintIndexes(Connection connection, String schema,
+                                               String table, String type) {
+    Set<String> names = new HashSet<>();
+    for (String[] row : SchemaCatalog.query(connection, "SELECT g.CONGLOMERATENAME FROM "
+        + "SYS.SYSCONSTRAINTS c JOIN " + (type.equals("F") ? "SYS.SYSFOREIGNKEYS" : "SYS.SYSKEYS")
+        + " k ON k.CONSTRAINTID = c.CONSTRAINTID "
+        + "JOIN SYS.SYSCONGLOMERATES g ON g.CONGLOMERATEID = k.CONGLOMERATEID "
+        + "JOIN SYS.SYSTABLES t ON t.TABLEID = c.TABLEID "
+        + "JOIN SYS.SYSSCHEMAS s ON s.SCHEMAID = t.SCHEMAID "
+        + "WHERE c.TYPE = '" + type + "' AND t.TABLENAME = ? AND s.SCHEMANAME = "
+        + (schema == null ? "CURRENT SCHEMA" : "?"), table, schema)) {
+      names.add(row[0]);
+    }
+    return names;
   }
 }

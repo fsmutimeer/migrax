@@ -29,12 +29,15 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -65,6 +68,66 @@ public final class SqliteDialect extends AbstractDialect {
   @Override
   public String id() {
     return "sqlite";
+  }
+
+  @Override
+  public ScriptTool scriptTool() {
+    return SQLITE3;
+  }
+
+  /** SQLite's sqlite3 shell. */
+  private static final ScriptTool SQLITE3 = new ScriptTool() {
+    @Override
+    public String runCommand() {
+      return "sqlite3 -bail <database file> < <this file>";
+    }
+  };
+
+  @Override
+  public boolean keepsComments() {
+    return false;
+  }
+
+  /** Each SQLite database is its own file. */
+  @Override
+  public boolean hasSchemas() {
+    return false;
+  }
+
+  @Override
+  public boolean countsRowsForTableSize() {
+    return true;
+  }
+
+  /** {@link #prepare} rebuilds the table instead. */
+  @Override
+  public boolean dropsForeignKeys() {
+    return false;
+  }
+
+  /**
+   * In hibernate-community-dialects, which SQLite projects add. Hibernate 5 has no SQLite
+   * dialect: the project's own hibernate.dialect setting applies.
+   */
+  @Override
+  public List<String> hibernateDialects(int hibernateMajor) {
+    return hibernateMajor <= 5 ? List.of()
+        : List.of("org.hibernate.community.dialect.SQLiteDialect");
+  }
+
+  /** SQLite has no sequences: Hibernate keeps them as tables. */
+  @Override
+  public boolean hibernateSequencesAreTables() {
+    return true;
+  }
+
+  /**
+   * Hibernate's validator rejects the integer row-id columns that its own SQLite dialect
+   * creates for Long ids.
+   */
+  @Override
+  public boolean hibernateValidationWorks() {
+    return false;
   }
 
   @Override
@@ -469,5 +532,79 @@ public final class SqliteDialect extends AbstractDialect {
     } catch (Exception e) {
       failure.addSuppressed(e);
     }
+  }
+
+  @Override
+  public boolean integersShareOneSize() {
+    return true;
+  }
+
+  @Override
+  public ScratchSetup scratch() {
+    return ScratchSetup.inFile("jdbc:sqlite:{file}", "", "");
+  }
+
+  private static final Pattern CHECK = Pattern.compile(
+      "(?i)CONSTRAINT\\s+[\"`\\[]?([A-Za-z0-9_$]+)[\"`\\]]?\\s+CHECK\\s*\\(");
+  private static final Pattern UNNAMED_CHECK = Pattern.compile("(?i)\\bCHECK\\s*\\(");
+
+  /**
+   * Checks only in the table's CREATE statement (SQLite keeps no comments); decimals sized as
+   * precision plus scale; an {@code integer} primary key is the row id.
+   */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new SchemaCatalog() {
+      @Override
+      public void readChecksAndComments(Connection connection, String catalog, String schema,
+                                        List<String> tables, Details details) {
+        for (String[] row : query(connection,
+            "SELECT name, NULL, sql FROM sqlite_master WHERE type = 'table'")) {
+          if (row[2] == null) {
+            continue;
+          }
+          Set<Integer> named = new HashSet<>();
+          Matcher matcher = CHECK.matcher(row[2]);
+          while (matcher.find()) {
+            named.add(matcher.end() - 1);
+            details.addCheck(row[0], matcher.group(1), parenthesized(row[2], matcher.end() - 1));
+          }
+          // A check without a name has none in SQLite either; it gets the one Migrax would give.
+          Matcher unnamed = UNNAMED_CHECK.matcher(row[2]);
+          while (unnamed.find()) {
+            if (!named.contains(unnamed.end() - 1)) {
+              String condition = parenthesized(row[2], unnamed.end() - 1).strip();
+              details.addCheck(row[0], SchemaModel.checkConstraintName(row[0], condition),
+                  condition);
+            }
+          }
+        }
+      }
+
+      /** The driver reports numeric(10,2) with a size of 12. */
+      @Override
+      public boolean precisionIncludesScale() {
+        return true;
+      }
+
+      @Override
+      public boolean integerPrimaryKeyIsRowId() {
+        return true;
+      }
+    };
+  }
+
+  /** The text inside the parentheses that open at {@code open}. */
+  private static String parenthesized(String sql, int open) {
+    int depth = 0;
+    for (int i = open; i < sql.length(); i++) {
+      char ch = sql.charAt(i);
+      if (ch == '(') {
+        depth++;
+      } else if (ch == ')' && --depth == 0) {
+        return sql.substring(open + 1, i);
+      }
+    }
+    return sql.substring(open + 1);
   }
 }

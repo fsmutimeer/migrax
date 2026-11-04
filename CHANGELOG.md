@@ -6,6 +6,24 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `lint` on SQL Server and Oracle now reports MX015 (info) for a `CREATE INDEX` on an existing
+  table without `ONLINE`. Before, the rule never reported anything.
+- `--schema` or `--schemas` on a database without schemas now names that database in the
+  error and tells you to remove the option.
+- Oracle: `drift` and the first `generate` no longer fail with ORA-20000 when the
+  schema has a table with a quoted mixed-case name. Reading the schema also no longer makes
+  Oracle gather fresh table statistics.
+- H2, Derby, HSQLDB and Oracle: a schema named in lower case (`migrax.schema=app`) finds the
+  schema created without quotes (stored as `APP`) instead of no tables. On every database, a
+  schema name whose case differs from exactly one existing schema now finds that schema.
+- MySQL, MariaDB and TiDB: reading a schema by name through the Java API
+  (`DatabaseSchemaReader.read(connection, "other")`) reads that database instead of the
+  connection's default one.
+- Oracle: `clean --schema` lists and drops the sequences of the named schema instead of the
+  login user's own.
+
 ## [0.18.0-rc.2] - 2026-11-02
 
 Release candidate for 0.18.0, for testing.

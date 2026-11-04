@@ -1,10 +1,13 @@
 package org.migrax.verify;
 
+import org.migrax.dialect.Dialect;
+import org.migrax.dialect.Dialects;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Estimated size of a table from the database catalog, without scanning it.
@@ -20,28 +23,16 @@ public record TableStats(long rows, long bytes) {
   /** Reads the estimate; returns {@link #UNKNOWN} when the table or statistics are missing. */
   public static TableStats estimate(Connection connection, String table) {
     try {
-      String product = connection.getMetaData().getDatabaseProductName().toLowerCase(Locale.ROOT);
-      if (product.contains("postgres")) {
-        return query(connection, "SELECT c.reltuples::bigint, pg_total_relation_size(c.oid) "
-            + "FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace "
-            + "WHERE c.relname = ? AND n.nspname = current_schema()", table);
+      Dialect dialect = Dialects.forProduct(connection.getMetaData().getDatabaseProductName())
+          .orElse(null);
+      if (dialect == null) {
+        return UNKNOWN;
       }
-      if (product.contains("mysql") || product.contains("mariadb")) {
-        return query(connection, "SELECT table_rows, data_length + index_length "
-            + "FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?",
-            table);
+      Optional<String> sizeQuery = dialect.tableSizeQuery();
+      if (sizeQuery.isPresent()) {
+        return query(connection, sizeQuery.get(), dialect.tableSizeName(table));
       }
-      if (product.contains("sql server")) {
-        return query(connection, "SELECT SUM(p.rows), SUM(a.total_pages) * 8192 "
-            + "FROM sys.partitions p JOIN sys.allocation_units a ON a.container_id = p.partition_id "
-            + "WHERE p.object_id = OBJECT_ID(?) AND p.index_id IN (0, 1)", table);
-      }
-      if (product.contains("oracle")) {
-        return query(connection, "SELECT t.num_rows, (SELECT SUM(bytes) FROM user_segments s "
-            + "WHERE s.segment_name = t.table_name) FROM user_tables t WHERE t.table_name = ?",
-            table.toUpperCase(Locale.ROOT));
-      }
-      if (product.contains("h2") || product.contains("sqlite")) {
+      if (dialect.countsRowsForTableSize()) {
         try (PreparedStatement statement = connection.prepareStatement(
             "SELECT COUNT(*) FROM " + table.replaceAll("[^A-Za-z0-9_]", ""))) {
           try (ResultSet result = statement.executeQuery()) {

@@ -1,0 +1,151 @@
+# dialect cockroachdb
+# foldsNames true
+
+## optional columns
+opt_flag added
+opt_text added
+opt_created added
+opt_day added
+opt_ticket_pg added
+opt_ticket_ora rejected
+opt_ticket_std rejected
+
+## read
+table golden_child comment=null
+  Column[name=parent_id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=line, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=note, sqlType=varchar, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=A note]
+  PrimaryKey[columns=[parent_id, line], constraintName=golden_child_pkey]
+  Index[name=golden_child_note_idx, columns=[note], unique=false]
+  ForeignKey[name=golden_child_parent_fk, columns=[parent_id], referencedTable=golden_parent, referencedColumns=[id]]
+table golden_counted comment=null
+  Column[name=id, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=true, sequenceName=golden_counted_id_seq, logicalType=integer, comment=null]
+  Column[name=label, sqlType=varchar, nullable=true, length=20, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  PrimaryKey[columns=[id], constraintName=golden_counted_pkey]
+table golden_grandchild comment=null
+  Column[name=parent_id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=line, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=seq, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  PrimaryKey[columns=[parent_id, line, seq], constraintName=golden_grandchild_pkey]
+  ForeignKey[name=golden_grandchild_child_fk, columns=[parent_id, line], referencedTable=golden_child, referencedColumns=[parent_id, line]]
+table golden_nokey comment=null
+  Column[name=label, sqlType=varchar, nullable=true, length=20, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  Column[name=amount, sqlType=integer, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  null
+table golden_parent comment=Parent's table
+  Column[name=id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=true, sequenceName=golden_parent_id_seq, logicalType=bigint, comment=null]
+  Column[name=code, sqlType=varchar, nullable=false, length=20, precision=null, scale=null, defaultValue=null, unique=true, identity=false, sequenceName=null, logicalType=varchar, comment=Code's text]
+  Column[name=name, sqlType=varchar, nullable=true, length=100, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  Column[name=amount, sqlType=decimal, nullable=true, length=null, precision=12, scale=3, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=decimal, comment=null]
+  Column[name=ratio, sqlType=double, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=double, comment=null]
+  Column[name=small, sqlType=float, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=float, comment=null]
+  Column[name=counter, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=negative, sqlType=integer, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=big, sqlType=bigint, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=flag, sqlType=boolean, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=boolean, comment=null]
+  Column[name=born, sqlType=date, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=date, comment=null]
+  Column[name=at_time, sqlType=time, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=time, comment=null]
+  Column[name=created, sqlType=timestamp, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=timestamp, comment=null]
+  Column[name=zoned, sqlType=timestamptz, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=timestamptz, comment=null]
+  Column[name=body, sqlType=text, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=text, comment=null]
+  Column[name=doc, sqlType=json, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=json, comment=null]
+  Column[name=uid, sqlType=uuid, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=uuid, comment=null]
+  Column[name=bin, sqlType=varbinary, nullable=true, length=2147483647, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varbinary, comment=null]
+  Column[name=big_text, sqlType=text, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=text, comment=null]
+  Column[name=big_bin, sqlType=varbinary, nullable=true, length=2147483647, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varbinary, comment=null]
+  Column[name=manager_id, sqlType=bigint, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=opt_flag, sqlType=boolean, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=boolean, comment=null]
+  Column[name=opt_text, sqlType=varchar, nullable=true, length=10, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  Column[name=opt_created, sqlType=timestamp, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=timestamp, comment=null]
+  Column[name=opt_day, sqlType=date, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=date, comment=null]
+  Column[name=opt_ticket_pg, sqlType=bigint, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=true, sequenceName=golden_seq, logicalType=bigint, comment=null]
+  PrimaryKey[columns=[id], constraintName=golden_parent_pkey]
+  Index[name=golden_parent_big_uq, columns=[big, negative], unique=true]
+  Index[name=golden_parent_name_idx, columns=[name], unique=false]
+  ForeignKey[name=golden_parent_manager_fk, columns=[manager_id], referencedTable=golden_parent, referencedColumns=[id]]
+  Check[name=golden_counter_positive, expression=((counter >= 0))]
+  Check[name=golden_counter_range, expression=((counter > negative))]
+
+## read exact
+table golden_child comment=null
+  Column[name=parent_id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=line, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=note, sqlType=varchar, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=A note]
+  PrimaryKey[columns=[parent_id, line], constraintName=golden_child_pkey]
+  Index[name=golden_child_note_idx, columns=[note], unique=false]
+  ForeignKey[name=golden_child_parent_fk, columns=[parent_id], referencedTable=golden_parent, referencedColumns=[id]]
+table golden_counted comment=null
+  Column[name=id, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=true, sequenceName=golden_counted_id_seq, logicalType=integer, comment=null]
+  Column[name=label, sqlType=varchar, nullable=true, length=20, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  PrimaryKey[columns=[id], constraintName=golden_counted_pkey]
+table golden_grandchild comment=null
+  Column[name=parent_id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=line, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=seq, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  PrimaryKey[columns=[parent_id, line, seq], constraintName=golden_grandchild_pkey]
+  ForeignKey[name=golden_grandchild_child_fk, columns=[parent_id, line], referencedTable=golden_child, referencedColumns=[parent_id, line]]
+table golden_nokey comment=null
+  Column[name=label, sqlType=varchar, nullable=true, length=20, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  Column[name=amount, sqlType=integer, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  null
+table golden_parent comment=Parent's table
+  Column[name=id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=true, sequenceName=golden_parent_id_seq, logicalType=bigint, comment=null]
+  Column[name=code, sqlType=varchar, nullable=false, length=20, precision=null, scale=null, defaultValue=null, unique=true, identity=false, sequenceName=null, logicalType=varchar, comment=Code's text]
+  Column[name=name, sqlType=varchar, nullable=true, length=100, precision=null, scale=null, defaultValue=e'it\'s'::STRING, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  Column[name=amount, sqlType=decimal, nullable=true, length=null, precision=12, scale=3, defaultValue=1.50, unique=false, identity=false, sequenceName=null, logicalType=decimal, comment=null]
+  Column[name=ratio, sqlType=double, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=double, comment=null]
+  Column[name=small, sqlType=float, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=float, comment=null]
+  Column[name=counter, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=42, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=negative, sqlType=integer, nullable=true, length=null, precision=null, scale=null, defaultValue=-1, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=big, sqlType=bigint, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=flag, sqlType=boolean, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=boolean, comment=null]
+  Column[name=born, sqlType=date, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=date, comment=null]
+  Column[name=at_time, sqlType=time, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=time, comment=null]
+  Column[name=created, sqlType=timestamp, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=timestamp, comment=null]
+  Column[name=zoned, sqlType=timestamptz, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=timestamptz, comment=null]
+  Column[name=body, sqlType=text, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=text, comment=null]
+  Column[name=doc, sqlType=json, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=json, comment=null]
+  Column[name=uid, sqlType=uuid, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=uuid, comment=null]
+  Column[name=bin, sqlType=varbinary, nullable=true, length=2147483647, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varbinary, comment=null]
+  Column[name=big_text, sqlType=text, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=text, comment=null]
+  Column[name=big_bin, sqlType=varbinary, nullable=true, length=2147483647, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varbinary, comment=null]
+  Column[name=manager_id, sqlType=bigint, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=opt_flag, sqlType=boolean, nullable=true, length=null, precision=null, scale=null, defaultValue=true, unique=false, identity=false, sequenceName=null, logicalType=boolean, comment=null]
+  Column[name=opt_text, sqlType=varchar, nullable=true, length=10, precision=null, scale=null, defaultValue='x', unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  Column[name=opt_created, sqlType=timestamp, nullable=true, length=null, precision=null, scale=null, defaultValue=current_timestamp(), unique=false, identity=false, sequenceName=null, logicalType=timestamp, comment=null]
+  Column[name=opt_day, sqlType=date, nullable=true, length=null, precision=null, scale=null, defaultValue=current_date(), unique=false, identity=false, sequenceName=null, logicalType=date, comment=null]
+  Column[name=opt_ticket_pg, sqlType=bigint, nullable=true, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=true, sequenceName=golden_seq, logicalType=bigint, comment=null]
+  PrimaryKey[columns=[id], constraintName=golden_parent_pkey]
+  Index[name=golden_parent_big_uq, columns=[big, negative], unique=true]
+  Index[name=golden_parent_name_idx, columns=[name], unique=false]
+  ForeignKey[name=golden_parent_manager_fk, columns=[manager_id], referencedTable=golden_parent, referencedColumns=[id]]
+  Check[name=golden_counter_positive, expression=((counter >= 0))]
+  Check[name=golden_counter_range, expression=((counter > negative))]
+
+## views
+golden_view
+
+## sequences
+golden_counted_id_seq
+golden_parent_id_seq
+golden_seq
+
+## other schema
+tables [golden_parent]
+# read
+table golden_parent comment=null
+  Column[name=other_id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=label, sqlType=varchar, nullable=true, length=30, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  PrimaryKey[columns=[other_id], constraintName=golden_parent_pkey]
+# read exact
+table golden_parent comment=null
+  Column[name=other_id, sqlType=bigint, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=bigint, comment=null]
+  Column[name=label, sqlType=varchar, nullable=true, length=30, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  PrimaryKey[columns=[other_id], constraintName=golden_parent_pkey]
+sequences [golden_b_seq]
+
+## quoted name
+table GoldenQuoted comment=null
+  Column[name=id, sqlType=integer, nullable=false, length=null, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=integer, comment=null]
+  Column[name=Value, sqlType=varchar, nullable=true, length=10, precision=null, scale=null, defaultValue=null, unique=false, identity=false, sequenceName=null, logicalType=varchar, comment=null]
+  PrimaryKey[columns=[id], constraintName=goldenquoted_pkey]

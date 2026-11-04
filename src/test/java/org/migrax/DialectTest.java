@@ -72,6 +72,10 @@ class DialectTest {
     assertThrows(IllegalArgumentException.class, () -> Dialects.byName("db2"));
   }
 
+  @Test void showsPostgresqlSqlWhenNothingNamesTheDatabase() {
+    assertEquals("postgresql", Dialects.fallback().id());
+  }
+
   @Test void registeredDialectsAreFoundByNameAndAlias() {
     assertEquals(List.of("postgresql", "cockroachdb", "yugabytedb", "mysql", "mariadb", "tidb",
         "sqlserver", "oracle", "h2", "hsqldb", "derby", "sqlite"), Dialects.NAMES);

@@ -4,11 +4,14 @@ import org.migrax.diff.DiffEngine;
 import org.migrax.model.SchemaModel;
 import org.migrax.ops.AddColumn;
 import org.migrax.ops.DropPrimaryKey;
+import org.migrax.dialect.Dialects;
 import org.migrax.dialect.PostgresDialect;
+import org.migrax.dialect.SchemaCatalog;
 import org.junit.jupiter.api.Test;
 
 import java.sql.DriverManager;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -27,7 +30,7 @@ class DatabaseSchemaReaderTest {
 
   @Test
   void readsColumnDefaultsAsSqlThatCanBeWrittenBack() {
-    String pg = "PostgreSQL";
+    SchemaCatalog pg = catalog("postgresql");
     assertEquals("'new'", DatabaseSchemaReader.columnDefault(pg, "varchar",
         "'new'::character varying"));
     assertEquals("'a::b'", DatabaseSchemaReader.columnDefault(pg, "varchar",
@@ -36,10 +39,10 @@ class DatabaseSchemaReaderTest {
     assertEquals("now()", DatabaseSchemaReader.columnDefault(pg, "timestamp", "now()"));
     assertEquals(null, DatabaseSchemaReader.columnDefault(pg, "bigint",
         "nextval('x_seq'::regclass)"));
-    assertEquals("'new'", DatabaseSchemaReader.columnDefault("CockroachDB", "varchar",
+    assertEquals("'new'", DatabaseSchemaReader.columnDefault(catalog("cockroachdb"), "varchar",
         "'new':::STRING"));
 
-    String sqlServer = "Microsoft SQL Server";
+    SchemaCatalog sqlServer = catalog("sqlserver");
     assertEquals("0", DatabaseSchemaReader.columnDefault(sqlServer, "integer", "((0))"));
     assertEquals("N'x'", DatabaseSchemaReader.columnDefault(sqlServer, "nvarchar", "(N'x')"));
     assertEquals("getdate()", DatabaseSchemaReader.columnDefault(sqlServer, "timestamp",
@@ -47,17 +50,24 @@ class DatabaseSchemaReaderTest {
     assertEquals("(1)+(2)", DatabaseSchemaReader.columnDefault(sqlServer, "integer",
         "(1)+(2)"));
 
-    String mysql = "MySQL";
+    SchemaCatalog mysql = catalog("mysql");
     assertEquals("'active'", DatabaseSchemaReader.columnDefault(mysql, "varchar", "active"));
     assertEquals("'it''s'", DatabaseSchemaReader.columnDefault(mysql, "varchar", "it's"));
     assertEquals("(uuid())", DatabaseSchemaReader.columnDefault(mysql, "varchar", "(uuid())"));
     assertEquals("CURRENT_TIMESTAMP", DatabaseSchemaReader.columnDefault(mysql, "timestamp",
         "CURRENT_TIMESTAMP"));
     assertEquals("0", DatabaseSchemaReader.columnDefault(mysql, "integer", "0"));
+    assertEquals("'active'", DatabaseSchemaReader.columnDefault(catalog("tidb"), "varchar",
+        "active"), "TiDB answers through the MySQL driver");
+    assertEquals("'active'", DatabaseSchemaReader.columnDefault(catalog("mariadb"), "varchar",
+        "'active'"), "MariaDB's driver keeps the quotes");
+    assertEquals("active", DatabaseSchemaReader.columnDefault(catalog("mariadb"), "varchar",
+        "active"));
 
-    assertEquals(null, DatabaseSchemaReader.columnDefault("H2", "varchar", "NULL"));
-    assertEquals(null, DatabaseSchemaReader.columnDefault("H2", "varchar", null));
-    assertEquals("'new'", DatabaseSchemaReader.columnDefault("Oracle", "varchar", "'new' \n"));
+    assertEquals(null, DatabaseSchemaReader.columnDefault(catalog("h2"), "varchar", "NULL"));
+    assertEquals(null, DatabaseSchemaReader.columnDefault(catalog("h2"), "varchar", null));
+    assertEquals("'new'", DatabaseSchemaReader.columnDefault(catalog("oracle"), "varchar",
+        "'new' \n"));
   }
 
   @Test
@@ -128,5 +138,58 @@ class DatabaseSchemaReaderTest {
       assertEquals("pk_existing_records", drop.constraintName());
       assertTrue(new PostgresDialect().render(drop).contains("DROP CONSTRAINT pk_existing_records"));
     }
+  }
+
+  @Test
+  void onlyTheDatabasesWithTheQuirkAskForIt() {
+    for (String name : Dialects.NAMES) {
+      SchemaCatalog catalog = catalog(name);
+      boolean sqlite = name.equals("sqlite");
+      assertEquals(sqlite, catalog.precisionIncludesScale(), name);
+      assertEquals(sqlite, catalog.integerPrimaryKeyIsRowId(), name);
+      boolean mysqlFamily = Set.of("mysql", "mariadb", "tidb").contains(name);
+      assertEquals(mysqlFamily ? "timestamp(3)" : null,
+          catalog.exactDateTimeType("timestamp", 3, null), name);
+    }
+  }
+
+  @Test
+  void findsASchemaWhoseNameDiffersOnlyInCaseUnlessTheMatchIsExactOrAmbiguous()
+      throws Exception {
+    try (var connection = DriverManager.getConnection("jdbc:h2:mem:schema-case");
+         var statement = connection.createStatement()) {
+      statement.execute("CREATE SCHEMA app");
+      statement.execute("CREATE TABLE app.upper_only (id INT)");
+      statement.execute("CREATE SCHEMA \"lower\"");
+      statement.execute("CREATE TABLE \"lower\".exact_lower (id INT)");
+      statement.execute("CREATE SCHEMA lower");
+      statement.execute("CREATE TABLE lower.upper_lower (id INT)");
+      statement.execute("CREATE SCHEMA \"Twice\"");
+      statement.execute("CREATE SCHEMA \"TWICE\"");
+      statement.execute("CREATE TABLE \"TWICE\".twice (id INT)");
+
+      assertEquals(List.of("UPPER_ONLY"),
+          DatabaseSchemaReader.objectNames(connection, "app", "TABLE"));
+      assertEquals(List.of("EXACT_LOWER"),
+          DatabaseSchemaReader.objectNames(connection, "lower", "TABLE"));
+      assertEquals(List.of(), DatabaseSchemaReader.objectNames(connection, "twice", "TABLE"));
+    }
+  }
+
+  @Test
+  void schemasAreDatabasesOnTheMySqlFamily() throws Exception {
+    try (var connection = DriverManager.getConnection("jdbc:h2:mem:catalog-for")) {
+      String own = connection.getCatalog();
+      for (String dialect : List.of("mysql", "mariadb", "tidb")) {
+        assertEquals("other", catalog(dialect).catalogFor(connection, " other "));
+        assertEquals(own, catalog(dialect).catalogFor(connection, null));
+        assertEquals(own, catalog(dialect).catalogFor(connection, " "));
+      }
+      assertEquals(own, catalog("postgresql").catalogFor(connection, "other"));
+    }
+  }
+
+  private static SchemaCatalog catalog(String dialect) {
+    return Dialects.byName(dialect).schemaCatalog();
   }
 }
