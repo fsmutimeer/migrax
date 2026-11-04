@@ -43,6 +43,16 @@ class McpServerTest {
     System.clearProperty("migrax.noBuild");
   }
 
+  /** Creates the link; false where the system doesn't allow it (Windows without the right). */
+  private static boolean linked(Path link, Path target) {
+    try {
+      Files.createSymbolicLink(link, target);
+      return true;
+    } catch (java.io.IOException | UnsupportedOperationException e) {
+      return false;
+    }
+  }
+
   private McpServer server(boolean allowGenerate) {
     return new McpServer(project, allowGenerate, new PrintStream(new ByteArrayOutputStream()));
   }
@@ -142,6 +152,16 @@ class McpServerTest {
         assertEquals(true, denied.get("isError"), name);
         assertFalse(text(denied).contains("canary"), name);
         assertFalse(text(denied).contains("jdbc:h2"), name);
+      }
+      if (linked(migrations.resolve("0009_env.sql"), project.resolve(".env"))
+          && linked(migrations.resolve("0010_out.sql"), outside)) {
+        for (String name : List.of("0009_env.sql", "0010_out.sql")) {
+          var denied = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+              + "\"tools/call\",\"params\":{\"name\":\"show_migration\",\"arguments\":"
+              + "{\"name\":\"" + name + "\"}}}"));
+          assertEquals(true, denied.get("isError"), name);
+          assertFalse(text(denied).contains("canary"), name);
+        }
       }
     } finally {
       Files.delete(outside);

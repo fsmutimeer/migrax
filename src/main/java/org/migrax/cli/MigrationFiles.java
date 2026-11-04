@@ -2,6 +2,7 @@ package org.migrax.cli;
 
 import org.migrax.runner.MigrationLoader;
 import org.migrax.runner.MigrationRunner;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -40,16 +41,33 @@ final class MigrationFiles {
    */
   static Path findMigration(Project project, String name) throws Exception {
     Path migration = LOCAL_NAME.matcher(name).matches() ? inMigrationFolders(project, name) : null;
-    if (migration == null || !isMigrationFile(migration)) {
+    if (migration == null || !isMigrationFile(project, migration)) {
       throw new UsageException("Migration file not found: " + name,
           "Pass a file name from 'migrax status', or rollback/<file name>.");
     }
     return migration;
   }
 
-  /** A migration folder can hold other files, or be the project folder itself. */
-  private static boolean isMigrationFile(Path file) {
-    return file.getFileName().toString().endsWith(".sql") || isJavaMigration(file);
+  /**
+   * Whether the real file, after links and short names, is a migration in a migration folder. A
+   * folder can hold other files, be the project folder itself, or be a link to the real folder.
+   */
+  private static boolean isMigrationFile(Project project, Path file) throws Exception {
+    Path real;
+    try {
+      real = file.toRealPath();
+    } catch (IOException e) {
+      return false;
+    }
+    if (!real.getFileName().toString().endsWith(".sql") && !isJavaMigration(real)) {
+      return false;
+    }
+    for (Path folder : project.migrationFolders()) {
+      if (Files.isDirectory(folder) && real.startsWith(folder.toRealPath())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static Path inMigrationFolders(Project project, String name) throws Exception {
