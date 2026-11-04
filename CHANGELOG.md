@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.19.0-rc.1] - 2026-11-04
+
+Release candidate for 0.19.0, for testing.
+
 ### Fixed
 
 - `lint` on SQL Server and Oracle now reports MX015 (info) for a `CREATE INDEX` on an existing
@@ -1010,7 +1014,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.2...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.1...HEAD
+[0.19.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.2...v0.19.0-rc.1
 [0.18.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.1...v0.18.0-rc.2
 [0.18.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.3...v0.18.0-rc.1
 [0.17.2-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.2...v0.17.2-rc.3
