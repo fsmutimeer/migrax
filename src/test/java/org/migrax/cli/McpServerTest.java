@@ -162,6 +162,11 @@ class McpServerTest {
           assertEquals(true, denied.get("isError"), name);
           assertFalse(text(denied).contains("canary"), name);
         }
+        var verify = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+            + "\"tools/call\",\"params\":{\"name\":\"verify\",\"arguments\":{}}}"));
+        assertEquals(true, verify.get("isError"), text(verify));
+        assertTrue(text(verify).contains("leads outside the migration folders"), text(verify));
+        assertFalse(text(verify).contains("canary"), text(verify));
       }
     } finally {
       Files.delete(outside);

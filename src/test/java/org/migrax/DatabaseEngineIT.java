@@ -950,6 +950,12 @@ class DatabaseEngineIT {
       }
     }
     try {
+      // A refused schema stops the command before the one before it is dropped.
+      assertEquals(1, clean(database, "--schemas", "MX_ONLY,mx_fold"));
+      try (Connection connection = database.connect()) {
+        assertEquals(1, org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, "MX_ONLY",
+            "TABLE").size(), "MX_ONLY keeps its table");
+      }
       assertEquals(0, cleanSchema(database, "mx_only"));
       assertEquals(1, cleanSchema(database, "mx_fold"));
       try (Connection connection = database.connect()) {
@@ -971,9 +977,13 @@ class DatabaseEngineIT {
   }
 
   private static int cleanSchema(Database database, String schema) throws Exception {
+    return clean(database, "--schema", schema);
+  }
+
+  private static int clean(Database database, String option, String schema) throws Exception {
     Path project = Files.createTempDirectory("migrax-clean-schema-it");
     java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-    return org.migrax.cli.Main.run(new String[] {"clean", "--yes", "--schema", schema, "--url",
+    return org.migrax.cli.Main.run(new String[] {"clean", "--yes", option, schema, "--url",
         database.url(), "--user", database.user(), "--password", database.password(), "--dir",
         project.toString(), "--no-build"}, new java.io.PrintStream(out, true),
         new java.io.PrintStream(out, true));

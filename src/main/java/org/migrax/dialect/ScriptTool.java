@@ -60,7 +60,7 @@ public interface ScriptTool {
    * default sets PostgreSQL's {@code search_path}.
    */
   default String useSchema(String schema) {
-    return "SET search_path TO " + schema;
+    return "SET search_path TO " + ScriptNames.schema(schema, ScriptNames.PLAIN_LOWER, '"');
   }
 
   /**

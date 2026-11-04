@@ -208,6 +208,9 @@ class ProjectDatabaseConfigTest {
         clean.apply("jdbc:oracle:thin:scott/tiger@//db:1521/FREEPDB1"));
     assertEquals("jdbc:sqlserver://db;accessToken=***",
         clean.apply("jdbc:sqlserver://db;accessToken=abc"));
+    assertEquals("jdbc:mysql://:***@db/shop", clean.apply("jdbc:mysql://:SECRET@db/shop"));
+    assertEquals("jdbc:oracle:thin:scott/***@db:1521/FREE",
+        clean.apply("jdbc:oracle:thin:scott/SE@CRET@db:1521/FREE"));
     // Without credentials nothing changes.
     assertEquals("jdbc:oracle:thin:@//db:1521/FREEPDB1",
         clean.apply("jdbc:oracle:thin:@//db:1521/FREEPDB1"));

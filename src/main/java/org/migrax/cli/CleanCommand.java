@@ -82,6 +82,12 @@ final class CleanCommand implements Command {
     // Only shown to the user (project.connect() connects): never with its password.
     String url = RuntimeJdbc.sanitizeUrl(project.credentials().url());
     try (Connection connection = project.connect()) {
+      // All of them first: a schema that is refused stops the command before anything is dropped.
+      for (String schema : schemas(project, args)) {
+        if (schema != null) {
+          Project.useStoredSchema(connection, schema);
+        }
+      }
       for (String schema : schemas(project, args)) {
         String stored = schema == null ? null : Project.useStoredSchema(connection, schema);
         String where = schema == null ? url : "schema " + schema + " of " + url;

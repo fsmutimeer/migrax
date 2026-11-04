@@ -46,7 +46,7 @@ public final class H2Dialect extends AbstractDialect {
 
     @Override
     public String useSchema(String schema) {
-      return "SET SCHEMA " + schema;
+      return "SET SCHEMA " + ScriptNames.schema(schema, ScriptNames.PLAIN, '"');
     }
   };
 

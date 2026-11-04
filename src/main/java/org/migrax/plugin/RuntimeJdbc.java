@@ -15,8 +15,8 @@ import java.util.regex.Pattern;
  */
 public final class RuntimeJdbc {
   private static final Pattern ORACLE_USER =
-      Pattern.compile("(?i)(jdbc:oracle:[a-z0-9]+:[^/@:;]*/)(?:\"[^\"]*\"|[^@]+)@");
-  private static final Pattern USER_INFO = Pattern.compile("//[^:/?#;@]+:");
+      Pattern.compile("(?i)(jdbc:oracle:[a-z0-9]+:[^/@:;]*/)(?:\"[^\"]*\"|.+)@");
+  private static final Pattern USER_INFO = Pattern.compile("//[^:/?#;@]*:");
 
   private RuntimeJdbc() {}
 
