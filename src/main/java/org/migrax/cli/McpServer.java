@@ -89,7 +89,7 @@ final class McpServer {
     tool("show_migration", "Prints one migration file's SQL. Pass the file name, for example "
         + "0002_add_customer_email.sql; for its rollback script pass rollback/<file name>.",
         schema("name", "string", "Migration file name"),
-        args -> List.of("sql", required(args, "name")));
+        args -> List.of("sql", "--migrations-only", migrationName(args)));
     if (allowGenerate) {
       tool("generate", "Writes a new migration (SQL plus rollback script) for the entity "
           + "changes. Run 'plan' first and agree the result with the person. Pass renames "
@@ -167,6 +167,15 @@ final class McpServer {
       result.add(flag);
     }
     return result;
+  }
+
+  /** Read as a file name, never as an option of the command. */
+  private static String migrationName(Map<String, Object> args) {
+    String name = required(args, "name");
+    if (name.startsWith("-")) {
+      throw new IllegalArgumentException("'name' must be a migration file name");
+    }
+    return name;
   }
 
   private static String required(Map<String, Object> args, String name) {

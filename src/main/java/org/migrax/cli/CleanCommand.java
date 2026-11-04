@@ -83,11 +83,9 @@ final class CleanCommand implements Command {
     String url = RuntimeJdbc.sanitizeUrl(project.credentials().url());
     try (Connection connection = project.connect()) {
       for (String schema : schemas(project, args)) {
-        if (schema != null) {
-          Project.useSchema(connection, schema);
-        }
+        String stored = schema == null ? null : Project.useStoredSchema(connection, schema);
         String where = schema == null ? url : "schema " + schema + " of " + url;
-        Objects objects = Objects.read(connection, schema);
+        Objects objects = Objects.read(connection, stored);
         if (objects.isEmpty()) {
           out.println("Nothing to clean in " + where + ".");
           context.resultList("schemas").add(JsonOut.object("schema", schema, "dropped",
@@ -114,7 +112,7 @@ final class CleanCommand implements Command {
             return OK;
           }
         }
-        drop(connection, inSchema(dialect, schema), objects, schema, project.lockTimeout());
+        drop(connection, inSchema(dialect, stored), objects, stored, project.lockTimeout());
         out.println("Dropped " + objects.count() + " from " + where + ".");
         context.resultList("schemas").add(JsonOut.object("schema", schema, "dropped",
             objects.json()));

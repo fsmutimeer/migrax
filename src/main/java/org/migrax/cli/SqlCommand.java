@@ -36,7 +36,7 @@ final class SqlCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--locations", "--database");
+    return List.of("--locations", "--database", "--migrations-only");
   }
 
   @Override
@@ -47,7 +47,9 @@ final class SqlCommand implements Command {
     if (args.positionals.size() < 2) {
       throw new UsageException("Missing the migration file.", "Usage: migrax sql <migration>");
     }
-    out.print(Files.readString(MigrationFiles.find(project, args.positionals.get(1))));
+    String name = args.positionals.get(1);
+    out.print(Files.readString(args.flag("--migrations-only")
+        ? MigrationFiles.findMigration(project, name) : MigrationFiles.find(project, name)));
     return OK;
   }
 }

@@ -180,6 +180,20 @@ public final class DatabaseSchemaReader {
   }
 
   /**
+   * The schema's name as the database stores it, the one {@link #read} and
+   * {@link #objectNames} look in for that name.
+   *
+   * @param connection the connection
+   * @param name the schema as the user wrote it
+   * @return the stored name; the name itself when no schema matches it
+   * @throws SQLException when the connection can't be read
+   * @since 0.19.0
+   */
+  public static String storedSchema(Connection connection, String name) throws SQLException {
+    return storedSchemaName(connection.getMetaData(), name);
+  }
+
+  /**
    * The schema's name as the database stores it. A schema created without quotes is stored in
    * upper case on H2, Derby, HSQLDB and Oracle, so {@code app} is found as {@code APP}. On any
    * database, an exact match wins, then the one schema whose name differs only in case; a name

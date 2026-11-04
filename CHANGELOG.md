@@ -27,6 +27,16 @@ Release candidate for 0.19.0, for testing.
   connection's default one.
 - Oracle: `clean --schema` lists and drops the sequences of the named schema instead of the
   login user's own.
+- Security: the MCP tool `show_migration` only reads files in the migration folders. Before,
+  it printed any file the user could read, such as `.env` or `application.properties`, so
+  database passwords could reach the AI client. `migrax sql` has a new `--migrations-only`
+  option for the same limit.
+- `clean --schema` and `backups --schema` use one schema name for listing and dropping. When
+  two Oracle schemas differed only in case, they could list one and drop the tables of the
+  other; they now stop with an error. Both also find a schema by a name that differs only in
+  case, as the other commands do.
+- Values of settings ending in `token` in a JDBC URL (for example SQL Server's `accessToken=`)
+  are hidden in output, like a password.
 
 ## [0.18.0-rc.2] - 2026-11-02
 
