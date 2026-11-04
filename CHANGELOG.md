@@ -29,8 +29,8 @@ Release candidate for 0.19.0, for testing.
   login user's own.
 - Security: the MCP tool `show_migration` only reads files in the migration folders. Before,
   it printed any file the user could read, such as `.env` or `application.properties`, so
-  database passwords could reach the AI client. `migrax sql` has a new `--migrations-only`
-  option for the same limit.
+  database passwords could reach the AI client. A link to a file outside those folders is
+  refused too. `migrax sql` has a new `--migrations-only` option for the same limit.
 - `clean --schema` and `backups --schema` use one schema name for listing and dropping. When
   two Oracle schemas differed only in case, they could list one and drop the tables of the
   other; they now stop with an error. Both also find a schema by a name that differs only in
