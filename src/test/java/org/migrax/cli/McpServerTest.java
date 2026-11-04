@@ -117,6 +117,36 @@ class McpServerTest {
         + "\"params\":{\"name\":\"show_migration\",\"arguments\":{\"name\":\"0001_init.sql\"}}}"));
     assertTrue(text(shown).contains("CREATE TABLE sample_entity"), text(shown));
 
+    for (String name : List.of("0001_init", "rollback/0001_init.sql")) {
+      var allowed = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+          + "\"tools/call\",\"params\":{\"name\":\"show_migration\",\"arguments\":{\"name\":\""
+          + name + "\"}}}"));
+      assertEquals(false, allowed.get("isError"), text(allowed));
+    }
+    Path migrations;
+    try (var files = Files.walk(project)) {
+      migrations = files.filter(file -> file.endsWith("0001_init.sql")
+          && !file.getParent().endsWith("rollback")).findFirst().orElseThrow().getParent();
+    }
+    Files.writeString(project.resolve(".env"), "DATABASE_PASSWORD=canary\n");
+    Path outside = Files.writeString(project.resolveSibling(project.getFileName() + "-out.txt"),
+        "canary\n");
+    try {
+      Files.writeString(migrations.resolve("notes.txt"), "canary\n");
+      for (String name : List.of(".env", "src/main/resources/application.properties",
+          "../" + outside.getFileName(), outside.toString().replace('\\', '/'), "..",
+          "rollback/..", "rollback/x/y.sql", "a\\\\b", "C:x", "x:stream", "notes.txt")) {
+        var denied = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+            + "\"tools/call\",\"params\":{\"name\":\"show_migration\",\"arguments\":{\"name\":\""
+            + name + "\"}}}"));
+        assertEquals(true, denied.get("isError"), name);
+        assertFalse(text(denied).contains("canary"), name);
+        assertFalse(text(denied).contains("jdbc:h2"), name);
+      }
+    } finally {
+      Files.delete(outside);
+    }
+
     var missing = call(writer, "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\","
         + "\"params\":{\"name\":\"show_migration\",\"arguments\":{}}}");
     assertTrue(String.valueOf(missing.get("error")).contains("-32602"), missing.toString());

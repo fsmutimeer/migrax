@@ -5,6 +5,7 @@ import org.migrax.dialect.Dialects;
 import org.migrax.diff.SnapshotStore;
 import org.migrax.model.ModelExtractor;
 import org.migrax.model.NamingStrategy;
+import org.migrax.plugin.DatabaseSchemaReader;
 import org.migrax.plugin.ProjectDatabaseConfig;
 import org.migrax.plugin.RuntimeJdbc;
 import org.migrax.runner.Databases;
@@ -771,6 +772,27 @@ final class Project implements AutoCloseable {
           "Remove --schema/--schemas: the URL already names the database.");
     }
     TargetSchema.use(connection, schema);
+  }
+
+  /**
+   * Points the connection at the schema a destructive command lists and drops from, and returns
+   * its stored name. Listing and dropping must mean the same schema: a database can fold the name
+   * when it switches and land in another schema that differs only in case, so that is refused.
+   */
+  static String useStoredSchema(Connection connection, String schema) throws Exception {
+    String stored = DatabaseSchemaReader.storedSchema(connection, schema);
+    useSchema(connection, stored);
+    Dialect dialect = Dialects.forConnection(connection).orElse(null);
+    if (dialect != null && dialect.switchesSchemas() && !dialect.schemasAreDatabases()) {
+      // Null: nothing by that name exists, so there is nothing to list or drop.
+      String current = connection.getSchema();
+      if (current != null && !current.equals(stored)) {
+        throw new UsageException("--schema " + schema + " names schema " + stored
+            + ", but the connection switched to " + current + ".",
+            "Two schemas differ only in case. Connect as the schema's owner, without --schema.");
+      }
+    }
+    return stored;
   }
 
   /**

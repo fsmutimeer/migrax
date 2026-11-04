@@ -38,7 +38,7 @@ public final class RuntimeJdbc {
     // closing brace inside is written }}). First, so a password with @ in it can't be taken
     // for the end of a user:password@ part below. Possessive quantifiers: a very long value
     // must not overflow the stack. Hiding a harmless setting by mistake is fine.
-    String sanitized = url.replaceAll("(?i)((?:password\\d*|pwd|secret|key)\\s*=\\s*)"
+    String sanitized = url.replaceAll("(?i)((?:password\\d*|pwd|secret|key|token)\\s*=\\s*)"
         + "(\\{(?:[^}]++|\\}\\})*+\\}|[^&;]+)", "$1***");
     // The two rules below end at an @, so they search only up to the last one: searched to the
     // end of a long URL without an @, they would scan the rest of it from every start (seconds).

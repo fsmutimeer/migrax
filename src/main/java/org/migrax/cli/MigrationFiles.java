@@ -13,15 +13,17 @@ import java.util.regex.Pattern;
 final class MigrationFiles {
   private static final Pattern JAVA_SOURCE = Pattern.compile("^V(\\d+)__\\w+\\.java$");
 
+  /** A file name, or rollback/ and a file name: no other folder, no parent, no drive. */
+  private static final Pattern LOCAL_NAME =
+      Pattern.compile("(?:rollback/)?(?!\\.\\.?$)[^/\\\\:]+");
+
   private MigrationFiles() {}
 
   /** A migration file named on the command line, by file name, name without .sql or path. */
   static Path find(Project project, String name) throws Exception {
-    for (String candidate : List.of(name, name + ".sql")) {
-      Path file = project.migrationFile(candidate);
-      if (file != null) {
-        return file;
-      }
+    Path migration = inMigrationFolders(project, name);
+    if (migration != null) {
+      return migration;
     }
     for (Path candidate : List.of(project.root().resolve(name), Path.of(name))) {
       if (Files.isRegularFile(candidate)) {
@@ -30,6 +32,34 @@ final class MigrationFiles {
     }
     throw new UsageException("Migration file not found: " + name,
         "Run 'migrax status' to list migrations in " + project.displayMigrations() + ".");
+  }
+
+  /**
+   * A migration or rollback script by file name, and nothing outside the migration folders:
+   * for callers that must not reach the project's other files (the MCP server).
+   */
+  static Path findMigration(Project project, String name) throws Exception {
+    Path migration = LOCAL_NAME.matcher(name).matches() ? inMigrationFolders(project, name) : null;
+    if (migration == null || !isMigrationFile(migration)) {
+      throw new UsageException("Migration file not found: " + name,
+          "Pass a file name from 'migrax status', or rollback/<file name>.");
+    }
+    return migration;
+  }
+
+  /** A migration folder can hold other files, or be the project folder itself. */
+  private static boolean isMigrationFile(Path file) {
+    return file.getFileName().toString().endsWith(".sql") || isJavaMigration(file);
+  }
+
+  private static Path inMigrationFolders(Project project, String name) throws Exception {
+    for (String candidate : List.of(name, name + ".sql")) {
+      Path file = project.migrationFile(candidate);
+      if (file != null) {
+        return file;
+      }
+    }
+    return null;
   }
 
   /** Whether the file is a Java migration source such as V0003__SplitFullName.java. */
