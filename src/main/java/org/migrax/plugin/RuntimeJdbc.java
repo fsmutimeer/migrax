@@ -19,6 +19,11 @@ public final class RuntimeJdbc {
   private static final Pattern SECRET_VALUE = Pattern.compile(
       "(?i)((?:password\\d*|pwd|secret|key|token)\\s*=\\s*)(\\{(?:[^}]++|\\}\\})*+\\}|[^&;]+)");
   private static final Pattern USER_INFO = Pattern.compile("//[^:/?#;@]*:");
+  /** A port and settings, not a password: the @ is in a value (user=me@server, email=a@b). */
+  private static final Pattern HOST_PORT_SETTINGS = Pattern.compile("\\d+[/;?].*=.*");
+  private static final String HIDDEN_MESSAGE = "the driver's message is hidden, because the "
+      + "password in the URL has a character the URL itself uses (@ / ? # , : ;). Set the "
+      + "password separately from the URL instead";
 
   private RuntimeJdbc() {}
 
@@ -90,15 +95,27 @@ public final class RuntimeJdbc {
     if (lastAt >= 0) {
       Matcher oracle = ORACLE_USER.matcher(url.substring(0, lastAt + 1));
       if (oracle.find()) {
+        if (!oracle.group(2).startsWith("\"") && splits(oracle.group(2))) {
+          return HIDDEN_MESSAGE;
+        }
         cleaned = hide(cleaned, oracle.group(2));
       }
       Matcher userInfo = USER_INFO.matcher(url).region(0, lastAt);
-      if (userInfo.find() && userInfo.end() < lastAt) {
-        cleaned = hide(hide(cleaned, url.substring(userInfo.start() + 2, lastAt)),
-            url.substring(userInfo.end(), lastAt));
+      if (userInfo.find() && userInfo.end() < lastAt
+          && !HOST_PORT_SETTINGS.matcher(url.substring(userInfo.end(), lastAt)).matches()) {
+        String password = url.substring(userInfo.end(), lastAt);
+        if (splits(password)) {
+          return HIDDEN_MESSAGE;
+        }
+        cleaned = hide(hide(cleaned, url.substring(userInfo.start() + 2, lastAt)), password);
       }
     }
     return cleaned;
+  }
+
+  /** Whether a driver may cut the URL inside the password and quote only a piece of it. */
+  private static boolean splits(String password) {
+    return password.chars().anyMatch(character -> "@/?#,:;".indexOf(character) >= 0);
   }
 
   /** A very short secret isn't searched for: it would match all over the message. */
