@@ -18,6 +18,9 @@ public final class Main {
   /** Strong reference so the level set in {@link #quietHibernateLogging} is kept. */
   private static final java.util.logging.Logger HIBERNATE_LOG =
       java.util.logging.Logger.getLogger("org.hibernate");
+  /** Its warnings quote a URL it can't parse, password included. Kept: loggers are weak. */
+  private static final java.util.logging.Logger POSTGRES_LOG =
+      java.util.logging.Logger.getLogger("org.postgresql");
 
   private static final String ORACLE_FIRST_FAILURE =
       "oracle.jdbc.diagnostic.enableDiagnoseFirstFailure";
@@ -27,6 +30,7 @@ public final class Main {
   public static void main(String[] args) {
     // Only in the standalone CLI process: run() also executes inside Maven and inside
     // applications (Spring Boot starter), whose logging must stay as configured.
+    POSTGRES_LOG.setLevel(java.util.logging.Level.OFF);
     quietHibernateLogging(List.of(args).contains("--verbose") || List.of(args).contains("-v"));
     BufferedReader in = System.console() == null ? null
         : new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));

@@ -178,6 +178,18 @@ class McpServerTest {
   }
 
   @Test
+  void aSchemaFileMustBeSqlInTheProject() throws Exception {
+    Files.writeString(project.resolve(".env"), "DATABASE_PASSWORD=canary\n");
+    Files.writeString(project.resolve("src/main/resources/application.properties"),
+        "migrax.schema-file=.env\n", java.nio.file.StandardOpenOption.APPEND);
+    var plan = result(call(server(false), "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+        + "\"tools/call\",\"params\":{\"name\":\"plan\",\"arguments\":{}}}"));
+    assertEquals(true, plan.get("isError"), text(plan));
+    assertTrue(text(plan).contains("not a SQL file in the project"), text(plan));
+    assertFalse(text(plan).contains("canary"), text(plan));
+  }
+
+  @Test
   void answersProtocolErrors() throws Exception {
     assertTrue(String.valueOf(call(server(false), "{not json").get("error")).contains("-32700"));
     assertTrue(String.valueOf(call(server(false),

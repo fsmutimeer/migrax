@@ -749,7 +749,14 @@ final class Project implements AutoCloseable {
    */
   Path schemaFile() throws Exception {
     String value = setting("--schema-file", "schema-file");
-    return blank(value) ? null : root.resolve(value.trim()).normalize();
+    if (blank(value)) {
+      return null;
+    }
+    Path file = root.resolve(value.trim()).normalize();
+    if (args.flag("--migrations-only")) {
+      MigrationFiles.requireSchemaFile(this, file);
+    }
+    return file;
   }
 
   /** SQL files, repeatable migrations, callbacks and Java migrations. */

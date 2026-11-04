@@ -15,7 +15,9 @@ import java.util.regex.Pattern;
  */
 public final class RuntimeJdbc {
   private static final Pattern ORACLE_USER =
-      Pattern.compile("(?i)(jdbc:oracle:[a-z0-9]+:[^/@:;]*/)(?:\"[^\"]*\"|.+)@");
+      Pattern.compile("(?i)(jdbc:oracle:[a-z0-9]+:[^/@:;]*/)(\"[^\"]*\"|.+)@");
+  private static final Pattern SECRET_VALUE = Pattern.compile(
+      "(?i)((?:password\\d*|pwd|secret|key|token)\\s*=\\s*)(\\{(?:[^}]++|\\}\\})*+\\}|[^&;]+)");
   private static final Pattern USER_INFO = Pattern.compile("//[^:/?#;@]*:");
 
   private RuntimeJdbc() {}
@@ -38,8 +40,7 @@ public final class RuntimeJdbc {
     // closing brace inside is written }}). First, so a password with @ in it can't be taken
     // for the end of a user:password@ part below. Possessive quantifiers: a very long value
     // must not overflow the stack. Hiding a harmless setting by mistake is fine.
-    String sanitized = url.replaceAll("(?i)((?:password\\d*|pwd|secret|key|token)\\s*=\\s*)"
-        + "(\\{(?:[^}]++|\\}\\})*+\\}|[^&;]+)", "$1***");
+    String sanitized = SECRET_VALUE.matcher(url).replaceAll("$1***");
     // The two rules below end at an @, so they search only up to the last one: searched to the
     // end of a long URL without an @, they would scan the rest of it from every start (seconds).
     // Oracle's thin URL can carry user/password@ right after the driver type; the password may
@@ -61,6 +62,48 @@ public final class RuntimeJdbc {
       }
     }
     return sanitized;
+  }
+
+  /**
+   * The connection failure to report. A driver that can't parse a URL quotes it, so what the URL
+   * holds is taken out of the message, and the driver's exception doesn't travel on: its message,
+   * or one it wraps, still has it.
+   */
+  static SQLException failure(String url, SQLException e) {
+    boolean credentials = !url.equals(sanitizeUrl(url));
+    String message = credentials ? withoutCredentials(url, e.getMessage()) : e.getMessage();
+    return new SQLException("Failed to connect to database at " + sanitizeUrl(url) + ": " + message,
+        e.getSQLState(), e.getErrorCode(), credentials ? null : e);
+  }
+
+  /** The message without the URL's secrets, found as {@link #sanitizeUrl} finds them. */
+  private static String withoutCredentials(String url, String message) {
+    if (message == null) {
+      return null;
+    }
+    String cleaned = message;
+    Matcher values = SECRET_VALUE.matcher(url);
+    while (values.find()) {
+      cleaned = hide(cleaned, values.group(2));
+    }
+    int lastAt = url.lastIndexOf('@');
+    if (lastAt >= 0) {
+      Matcher oracle = ORACLE_USER.matcher(url.substring(0, lastAt + 1));
+      if (oracle.find()) {
+        cleaned = hide(cleaned, oracle.group(2));
+      }
+      Matcher userInfo = USER_INFO.matcher(url).region(0, lastAt);
+      if (userInfo.find() && userInfo.end() < lastAt) {
+        cleaned = hide(hide(cleaned, url.substring(userInfo.start() + 2, lastAt)),
+            url.substring(userInfo.end(), lastAt));
+      }
+    }
+    return cleaned;
+  }
+
+  /** A very short secret isn't searched for: it would match all over the message. */
+  private static String hide(String message, String secret) {
+    return secret.length() < 4 ? message : message.replace(secret, "***");
   }
 
   public static Connection connect(
@@ -97,11 +140,7 @@ public final class RuntimeJdbc {
         }
       }
     } catch (SQLException e) {
-      throw new SQLException(
-          "Failed to connect to database at " + sanitizeUrl(url) + ": " + e.getMessage(),
-          e.getSQLState(),
-          e.getErrorCode(),
-          e);
+      throw failure(url, e);
     }
     throw new SQLException(
         "No JDBC driver in the service runtime dependencies accepts URL: " + sanitizeUrl(url)
