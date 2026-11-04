@@ -306,6 +306,19 @@ public final class DerbyDialect extends AbstractDialect {
   public SchemaCatalog schemaCatalog() {
     return new SchemaCatalog() {
       @Override
+      public List<String> sequencesIn(Connection connection, String catalog, String owner)
+          throws SQLException {
+        return owner == null ? List.of() : names(connection, "SELECT q.SEQUENCENAME FROM "
+            + "SYS.SYSSEQUENCES q JOIN SYS.SYSSCHEMAS s ON s.SCHEMAID = q.SCHEMAID WHERE "
+            + "UPPER(s.SCHEMANAME) = UPPER(?)", owner);
+      }
+
+      @Override
+      public List<String> sequenceNames(Connection connection) throws SQLException {
+        return names(connection, "SELECT SEQUENCENAME FROM SYS.SYSSEQUENCES");
+      }
+
+      @Override
       public void readChecksAndComments(Connection connection, String catalog, String owner,
                                         List<String> tables, Details details) {
         for (String[] row : query(connection, "SELECT t.TABLENAME, c.CONSTRAINTNAME, "

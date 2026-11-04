@@ -164,6 +164,59 @@ public class SchemaCatalog {
   }
 
   /**
+   * The sequences in a schema, as the database spells their names. The default asks the
+   * standard {@code information_schema.sequences} view.
+   *
+   * @param connection the connection
+   * @param catalog the JDBC catalog the schema is in ({@link #catalogFor})
+   * @param schema the schema, as the database stores its name, or null when none is known
+   * @return the names; empty when the schema has none, or no schema is known
+   * @throws SQLException when the database can't list them
+   */
+  public List<String> sequencesIn(Connection connection, String catalog, String schema)
+      throws SQLException {
+    return schema == null ? List.of() : names(connection, "SELECT sequence_name FROM "
+        + "information_schema.sequences WHERE UPPER(sequence_schema) = UPPER(?)", schema);
+  }
+
+  /**
+   * The sequences in every schema the login can see, as the database spells their names. The
+   * default asks the standard {@code information_schema.sequences} view.
+   *
+   * @param connection the connection
+   * @return the names
+   * @throws SQLException when the database can't list them
+   */
+  public List<String> sequenceNames(Connection connection) throws SQLException {
+    return names(connection, "SELECT sequence_name FROM information_schema.sequences");
+  }
+
+  /**
+   * The first column of a catalog query's rows.
+   *
+   * @param connection the connection
+   * @param sql the query
+   * @param params the values of its {@code ?} parameters
+   * @return the values, in the order read
+   * @throws SQLException when the database can't answer the query
+   */
+  protected static List<String> names(Connection connection, String sql, String... params)
+      throws SQLException {
+    List<String> names = new ArrayList<>();
+    try (PreparedStatement statement = connection.prepareStatement(sql)) {
+      for (int i = 0; i < params.length; i++) {
+        statement.setString(i + 1, params[i]);
+      }
+      try (ResultSet result = statement.executeQuery()) {
+        while (result.next()) {
+          names.add(result.getString(1));
+        }
+      }
+    }
+    return names;
+  }
+
+  /**
    * Rows of a catalog query as strings; none when the database can't answer it.
    *
    * @param connection the connection

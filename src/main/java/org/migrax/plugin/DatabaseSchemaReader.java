@@ -434,86 +434,50 @@ public final class DatabaseSchemaReader {
 
   /**
    * The sequences of one schema, as the database spells the names; empty when the database has
-   * none. The first listing the database understands answers: the standard view (PostgreSQL,
-   * CockroachDB, H2, SQL Server); MariaDB's, in the schema's database; Oracle's, for the
-   * schema's owner, or the login's own when the owner list can't be read; Derby's.
+   * none or can't list them. Each dialect's {@link SchemaCatalog#sequencesIn} knows where its
+   * database keeps them.
    *
    * @param schema the schema, or null for the connection's default
    * @since 0.2.0
    */
   public static List<String> sequencesIn(Connection connection, String schema)
       throws SQLException {
+    SchemaCatalog schemaCatalog = schemaCatalog(connection);
     String resolved = resolveSchema(connection, connection.getMetaData(), schema,
-        () -> schemaCatalog(connection));
+        () -> schemaCatalog);
     String database = schema == null || schema.isBlank() ? connection.getCatalog()
-        : schemaCatalog(connection).catalogFor(connection, schema);
-    for (String[] listing : List.of(
-        new String[] {"SELECT sequence_name FROM information_schema.sequences WHERE "
-            + "UPPER(sequence_schema) = UPPER(?)", resolved},
-        new String[] {"SELECT table_name FROM information_schema.tables WHERE table_type = "
-            + "'SEQUENCE' AND table_schema = ?", database},
-        new String[] {"SELECT sequence_name FROM all_sequences WHERE sequence_owner = ? AND "
-            + "sequence_name NOT LIKE 'ISEQ$$%'", resolved},
-        // Only reached on Oracle when all_sequences can't be read.
-        new String[] {"SELECT sequence_name FROM user_sequences WHERE sequence_name NOT LIKE "
-            + "'ISEQ$$%'", null},
-        new String[] {"SELECT q.SEQUENCENAME FROM SYS.SYSSEQUENCES q JOIN SYS.SYSSCHEMAS s ON "
-            + "s.SCHEMAID = q.SCHEMAID WHERE UPPER(s.SCHEMANAME) = UPPER(?)", resolved})) {
-      String sql = listing[0];
-      String parameter = listing[1];
-      if (sql.contains("?") && parameter == null) {
-        continue;
+        : schemaCatalog.catalogFor(connection, schema);
+    try {
+      List<String> names = schemaCatalog.sequencesIn(connection, database, resolved);
+      if (names.isEmpty() && schema != null && !schema.isBlank()) {
+        // A login without rights on another schema sees none of its sequences either.
+        Log.debug("No sequences visible in schema '{}'", resolved);
       }
-      List<String> names = new ArrayList<>();
-      try (java.sql.PreparedStatement statement = connection.prepareStatement(sql)) {
-        if (sql.contains("?")) {
-          statement.setString(1, parameter);
-        }
-        try (ResultSet result = statement.executeQuery()) {
-          while (result.next()) {
-            names.add(result.getString(1));
-          }
-        }
-        if (names.isEmpty() && schema != null && !schema.isBlank()) {
-          // A login without rights on another schema sees none of its sequences either.
-          Log.debug("No sequences visible in schema '{}' ({})", resolved, sql);
-        }
-        return names;
-      } catch (SQLException e) {
-        Log.debug("Sequence listing not available ({}): {}", sql, e.getMessage());
-        if (!connection.getAutoCommit()) {
-          connection.rollback();
-        }
+      return names;
+    } catch (SQLException e) {
+      Log.debug("Sequence listing not available: {}", e.getMessage());
+      if (!connection.getAutoCommit()) {
+        connection.rollback();
       }
+      return List.of();
     }
-    return List.of();
   }
 
   /**
    * Names of the sequences in the database, in lower case; empty when the database has none or
-   * they can't be listed. Tries the standard view (PostgreSQL, H2, SQL Server), then MariaDB's and
-   * Oracle's own listings.
+   * can't list them. Each dialect's {@link SchemaCatalog#sequenceNames} knows where its database
+   * keeps them.
    */
   public static java.util.Set<String> sequenceNames(Connection connection) {
     java.util.Set<String> names = new java.util.HashSet<>();
-    for (String sql : List.of(
-        "SELECT sequence_name FROM information_schema.sequences",
-        "SELECT table_name FROM information_schema.tables WHERE table_type = 'SEQUENCE' "
-            + "AND table_schema = DATABASE()",
-        "SELECT sequence_name FROM user_sequences",
-        "SELECT SEQUENCENAME FROM SYS.SYSSEQUENCES")) {
-      try (java.sql.Statement statement = connection.createStatement();
-           ResultSet result = statement.executeQuery(sql)) {
-        while (result.next()) {
-          String name = result.getString(1);
-          if (name != null) {
-            names.add(name.toLowerCase(java.util.Locale.ROOT));
-          }
+    try {
+      for (String name : schemaCatalog(connection).sequenceNames(connection)) {
+        if (name != null) {
+          names.add(name.toLowerCase(java.util.Locale.ROOT));
         }
-      } catch (SQLException e) {
-        // This database doesn't have that listing; try the next one.
-        Log.debug("Sequence listing not available ({}): {}", sql, e.getMessage());
       }
+    } catch (SQLException e) {
+      Log.debug("Sequence listing not available: {}", e.getMessage());
     }
     return names;
   }

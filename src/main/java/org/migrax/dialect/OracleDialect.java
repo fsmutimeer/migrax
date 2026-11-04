@@ -6,6 +6,7 @@ import org.migrax.ops.Operation;
 import org.migrax.ops.RenameColumn;
 import org.migrax.ops.RenameTable;
 import org.migrax.ops.RunSql;
+import org.migrax.util.Log;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -647,6 +648,30 @@ public final class OracleDialect extends AbstractDialect {
       public String defaultSchema(DatabaseMetaData metadata) throws SQLException {
         String user = metadata.getUserName();
         return user != null && !user.isBlank() ? user.toUpperCase(Locale.ROOT) : null;
+      }
+
+      /**
+       * Leaves out the sequences of identity columns ({@code ISEQ$$_...}). A login that can't
+       * read {@code all_sequences} gets its own.
+       */
+      @Override
+      public List<String> sequencesIn(Connection connection, String catalog, String owner)
+          throws SQLException {
+        if (owner != null) {
+          try {
+            return names(connection, "SELECT sequence_name FROM all_sequences WHERE "
+                + "sequence_owner = ? AND sequence_name NOT LIKE 'ISEQ$$%'", owner);
+          } catch (SQLException e) {
+            Log.debug("Could not read all_sequences: {}", e.getMessage());
+          }
+        }
+        return names(connection, "SELECT sequence_name FROM user_sequences WHERE "
+            + "sequence_name NOT LIKE 'ISEQ$$%'");
+      }
+
+      @Override
+      public List<String> sequenceNames(Connection connection) throws SQLException {
+        return names(connection, "SELECT sequence_name FROM user_sequences");
       }
 
       @Override

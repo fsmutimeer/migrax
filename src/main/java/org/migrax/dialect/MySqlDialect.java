@@ -1,11 +1,13 @@
 package org.migrax.dialect;
 
 import org.migrax.model.SchemaModel;
+import org.migrax.util.Log;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -430,6 +432,36 @@ public class MySqlDialect extends AbstractDialect {
     @Override
     public String catalogFor(Connection connection, String schema) throws SQLException {
       return schema == null || schema.isBlank() ? connection.getCatalog() : schema.trim();
+    }
+
+    /** MariaDB and TiDB list sequences as tables; MySQL has none. */
+    @Override
+    public List<String> sequencesIn(Connection connection, String catalog, String schema)
+        throws SQLException {
+      return catalog == null ? List.of() : names(connection, "SELECT table_name FROM "
+          + "information_schema.tables WHERE table_type = 'SEQUENCE' AND table_schema = ?",
+          catalog);
+    }
+
+    /**
+     * The standard view where the server has it (TiDB), and the sequences MariaDB and TiDB list
+     * as tables of the connection's database.
+     */
+    @Override
+    public List<String> sequenceNames(Connection connection) throws SQLException {
+      List<String> found = new ArrayList<>();
+      try {
+        found.addAll(super.sequenceNames(connection));
+      } catch (SQLException e) {
+        Log.debug("No information_schema.sequences: {}", e.getMessage());
+      }
+      try {
+        found.addAll(names(connection, "SELECT table_name FROM information_schema.tables WHERE "
+            + "table_type = 'SEQUENCE' AND table_schema = DATABASE()"));
+      } catch (SQLException e) {
+        Log.debug("No sequences listed as tables: {}", e.getMessage());
+      }
+      return found;
     }
 
     @Override
