@@ -16,10 +16,15 @@ import java.util.regex.Pattern;
 public final class RuntimeJdbc {
   /** Also behind a wrapper driver, and after stray spaces or quotes. */
   private static final String ORACLE_START =
-      "(?is)^([^a-z]*jdbc:(?:[a-z0-9]+:)?oracle:[a-z0-9]+:(?!@)[^/]*/)";
-  private static final Pattern ORACLE_USER = Pattern.compile(ORACLE_START + "(.+)@");
+      "(?is)^([^a-z]*jdbc:(?:[a-z0-9]+:)?oracle:[a-z0-9]+:(?!@)";
+  /**
+   * An unquoted user holds no : or @: with one, the / may come after the password, as in
+   * root:password@db:1521/svc. Such a URL falls to the general rule, which hides the user too.
+   */
+  private static final Pattern ORACLE_USER =
+      Pattern.compile(ORACLE_START + "(?:\"[^\"]*\"|[^/@:]*)/)(.+)@");
   /** A mistyped Oracle URL with user/password and no host. */
-  private static final Pattern ORACLE_NO_HOST = Pattern.compile(ORACLE_START + "(.+)");
+  private static final Pattern ORACLE_NO_HOST = Pattern.compile(ORACLE_START + "[^/]*/)(.+)");
   /**
    * Everything after the first of these counts as its value: a mistyped password can hold the ;
    * or & that ends a setting, and the text after it can't be told from the next setting.
@@ -90,8 +95,8 @@ public final class RuntimeJdbc {
    * Where the password of user:password@ starts, or -1. The user starts after a // before the @
    * or, unless // follows it, after jdbc:name:, for a mistyped // (a later // can be in the
    * password). The earlier result wins. At worst this hides more than the password, such as the
-   * path of //db/shop?user=me@server. A plain search: a pattern would scan a long URL from every
-   * // in it.
+   * path of //db/shop?user=me@server or the user of a mistyped /root:password@db. A plain search:
+   * a pattern would scan a long URL from every // in it.
    */
   private static int passwordStart(String url, int lastAt) {
     int slashes = url.indexOf("//");
@@ -104,14 +109,16 @@ public final class RuntimeJdbc {
     return found;
   }
 
-  /** The user may hold an @ (me@server), so the first : ends it, or a mistyped first /. */
+  /**
+   * The user may hold an @ (me@server), so the first : or / ends it, whichever comes first: a /
+   * may have been typed for the :, and a later : is then a port or in the password.
+   */
   private static int afterUser(String url, int user, int lastAt) {
     int colon = url.indexOf(':', user);
-    if (colon >= 0 && colon + 1 < lastAt) {
-      return colon + 1;
-    }
     int slash = url.indexOf('/', user);
-    return slash >= 0 && slash + 1 < lastAt ? slash + 1 : -1;
+    int end = Math.min(colon < 0 ? Integer.MAX_VALUE : colon,
+        slash < 0 ? Integer.MAX_VALUE : slash);
+    return end < lastAt - 1 ? end + 1 : -1;
   }
 
   /** Whether the URL may hold a password: then nothing a driver says about it is shown. */
