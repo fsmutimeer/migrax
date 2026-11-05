@@ -264,6 +264,18 @@ class CommandsTest {
   }
 
   @Test
+  void verifyWarnsWhenItFoundNoEntities() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate").code());
+    assertFalse(cli("verify").all().contains("found no entities"));
+    Result verify = cli("verify", "--package", "org.migrax.cli.noentitieshere");
+    assertTrue(verify.all().contains("verify found no entities"), verify.all());
+    Result json = cli("verify", "--json", "--package", "org.migrax.cli.noentitieshere");
+    assertFalse(json.out().contains("no entities"), json.out());
+    assertTrue(json.err().contains("verify found no entities"), json.err());
+  }
+
+  @Test
   void verifyAppliesEverythingToAThrowawayDatabaseAndTestsRollbacks() throws Exception {
     setUp();
     assertEquals(0, cli("generate").code());

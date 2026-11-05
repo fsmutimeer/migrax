@@ -35,6 +35,9 @@ class RuntimeJdbcTest {
   public static final class TrippingDriver implements Driver {
     @Override
     public Connection connect(String url, Properties info) {
+      if (url.contains("error")) {
+        throw new NoClassDefFoundError("Could not initialize for: " + url);
+      }
       throw new IllegalArgumentException("Illegal hex characters in: " + url);
     }
 
@@ -136,6 +139,17 @@ class RuntimeJdbcTest {
   }
 
   @Test
+  void aDriverErrorShowsNoneOfThePassword(@TempDir Path folder) throws Exception {
+    try (URLClassLoader loader = withTrippingDriver(folder)) {
+      SQLException failure = assertThrows(SQLException.class, () -> RuntimeJdbc.connect(loader,
+          "jdbc:trip://user:Secret@error/shop", null, null));
+      assertTrue(failure.getMessage().endsWith(": " + HIDDEN), failure.getMessage());
+      assertThrows(NoClassDefFoundError.class,
+          () -> RuntimeJdbc.connect(loader, "jdbc:trip://error/shop", null, null));
+    }
+  }
+
+  @Test
   void aDriverThatTripsOverAPlainUrlStillThrows(@TempDir Path folder) throws Exception {
     try (URLClassLoader loader = withTrippingDriver(folder)) {
       assertThrows(IllegalArgumentException.class,
@@ -215,6 +229,45 @@ class RuntimeJdbcTest {
   }
 
   @Test
+  void aPasswordIsHiddenInMistypedAndWrappedUrls() {
+    for (String url : new String[] {"jdbc:oracle:thin:scott:Tiger9@127.0.0.1:1/svc",
+        "jdbc:oracle:thin:@scott/Tiger9@host", "jdbc:oracle:thin:@//scott/Tiger9@host",
+        " jdbc:oracle:thin:scott/Tiger9@db:1521/svc", "\tjdbc:oracle:thin:scott/Tiger9@db/svc",
+        "\"jdbc:oracle:thin:scott/Tiger9@db:1521/svc\"", "'jdbc:oracle:thin:scott/Tiger9@db/svc'",
+        "jdbc:log4jdbc:oracle:thin:scott/Tiger9@//db:1521/svc",
+        "jdbc:p6spy:oracle:thin:scott/Tiger9@//db:1521/svc",
+        "jdbc:otel:oracle:thin:scott/Tiger9@//db:1521/svc",
+        "jdbc:mysql:/root:Tiger9@db/shop?sslCert=file:///c:/x.pem",
+        "jdbc:postgresql:/root:Tiger9@127.0.0.1:1//shop",
+        "jdbc:mysql://root/Tiger9@127.0.0.1/shop", "jdbc:postgresql://root/Tiger9@db:5432/shop",
+        " jdbc:mysql:root:Tiger9@db/shop", "jdbc:mysql:/root:Tig//er9@db/shop",
+        "jdbc:mysql:/root:Tiger9@db/shop?x=//y@z"}) {
+      String shown = RuntimeJdbc.sanitizeUrl(url);
+      assertFalse(shown.contains("Tiger9") || shown.contains("er9"), url);
+      assertTrue(message(url, "bad " + url).endsWith(": " + HIDDEN), url);
+    }
+  }
+
+  /** A / may stand for the : of user:password@, so an @ after it hides what is between. */
+  @Test
+  void anAtSignInASettingHidesMoreThanThePassword() {
+    assertEquals("jdbc:postgresql://db/***@corp.com",
+        RuntimeJdbc.sanitizeUrl("jdbc:postgresql://db/shop?user=me@corp.com"));
+    assertEquals("jdbc:oracle:thin:***@b",
+        RuntimeJdbc.sanitizeUrl("jdbc:oracle:thin:@//host:1521/svc?x=a@b"));
+  }
+
+  @Test
+  void anOracleUserStaysVisibleWhateverTheForm() {
+    assertEquals("jdbc:log4jdbc:oracle:thin:scott/***@//db:1521/svc",
+        RuntimeJdbc.sanitizeUrl("jdbc:log4jdbc:oracle:thin:scott/PW@//db:1521/svc"));
+    assertEquals("jdbc:oracle:thin:scott/***@//db:1521/svc?password=***",
+        RuntimeJdbc.sanitizeUrl("jdbc:oracle:thin:scott/PW@//db:1521/svc?password=x"));
+    assertEquals("jdbc:oracle:thin:@host:1521:sid",
+        RuntimeJdbc.sanitizeUrl("jdbc:oracle:thin:@host:1521:sid"));
+  }
+
+  @Test
   void anOracleUrlKeepsWhatIsNotAPassword() {
     assertEquals("jdbc:oracle:thin:scott/***",
         RuntimeJdbc.sanitizeUrl("jdbc:oracle:thin:scott/PW"));
@@ -234,7 +287,7 @@ class RuntimeJdbcTest {
     String oracle = "jdbc:oracle:a:".repeat(50_000);
     String secret = "jdbc:mysql://db/shop?password=" + "abcd;".repeat(100_000);
     assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
-      assertEquals(slashes, RuntimeJdbc.sanitizeUrl(slashes));
+      assertTrue(RuntimeJdbc.sanitizeUrl(slashes).endsWith("/***@db"));
       assertEquals(oracle, RuntimeJdbc.sanitizeUrl(oracle));
       assertTrue(message(secret, secret).endsWith(HIDDEN));
     });

@@ -4,6 +4,7 @@ import static org.migrax.cli.ExitCode.ERROR;
 import static org.migrax.cli.ExitCode.OK;
 
 import org.migrax.dialect.Dialect;
+import org.migrax.model.JpaExtractor;
 import org.migrax.model.ModelExtractor;
 import org.migrax.model.SchemaModel;
 import org.migrax.plugin.DatabaseSchemaReader;
@@ -143,12 +144,19 @@ final class VerifyCommand implements Command {
                 + "instead.");
           }
         }
+        boolean noEntities = validated && !schemaFile
+            && JpaExtractor.scanEntities(loader, packageName).isEmpty();
         if (!validated) {
           SchemaModel expected = project.extract(dialect).model();
+          noEntities = !schemaFile && expected.tables().isEmpty();
           SchemaModel actual = DatabaseSchemaReader.read(connection, null, schemaFile);
           SchemaComparator.compare(expected, actual, dialect.id())
               .forEach(d -> problems.add(d.toString()));
           report.put("validation", "structural comparison");
+        }
+        if (noEntities) {
+          Log.warn("verify found no entities, so nothing was compared with them. Build the "
+              + "project, and check the entity package.");
         }
         report.put("problems", problems);
         if (!json) {

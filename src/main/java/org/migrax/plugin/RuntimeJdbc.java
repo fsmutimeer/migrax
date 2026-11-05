@@ -14,11 +14,12 @@ import java.util.regex.Pattern;
  * @since 0.1.0
  */
 public final class RuntimeJdbc {
-  private static final Pattern ORACLE_USER =
-      Pattern.compile("(?is)^(jdbc:oracle:[a-z0-9]+:(?!@)[^/]*/)(.+)@");
+  /** Also behind a wrapper driver, and after stray spaces or quotes. */
+  private static final String ORACLE_START =
+      "(?is)^([^a-z]*jdbc:(?:[a-z0-9]+:)?oracle:[a-z0-9]+:(?!@)[^/]*/)";
+  private static final Pattern ORACLE_USER = Pattern.compile(ORACLE_START + "(.+)@");
   /** A mistyped Oracle URL with user/password and no host. */
-  private static final Pattern ORACLE_NO_HOST =
-      Pattern.compile("(?is)^(jdbc:oracle:[a-z0-9]+:(?!@)[^/]*/)(.+)");
+  private static final Pattern ORACLE_NO_HOST = Pattern.compile(ORACLE_START + "(.+)");
   /**
    * Everything after the first of these counts as its value: a mistyped password can hold the ;
    * or & that ends a setting, and the text after it can't be told from the next setting.
@@ -27,7 +28,7 @@ public final class RuntimeJdbc {
       Pattern.compile("(?i)(?:password\\d*|pwd|secret|key|token)\\s*=\\s*");
   /** Where the user starts when // was mistyped; these databases have no user:password@ form. */
   private static final Pattern MISTYPED_START =
-      Pattern.compile("(?i)^jdbc:(?!oracle:|h2:|sqlite:|derby:|hsqldb:)[a-z0-9]+:");
+      Pattern.compile("(?i)^[^a-z]*jdbc:(?!h2:|sqlite:|derby:|hsqldb:)[a-z0-9]+:");
   private static final Pattern SQL_STATE = Pattern.compile("[0-9A-Z]{5}");
   /** SQL state class 08 is a connection failure, whatever tripped the driver. */
   private static final String CONNECTION_FAILURE = "08001";
@@ -56,6 +57,8 @@ public final class RuntimeJdbc {
         ? ORACLE_USER.matcher(url.substring(0, lastAt + 1)).replaceAll("$1***@")
             + url.substring(lastAt + 1)
         : ORACLE_NO_HOST.matcher(url).replaceAll("$1***");
+    // The password is masked: the user:password@ rule is skipped so the Oracle user stays visible.
+    boolean oracle = !sanitized.equals(url);
     // password=, MySQL's password1= to password3=, SQL Server's pwd=, keyStoreSecret= and
     // aadSecurePrincipalSecret= (any name ending in secret), and SQLCipher's key= in a SQLite URL.
     // Before the user:password@ rule, so a password with @ in it can't be taken for the end of
@@ -64,7 +67,7 @@ public final class RuntimeJdbc {
     int secret = name.find() && name.end() < sanitized.length() ? name.end() : -1;
     // The name may be inside a user:password@ part, and cutting there would lose the @ that
     // marks the end of that password below.
-    int inUserInfo = passwordStart(sanitized, sanitized.lastIndexOf('@'));
+    int inUserInfo = oracle ? -1 : passwordStart(sanitized, sanitized.lastIndexOf('@'));
     if (secret >= 0 && inUserInfo >= 0 && inUserInfo < secret
         && sanitized.indexOf('@', secret) >= 0) {
       return sanitized.substring(0, inUserInfo) + "***";
@@ -76,7 +79,7 @@ public final class RuntimeJdbc {
     // them), so it runs to the last @. At worst this hides more than the password, such as the
     // host when a query value contains @.
     lastAt = sanitized.lastIndexOf('@');
-    int password = passwordStart(sanitized, lastAt);
+    int password = oracle ? -1 : passwordStart(sanitized, lastAt);
     if (password >= 0) {
       sanitized = sanitized.substring(0, password) + "***" + sanitized.substring(lastAt);
     }
@@ -84,19 +87,31 @@ public final class RuntimeJdbc {
   }
 
   /**
-   * Where the password of user:password@ starts, or -1. The user starts after // or, when a
-   * slash was mistyped, after jdbc:name:. It may hold an @ (me@server) or a /, so the first : ends
-   * it. At worst this hides more than the password. A plain search: a pattern would scan a long
-   * URL from every // in it.
+   * Where the password of user:password@ starts, or -1. The user starts after a // before the @
+   * or, unless // follows it, after jdbc:name:, for a mistyped // (a later // can be in the
+   * password). The earlier result wins. At worst this hides more than the password, such as the
+   * path of //db/shop?user=me@server. A plain search: a pattern would scan a long URL from every
+   * // in it.
    */
   private static int passwordStart(String url, int lastAt) {
     int slashes = url.indexOf("//");
+    int found = slashes >= 0 && slashes < lastAt ? afterUser(url, slashes + 2, lastAt) : -1;
     Matcher mistyped = MISTYPED_START.matcher(url);
-    if (slashes < 0 && !mistyped.lookingAt()) {
-      return -1;
+    if (mistyped.lookingAt() && !url.startsWith("//", mistyped.end())) {
+      int other = afterUser(url, mistyped.end(), lastAt);
+      found = other >= 0 && (found < 0 || other < found) ? other : found;
     }
-    int colon = url.indexOf(':', slashes >= 0 ? slashes + 2 : mistyped.end());
-    return colon >= 0 && colon + 1 < lastAt ? colon + 1 : -1;
+    return found;
+  }
+
+  /** The user may hold an @ (me@server), so the first : ends it, or a mistyped first /. */
+  private static int afterUser(String url, int user, int lastAt) {
+    int colon = url.indexOf(':', user);
+    if (colon >= 0 && colon + 1 < lastAt) {
+      return colon + 1;
+    }
+    int slash = url.indexOf('/', user);
+    return slash >= 0 && slash + 1 < lastAt ? slash + 1 : -1;
   }
 
   /** Whether the URL may hold a password: then nothing a driver says about it is shown. */
@@ -159,7 +174,7 @@ public final class RuntimeJdbc {
       }
     } catch (SQLException e) {
       throw failure(url, e);
-    } catch (RuntimeException e) {
+    } catch (RuntimeException | LinkageError | AssertionError e) {
       // A driver can trip over the URL without a SQLException, and its message quotes it too.
       if (holdsCredentials(url)) {
         throw new SQLException(failedAt(url) + HIDDEN_MESSAGE, CONNECTION_FAILURE);
