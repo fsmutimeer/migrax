@@ -53,9 +53,11 @@ Release candidate for 0.19.0, for testing.
   or other secret setting is now hidden too, because a password can hold the `;` or `&` that
   ends a setting: `jdbc:mysql://db/shop?password=x&ssl=true` shows as
   `jdbc:mysql://db/shop?password=***`. A password stays hidden when the user name has an `@` or
-  `/` (`//me@server:password@host`), and an Oracle URL with no host no longer shows
-  `user/password`. `clean` names the database it is about to empty, since the URL may not show
-  it.
+  `/` (`//me@server:password@host`), in an Oracle URL with no host, in a URL with a mistyped
+  `//` or a `/` typed for the `:`, and behind a wrapper driver. So a URL like
+  `//db/shop?user=me@corp.com` shows less than before. `clean` names the database it is about
+  to empty, since the URL may not show it.
+- `verify` warns when it found no entities, instead of only saying the schema matches them.
 - Security: `verify --verbose` no longer prints a password in the URL through Hibernate's log
   (when Hibernate logs through java.util.logging, as it does in the CLI).
 - Security: through MCP, a schema file must be a `.sql` file in the project. Before,
