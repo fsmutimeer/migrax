@@ -171,6 +171,13 @@ class DialectCapabilitiesTest {
     assertEquals("EXIT\n", oracle.end());
     assertEquals("COMMIT;\n", oracle.afterEachMigration());
     assertEquals("ALTER SESSION SET CURRENT_SCHEMA = app", oracle.useSchema("app"));
+    assertEquals("ALTER SESSION SET CURRENT_SCHEMA = \"a b\"", oracle.useSchema("a b"));
+    assertEquals("USE `x; DROP TABLE t; --`",
+        new MariaDbDialect().scriptTool().useSchema("x; DROP TABLE t; --"));
+    assertEquals("SET search_path TO \"Tenant\"", ScriptTool.GENERIC.useSchema("Tenant"));
+    assertEquals("SET search_path TO \"x\"\"; DROP TABLE t; --\"",
+        ScriptTool.GENERIC.useSchema("x\"; DROP TABLE t; --"));
+    assertEquals("SET SCHEMA \"a;b\"", new H2Dialect().scriptTool().useSchema("a;b"));
     ScriptTool sqlServer = new SqlServerDialect().scriptTool();
     assertEquals("BEGIN TRANSACTION\nGO\n", sqlServer.begin());
     assertEquals("COMMIT\nGO\n", sqlServer.commit());

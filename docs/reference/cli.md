@@ -651,6 +651,7 @@ Prints a migration file from the migration folder.
 |---|---|
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
+| `--migrations-only` | Only look in the migration folders |
 | `--dir <path>` | Project folder (default: current folder) |
 
 ### version

@@ -206,19 +206,24 @@ class ProjectDatabaseConfigTest {
         clean.apply("jdbc:oracle:thin:scott/tiger@db:1521/FREEPDB1"));
     assertEquals("jdbc:oracle:thin:scott/***@//db:1521/FREEPDB1",
         clean.apply("jdbc:oracle:thin:scott/tiger@//db:1521/FREEPDB1"));
+    assertEquals("jdbc:sqlserver://db;accessToken=***",
+        clean.apply("jdbc:sqlserver://db;accessToken=abc"));
+    assertEquals("jdbc:mysql://:***@db/shop", clean.apply("jdbc:mysql://:SECRET@db/shop"));
+    assertEquals("jdbc:oracle:thin:scott/***@db:1521/FREE",
+        clean.apply("jdbc:oracle:thin:scott/SE@CRET@db:1521/FREE"));
     // Without credentials nothing changes.
     assertEquals("jdbc:oracle:thin:@//db:1521/FREEPDB1",
         clean.apply("jdbc:oracle:thin:@//db:1521/FREEPDB1"));
-    assertEquals("jdbc:sqlserver://db;user=sa;password=***;encrypt=false",
+    assertEquals("jdbc:sqlserver://db;user=sa;password=***",
         clean.apply("jdbc:sqlserver://db;user=sa;password={abc;def}};x};encrypt=false"));
     assertEquals("jdbc:sqlserver://db;user=sa;pwd=***",
         clean.apply("jdbc:sqlserver://db;user=sa;pwd=secret"));
-    assertEquals("jdbc:mysql://db/shop?user=root&password1=***&password2=***",
+    assertEquals("jdbc:mysql://db/shop?user=root&password1=***",
         clean.apply("jdbc:mysql://db/shop?user=root&password1=one&password2=two"));
-    // An @ in the password, with a port before it, used to end a user:password@ match early.
-    assertEquals("jdbc:sqlserver://db:1433;user=sa;password=***",
+    // An @ in a password= value may be the end of a user:password@ part: all of it is hidden.
+    assertEquals("jdbc:sqlserver://db:***",
         clean.apply("jdbc:sqlserver://db:1433;user=sa;password={a@b;c}"));
-    assertEquals("jdbc:postgresql://host:5432/db?user=a&password=***",
+    assertEquals("jdbc:postgresql://host:***",
         clean.apply("jdbc:postgresql://host:5432/db?user=a&password=p@q"));
     assertEquals("jdbc:mysql://root:***@db/shop", clean.apply("jdbc:mysql://root:pa;ss@db/shop"));
     // A raw @ in the password: the part after it used to show.
@@ -231,9 +236,10 @@ class ProjectDatabaseConfigTest {
     String users = "jdbc:x:" + "//a:".repeat(40_000);
     assertEquals(users, assertTimeout(Duration.ofSeconds(2), () -> clean.apply(users)));
     String oracle = "jdbc:oracle:a:/".repeat(10_000);
-    assertEquals(oracle, assertTimeout(Duration.ofSeconds(2), () -> clean.apply(oracle)));
+    assertEquals("jdbc:oracle:a:/***",
+        assertTimeout(Duration.ofSeconds(2), () -> clean.apply(oracle)));
     // Other secrets in the URL: SQL Server's key store and service principal, SQLCipher's key.
-    assertEquals("jdbc:sqlserver://db;keyStoreSecret=***;aadSecurePrincipalSecret=***",
+    assertEquals("jdbc:sqlserver://db;keyStoreSecret=***",
         clean.apply("jdbc:sqlserver://db;keyStoreSecret=s1;aadSecurePrincipalSecret=s2"));
     assertEquals("jdbc:sqlite:app.db?cipher=sqlcipher&key=***",
         clean.apply("jdbc:sqlite:app.db?cipher=sqlcipher&key=s3"));

@@ -72,7 +72,7 @@ final class MigrationScript {
   private void part(Part part, Map<String, Migration> callbacks) {
     Map<String, List<String>> statements = part.statements();
     if (part.schema() != null) {
-      out.append("-- Schema ").append(part.schema()).append('\n');
+      out.append("-- Schema ").append(part.schema().replaceAll("[\\r\\n]+", " ")).append('\n');
       if (!part.qualified()) {
         out.append(terminated(tool.useSchema(part.schema())));
       }

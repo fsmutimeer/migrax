@@ -58,6 +58,7 @@ class DatabaseEngineIT {
       new Check("Oracle smaller number", DatabaseEngineIT::exerciseOracleSmallerNumber),
       new Check("script timestamps", DatabaseEngineIT::exerciseScriptTimestamps),
       new Check("schemas", DatabaseEngineIT::exerciseSchemas),
+      new Check("clean schema name", DatabaseEngineIT::exerciseCleanSchemaName),
       new Check("schema file", DatabaseEngineIT::exerciseSchemaFile));
 
   /**
@@ -912,6 +913,80 @@ class DatabaseEngineIT {
         org.junit.jupiter.api.Assertions.assertTrue(minutes < 10, times.toString());
       }
     }
+  }
+
+  /**
+   * clean --schema lists and drops in the same schema: found by a name that differs only in case,
+   * and refused on Oracle when two schemas differ only in case and the switch folds the name.
+   */
+  private static void exerciseCleanSchemaName(Database database) throws Exception {
+    String id;
+    try (Connection connection = database.connect()) {
+      id = org.migrax.dialect.Dialects.forConnection(connection).orElseThrow().id();
+    }
+    if ("postgresql".equals(id)) {
+      try (Connection connection = database.connect();
+           Statement statement = connection.createStatement()) {
+        statement.execute("CREATE SCHEMA \"MxTen\"");
+        statement.execute("CREATE TABLE \"MxTen\".orders (id INT)");
+      }
+      assertEquals(0, cleanSchema(database, "mxten"));
+      try (Connection connection = database.connect();
+           Statement statement = connection.createStatement()) {
+        assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+            "MxTen", "TABLE"));
+        statement.execute("DROP SCHEMA \"MxTen\"");
+      }
+    }
+    if (!"oracle".equals(id)) {
+      return;
+    }
+    String quota = " IDENTIFIED BY \"Mx_Fold_1\" DEFAULT TABLESPACE users QUOTA UNLIMITED ON users";
+    try (Connection connection = database.connect();
+         Statement statement = connection.createStatement()) {
+      for (String user : List.of("MX_FOLD", "\"mx_fold\"", "MX_ONLY")) {
+        statement.execute("CREATE USER " + user + quota);
+        statement.execute("CREATE TABLE " + user + ".shared (id NUMBER)");
+      }
+    }
+    try {
+      // A refused schema stops the command before the one before it is dropped.
+      assertEquals(1, clean(database, "--schemas", "MX_ONLY,mx_fold"));
+      try (Connection connection = database.connect()) {
+        assertEquals(1, org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, "MX_ONLY",
+            "TABLE").size(), "MX_ONLY keeps its table");
+      }
+      assertEquals(0, cleanSchema(database, "mx_only"));
+      assertEquals(1, cleanSchema(database, "mx_fold"));
+      try (Connection connection = database.connect()) {
+        assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+            "MX_ONLY", "TABLE"));
+        for (String user : List.of("MX_FOLD", "mx_fold")) {
+          assertEquals(1, org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, user,
+              "TABLE").size(), user + " keeps its table");
+        }
+      }
+    } finally {
+      try (Connection connection = database.connect();
+           Statement statement = connection.createStatement()) {
+        for (String user : List.of("MX_FOLD", "\"mx_fold\"", "MX_ONLY")) {
+          statement.execute("DROP USER " + user + " CASCADE");
+        }
+      }
+    }
+  }
+
+  private static int cleanSchema(Database database, String schema) throws Exception {
+    return clean(database, "--schema", schema);
+  }
+
+  private static int clean(Database database, String option, String schema) throws Exception {
+    Path project = Files.createTempDirectory("migrax-clean-schema-it");
+    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+    return org.migrax.cli.Main.run(new String[] {"clean", "--yes", option, schema, "--url",
+        database.url(), "--user", database.user(), "--password", database.password(), "--dir",
+        project.toString(), "--no-build"}, new java.io.PrintStream(out, true),
+        new java.io.PrintStream(out, true));
   }
 
   /**

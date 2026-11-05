@@ -264,6 +264,18 @@ class CommandsTest {
   }
 
   @Test
+  void verifyWarnsWhenItFoundNoEntities() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate").code());
+    assertFalse(cli("verify").all().contains("found no entities"));
+    Result verify = cli("verify", "--package", "org.migrax.cli.noentitieshere");
+    assertTrue(verify.all().contains("verify found no entities"), verify.all());
+    Result json = cli("verify", "--json", "--package", "org.migrax.cli.noentitieshere");
+    assertFalse(json.out().contains("no entities"), json.out());
+    assertTrue(json.err().contains("verify found no entities"), json.err());
+  }
+
+  @Test
   void verifyAppliesEverythingToAThrowawayDatabaseAndTestsRollbacks() throws Exception {
     setUp();
     assertEquals(0, cli("generate").code());
@@ -515,7 +527,7 @@ class CommandsTest {
         + "WHERE table_schema = 'PUBLIC'"));
     assertEquals("0", query("SELECT COUNT(*) FROM information_schema.sequences "
         + "WHERE sequence_schema = 'PUBLIC'"));
-    assertTrue(cli("clean", "--yes").out().contains("Nothing to clean"));
+    assertTrue(cli("clean", "--yes").out().contains("Nothing to clean in database "));
 
     Result migrate = cli("migrate");
     assertEquals(0, migrate.code(), migrate.all());
@@ -599,7 +611,7 @@ class CommandsTest {
 
   @Test
   void diffHidesPasswordsInUrls() {
-    assertEquals("jdbc:postgresql://db/shop?user=a&password=***&ssl=true",
+    assertEquals("jdbc:postgresql://db/shop?user=a&password=***",
         DiffCommand.masked("jdbc:postgresql://db/shop?user=a&password=secret&ssl=true"));
     assertEquals("jdbc:sqlserver://db;user=a;password=***",
         DiffCommand.masked("jdbc:sqlserver://db;user=a;password=secret"));
@@ -621,6 +633,7 @@ class CommandsTest {
         "jdbc:h2:mem:clean_password_" + (++databases) + ";DB_CLOSE_DELAY=-1;PASSWORD=TopSecret");
     assertFalse(dryRun.all().contains("TopSecret"), dryRun.all());
     assertTrue(dryRun.out().contains("PASSWORD=***"), dryRun.all());
+    assertTrue(dryRun.out().contains("database CLEAN_PASSWORD_"), dryRun.all());
   }
 
   @Test

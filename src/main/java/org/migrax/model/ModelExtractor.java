@@ -496,6 +496,7 @@ public final class ModelExtractor {
     Thread thread = Thread.currentThread();
     ClassLoader previous = thread.getContextClassLoader();
     thread.setContextClassLoader(loader);
+    HibernateConnectionLog.hold();
     try {
       List<Class<?>> classes = new ArrayList<>(JpaExtractor.scanEntities(loader, basePackage));
       classes.addAll(JpaExtractor.scanAnnotated(loader, basePackage, "Converter"));
@@ -507,6 +508,7 @@ public final class ModelExtractor {
           .invoke(instance, classes, settings == null ? Map.of() : settings, naming, dialect,
               url, user, password);
     } finally {
+      HibernateConnectionLog.release();
       thread.setContextClassLoader(previous);
     }
   }

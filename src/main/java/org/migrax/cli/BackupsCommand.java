@@ -67,11 +67,9 @@ final class BackupsCommand implements Command {
         : migration.toLowerCase(Locale.ROOT) + "_");
     try (Connection connection = project.connect()) {
       String schema = args.option("--schema");
-      if (!Project.blank(schema)) {
-        Project.useSchema(connection, schema.trim());
-      }
-      List<String> backups = DatabaseSchemaReader.objectNames(connection,
-          Project.blank(schema) ? null : schema.trim(), "TABLE").stream()
+      String stored = Project.blank(schema) ? null
+          : Project.useStoredSchema(connection, schema.trim());
+      List<String> backups = DatabaseSchemaReader.objectNames(connection, stored, "TABLE").stream()
           .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix)).sorted().toList();
       context.result("backups", backups);
       if (backups.isEmpty()) {
@@ -99,8 +97,7 @@ final class BackupsCommand implements Command {
       }
       boolean autoCommit = connection.getAutoCommit();
       connection.setAutoCommit(true);
-      Dialect dropping = CleanCommand.inSchema(dialect, Project.blank(schema) ? null
-          : schema.trim());
+      Dialect dropping = CleanCommand.inSchema(dialect, stored);
       try (Statement statement = connection.createStatement()) {
         for (String backup : backups) {
           statement.execute(dropping.render(new DropTable(backup)));

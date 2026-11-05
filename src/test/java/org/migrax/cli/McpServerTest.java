@@ -43,6 +43,16 @@ class McpServerTest {
     System.clearProperty("migrax.noBuild");
   }
 
+  /** Creates the link; false where the system doesn't allow it (Windows without the right). */
+  private static boolean linked(Path link, Path target) {
+    try {
+      Files.createSymbolicLink(link, target);
+      return true;
+    } catch (java.io.IOException | UnsupportedOperationException e) {
+      return false;
+    }
+  }
+
   private McpServer server(boolean allowGenerate) {
     return new McpServer(project, allowGenerate, new PrintStream(new ByteArrayOutputStream()));
   }
@@ -117,9 +127,66 @@ class McpServerTest {
         + "\"params\":{\"name\":\"show_migration\",\"arguments\":{\"name\":\"0001_init.sql\"}}}"));
     assertTrue(text(shown).contains("CREATE TABLE sample_entity"), text(shown));
 
+    for (String name : List.of("0001_init", "rollback/0001_init.sql")) {
+      var allowed = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+          + "\"tools/call\",\"params\":{\"name\":\"show_migration\",\"arguments\":{\"name\":\""
+          + name + "\"}}}"));
+      assertEquals(false, allowed.get("isError"), text(allowed));
+    }
+    Path migrations;
+    try (var files = Files.walk(project)) {
+      migrations = files.filter(file -> file.endsWith("0001_init.sql")
+          && !file.getParent().endsWith("rollback")).findFirst().orElseThrow().getParent();
+    }
+    Files.writeString(project.resolve(".env"), "DATABASE_PASSWORD=canary\n");
+    Path outside = Files.writeString(project.resolveSibling(project.getFileName() + "-out.txt"),
+        "canary\n");
+    try {
+      Files.writeString(migrations.resolve("notes.txt"), "canary\n");
+      for (String name : List.of(".env", "src/main/resources/application.properties",
+          "../" + outside.getFileName(), outside.toString().replace('\\', '/'), "..",
+          "rollback/..", "rollback/x/y.sql", "a\\\\b", "C:x", "x:stream", "notes.txt")) {
+        var denied = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+            + "\"tools/call\",\"params\":{\"name\":\"show_migration\",\"arguments\":{\"name\":\""
+            + name + "\"}}}"));
+        assertEquals(true, denied.get("isError"), name);
+        assertFalse(text(denied).contains("canary"), name);
+        assertFalse(text(denied).contains("jdbc:h2"), name);
+      }
+      if (linked(migrations.resolve("0009_env.sql"), project.resolve(".env"))
+          && linked(migrations.resolve("0010_out.sql"), outside)) {
+        for (String name : List.of("0009_env.sql", "0010_out.sql")) {
+          var denied = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+              + "\"tools/call\",\"params\":{\"name\":\"show_migration\",\"arguments\":"
+              + "{\"name\":\"" + name + "\"}}}"));
+          assertEquals(true, denied.get("isError"), name);
+          assertFalse(text(denied).contains("canary"), name);
+        }
+        var verify = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+            + "\"tools/call\",\"params\":{\"name\":\"verify\",\"arguments\":{}}}"));
+        assertEquals(true, verify.get("isError"), text(verify));
+        assertTrue(text(verify).contains("leads outside the migration folders"), text(verify));
+        assertFalse(text(verify).contains("canary"), text(verify));
+      }
+    } finally {
+      Files.delete(outside);
+    }
+
     var missing = call(writer, "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\","
         + "\"params\":{\"name\":\"show_migration\",\"arguments\":{}}}");
     assertTrue(String.valueOf(missing.get("error")).contains("-32602"), missing.toString());
+  }
+
+  @Test
+  void aSchemaFileMustBeSqlInTheProject() throws Exception {
+    Files.writeString(project.resolve(".env"), "DATABASE_PASSWORD=canary\n");
+    Files.writeString(project.resolve("src/main/resources/application.properties"),
+        "migrax.schema-file=.env\n", java.nio.file.StandardOpenOption.APPEND);
+    var plan = result(call(server(false), "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":"
+        + "\"tools/call\",\"params\":{\"name\":\"plan\",\"arguments\":{}}}"));
+    assertEquals(true, plan.get("isError"), text(plan));
+    assertTrue(text(plan).contains("not a SQL file in the project"), text(plan));
+    assertFalse(text(plan).contains("canary"), text(plan));
   }
 
   @Test

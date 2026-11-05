@@ -53,7 +53,8 @@ public final class DatabaseSchemaReader {
       while (result.next()) {
         String name = result.getString("TABLE_NAME");
         String lower = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
-        if (name == null || lower.startsWith("migrax_") || lower.equals("flyway_schema_history")
+        if (name == null || inOtherSchema(result, schema) || lower.startsWith("migrax_")
+            || lower.equals("flyway_schema_history")
             || lower.equals("databasechangelog") || lower.equals("databasechangeloglock")
             // SQL Server's master database reports these system tables as user tables.
             || lower.startsWith("spt_") || lower.equals("msreplication_options")
@@ -180,6 +181,30 @@ public final class DatabaseSchemaReader {
   }
 
   /**
+   * Whether a metadata row belongs to another schema than the one asked for: JDBC reads the
+   * schema as a pattern, so {@code tenant_1} also finds {@code tenantx1}. Databases without
+   * schemas leave the column empty.
+   */
+  private static boolean inOtherSchema(ResultSet row, String schema) throws SQLException {
+    String found = row.getString("TABLE_SCHEM");
+    return schema != null && found != null && !schema.equals(found);
+  }
+
+  /**
+   * The schema's name as the database stores it, the one {@link #read} and
+   * {@link #objectNames} look in for that name.
+   *
+   * @param connection the connection
+   * @param name the schema as the user wrote it
+   * @return the stored name; the name itself when no schema matches it
+   * @throws SQLException when the connection can't be read
+   * @since 0.19.0
+   */
+  public static String storedSchema(Connection connection, String name) throws SQLException {
+    return storedSchemaName(connection.getMetaData(), name);
+  }
+
+  /**
    * The schema's name as the database stores it. A schema created without quotes is stored in
    * upper case on H2, Derby, HSQLDB and Oracle, so {@code app} is found as {@code APP}. On any
    * database, an exact match wins, then the one schema whose name differs only in case; a name
@@ -252,6 +277,9 @@ public final class DatabaseSchemaReader {
     List<String> declaredInteger = new ArrayList<>();
     try (ResultSet result = metadata.getColumns(catalog, schema, table, "%")) {
       while (result.next()) {
+        if (inOtherSchema(result, schema)) {
+          continue;
+        }
         // Oracle returns the default as a LONG, readable only before any later column.
         String rawDefault = optionalString(result, "COLUMN_DEF");
         String databaseType = result.getString("TYPE_NAME");
@@ -418,12 +446,13 @@ public final class DatabaseSchemaReader {
     // Only a named schema needs the dialect; looking it up can cost a query.
     String catalog = schema == null || schema.isBlank() ? connection.getCatalog()
         : schemaCatalog(connection).catalogFor(connection, schema);
-    try (ResultSet result = metadata.getTables(catalog,
-        resolveSchema(connection, metadata, schema, () -> schemaCatalog(connection)), "%",
-        new String[]{type})) {
+    String resolved = resolveSchema(connection, metadata, schema,
+        () -> schemaCatalog(connection));
+    try (ResultSet result = metadata.getTables(catalog, resolved, "%", new String[]{type})) {
       while (result.next()) {
         String name = result.getString("TABLE_NAME");
-        if (name != null && !name.toLowerCase(Locale.ROOT).startsWith("sqlite_")
+        if (name != null && !inOtherSchema(result, resolved)
+            && !name.toLowerCase(Locale.ROOT).startsWith("sqlite_")
             && !name.startsWith("BIN$")) {
           names.add(name);
         }

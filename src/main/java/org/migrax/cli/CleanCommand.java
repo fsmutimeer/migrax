@@ -82,12 +82,20 @@ final class CleanCommand implements Command {
     // Only shown to the user (project.connect() connects): never with its password.
     String url = RuntimeJdbc.sanitizeUrl(project.credentials().url());
     try (Connection connection = project.connect()) {
+      // The URL may hide its database, and this asks before dropping everything in it.
+      String catalog = connection.getCatalog();
+      String target = catalog == null || catalog.isBlank() ? url
+          : "database " + catalog + " at " + url;
+      // All of them first: a schema that is refused stops the command before anything is dropped.
       for (String schema : schemas(project, args)) {
         if (schema != null) {
-          Project.useSchema(connection, schema);
+          Project.useStoredSchema(connection, schema);
         }
-        String where = schema == null ? url : "schema " + schema + " of " + url;
-        Objects objects = Objects.read(connection, schema);
+      }
+      for (String schema : schemas(project, args)) {
+        String stored = schema == null ? null : Project.useStoredSchema(connection, schema);
+        String where = schema == null ? target : "schema " + schema + " of " + target;
+        Objects objects = Objects.read(connection, stored);
         if (objects.isEmpty()) {
           out.println("Nothing to clean in " + where + ".");
           context.resultList("schemas").add(JsonOut.object("schema", schema, "dropped",
@@ -114,7 +122,7 @@ final class CleanCommand implements Command {
             return OK;
           }
         }
-        drop(connection, inSchema(dialect, schema), objects, schema, project.lockTimeout());
+        drop(connection, inSchema(dialect, stored), objects, stored, project.lockTimeout());
         out.println("Dropped " + objects.count() + " from " + where + ".");
         context.resultList("schemas").add(JsonOut.object("schema", schema, "dropped",
             objects.json()));

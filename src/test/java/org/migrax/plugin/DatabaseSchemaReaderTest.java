@@ -18,6 +18,22 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DatabaseSchemaReaderTest {
+  @org.junit.jupiter.api.Test
+  void aSchemaNameIsNotAPattern() throws Exception {
+    try (var connection = DriverManager.getConnection("jdbc:h2:mem:schema_pattern");
+         var statement = connection.createStatement()) {
+      statement.execute("CREATE SCHEMA TENANT_1");
+      statement.execute("CREATE SCHEMA TENANTX1");
+      statement.execute("CREATE TABLE TENANT_1.A (ID INT)");
+      statement.execute("CREATE TABLE TENANTX1.A (ID INT, OTHER INT)");
+      statement.execute("CREATE TABLE TENANTX1.B (ID INT)");
+      assertEquals(List.of("A"), DatabaseSchemaReader.objectNames(connection, "TENANT_1", "TABLE"));
+      var tables = DatabaseSchemaReader.read(connection, "TENANT_1").tables();
+      assertEquals(1, tables.size());
+      assertEquals(1, tables.get(0).columns().size());
+    }
+  }
+
   @Test
   void readsTheSequenceBehindAColumnDefault() {
     assertEquals("customer_seq",

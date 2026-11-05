@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.19.0-rc.1] - 2026-11-05
+
+Release candidate for 0.19.0, for testing.
+
 ### Fixed
 
 - `lint` on SQL Server and Oracle now reports MX015 (info) for a `CREATE INDEX` on an existing
@@ -23,6 +27,45 @@ All notable changes to Migrax are listed here. The format follows
   connection's default one.
 - Oracle: `clean --schema` lists and drops the sequences of the named schema instead of the
   login user's own.
+- Security: the MCP tool `show_migration` only reads files in the migration folders. Before,
+  it printed any file the user could read, such as `.env` or `application.properties`, so
+  database passwords could reach the AI client. A link to a file outside those folders is
+  refused too. `migrax sql` has a new `--migrations-only` option for the same limit.
+- `clean --schema` and `backups --schema` use one schema name for listing and dropping. When
+  two Oracle schemas differed only in case, they could list one and drop the tables of the
+  other; they now stop with an error. Both also find a schema by a name that differs only in
+  case, as the other commands do.
+- Security: every MCP tool refuses to run when a migration or rollback script links outside the
+  migration folders. Before, `verify` could show the linked file's content in a database error.
+- `--schema` no longer reads `_` and `%` as wildcards: `tenant_1` could also list the tables of
+  `tenantx1`, so a preview showed the wrong tables and a real run could stop halfway.
+- `--schemas` finds the history table of the schema it names, not of one that matches `_`.
+- `clean --schemas` checks every schema before it drops anything.
+- `migrate --sql` quotes a schema name that needs it, so it stays one name in the script. On
+  PostgreSQL a mixed-case name keeps its case, as it does when Migrax runs the migration itself.
+- Security: a password no longer appears when the driver can't parse the URL. MySQL's error
+  quoted the URL's user and password, and PostgreSQL's driver logged them to the error output.
+  When the URL may hold a password, the driver's message is now always hidden, because a driver
+  can quote any piece of it. An `@` in a URL setting counts, as in `?user=me@server`, since it
+  can't be told from a password. Set the user and password separately from the URL to see the
+  message. The error still gives its code and SQL state.
+- Security: more passwords in a URL are hidden in output. Everything after a `password=` value
+  or other secret setting is now hidden too, because a password can hold the `;` or `&` that
+  ends a setting: `jdbc:mysql://db/shop?password=x&ssl=true` shows as
+  `jdbc:mysql://db/shop?password=***`. A password stays hidden when the user name has an `@` or
+  `/` (`//me@server:password@host`), in an Oracle URL with no host, in a URL with a mistyped
+  `//` or a `/` typed for the `:`, and behind a wrapper driver. So a URL like
+  `//db/shop?user=me@corp.com` shows less than before. `clean` names the database it is about
+  to empty, since the URL may not show it.
+- `verify` warns when it found no entities, instead of only saying the schema matches them.
+- Security: `verify --verbose` no longer prints a password in the URL through Hibernate's log
+  (when Hibernate logs through java.util.logging, as it does in the CLI).
+- Security: through MCP, a schema file must be a `.sql` file in the project. Before,
+  `migrax.schema-file=.env` could show that file's content in a database error.
+- A JDBC URL with an empty user name (`jdbc:mysql://:password@db`), or an unquoted Oracle
+  password containing `@`, no longer shows the password in output.
+- Values of settings ending in `token` in a JDBC URL (for example SQL Server's `accessToken=`)
+  are hidden in output, like a password.
 
 ## [0.18.0-rc.2] - 2026-11-02
 
@@ -1010,7 +1053,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.2...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.1...HEAD
+[0.19.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.2...v0.19.0-rc.1
 [0.18.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.1...v0.18.0-rc.2
 [0.18.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.3...v0.18.0-rc.1
 [0.17.2-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.2...v0.17.2-rc.3
