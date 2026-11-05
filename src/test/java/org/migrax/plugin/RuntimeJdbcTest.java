@@ -191,14 +191,14 @@ class RuntimeJdbcTest {
   void anAtSignOrSlashInTheUserStillHidesThePassword() {
     assertEquals("jdbc:postgresql://me@corp:***@db:5432/shop",
         RuntimeJdbc.sanitizeUrl("jdbc:postgresql://me@corp:Secret@db:5432/shop"));
-    assertEquals("jdbc:mysql://a/b:***@db", RuntimeJdbc.sanitizeUrl("jdbc:mysql://a/b:Secret@db"));
+    assertEquals("jdbc:mysql://a/***@db", RuntimeJdbc.sanitizeUrl("jdbc:mysql://a/b:Secret@db"));
     assertEquals("jdbc:mysql://user@db:3306/shop",
         RuntimeJdbc.sanitizeUrl("jdbc:mysql://user@db:3306/shop"));
   }
 
   @Test
   void aMistypedSlashStillHidesThePassword() {
-    assertEquals("jdbc:mysql:/root:***@db/shop",
+    assertEquals("jdbc:mysql:/***@db/shop",
         RuntimeJdbc.sanitizeUrl("jdbc:mysql:/root:TIGER9@db/shop"));
     assertEquals("jdbc:mysql:root:***@db/shop",
         RuntimeJdbc.sanitizeUrl("jdbc:mysql:root:TIGER9@db/shop"));
@@ -241,7 +241,14 @@ class RuntimeJdbcTest {
         "jdbc:postgresql:/root:Tiger9@127.0.0.1:1//shop",
         "jdbc:mysql://root/Tiger9@127.0.0.1/shop", "jdbc:postgresql://root/Tiger9@db:5432/shop",
         " jdbc:mysql:root:Tiger9@db/shop", "jdbc:mysql:/root:Tig//er9@db/shop",
-        "jdbc:mysql:/root:Tiger9@db/shop?x=//y@z"}) {
+        "jdbc:mysql:/root:Tiger9@db/shop?x=//y@z",
+        "jdbc:oracle:thin:root:Tiger9@db:1521/svc?x=a@b",
+        "jdbc:oracle:thin:root:Tiger9@//db:1521/svc?TNS_ADMIN=/home/me@corp/w",
+        "jdbc:oracle:thin:root:Tig/er9@db:1521/svc",
+        "jdbc:p6spy:oracle:thin:root:Tiger9@db:1521/svc?x=a@b",
+        "jdbc:log4jdbc:oracle:thin:root:Tiger9@//db:1521/svc?x=a@b",
+        "jdbc:mysql://root/Tiger9@db:3306/shop?user=me@corp",
+        "jdbc:mysql://root/Tig:er9@db/shop"}) {
       String shown = RuntimeJdbc.sanitizeUrl(url);
       assertFalse(shown.contains("Tiger9") || shown.contains("er9"), url);
       assertTrue(message(url, "bad " + url).endsWith(": " + HIDDEN), url);
@@ -273,7 +280,7 @@ class RuntimeJdbcTest {
         RuntimeJdbc.sanitizeUrl("jdbc:oracle:thin:scott/PW"));
     assertEquals("jdbc:oracle:thin:scott/***@db:1521/svc",
         RuntimeJdbc.sanitizeUrl("jdbc:oracle:thin:scott/PW@db:1521/svc"));
-    assertEquals("jdbc:oracle:thin:me:x/***@host",
+    assertEquals("jdbc:oracle:thin:***@host",
         RuntimeJdbc.sanitizeUrl("jdbc:oracle:thin:me:x/PW@host"));
     assertEquals("jdbc:oracle:thin:@//host:1521/db",
         RuntimeJdbc.sanitizeUrl("jdbc:oracle:thin:@//host:1521/db"));
