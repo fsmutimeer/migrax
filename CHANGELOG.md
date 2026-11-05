@@ -45,14 +45,17 @@ Release candidate for 0.19.0, for testing.
   PostgreSQL a mixed-case name keeps its case, as it does when Migrax runs the migration itself.
 - Security: a password no longer appears when the driver can't parse the URL. MySQL's error
   quoted the URL's user and password, and PostgreSQL's driver logged them to the error output.
-  When the URL may hold a password with a character the URL itself uses, the driver's message
-  is hidden and the error says to set the password separately.
+  When the URL may hold a password, the driver's message is now always hidden, because a driver
+  can quote any piece of it. An `@` in a URL setting counts, as in `?user=me@server`, since it
+  can't be told from a password. Set the user and password separately from the URL to see the
+  message. The error still gives its code and SQL state.
 - Security: more passwords in a URL are hidden in output. Everything after a `password=` value
   or other secret setting is now hidden too, because a password can hold the `;` or `&` that
   ends a setting: `jdbc:mysql://db/shop?password=x&ssl=true` shows as
   `jdbc:mysql://db/shop?password=***`. A password stays hidden when the user name has an `@` or
   `/` (`//me@server:password@host`), and an Oracle URL with no host no longer shows
-  `user/password`.
+  `user/password`. `clean` names the database it is about to empty, since the URL may not show
+  it.
 - Security: `verify --verbose` no longer prints a password in the URL through Hibernate's log
   (when Hibernate logs through java.util.logging, as it does in the CLI).
 - Security: through MCP, a schema file must be a `.sql` file in the project. Before,
