@@ -6,6 +6,9 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+- Security: the container image upgrades `apt` and `libapt-pkg7.0` to fix CVE-2026-109518,
+  which the base image still had.
+
 ## [0.19.0-rc.1] - 2026-11-05
 
 Release candidate for 0.19.0, for testing.
