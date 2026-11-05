@@ -5,8 +5,9 @@
 # Run:  docker run --rm -v "$PWD/db/migration:/migrations" \
 #         -e MIGRAX_DATABASE_URL=jdbc:postgresql://db:5432/app ... migrax migrate
 
-# Base images are pinned to a digest, so every build ships the same thing; Dependabot updates
-# the digests.
+# Base images are pinned to a digest, so every build starts from the same image; Dependabot
+# updates the digests. The one apt step below takes the current security update of two packages
+# at build time.
 
 # The drivers are plain jars: download them once, on the build machine's own platform.
 FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320 AS drivers
@@ -15,6 +16,13 @@ RUN mvn -q -B -f /build/pom.xml dependency:copy-dependencies \
       -DoutputDirectory=/build/drivers -DincludeScope=runtime
 
 FROM eclipse-temurin:21-jre@sha256:0b99b3376fbb50dbf9c0af8535fdd5b8eb0d3fdfc8b1e4967f383b6919f6901a
+# apt in the base image has CVE-2026-109518 (fixed in 3.2.1ubuntu0.1) and the base image is not
+# rebuilt yet. Remove this step once the pinned base image has the fix.
+RUN apt-get -o Acquire::Retries=3 update -qq \
+    && apt-get -o Acquire::Retries=3 install -y -qq --no-install-recommends --only-upgrade \
+         apt libapt-pkg7.0 \
+    && rm -rf /var/lib/apt/lists/*
+
 ARG VERSION
 LABEL org.opencontainers.image.title="Migrax" \
       org.opencontainers.image.description="Migrations for JPA and Hibernate projects" \
