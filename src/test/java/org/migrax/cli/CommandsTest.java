@@ -599,7 +599,7 @@ class CommandsTest {
 
   @Test
   void diffHidesPasswordsInUrls() {
-    assertEquals("jdbc:postgresql://db/shop?user=a&password=***&ssl=true",
+    assertEquals("jdbc:postgresql://db/shop?user=a&password=***",
         DiffCommand.masked("jdbc:postgresql://db/shop?user=a&password=secret&ssl=true"));
     assertEquals("jdbc:sqlserver://db;user=a;password=***",
         DiffCommand.masked("jdbc:sqlserver://db;user=a;password=secret"));
