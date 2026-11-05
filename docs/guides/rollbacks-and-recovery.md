@@ -160,12 +160,12 @@ included, so `migrax migrate` can build it again from the migrations:
 
 ```console
 $ migrax clean --dry-run
-Would drop from jdbc:postgresql://localhost:5432/shop:
+Would drop from database shop at jdbc:postgresql://localhost:5432/shop:
   table    customers
   table    migrax_history
   ...
 $ migrax clean --yes
-Dropped 5 table(s), 2 sequence(s) from jdbc:postgresql://localhost:5432/shop.
+Dropped 5 table(s), 2 sequence(s) from database shop at jdbc:postgresql://localhost:5432/shop.
 Run 'migrax migrate' to rebuild the schema from the migrations.
 $ migrax migrate
 ```

@@ -82,6 +82,10 @@ final class CleanCommand implements Command {
     // Only shown to the user (project.connect() connects): never with its password.
     String url = RuntimeJdbc.sanitizeUrl(project.credentials().url());
     try (Connection connection = project.connect()) {
+      // The URL may hide its database, and this asks before dropping everything in it.
+      String catalog = connection.getCatalog();
+      String target = catalog == null || catalog.isBlank() ? url
+          : "database " + catalog + " at " + url;
       // All of them first: a schema that is refused stops the command before anything is dropped.
       for (String schema : schemas(project, args)) {
         if (schema != null) {
@@ -90,7 +94,7 @@ final class CleanCommand implements Command {
       }
       for (String schema : schemas(project, args)) {
         String stored = schema == null ? null : Project.useStoredSchema(connection, schema);
-        String where = schema == null ? url : "schema " + schema + " of " + url;
+        String where = schema == null ? target : "schema " + schema + " of " + target;
         Objects objects = Objects.read(connection, stored);
         if (objects.isEmpty()) {
           out.println("Nothing to clean in " + where + ".");

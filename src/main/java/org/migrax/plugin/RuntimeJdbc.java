@@ -3,8 +3,6 @@ package org.migrax.plugin;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.SQLException;
-import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.regex.Matcher;
@@ -17,30 +15,24 @@ import java.util.regex.Pattern;
  */
 public final class RuntimeJdbc {
   private static final Pattern ORACLE_USER =
-      Pattern.compile("(?i)^(jdbc:oracle:[a-z0-9]+:[^/@;]*/)(.+)@");
+      Pattern.compile("(?is)^(jdbc:oracle:[a-z0-9]+:(?!@)[^/]*/)(.+)@");
   /** A mistyped Oracle URL with user/password and no host. */
   private static final Pattern ORACLE_NO_HOST =
-      Pattern.compile("(?i)^(jdbc:oracle:[a-z0-9]+:[^/@;]*/)(.+)");
-  private static final Pattern QUOTED = Pattern.compile("\"[^\"]*\"");
+      Pattern.compile("(?is)^(jdbc:oracle:[a-z0-9]+:(?!@)[^/]*/)(.+)");
   /**
    * Everything after the first of these counts as its value: a mistyped password can hold the ;
    * or & that ends a setting, and the text after it can't be told from the next setting.
    */
   private static final Pattern SECRET_NAME =
       Pattern.compile("(?i)(?:password\\d*|pwd|secret|key|token)\\s*=\\s*");
-  /**
-   * What follows //host: when the last @ may be in a setting (user=me@server), and not after a
-   * password. A password can look the same, so every piece of it comes out of the message.
-   */
-  private static final Pattern PORT_AND_SETTING = Pattern.compile(
-      "(?i)\\d{1,5}(?:[,/][^;?]*)?[;?&](?:.*[;&])?[a-z][a-z0-9_.-]*=[^;&]*");
-  /** The characters a driver cuts a URL at, or rewrites, and those that end a setting. */
-  private static final Pattern PIECE_END = Pattern.compile("[@/?#,:;\"\\\\&=]+");
+  /** Where the user starts when // was mistyped; these databases have no user:password@ form. */
+  private static final Pattern MISTYPED_START =
+      Pattern.compile("(?i)^jdbc:(?!oracle:|h2:|sqlite:|derby:|hsqldb:)[a-z0-9]+:");
+  private static final Pattern SQL_STATE = Pattern.compile("[0-9A-Z]{5}");
+  /** SQL state class 08 is a connection failure, whatever tripped the driver. */
+  private static final String CONNECTION_FAILURE = "08001";
   private static final String HIDDEN_MESSAGE = "the driver's message is hidden, because the URL "
-      + "may hold a password with a character the URL itself uses. Set the password separately "
-      + "from the URL instead";
-  /** Longer than any real URL part: the settings pattern needn't run on it. */
-  private static final int LONGEST_SETTINGS = 2048;
+      + "may hold a password. Set the user and password separately from the URL to see it";
 
   private RuntimeJdbc() {}
 
@@ -56,29 +48,29 @@ public final class RuntimeJdbc {
     if (url == null) {
       return "";
     }
+    // Oracle's thin URL can carry user/password@ right after the driver type; the password may
+    // be quoted and then contain @. First, so nothing below can stop it from running. Both
+    // patterns are anchored, so a long URL is read once, not from every start (seconds).
+    int lastAt = url.lastIndexOf('@');
+    String sanitized = lastAt >= 0
+        ? ORACLE_USER.matcher(url.substring(0, lastAt + 1)).replaceAll("$1***@")
+            + url.substring(lastAt + 1)
+        : ORACLE_NO_HOST.matcher(url).replaceAll("$1***");
     // password=, MySQL's password1= to password3=, SQL Server's pwd=, keyStoreSecret= and
     // aadSecurePrincipalSecret= (any name ending in secret), and SQLCipher's key= in a SQLite URL.
-    // First, so a password with @ in it can't be taken for the end of a user:password@ part
-    // below. Hiding harmless settings by mistake is fine.
-    Matcher name = SECRET_NAME.matcher(url);
-    int secret = name.find() && name.end() < url.length() ? name.end() : -1;
+    // Before the user:password@ rule, so a password with @ in it can't be taken for the end of
+    // that part. Hiding harmless settings by mistake is fine.
+    Matcher name = SECRET_NAME.matcher(sanitized);
+    int secret = name.find() && name.end() < sanitized.length() ? name.end() : -1;
     // The name may be inside a user:password@ part, and cutting there would lose the @ that
-    // marks the start of that password below.
-    int inUserInfo = passwordStart(url, url.lastIndexOf('@'));
+    // marks the end of that password below.
+    int inUserInfo = passwordStart(sanitized, sanitized.lastIndexOf('@'));
     if (secret >= 0 && inUserInfo >= 0 && inUserInfo < secret
-        && url.indexOf('@', secret) >= 0) {
-      return url.substring(0, inUserInfo) + "***";
+        && sanitized.indexOf('@', secret) >= 0) {
+      return sanitized.substring(0, inUserInfo) + "***";
     }
-    String sanitized = secret < 0 ? url : url.substring(0, secret) + "***";
-    // Oracle's thin URL can carry user/password@ right after the driver type; the password may
-    // be quoted and then contain @. Both Oracle patterns are anchored, so a long URL is read
-    // once, not from every start (seconds).
-    int lastAt = sanitized.lastIndexOf('@');
-    if (lastAt >= 0) {
-      sanitized = ORACLE_USER.matcher(sanitized.substring(0, lastAt + 1)).replaceAll("$1***@")
-          + sanitized.substring(lastAt + 1);
-    } else {
-      sanitized = ORACLE_NO_HOST.matcher(sanitized).replaceAll("$1***");
+    if (secret >= 0) {
+      sanitized = sanitized.substring(0, secret) + "***";
     }
     // //user:password@host. The password may contain ;, / or a raw @ (Connector/J accepts
     // them), so it runs to the last @. At worst this hides more than the password, such as the
@@ -92,103 +84,44 @@ public final class RuntimeJdbc {
   }
 
   /**
-   * Where the password of //user:password@ starts, or -1. The user may hold an @ (me@server) or
-   * a /, so the first : after // ends it. At worst this hides more than the password. A plain
-   * search: a pattern would scan a long URL from every // in it.
+   * Where the password of user:password@ starts, or -1. The user starts after // or, when a
+   * slash was mistyped, after jdbc:name:. It may hold an @ (me@server) or a /, so the first : ends
+   * it. At worst this hides more than the password. A plain search: a pattern would scan a long
+   * URL from every // in it.
    */
   private static int passwordStart(String url, int lastAt) {
     int slashes = url.indexOf("//");
-    int colon = slashes < 0 ? -1 : url.indexOf(':', slashes + 2);
+    Matcher mistyped = MISTYPED_START.matcher(url);
+    if (slashes < 0 && !mistyped.lookingAt()) {
+      return -1;
+    }
+    int colon = url.indexOf(':', slashes >= 0 ? slashes + 2 : mistyped.end());
     return colon >= 0 && colon + 1 < lastAt ? colon + 1 : -1;
   }
 
+  /** Whether the URL may hold a password: then nothing a driver says about it is shown. */
+  private static boolean holdsCredentials(String url) {
+    return !url.equals(sanitizeUrl(url));
+  }
+
   /**
-   * The connection failure to report. A driver that can't parse a URL quotes it, so what the URL
-   * holds is taken out of the message, and the driver's exception doesn't travel on: its message,
-   * or one it wraps, still has it.
+   * The connection failure to report. A driver that can't parse a URL quotes it, or a piece of it
+   * in its own form (cut, joined, in another case), so no search can take a password out of its
+   * message. When the URL may hold one, the message and the exception stay behind.
    */
   static SQLException failure(String url, SQLException e) {
-    boolean credentials = !url.equals(sanitizeUrl(url));
-    String message = credentials ? withoutCredentials(url, e.getMessage()) : e.getMessage();
-    return new SQLException("Failed to connect to database at " + sanitizeUrl(url) + ": " + message,
-        e.getSQLState(), e.getErrorCode(), credentials ? null : e);
+    if (!holdsCredentials(url)) {
+      return new SQLException(failedAt(url) + e.getMessage(), e.getSQLState(), e.getErrorCode(), e);
+    }
+    String state = e.getSQLState();
+    boolean known = state != null && SQL_STATE.matcher(state).matches();
+    return new SQLException(
+        failedAt(url) + HIDDEN_MESSAGE + (known ? " (SQL state " + state + ")" : ""),
+        known ? state : null, e.getErrorCode());
   }
 
-  /**
-   * The message without the URL's secrets, found as {@link #sanitizeUrl} finds them. This reads
-   * the URL before masking: when the last @ is in a masked value, it hides more than that does.
-   */
-  private static String withoutCredentials(String url, String message) {
-    if (message == null) {
-      return null;
-    }
-    String cleaned = message;
-    Matcher name = SECRET_NAME.matcher(url);
-    if (name.find() && name.end() < url.length()) {
-      String value = url.substring(name.end());
-      cleaned = hide(hide(cleaned, url.substring(name.start())), value);
-      if (PIECE_END.matcher(value).find()) {
-        if (value.length() > LONGEST_SETTINGS) {
-          return HIDDEN_MESSAGE;
-        }
-        cleaned = withoutPieces(cleaned, value);
-      }
-    }
-    int lastAt = url.lastIndexOf('@');
-    Matcher oracle = lastAt >= 0 ? ORACLE_USER.matcher(url.substring(0, lastAt + 1))
-        : ORACLE_NO_HOST.matcher(url);
-    if (oracle.find()) {
-      String password = oracle.group(2);
-      boolean quoted = QUOTED.matcher(password).matches();
-      if (!quoted && splits(password)) {
-        return HIDDEN_MESSAGE;
-      }
-      cleaned = hide(cleaned, password);
-      if (quoted) {
-        cleaned = hide(cleaned, password.substring(1, password.length() - 1));
-      }
-    }
-    int start = passwordStart(url, lastAt);
-    if (start >= 0) {
-      String password = url.substring(start, lastAt);
-      boolean cut = splits(password);
-      if (cut && (password.length() > LONGEST_SETTINGS
-          || !PORT_AND_SETTING.matcher(password).matches())) {
-        return HIDDEN_MESSAGE;
-      }
-      cleaned = hide(hide(cleaned, url.substring(url.indexOf("//") + 2, lastAt)), password);
-      if (cut) {
-        cleaned = withoutPieces(cleaned, password);
-      }
-    }
-    return cleaned;
-  }
-
-  /** The message without any whole word of the text, however short: a driver may quote one. */
-  private static String withoutPieces(String message, String text) {
-    String cleaned = message;
-    for (String piece : new LinkedHashSet<>(List.of(PIECE_END.split(text)))) {
-      if (!piece.isEmpty()) {
-        cleaned = Pattern.compile("(?<![a-z0-9])" + Pattern.quote(piece) + "(?![a-z0-9])",
-            Pattern.CASE_INSENSITIVE).matcher(cleaned).replaceAll("***");
-      }
-    }
-    return cleaned;
-  }
-
-  /** Whether a driver may cut the URL inside the password, or rewrite it, before quoting it. */
-  private static boolean splits(String password) {
-    return password.chars().anyMatch(character -> "@/?#,:;\"\\".indexOf(character) >= 0);
-  }
-
-  /**
-   * A very short secret isn't searched for: it would match all over the message. Any case, since
-   * a driver may change it when it quotes a setting.
-   */
-  private static String hide(String message, String secret) {
-    return secret.length() < 4 ? message
-        : Pattern.compile(Pattern.quote(secret), Pattern.CASE_INSENSITIVE).matcher(message)
-            .replaceAll("***");
+  private static String failedAt(String url) {
+    return "Failed to connect to database at " + sanitizeUrl(url) + ": ";
   }
 
   public static Connection connect(
@@ -226,6 +159,12 @@ public final class RuntimeJdbc {
       }
     } catch (SQLException e) {
       throw failure(url, e);
+    } catch (RuntimeException e) {
+      // A driver can trip over the URL without a SQLException, and its message quotes it too.
+      if (holdsCredentials(url)) {
+        throw new SQLException(failedAt(url) + HIDDEN_MESSAGE, CONNECTION_FAILURE);
+      }
+      throw e;
     }
     throw new SQLException(
         "No JDBC driver in the service runtime dependencies accepts URL: " + sanitizeUrl(url)
