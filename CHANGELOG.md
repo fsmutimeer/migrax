@@ -6,6 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.19.0-rc.2] - 2026-11-06
+
+Release candidate for 0.19.0, for testing.
+
+### Fixed
+
 - Security: the container image upgrades `apt` and `libapt-pkg7.0` to fix CVE-2026-109518,
   which the base image still had.
 
@@ -1056,7 +1062,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.1...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.2...HEAD
+[0.19.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.1...v0.19.0-rc.2
 [0.19.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.2...v0.19.0-rc.1
 [0.18.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.18.0-rc.1...v0.18.0-rc.2
 [0.18.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.17.2-rc.3...v0.18.0-rc.1
