@@ -18,10 +18,11 @@ RUN mvn -q -B -f /build/pom.xml dependency:copy-dependencies \
 FROM eclipse-temurin:21-jre@sha256:0b99b3376fbb50dbf9c0af8535fdd5b8eb0d3fdfc8b1e4967f383b6919f6901a
 # apt in the base image has CVE-2026-109518 (fixed in 3.2.1ubuntu0.1) and the base image is not
 # rebuilt yet. Remove this step once the pinned base image has the fix.
-RUN apt-get -o Acquire::Retries=3 update -qq \
-    && apt-get -o Acquire::Retries=3 install -y -qq --no-install-recommends --only-upgrade \
+RUN apt-get -o Acquire::Retries=0 update -qq --error-on=any \
+    && apt-get -o Acquire::Retries=0 install -y -qq --no-install-recommends --only-upgrade \
          apt libapt-pkg7.0 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 3.2.1ubuntu0.1
 
 ARG VERSION
 LABEL org.opencontainers.image.title="Migrax" \
