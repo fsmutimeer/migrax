@@ -123,6 +123,6 @@ public class MigraxPlugin implements Plugin<Project> {
     } catch (IOException ignored) {
       // Fall back below.
     }
-    return properties.getProperty("version", "0.19.0-rc.2");
+    return properties.getProperty("version", "0.19.0-SNAPSHOT");
   }
 }
