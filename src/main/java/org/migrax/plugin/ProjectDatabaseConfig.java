@@ -360,7 +360,9 @@ public final class ProjectDatabaseConfig {
       files.add(resourcesDirectory.resolve(name));
     }
     try (java.util.stream.Stream<Path> profiles = Files.list(resourcesDirectory)) {
-      profiles.filter(p -> p.getFileName().toString().matches("application-.+\\.(properties|ya?ml)"))
+      profiles
+          .filter(p -> String.valueOf(p.getFileName())
+              .matches("application-.+\\.(properties|ya?ml)"))
           .sorted().forEach(files::add);
     } catch (IOException ignored) {
       // No resources folder.

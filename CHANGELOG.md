@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `migrax-junit` now depends on JUnit 5.14.4 (was 5.11.4).
+
 ## [0.19.0-rc.2] - 2026-11-06
 
 Release candidate for 0.19.0, for testing.

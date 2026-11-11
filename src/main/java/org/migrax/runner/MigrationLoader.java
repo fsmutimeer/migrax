@@ -31,7 +31,7 @@ public final class MigrationLoader {
       return List.of();
     }
     try (Stream<Path> paths = Files.list(folder)) {
-      return paths.filter(path -> path.getFileName().toString().endsWith(".sql"))
+      return paths.filter(path -> String.valueOf(path.getFileName()).endsWith(".sql"))
           .filter(Files::isRegularFile)
           .sorted(MigrationRunner.MIGRATION_PATH_COMPARATOR)
           .toList();

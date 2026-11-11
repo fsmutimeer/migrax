@@ -34,7 +34,7 @@
       <artifactId>micrometer-core</artifactId>
       <!-- Newer than Quarkus 3.9's own (old ones have published advisories). Use only API that
            Micrometer 1.9 and OpenTelemetry 1.26 have: the application brings its own. -->
-      <version>1.15.12</version>
+      <version>1.17.2</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
