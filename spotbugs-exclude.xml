@@ -30,6 +30,13 @@
       <Class name="org.migrax.runner.ClasspathMigrations"/>
     </Or>
   </Match>
+  <!-- Spring Data marks qualifierColumnInfo() as nullable; qualifierColumn() is only called on
+       a path that isQualified() (a list or map), which always has that column. -->
+  <Match>
+    <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
+    <Class name="org.migrax.orm.SpringDataJdbcSchemaReader$Aggregate"/>
+    <Method name="qualifierColumn"/>
+  </Match>
   <!-- The Java API keeps the data source and class loader it is given, and the listeners keep
        the application's MeterRegistry: they are shared on purpose, not copied. -->
   <Match>

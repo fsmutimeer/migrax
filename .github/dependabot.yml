@@ -65,6 +65,9 @@ updates:
       - dependency-name: jakarta.*:*
       - dependency-name: org.eclipse.microprofile.*:*
       - dependency-name: dev.gradleplugins:*
+      # Derby 10.17 and later need Java 19; Migrax is built and tested on Java 17.
+      - dependency-name: org.apache.derby:*
+        versions: ['>=10.17']
       # migrax-junit passes its JUnit version on to users (compile scope).
       - dependency-name: org.junit*
         update-types: [version-update:semver-major]

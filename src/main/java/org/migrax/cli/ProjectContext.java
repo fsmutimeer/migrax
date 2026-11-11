@@ -67,7 +67,7 @@ final class ProjectContext {
     }
     try (var children = Files.list(folder)) {
       return children.filter(Files::isRegularFile)
-          .filter(child -> child.getFileName().toString().endsWith(".jar"))
+          .filter(child -> String.valueOf(child.getFileName()).endsWith(".jar"))
           .map(child -> child.toAbsolutePath().normalize())
           .sorted()
           .toList();
@@ -139,7 +139,7 @@ final class ProjectContext {
       if (Files.isDirectory(path)) {
         try (var children = Files.list(path)) {
           children.filter(Files::isRegularFile)
-              .filter(child -> child.getFileName().toString().endsWith(".jar"))
+              .filter(child -> String.valueOf(child.getFileName()).endsWith(".jar"))
               .map(child -> child.toAbsolutePath().normalize())
               .forEach(entries::add);
         }
