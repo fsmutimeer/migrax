@@ -469,6 +469,20 @@ final class Project implements AutoCloseable {
     }
   }
 
+  /**
+   * How long a migration statement waits for a lock on a table: --table-lock-timeout, then
+   * MIGRAX_TABLE_LOCK_TIMEOUT or migrax.table-lock-timeout, else 5 seconds.
+   */
+  java.time.Duration tableLockTimeout() throws Exception {
+    String value = setting("--table-lock-timeout", "table-lock-timeout");
+    try {
+      return blank(value) ? org.migrax.runner.TableLockTimeout.DEFAULT
+          : org.migrax.runner.TableLockTimeout.parse(value);
+    } catch (IllegalArgumentException e) {
+      throw new UsageException(e.getMessage(), "For example --table-lock-timeout 30s.");
+    }
+  }
+
   MigrationRunner.Options runOptions() throws Exception {
     return new MigrationRunner.Options(args.flag("--resume"), database == null
         ? ProjectDatabaseConfig.placeholders(config())

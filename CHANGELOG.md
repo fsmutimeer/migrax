@@ -8,6 +8,14 @@ All notable changes to Migrax are listed here. The format follows
 
 ### Changed
 
+- PostgreSQL: a migration now waits at most 5 seconds for a lock that another session holds,
+  instead of waiting without end while every other query on that table waits behind it. A
+  migration that runs in a transaction and stops this way changed nothing, is not recorded as
+  failed (error MXE117), and runs again with the next `migrate`. Change the limit with
+  `--table-lock-timeout`, `MIGRAX_TABLE_LOCK_TIMEOUT` or `migrax.table-lock-timeout`; `0`
+  waits without end as before. One migration can set its own with `SET lock_timeout` in its
+  file. Migrations marked `-- migrax:no-transaction` (such as `CREATE INDEX CONCURRENTLY`)
+  keep the connection's own value. `rollback` uses the same limit.
 - `migrax-junit` now depends on JUnit 5.14.4 (was 5.11.4).
 
 ## [0.19.0-rc.2] - 2026-11-06

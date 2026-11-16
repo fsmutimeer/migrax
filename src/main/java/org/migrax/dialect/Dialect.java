@@ -614,6 +614,18 @@ public interface Dialect {
   }
 
   /**
+   * How Migrax limits the time a migration statement waits for a lock that another session
+   * holds. Without a limit, a quick {@code ALTER TABLE} that waits behind a long query makes
+   * every later query on that table wait too. Empty when Migrax leaves the database's own
+   * waiting alone. The default is empty.
+   *
+   * @since 0.19.0
+   */
+  default java.util.Optional<TableLockTimeoutSql> tableLockTimeout() {
+    return java.util.Optional.empty();
+  }
+
+  /**
    * The query that estimates a table's size from the database catalog without scanning it.
    * Its one parameter is {@link #tableSizeName(String)}; its two columns are the estimated rows
    * and the bytes of the table and its indexes, each NULL when unknown. Empty when the catalog

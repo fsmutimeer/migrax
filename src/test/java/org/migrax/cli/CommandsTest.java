@@ -564,6 +564,13 @@ class CommandsTest {
     Result invalid = cli("migrate", "--lock-timeout", "soon");
     assertEquals(1, invalid.code());
     assertTrue(invalid.err().contains("Invalid lock timeout 'soon'"), invalid.all());
+
+    Result invalidTable = cli("migrate", "--table-lock-timeout", "soon");
+    assertEquals(1, invalidTable.code());
+    assertTrue(invalidTable.err().startsWith("error[MXE001]: Invalid table lock timeout 'soon'"),
+        invalidTable.all());
+    assertTrue(invalidTable.err().contains("For example --table-lock-timeout 30s."),
+        invalidTable.all());
   }
 
   @Test

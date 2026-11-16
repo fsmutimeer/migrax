@@ -38,6 +38,7 @@ in values are resolved from the environment.
 | Database password | `--password`, `MIGRAX_DATABASE_PASSWORD`, `migrax.password` | from the framework settings |
 | Secrets in files | `--password-file`, `MIGRAX_DATABASE_PASSWORD_FILE`, `MIGRAX_DATABASE_USER_FILE`, `MIGRAX_DATABASE_URL_FILE` | the file's content without its last line break; a value set directly wins |
 | Lock timeout | `--lock-timeout`, `MIGRAX_LOCK_TIMEOUT`, `-Dmigrax.lockTimeout`; `migrax.lock-timeout` in the startup integrations | `0` (fail at once); for example `30s`, `2m` |
+| Table lock timeout (PostgreSQL; [details](#table-lock-timeout)) | `--table-lock-timeout`, `MIGRAX_TABLE_LOCK_TIMEOUT`, `migrax.table-lock-timeout` | `5s`; `0` waits as long as the database does |
 | Drift check at startup | `migrax.drift.check` in the startup integrations | `off`; `warn` logs, `fail` stops the start ([details](../guides/production-safety.md#drift-at-startup)) |
 | JDBC drivers without a project | `--classpath`, `MIGRAX_DRIVERS` (a folder of jars) | the `drivers` folder of the installation, if present |
 | Never allow `clean` | `MIGRAX_CLEAN_DISABLED=true` | allowed |
@@ -64,6 +65,36 @@ Each migration folder is `classpath:<path>` (under `src/main/resources`) or
 `db/migration`, is a classpath folder, the same as when the application migrates at startup.
 Several folders are separated by commas;
 see [Several migration folders](../guides/advanced-migrations.md#several-migration-folders).
+
+### Table lock timeout
+
+A schema change such as `ALTER TABLE` needs a short exclusive lock on its table. On a busy
+PostgreSQL database it can wait behind a long-running query, and while it waits every other
+query on that table waits behind it, so a change that takes milliseconds can stop the
+application. Migrax therefore sets PostgreSQL's `lock_timeout` to 5 seconds while it migrates.
+The limit covers every lock a statement waits for, so an `UPDATE` that waits for rows another
+session is changing stops too. When the run ends, the connection gets its own `lock_timeout`
+back, including a value an application's connection pool set.
+
+A migration that runs in a transaction (the default for SQL migrations) and waits longer stops
+with error MXE117. PostgreSQL undoes the whole migration, so Migrax doesn't record it as
+failed: run `migrate` again when the table is less busy. A migration that already failed
+before and is run again with `--resume` keeps its failed record, as any failure would.
+
+- Migrations marked `-- migrax:no-transaction` keep the connection's own `lock_timeout`:
+  `CREATE INDEX CONCURRENTLY` waits for running writes on purpose, and stopping it half way
+  would leave an invalid index behind.
+- Java migrations run with the limit, but a timeout there is recorded as failed as usual,
+  because a Java migration may have committed part of its work.
+- A migration that writes its own `COMMIT` is not undone as a whole either.
+- `beforeMigrate.sql` and `afterMigrate.sql` callbacks run with the limit; `rollback` uses it
+  as well.
+- CockroachDB and YugabyteDB are left as they are.
+
+To give every migration longer, use `--table-lock-timeout 30s` (or `MIGRAX_TABLE_LOCK_TIMEOUT`,
+`migrax.table-lock-timeout`); `0` turns the limit off. To give one migration longer, start its
+file with `SET lock_timeout = '1min';`: Migrax sets its own value again before the next
+migration.
 
 ### Database connection from framework settings
 

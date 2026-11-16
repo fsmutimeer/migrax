@@ -29,7 +29,8 @@ import javax.sql.DataSource;
  *
  * <p>Settings: {@code migrax.enabled} (default true), {@code migrax.datasource},
  * {@code migrax.locations}, {@code migrax.java-package}, {@code migrax.env},
- * {@code migrax.resume}, {@code migrax.lock-timeout}, {@code migrax.schemas} and
+ * {@code migrax.resume}, {@code migrax.lock-timeout},
+ * {@code migrax.table-lock-timeout}, {@code migrax.schemas} and
  * {@code migrax.placeholders.<name>}. They are read from {@code migrax.properties} in the
  * application, MicroProfile Config where the server has it, {@code MIGRAX_*} environment
  * variables and system properties; each overrides the one before. Further databases have a
@@ -40,8 +41,8 @@ import javax.sql.DataSource;
 public class MigraxStartup {
   private static final Logger LOG = Logger.getLogger("org.migrax");
   private static final List<String> KEYS = List.of("enabled", "datasource", "locations",
-      "java-package", "env", "resume", "lock-timeout", "schemas", "metrics.enabled",
-      "tracing.enabled", "migrate-at-startup");
+      "java-package", "env", "resume", "lock-timeout", "table-lock-timeout", "schemas",
+      "metrics.enabled", "tracing.enabled", "migrate-at-startup");
 
   void onStart(@Observes @Priority(Interceptor.Priority.PLATFORM_BEFORE)
                @Initialized(ApplicationScoped.class) Object event) throws Exception {

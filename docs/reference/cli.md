@@ -191,7 +191,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 migrax migrate [--to <migration>] [--sql | --dry-run] [--resume] [--schemas a,b]
 ```
 
-Applies pending SQL and Java migrations in order, then new or changed repeatable `R__*.sql` migrations, with beforeMigrate/afterMigrate callbacks and `${placeholders}`. `--to` applies versioned migrations only up to and including the given one; repeatable migrations then wait for the next migrate without `--to`. `--sql` prints the SQL script of what migrate would do, for a DBA to review and run with the database's own tool; nothing changes. `--dry-run` lists and lints pending migrations without changing the database. `--schemas` runs the migrations once per schema (multi-tenant). `--resume` re-runs a failed migration only if it is marked `-- migrax:resume-safe`.
+Applies pending SQL and Java migrations in order, then new or changed repeatable `R__*.sql` migrations, with beforeMigrate/afterMigrate callbacks and `${placeholders}`. `--to` applies versioned migrations only up to and including the given one; repeatable migrations then wait for the next migrate without `--to`. `--sql` prints the SQL script of what migrate would do, for a DBA to review and run with the database's own tool; nothing changes. `--dry-run` lists and lints pending migrations without changing the database. `--schemas` runs the migrations once per schema (multi-tenant). `--resume` re-runs a failed migration only if it is marked `-- migrax:resume-safe`. On PostgreSQL a migration waits at most 5 seconds for a lock that another session holds (`--table-lock-timeout`), so queries on that table don't queue behind it; a migration that ran in a transaction and stopped this way changed nothing and runs again with the next `migrate` (details, and what differs for `-- migrax:no-transaction` and Java migrations, in [Configuration](configuration.md#table-lock-timeout)).
 
 | Option | Meaning |
 |---|---|
@@ -202,6 +202,7 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 | `--json` | Machine-readable output |
 | `--resume` | Re-run a failed resume-safe migration |
 | `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
+| `--table-lock-timeout <time>` | Stop when a table stays locked this long (default 5s) |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
@@ -286,6 +287,7 @@ Runs the rollback script of the newest applied migration (or several) and remove
 | `--yes, -y` | Confirm without asking |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
+| `--table-lock-timeout <time>` | Stop when a table stays locked this long (default 5s) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--user <name>` | Database user |
 | `--password <secret>` | Database password (prefer env vars) |

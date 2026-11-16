@@ -34,6 +34,7 @@ migration history table, lock and checksums, in its own database.
 | `placeholders.<key>` | none | Values for `${key}` in this database's migrations |
 | `env` | `migrax.env` | Environment for migrations marked `-- migrax:env` |
 | `lock-timeout` | `migrax.lock-timeout` | How long to wait while another instance migrates |
+| `table-lock-timeout` | `migrax.table-lock-timeout` | How long a migration waits for a lock another session holds (PostgreSQL) |
 | `resume` | `migrax.resume` | Re-run a failed resume-safe migration |
 | `migrate-at-startup` | `migrax.migrate-at-startup` | `false`: report only, as described in [Metrics and tracing](observability.md#when-a-pipeline-migrates) |
 | `drift.check` | `migrax.drift.check` | Compare this database with its snapshot at startup: see [Drift at startup](production-safety.md#drift-at-startup) |

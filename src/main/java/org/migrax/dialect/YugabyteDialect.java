@@ -78,6 +78,15 @@ public final class YugabyteDialect extends PostgresDialect {
   }
 
   /**
+   * Off: YugabyteDB's schema changes and lock waits work differently from PostgreSQL's, and
+   * its {@code lock_timeout} depends on server settings such as wait-on-conflict.
+   */
+  @Override
+  public java.util.Optional<TableLockTimeoutSql> tableLockTimeout() {
+    return java.util.Optional.empty();
+  }
+
+  /**
    * PostgreSQL's advisory lock where YugabyteDB has it (2025.1 and newer, setting
    * {@code yb_enable_advisory_locks}), else a row in {@code migrax_lock}. Asking for the
    * setting can't fail, unlike trying the lock, which would end the open transaction.

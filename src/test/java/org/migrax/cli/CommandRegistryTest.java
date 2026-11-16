@@ -66,6 +66,15 @@ class CommandRegistryTest {
     }
   }
 
+  /** A migration stopped by the table lock timeout is not reported as a failed migration. */
+  @org.junit.jupiter.api.Test
+  void tableLockTimeoutHasItsCode() {
+    org.junit.jupiter.api.Assertions.assertEquals(ErrorCode.TABLE_BUSY, ErrorCode.of(
+        new java.sql.SQLException("Migration '0002_a.sql' stopped waiting for a lock that "
+            + "another session holds on a table (table lock timeout 5s), so that queries on "
+            + "that table don't queue behind it. Nothing was changed.")));
+  }
+
   /** An unmet precondition and a mistyped require line get their own codes. */
   @org.junit.jupiter.api.Test
   void preconditionErrorsHaveCodes() {

@@ -27,6 +27,10 @@ public final class RollbackMojo extends AbstractMigraxMojo {
   @Parameter(property = "migrax.confirm", defaultValue = "false")
   private boolean confirm;
 
+  /** How long a statement waits for a locked table (PostgreSQL), such as 30s; 0 for no limit. */
+  @Parameter(property = "migrax.tableLockTimeout")
+  private String tableLockTimeout;
+
   @Override
   protected String command() {
     return "rollback";
@@ -38,5 +42,6 @@ public final class RollbackMojo extends AbstractMigraxMojo {
     option(args, "--to", to);
     flag(args, "--dry-run", dryRun);
     flag(args, "--yes", confirm);
+    option(args, "--table-lock-timeout", tableLockTimeout);
   }
 }

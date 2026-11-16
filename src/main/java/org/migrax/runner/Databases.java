@@ -19,7 +19,8 @@ import java.util.regex.Pattern;
  * </pre>
  * What belongs to one database (locations, schemas, placeholders, the Java migration package)
  * comes only from its own block. What applies to the whole application (the environment, the
- * lock timeout, resume, migrate-at-startup, metrics and tracing) is shared, and a block can
+ * lock timeout, the table lock timeout, resume, migrate-at-startup, metrics and tracing) is
+ * shared, and a block can
  * set it differently. The defaults never overlap with the default database's db/migration and
  * db.migration (Java migrations are found in sub-packages too), which is why the names
  * {@code default} and {@code migration} are reserved; {@code history} and {@code pending} too,

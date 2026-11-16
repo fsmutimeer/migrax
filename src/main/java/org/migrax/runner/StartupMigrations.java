@@ -17,7 +17,9 @@ import javax.sql.DataSource;
  * separated by commas),
  * {@code migrax.java-package}, {@code migrax.resume}, {@code migrax.schemas} (comma-separated),
  * {@code migrax.lock-timeout} (for example {@code 2m}: how long to wait while another instance
- * migrates), {@code migrax.env} (runs migrations marked {@code -- migrax:env <name>}) and
+ * migrates), {@code migrax.table-lock-timeout} (for example {@code 30s}: how long a migration
+ * waits for a busy table on PostgreSQL; default 5s), {@code migrax.env} (runs migrations
+ * marked {@code -- migrax:env <name>}) and
  * {@code migrax.placeholders.<name>}.
  *
  * @since 0.1.0

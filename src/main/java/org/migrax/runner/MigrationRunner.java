@@ -57,14 +57,22 @@ public final class MigrationRunner {
   /** Listeners told about each run of {@link #migrateAll}. */
   private final List<org.migrax.api.MigrationListener> listeners;
 
+  /**
+   * How long a migration statement waits for a lock on a table, or null for
+   * {@link TableLockTimeout#configured()}; zero waits as long as the database does.
+   */
+  private final java.time.Duration tableLockTimeout;
+
   /** A runner that fails at once when another process holds the migration lock. */
   public MigrationRunner() {
-    this(java.time.Duration.ZERO, null, List.of());
+    this(java.time.Duration.ZERO, null, List.of(), null);
   }
 
   private MigrationRunner(java.time.Duration lockTimeout, String environment,
-                          List<org.migrax.api.MigrationListener> listeners) {
+                          List<org.migrax.api.MigrationListener> listeners,
+                          java.time.Duration tableLockTimeout) {
     this.lockTimeout = lockTimeout;
+    this.tableLockTimeout = tableLockTimeout;
     this.environment = environment == null || environment.isBlank() ? null : environment.trim();
     this.listeners = List.copyOf(listeners);
   }
@@ -76,7 +84,19 @@ public final class MigrationRunner {
    */
   public MigrationRunner withLockTimeout(java.time.Duration timeout) {
     return new MigrationRunner(timeout == null ? java.time.Duration.ZERO : timeout, environment,
-        listeners);
+        listeners, tableLockTimeout);
+  }
+
+  /**
+   * A runner whose migration statements wait at most {@code timeout} for a lock that another
+   * session holds on a table (PostgreSQL), then stop the migration; zero waits as long as the
+   * database does. Default: {@link TableLockTimeout#configured()}, 5 seconds unless set.
+   *
+   * @param timeout the longest wait, zero, or null for the default
+   * @since 0.19.0
+   */
+  public MigrationRunner withTableLockTimeout(java.time.Duration timeout) {
+    return new MigrationRunner(lockTimeout, environment, listeners, timeout);
   }
 
   /**
@@ -87,7 +107,7 @@ public final class MigrationRunner {
    * @since 0.5.0
    */
   public MigrationRunner withEnvironment(String environment) {
-    return new MigrationRunner(lockTimeout, environment, listeners);
+    return new MigrationRunner(lockTimeout, environment, listeners, tableLockTimeout);
   }
 
   /**
@@ -99,7 +119,7 @@ public final class MigrationRunner {
   public MigrationRunner withListeners(List<? extends org.migrax.api.MigrationListener> more) {
     List<org.migrax.api.MigrationListener> all = new ArrayList<>(listeners);
     all.addAll(more);
-    return new MigrationRunner(lockTimeout, environment, all);
+    return new MigrationRunner(lockTimeout, environment, all, tableLockTimeout);
   }
 
   /** Tells every listener; a listener's failure is logged and never stops the migration. */
@@ -259,34 +279,61 @@ public final class MigrationRunner {
       verifyAppliedChecksums(history, versioned(migrations));
       verifyFailedAttempts(connection, migrations, options.resume());
 
-      runCallback(connection, callbacks.get("beforeMigrate.sql"), statements);
-      for (Step step : plan(migrations, history, options)) {
-        if (step instanceof Apply apply) {
-          Precondition unmet = unmet(connection, apply.migration(),
-              preconditions.get(apply.migration().version()), options);
-          if (unmet != null) {
-            // An unmet 'else skip' condition: recorded, so it is not checked again.
-            recordApplied(connection, apply.migration().version(),
-                apply.migration().checksum(), apply.replaceHistory());
-            connection.commit();
-            Log.info("Skipped migration '{}': {} is not met; recorded as applied without "
-                + "running it.", apply.migration().version(), unmet.describe());
-            continue;
-          }
-          applyMigration(connection, apply.migration(), statements, callbacks, options.resume(),
-              apply.replaceHistory());
-          applied[0]++;
-        } else if (step instanceof Record record) {
-          recordApplied(connection, record.version(), record.checksum(), false);
-          connection.commit();
-          if (record.note() != null) {
-            Log.info(record.note());
-          }
+      TableLocks tableLocks = TableLocks.of(connection, tableLockTimeout());
+      try {
+        runSteps(connection, migrations, options, applied, callbacks, statements, preconditions,
+            history, tableLocks);
+      } catch (Throwable failure) {
+        if (tableLocks != null) {
+          tableLocks.restoreAfter(connection, failure);
         }
+        throw failure;
       }
-      runCallback(connection, callbacks.get("afterMigrate.sql"), statements);
+      if (tableLocks != null) {
+        tableLocks.restore(connection);
+      }
       return null;
     }, waited -> tell(listener -> listener.lockAcquired(waited)));
+  }
+
+  private void runSteps(Connection connection, List<Migration> migrations, Options options,
+                        int[] applied, Map<String, Migration> callbacks,
+                        Map<String, List<String>> statements,
+                        Map<String, List<Precondition>> preconditions,
+                        Map<String, AppliedMigration> history, TableLocks tableLocks)
+      throws Exception {
+    if (tableLocks != null) {
+      tableLocks.limit(connection);
+    }
+    runCallback(connection, callbacks.get("beforeMigrate.sql"), statements);
+    for (Step step : plan(migrations, history, options)) {
+      if (step instanceof Apply apply) {
+        Precondition unmet = unmet(connection, apply.migration(),
+            preconditions.get(apply.migration().version()), options);
+        if (unmet != null) {
+          // An unmet 'else skip' condition: recorded, so it is not checked again.
+          recordApplied(connection, apply.migration().version(),
+              apply.migration().checksum(), apply.replaceHistory());
+          connection.commit();
+          Log.info("Skipped migration '{}': {} is not met; recorded as applied without "
+              + "running it.", apply.migration().version(), unmet.describe());
+          continue;
+        }
+        applyMigration(connection, apply.migration(), statements, callbacks, options.resume(),
+            apply.replaceHistory(), tableLocks);
+        applied[0]++;
+      } else if (step instanceof Record record) {
+        recordApplied(connection, record.version(), record.checksum(), false);
+        connection.commit();
+        if (record.note() != null) {
+          Log.info(record.note());
+        }
+      }
+    }
+    if (tableLocks != null) {
+      tableLocks.limit(connection);
+    }
+    runCallback(connection, callbacks.get("afterMigrate.sql"), statements);
   }
 
   /** The preconditions of every versioned and repeatable migration, read before anything runs. */
@@ -569,7 +616,7 @@ public final class MigrationRunner {
   private void applyMigration(Connection connection, Migration migration,
                               Map<String, List<String>> statements,
                               Map<String, Migration> callbacks, boolean resume,
-                              boolean replaceHistory) throws Exception {
+                              boolean replaceHistory, TableLocks tableLocks) throws Exception {
     String version = migration.version();
     String checksum = migration.checksum();
     FailureRecord existingFailure = findFailure(connection, version);
@@ -586,6 +633,12 @@ public final class MigrationRunner {
     long started = System.nanoTime();
     tell(listener -> listener.migrationStarted(version));
     try {
+      // Again before each one: a migration may have changed it for itself.
+      if (tableLocks != null && noTransaction(migration)) {
+        tableLocks.lift(connection);
+      } else if (tableLocks != null) {
+        tableLocks.limit(connection);
+      }
       execute(connection, callbacks.get("beforeEachMigrate.sql"), statements);
       if (migration.isJava()) {
         migration.java().migrate(connection);
@@ -616,6 +669,22 @@ public final class MigrationRunner {
         connection.rollback();
       } catch (SQLException rollbackFailure) {
         e.addSuppressed(rollbackFailure);
+      }
+      // Waiting too long for a lock inside a transaction undid the whole migration, so a
+      // plain rerun is safe. A migration that already has a failed record keeps it.
+      if (existingFailure == null && tableLocks != null
+          && tableLocks.undidAll(migration, e)) {
+        boolean forgotten = false;
+        try {
+          deleteFailure(connection, version);
+          connection.commit();
+          forgotten = true;
+        } catch (SQLException forgetFailure) {
+          e.addSuppressed(forgetFailure);
+        }
+        if (forgotten) {
+          throw tableLocks.timedOut("Migration '" + version + "'", "migrate", e);
+        }
       }
       try {
         setFailureState(connection, version, checksum, "FAILED",
@@ -694,40 +763,61 @@ public final class MigrationRunner {
         throw new IllegalStateException("Migration '" + version + "' is not applied here.");
       }
       Log.info("Rolling back migration '{}'...", version);
+      TableLocks tableLocks = TableLocks.of(connection, tableLockTimeout());
       try {
-        if (rollback.isJava()) {
-          rollback.java().rollback(connection);
-        } else {
-          List<String> commands = SqlScript.split(
-              SqlScript.substitute(rollback.sql(), placeholders(connection, options)),
-              backslashEscapes(connection));
-          if (SqlScript.hasDirective(rollback.sql(), "no-transaction")) {
-            connection.commit();
-            connection.setAutoCommit(true);
-            try {
-              executeStatements(connection, commands);
-            } finally {
-              connection.setAutoCommit(false);
-            }
-          } else {
-            executeStatements(connection, commands);
-          }
+        if (tableLocks != null && !noTransaction(rollback)) {
+          tableLocks.limit(connection);
         }
-        try (PreparedStatement delete =
-                 connection.prepareStatement(
-                     "DELETE FROM " + history(connection) + " WHERE version=?")) {
-          delete.setString(1, version);
-          delete.executeUpdate();
+        revert(connection, version, rollback, options, tableLocks);
+      } catch (Throwable failure) {
+        if (tableLocks != null) {
+          tableLocks.restoreAfter(connection, failure);
         }
-        deleteFailure(connection, version);
-        connection.commit();
-        Log.info("Rolled back migration '{}'.", version);
-      } catch (Exception e) {
-        throw new SQLException("Rolling back '" + version + "' failed; it stays recorded as "
-            + "applied. Some databases commit DDL immediately, so inspect the schema.", e);
+        throw failure;
+      }
+      if (tableLocks != null) {
+        tableLocks.restore(connection);
       }
       return null;
     });
+  }
+
+  private void revert(Connection connection, String version, Migration rollback,
+                      Options options, TableLocks tableLocks) throws Exception {
+    try {
+      if (rollback.isJava()) {
+        rollback.java().rollback(connection);
+      } else {
+        List<String> commands = SqlScript.split(
+            SqlScript.substitute(rollback.sql(), placeholders(connection, options)),
+            backslashEscapes(connection));
+        if (SqlScript.hasDirective(rollback.sql(), "no-transaction")) {
+          connection.commit();
+          connection.setAutoCommit(true);
+          try {
+            executeStatements(connection, commands);
+          } finally {
+            connection.setAutoCommit(false);
+          }
+        } else {
+          executeStatements(connection, commands);
+        }
+      }
+      try (PreparedStatement delete =
+               connection.prepareStatement(
+                   "DELETE FROM " + history(connection) + " WHERE version=?")) {
+        delete.setString(1, version);
+        delete.executeUpdate();
+      }
+      deleteFailure(connection, version);
+      connection.commit();
+      Log.info("Rolled back migration '{}'.", version);
+    } catch (Exception e) {
+      throw tableLocks != null && tableLocks.undidAll(rollback, e)
+          ? tableLocks.timedOut("Rolling back '" + version + "'", "rollback", e)
+          : new SQLException("Rolling back '" + version + "' failed; it stays recorded as "
+              + "applied. Some databases commit DDL immediately, so inspect the schema.", e);
+    }
   }
 
   // ------------------------------------------------------------------ status
@@ -1263,4 +1353,12 @@ public final class MigrationRunner {
   }
 
   private record FailureRecord(String checksum, String state) {}
+
+  private java.time.Duration tableLockTimeout() {
+    return tableLockTimeout != null ? tableLockTimeout : TableLockTimeout.configured();
+  }
+
+  private static boolean noTransaction(Migration migration) {
+    return !migration.isJava() && SqlScript.hasDirective(migration.sql(), "no-transaction");
+  }
 }

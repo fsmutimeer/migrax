@@ -237,6 +237,42 @@ public class PostgresDialect extends AbstractDialect {
     return "ALTER TABLE " + q(change.table()) + String.join(",", clauses);
   }
 
+  /** PostgreSQL's {@code lock_timeout}. */
+  @Override
+  public java.util.Optional<TableLockTimeoutSql> tableLockTimeout() {
+    return java.util.Optional.of(LOCK_TIMEOUT);
+  }
+
+  private static final TableLockTimeoutSql LOCK_TIMEOUT = new TableLockTimeoutSql() {
+    @Override
+    public String read() {
+      return "SHOW lock_timeout";
+    }
+
+    /** In milliseconds, at most the largest value PostgreSQL accepts (about 24 days). */
+    @Override
+    public String set(java.time.Duration timeout) {
+      long millis = Math.min(Integer.MAX_VALUE, Math.max(1, timeout.toMillis()));
+      return "SET lock_timeout = '" + millis + "ms'";
+    }
+
+    @Override
+    public String restore(String value) {
+      return "SET lock_timeout = '" + value.replace("'", "''") + "'";
+    }
+
+    /** SQLSTATE 55P03, lock_not_available. */
+    @Override
+    public boolean isTimeout(SQLException failure) {
+      for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+        if (cause instanceof SQLException sql && "55P03".equals(sql.getSQLState())) {
+          return true;
+        }
+      }
+      return false;
+    }
+  };
+
   /** A session-level advisory lock. */
   @Override
   public AutoCloseable acquireMigrationLock(Connection connection, String resource)

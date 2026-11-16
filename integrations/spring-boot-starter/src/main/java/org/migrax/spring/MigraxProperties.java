@@ -31,6 +31,12 @@ public class MigraxProperties {
    */
   private java.time.Duration lockTimeout = java.time.Duration.ZERO;
 
+  /**
+   * How long a migration statement waits for a lock another session holds on a table before
+   * the migration stops (PostgreSQL); default 5s, zero waits as long as the database does.
+   */
+  private java.time.Duration tableLockTimeout;
+
   /** Values for ${name} placeholders in migrations. */
   private Map<String, String> placeholders = new LinkedHashMap<>();
 
@@ -94,6 +100,14 @@ public class MigraxProperties {
     this.lockTimeout = lockTimeout;
   }
 
+  public java.time.Duration getTableLockTimeout() {
+    return tableLockTimeout;
+  }
+
+  public void setTableLockTimeout(java.time.Duration tableLockTimeout) {
+    this.tableLockTimeout = tableLockTimeout;
+  }
+
   public boolean isResume() {
     return resume;
   }
@@ -147,7 +161,8 @@ public class MigraxProperties {
    * Further databases, by name: {@code migrax.databases.billing.datasource=billingDataSource}
    * (the DataSource bean; default: the name itself), {@code locations} (default
    * {@code classpath:db/<name>}), {@code java-package} (default {@code db.<name>}), {@code schemas} and {@code placeholders}. {@code env},
-   * {@code lock-timeout}, {@code resume} and {@code migrate-at-startup} default to the settings
+   * {@code lock-timeout}, {@code table-lock-timeout}, {@code resume} and
+   * {@code migrate-at-startup} default to the settings
    * above.
    */
   private final Map<String, Database> databases = new LinkedHashMap<>();
@@ -174,6 +189,8 @@ public class MigraxProperties {
     result.setEnv(database.getEnv() != null ? database.getEnv() : env);
     result.setLockTimeout(database.getLockTimeout() != null ? database.getLockTimeout()
         : lockTimeout);
+    result.setTableLockTimeout(database.getTableLockTimeout() != null
+        ? database.getTableLockTimeout() : tableLockTimeout);
     result.setResume(database.getResume() != null ? database.getResume() : resume);
     result.setMigrateAtStartup(database.getMigrateAtStartup() != null
         ? database.getMigrateAtStartup() : migrateAtStartup);
@@ -206,6 +223,9 @@ public class MigraxProperties {
 
     /** How long to wait for the migration lock; default: migrax.lock-timeout. */
     private java.time.Duration lockTimeout;
+
+    /** How long a statement waits for a locked table; default: migrax.table-lock-timeout. */
+    private java.time.Duration tableLockTimeout;
 
     /** Re-run a failed resume-safe migration; default: migrax.resume. */
     private Boolean resume;
@@ -267,6 +287,14 @@ public class MigraxProperties {
 
     public void setLockTimeout(java.time.Duration lockTimeout) {
       this.lockTimeout = lockTimeout;
+    }
+
+    public java.time.Duration getTableLockTimeout() {
+      return tableLockTimeout;
+    }
+
+    public void setTableLockTimeout(java.time.Duration tableLockTimeout) {
+      this.tableLockTimeout = tableLockTimeout;
     }
 
     public Boolean getResume() {

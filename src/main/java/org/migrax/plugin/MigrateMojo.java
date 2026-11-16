@@ -25,6 +25,10 @@ public final class MigrateMojo extends AbstractMigraxMojo {
   @Parameter(property = "migrax.dryRun", defaultValue = "false")
   private boolean dryRun;
 
+  /** How long a statement waits for a locked table (PostgreSQL), such as 30s; 0 for no limit. */
+  @Parameter(property = "migrax.tableLockTimeout")
+  private String tableLockTimeout;
+
   @Override
   protected String command() {
     return "migrate";
@@ -36,5 +40,6 @@ public final class MigrateMojo extends AbstractMigraxMojo {
     flag(args, "--sql", sql);
     flag(args, "--resume", resume);
     flag(args, "--dry-run", dryRun);
+    option(args, "--table-lock-timeout", tableLockTimeout);
   }
 }
