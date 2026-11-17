@@ -6,6 +6,14 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `migrax import flyway|liquibase` now lists what still ties the project to the old tool:
+  its dependencies and build plugins (Maven, Gradle, version catalog) and its settings in
+  `application*.properties` / `.yml`, each with file and line, and the `migrax.*` key that
+  replaces a setting where there is one. A forgotten dependency would keep the old tool
+  migrating at startup next to Migrax. Setting values are never printed.
+
 ### Changed
 
 - `migrax-junit` now depends on JUnit 5.14.4 (was 5.11.4).

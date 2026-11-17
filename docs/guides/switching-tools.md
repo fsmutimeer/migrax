@@ -17,7 +17,12 @@ Flyway's files already live where Migrax looks for migrations
 ```console
 $ migrax import flyway
 Recorded 12 migration(s) as applied.
-Next: disable Flyway (spring.flyway.enabled=false), then run 'migrax generate'; its first run uses the current database as the baseline.
+Flyway is still in the project. Remove it so that only Migrax migrates at startup:
+  pom.xml:41: dependency flyway-core: remove it
+  pom.xml:45: dependency flyway-mysql: remove it
+  src/main/resources/application.properties:6: spring.flyway.baseline-on-migrate: remove it
+  src/main/resources/application.properties:7: spring.flyway.locations: use migrax.locations instead
+Then run 'migrax generate'; its first run uses the current database as the baseline.
 ```
 
 What it does:
@@ -42,7 +47,10 @@ the database's current schema as one SQL migration, a baseline, and records it a
 $ migrax import liquibase
 Wrote 0001_liquibase_baseline.sql with 9 table(s) from the current schema.
 Recorded 1 migration(s) as applied.
-Next: disable Liquibase (spring.liquibase.enabled=false), then run 'migrax generate'; its first run uses the current database as the baseline.
+Liquibase is still in the project. Remove it so that only Migrax migrates at startup:
+  pom.xml:38: dependency liquibase-core: remove it
+  src/main/resources/application.yml:9: spring.liquibase.change-log: remove it
+Then run 'migrax generate'; its first run uses the current database as the baseline.
 ```
 
 The baseline has the tables, keys, indexes and the sequences your entities use, so a new
@@ -52,9 +60,13 @@ already has all of it and never runs the file. Review its column types before yo
 
 ## Afterwards
 
-1. Remove the other tool, or switch it off (`spring.flyway.enabled=false`,
-   `spring.liquibase.enabled=false`, or your framework's setting), so that only Migrax migrates
-   at startup.
+1. Remove the other tool, so that only Migrax migrates at startup. The import lists what is
+   left: dependencies and build plugins in `pom.xml`, `build.gradle(.kts)` and
+   `libs.versions.toml`, and settings in `application*.properties` / `.yml` (Spring Boot,
+   Quarkus and Micronaut keys). For a setting that Migrax has too, it names the `migrax.*` key
+   to use instead (`url`, `user`, `password`, `locations`, schemas, placeholders). A dependency
+   that a parent POM or a shared build script adds is not in the list: check those by hand.
+   A forgotten dependency keeps the old tool migrating at startup next to Migrax.
 2. Run `migrax generate`. With no snapshot yet, it compares the entities with the database and
    writes only what is really different; usually it finds nothing and saves the snapshot.
 3. Run `migrax verify` to check that the migrations build the schema your entities expect.
