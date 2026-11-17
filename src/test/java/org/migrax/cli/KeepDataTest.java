@@ -55,6 +55,20 @@ class KeepDataTest {
         .contains("AND b.b = loose.b) AND ROWNUM = 1)"));
   }
 
+  @Test
+  void namesTheColumnsItCannotKeep() {
+    org.migrax.model.SchemaModel.Column note = column("note", true);
+    org.migrax.model.SchemaModel before = new org.migrax.model.SchemaModel(java.util.List.of(
+        new org.migrax.model.SchemaModel.Table("notes", java.util.List.of(note), null,
+            java.util.List.of(), java.util.List.of())));
+    KeepData.Plan plan = KeepData.apply(
+        java.util.List.of(new org.migrax.ops.DropColumn("notes", "note")),
+        java.util.List.of(new org.migrax.ops.AddColumn("notes", note)), before,
+        Dialects.byName("h2"), "0003");
+    assertEquals(java.util.List.of("notes.note"), plan.notKept());
+    assertEquals(1, plan.warnings().size(), plan.warnings().toString());
+  }
+
   private static org.migrax.model.SchemaModel.Column column(String name, boolean nullable) {
     return new org.migrax.model.SchemaModel.Column(name, "varchar", nullable, 20, null, null,
         null, false, false, null, "varchar");

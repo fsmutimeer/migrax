@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /** {@code migrax generate}: create a migration from entity changes. */
@@ -95,10 +96,26 @@ final class GenerateCommand implements Command {
     return List.of("--name", "--allow-destructive", "--keep-data", "--safe", "--zero-downtime",
         "--contract", "--rename",
         "--rename-table",
-        "--no-input", "--lock-timeout", "--dialect", "--package", "--naming", "--extractor",
-        "--schema-file", "--scratch-url",
+        "--no-input", "--json", "--lock-timeout", "--dialect", "--package", "--naming",
+        "--extractor", "--schema-file", "--scratch-url",
         "--url", "--user", "--password", "--password-file", "--schema", "--locations",
         "--classpath", "--no-build", "--refresh", "--database");
+  }
+
+  /**
+   * With --json: {@code noChanges}, {@code operations} (each with {@code destructive}),
+   * {@code renames} it could not ask about, the {@code created} files, the contract migrations
+   * {@code waiting} in .migrax/pending, and the columns --keep-data could {@code notKept}.
+   * Stopping at drops (MXE108) still reports the operations and renames.
+   */
+  @Override
+  public boolean jsonResult() {
+    return true;
+  }
+
+  @Override
+  public boolean jsonResultOnError() {
+    return true;
   }
 
   @Override
@@ -109,7 +126,8 @@ final class GenerateCommand implements Command {
     Path migrations = project.migrations();
     DuplicateMigrations.requireNone(project, context.migrationRunner());
     if (args.flag("--contract")) {
-      return releaseContracts(project, out);
+      startResult(context, null);
+      return releaseContracts(context);
     }
     if (args.flag("--zero-downtime") && (args.flag("--keep-data") || args.flag("--safe"))) {
       throw new UsageException("--zero-downtime can't be combined with "
@@ -136,6 +154,7 @@ final class GenerateCommand implements Command {
     }
     Log.debug("Entities read from {}.", changes.source());
     List<Operation> operations = changes.operations();
+    startResult(context, changes);
     // The first generate against a database that already has tables (and no migrations yet)
     // also writes those tables as a baseline migration, so the migrations alone can build an
     // empty database.
@@ -154,12 +173,13 @@ final class GenerateCommand implements Command {
     }
     if (operations.isEmpty()) {
       out.println("No changes detected.");
+      context.result("noChanges", true);
       if (!hasSnapshot) {
         if (baseline) {
           Files.createDirectories(migrations);
           Path file = writeBaseline(project, dialect, changes.previous());
           recordBaseline(context, file);
-          printBaseline(out, project, file, changes.previous());
+          printBaseline(context, file, changes.previous());
         }
         SnapshotStore.save(project.snapshot(), changes.current(), dialect.id(),
             project.recordedNaming(), dialect.serverVersion());
@@ -246,7 +266,7 @@ final class GenerateCommand implements Command {
       throw e;
     }
     if (baselineFile != null) {
-      printBaseline(out, project, baselineFile, changes.previous());
+      printBaseline(context, baselineFile, changes.previous());
     }
     List<Path> written = new ArrayList<>();
     List<Operation> reverse = Renames.reverse(changes.previous(), changes.current(),
@@ -260,6 +280,7 @@ final class GenerateCommand implements Command {
         KeepData.Plan keep = KeepData.apply(main, mainReverse, changes.previous(), dialect,
             name.split("_", 2)[0]);
         keep.warnings().forEach(Log::warn);
+        context.resultList("notKept").addAll(keep.notKept());
         Files.writeString(file,
             MigrationSql.render(dialect, keep.forward(), null, changes.previous(), afterMain));
         MigrationSql.writeRollback(migrations, file.getFileName().toString(), dialect, keep,
@@ -299,6 +320,7 @@ final class GenerateCommand implements Command {
 
     for (Path path : written) {
       out.println("Created " + project.display(path) + ":");
+      context.resultList("created").add(project.display(path));
       List<Operation> listed = path.equals(onlineFile) ? online : main;
       for (Operation operation : listed) {
         out.println("  - " + Migrations.summary(operation));
@@ -342,7 +364,7 @@ final class GenerateCommand implements Command {
     }
     if (baselineFile != null) {
       recordBaseline(context, baselineFile);
-      printBaseline(out, project, baselineFile, changes.previous());
+      printBaseline(context, baselineFile, changes.previous());
     }
     StringBuilder notes = new StringBuilder();
     plan.notes().forEach(note -> notes.append("-- Note: ").append(note).append('\n'));
@@ -372,6 +394,8 @@ final class GenerateCommand implements Command {
 
     out.println("Created " + project.display(file) + " (expand: safe while the old version "
         + "runs):");
+    context.resultList("created").add(project.display(file));
+    context.resultList("waiting").add(project.display(contract));
     describe(out, plan.expand(), changes, true);
     out.println("Waiting in " + project.display(contract) + " (contract: for the next "
         + "release):");
@@ -419,15 +443,43 @@ final class GenerateCommand implements Command {
     }
   }
 
+  /**
+   * Starts the --json result once the changes are known, so an earlier failure carries only its
+   * error. The renames found while reading the changes move after noChanges and operations.
+   */
+  private static void startResult(CommandContext context, EntityChanges changes) {
+    if (!context.args().flag("--json")) {
+      return;
+    }
+    Object renames = context.results().remove("renames");
+    context.result("noChanges", false);
+    List<Object> operations = context.resultList("operations");
+    if (changes != null) {
+      for (Operation operation : changes.operations()) {
+        Map<String, Object> json = Reports.operationJson(operation, changes.entities());
+        json.put("destructive", operation.destructive());
+        operations.add(json);
+      }
+    }
+    context.result("renames", renames == null ? new ArrayList<>() : renames);
+    for (String key : List.of("created", "waiting", "notKept")) {
+      context.resultList(key);
+    }
+  }
+
   /** {@code generate --contract}: the waiting contract migrations join the migrations. */
-  private static int releaseContracts(Project project, PrintStream out) throws Exception {
+  private static int releaseContracts(CommandContext context) throws Exception {
+    Project project = context.project();
+    PrintStream out = context.out();
     List<Path> written = PendingContracts.release(project);
     if (written.isEmpty()) {
       out.println("No contract migrations are waiting.");
+      context.result("noChanges", true);
       return OK;
     }
     for (Path path : written) {
       out.println("Created " + project.display(path) + ".");
+      context.resultList("created").add(project.display(path));
     }
     out.println("Release them only when no instance of the version before their expand "
         + "migration is left.");
@@ -473,8 +525,10 @@ final class GenerateCommand implements Command {
     }
   }
 
-  private static void printBaseline(PrintStream out, Project project, Path file,
-                                    SchemaModel database) {
+  private static void printBaseline(CommandContext context, Path file, SchemaModel database) {
+    Project project = context.project();
+    PrintStream out = context.out();
+    context.resultList("created").add(project.display(file));
     out.println("Created " + project.display(file) + " with the " + database.tables().size()
         + " table(s) the database already has.");
     out.println("  It is recorded as applied in this database without running it; empty "

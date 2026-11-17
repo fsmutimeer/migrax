@@ -103,7 +103,7 @@ final class Reports {
   }
 
   /** One operation as JSON for {@code check}: what changes, where, and which entity owns it. */
-  static Object operationJson(Operation o, Map<String, String> entities) {
+  static Map<String, Object> operationJson(Operation o, Map<String, String> entities) {
     return JsonOut.object("kind", o.kind(), "summary", Migrations.summary(o),
         "table", table(o), "column", column(o), "entity", entity(o, entities));
   }

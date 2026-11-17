@@ -24,6 +24,7 @@ the command's own fields:
 | `doctor` | `checks` (each with `status`: `ok`, `info`, `warn` or `fail`, `message`, `fix`), `failures`, `warnings` |
 | `new`, `squash` | `created`; `squash` also `replaces` |
 | `merge` | `renamed` (each with `from`, `to`), `snapshotRebuilt` |
+| `generate` | `noChanges`, `operations` (as in `check --json`, plus `destructive`), `renames`, `created`, `waiting`, `notKept`; see below |
 
 ```console
 $ migrax migrate --json 2>/dev/null
@@ -46,6 +47,35 @@ $ migrax check --json    # one line, wrapped here
 {"ok":false,"changes":["add column orders.notes"],"operations":[{"kind":"add_column",
 "summary":"add column orders.notes","table":"orders","column":"notes",
 "entity":"com.example.Order"}],"conflicts":[]}
+```
+
+### generate --json
+
+`generate --json` never asks questions. Each possible rename it would have asked about comes
+back in `renames` with `what` (as in the question), `option` (`--rename` or `--rename-table`)
+and `value`; run `generate` again with that option and value to keep the data. `created` lists
+the files written, as the text output names them, relative to the project folder when they are
+inside it (a first baseline, the migration, the
+`--safe` online migration, the expand step, or with `--contract` the released contract
+migrations). `waiting` lists the contract migrations that `--zero-downtime` keeps in
+`.migrax/pending/` in this run; earlier ones still waiting are only mentioned in the text.
+`notKept` names the columns (`table.column`) whose data `--keep-data` can't keep. `noChanges`
+is true when the entities match the snapshot (or, on the first run, the database), and with
+`--contract` when nothing waits; `created` can still list the baseline of a first run.
+
+When `generate` fails after it has read the changes, the error object still has these fields.
+For example, when it stops because of drops (`MXE108`), `operations` lists them with
+`destructive` true, next to the `renames`, so a tool can ask about both and run it again with
+`--allow-destructive` or the rename options. A failure before that (no database URL, no
+entities) has only `ok`, `exitCode` and `error`.
+
+```console
+$ migrax generate --json 2>/dev/null    # one line, wrapped here
+{"ok":true,"exitCode":0,"noChanges":false,"operations":[{"kind":"add_column",
+"summary":"add column orders.notes","table":"orders","column":"notes",
+"entity":"com.example.Order","destructive":false}],"renames":[],
+"created":["src/main/resources/db/migration/0004_add_orders_notes.sql"],"waiting":[],
+"notKept":[]}
 ```
 
 ### When a command fails

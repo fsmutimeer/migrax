@@ -6,6 +6,14 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `generate --json` prints one result object: the changes (with `destructive`), the possible
+  renames with the option and value that keep the data, the files created, the contract
+  migrations waiting in `.migrax/pending/`, and the columns `--keep-data` can't keep. It never
+  asks questions. When it stops at drops (MXE108), the error object still lists the changes and
+  renames. Editors no longer have to read the text output.
+
 ### Changed
 
 - `migrax-junit` now depends on JUnit 5.14.4 (was 5.11.4).

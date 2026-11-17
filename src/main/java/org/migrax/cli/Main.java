@@ -59,15 +59,17 @@ public final class Main {
     boolean json = raw.contains("--json");
     // In --json mode progress messages go to stderr so stdout stays parseable.
     Log.Sink previous = Log.setSink(Log.console(json ? err : out, err, verbose));
+    // Result fields a command collected before it failed, for the --json error object.
+    java.util.Map<String, Object> partial = new java.util.LinkedHashMap<>();
     try {
       Args args = Args.parse(rawArgs);
       BufferedReader input = args.flag("--no-input") ? null : in;
-      return dispatch(CommandRegistry.standard(), args, out, err, input, services);
+      return dispatch(CommandRegistry.standard(), args, out, err, input, services, partial);
     } catch (UsageException e) {
       String hint = e.hint != null ? e.hint : "Run 'migrax help' to see the available commands.";
       err.println("error[" + e.code.code + "]: " + e.getMessage());
       err.println(hint);
-      printJsonError(json, out, e.code, e.getMessage(), hint);
+      printJsonError(json, out, e.code, e.getMessage(), hint, partial);
       return ExitCode.ERROR;
     } catch (Throwable e) {
       ErrorCode code = ErrorCode.of(e);
@@ -77,7 +79,7 @@ public final class Main {
       if (hint != null) {
         err.println(hint);
       }
-      printJsonError(json, out, code, message, hint);
+      printJsonError(json, out, code, message, hint, partial);
       if (verbose) {
         e.printStackTrace(err);
       } else {
@@ -91,16 +93,20 @@ public final class Main {
 
   /** In --json mode a failure is also one JSON object on stdout. */
   private static void printJsonError(boolean json, PrintStream out, ErrorCode code,
-                                     String message, String hint) {
+                                     String message, String hint,
+                                     java.util.Map<String, Object> partial) {
     if (json) {
-      out.println(JsonOut.write(JsonOut.object("ok", false, "exitCode", ExitCode.ERROR,
-          "error", JsonOut.object("code", code.code, "message", message, "hint", hint))));
+      java.util.Map<String, Object> result = JsonOut.object("ok", false, "exitCode",
+          ExitCode.ERROR, "error", JsonOut.object("code", code.code, "message", message,
+              "hint", hint));
+      partial.forEach(result::putIfAbsent);
+      out.println(JsonOut.write(result));
     }
   }
 
   private static int dispatch(CommandRegistry commands, Args args, PrintStream out,
-                              PrintStream err, BufferedReader in, Services services)
-      throws Exception {
+                              PrintStream err, BufferedReader in, Services services,
+                              java.util.Map<String, Object> partial) throws Exception {
     CommandContext withoutProject = new CommandContext(args, out, err, in, null, services);
     if (args.flag("--version", "-V")) {
       return commands.resolve("version").run(withoutProject);
@@ -121,7 +127,15 @@ public final class Main {
     try (Project project = new Project(args, err)) {
       CommandContext context = new CommandContext(args, out, err, in, project, services)
           .forCommand(command);
-      int code = command.run(context);
+      int code;
+      try {
+        code = command.run(context);
+      } catch (Exception | Error e) {
+        if (collect && command.jsonResultOnError()) {
+          partial.putAll(context.results());
+        }
+        throw e;
+      }
       if (collect) {
         java.util.Map<String, Object> result = JsonOut.object("ok", code == ExitCode.OK,
             "exitCode", code);
