@@ -94,8 +94,9 @@ migrax import flyway|liquibase
 
 flyway: records every migration in flyway_schema_history as applied, so Migrax continues where
 Flyway stopped; `V*__` and `R__` files keep working. liquibase: writes a baseline migration with
-the current schema and records it. Afterwards run `migrax generate` to start managing changes,
-and remove Flyway or Liquibase from the project. See
+the current schema and records it. Then it lists the dependencies, build plugins and settings of
+Flyway or Liquibase still in the project, each with its file and line, so you can remove them.
+Afterwards run `migrax generate` to start managing changes. See
 [Switching from Flyway or Liquibase](../guides/switching-tools.md).
 
 | Option | Meaning |

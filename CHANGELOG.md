@@ -14,6 +14,11 @@ All notable changes to Migrax are listed here. The format follows
   statements applied and the migration not recorded, and a `ROLLBACK` undoes them while the
   migration is still recorded as applied. Blocks, procedure bodies, savepoints and migrations
   marked `-- migrax:no-transaction` are not affected.
+- `migrax import flyway|liquibase` now lists what still ties the project to the old tool:
+  its dependencies and build plugins (Maven, Gradle, version catalog) and its settings in
+  `application*.properties` / `.yml`, each with file and line, and the `migrax.*` key that
+  replaces a setting where there is one. A forgotten dependency would keep the old tool
+  migrating at startup next to Migrax. Setting values are never printed.
 
 ### Changed
 

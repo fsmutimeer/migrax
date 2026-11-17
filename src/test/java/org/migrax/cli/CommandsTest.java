@@ -667,9 +667,15 @@ class CommandsTest {
         + "VARCHAR(50), \"type\" VARCHAR(20), \"script\" VARCHAR(1000), \"success\" BOOLEAN)");
     execute("INSERT INTO \"flyway_schema_history\" VALUES (1, '1', 'SQL', 'V1__init.sql', TRUE)");
 
+    Files.writeString(project.resolve("src/main/resources/application.properties"),
+        "spring.datasource.url=" + url + "\nspring.flyway.enabled=true\n");
+
     Result imported = cli("import", "flyway");
     assertEquals(0, imported.code(), imported.all());
     assertTrue(imported.out().contains("Recorded 1 migration(s)"), imported.out());
+    assertTrue(imported.out().contains("Flyway is still in the project.")
+        && imported.out().contains("  src/main/resources/application.properties:2: "
+        + "spring.flyway.enabled: remove it"), imported.out());
     Result migrate = cli("migrate");
     assertEquals(0, migrate.code(), migrate.all());
     assertTrue(migrate.out().contains("Applied 1 migration(s)"), migrate.out());
@@ -688,6 +694,8 @@ class CommandsTest {
     assertTrue(imported.out().contains("Wrote 0001_liquibase_baseline.sql with 1 table(s)"),
         imported.out());
     assertTrue(imported.out().contains("Recorded 1 migration(s) as applied"), imported.out());
+    assertTrue(imported.out().contains("Found no Liquibase dependency or setting"),
+        imported.out());
     assertTrue(Files.readString(migrations().resolve("0001_liquibase_baseline.sql"))
         .contains("CREATE TABLE sample_entity"));
     assertTrue(cli("status").out().contains("[X] 0001_liquibase_baseline.sql"));

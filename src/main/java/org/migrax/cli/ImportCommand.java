@@ -41,8 +41,9 @@ final class ImportCommand implements Command {
         flyway: records every migration in flyway_schema_history as applied, so Migrax
         continues where Flyway stopped; V*__ and R__ files keep working.
         liquibase: writes a baseline migration with the current schema and records it.
-        Afterwards run 'migrax generate' to start managing changes, and remove Flyway or
-        Liquibase from the project.""";
+        Then it lists the dependencies, build plugins and settings of Flyway or Liquibase
+        still in the project, each with its file and line, so you can remove them.
+        Afterwards run 'migrax generate' to start managing changes.""";
   }
 
   @Override
@@ -85,9 +86,21 @@ final class ImportCommand implements Command {
     }
     report.notes().forEach(out::println);
     out.println("Recorded " + report.recorded() + " migration(s) as applied.");
-    out.println("Next: disable " + (source.equals("flyway") ? "Flyway (spring.flyway.enabled=false)"
-        : "Liquibase (spring.liquibase.enabled=false)") + ", then run 'migrax generate'; its "
-        + "first run uses the current database as the baseline.");
+    String tool = source.equals("flyway") ? "Flyway" : "Liquibase";
+    List<ImportLeftovers.Leftover> leftovers = ImportLeftovers.find(project.root(), source);
+    String generate = "run 'migrax generate'; its first run uses the current database as the "
+        + "baseline.";
+    if (leftovers.isEmpty()) {
+      out.println("Found no " + tool + " dependency or setting in the build files and "
+          + "application settings under the project folder. Dependencies added by a parent POM "
+          + "or a shared build script are not checked.");
+      out.println("Next: " + generate);
+    } else {
+      out.println(tool + " is still in the project. Remove it so that only Migrax migrates "
+          + "at startup:");
+      leftovers.forEach(leftover -> out.println("  " + leftover));
+      out.println("Then " + generate);
+    }
     return OK;
   }
 }
