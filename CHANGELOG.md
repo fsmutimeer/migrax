@@ -6,6 +6,15 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `lint` warns (MX018) about `BEGIN`, `START TRANSACTION`, `COMMIT` or `ROLLBACK` (and
+  `END` on PostgreSQL and SQLite) written in a migration. Migrax already runs each migration in
+  one transaction and records it there: after a `COMMIT`, a later failure can leave the first
+  statements applied and the migration not recorded, and a `ROLLBACK` undoes them while the
+  migration is still recorded as applied. Blocks, procedure bodies, savepoints and migrations
+  marked `-- migrax:no-transaction` are not affected.
+
 ### Changed
 
 - PostgreSQL: a migration now waits at most 5 seconds for a lock that another session holds,

@@ -136,6 +136,84 @@ class LinterAndRenamesTest {
   }
 
   @Test
+  void warnsAboutTransactionsWrittenInAMigration() {
+    // A COMMIT halfway: a failure after it leaves the first INSERT applied, nothing recorded.
+    List<SqlLinter.Finding> found = SqlLinter.lint("test.sql", """
+        BEGIN;
+        INSERT INTO t VALUES (1);
+        COMMIT;
+        INSERT INTO t VALUES (2);
+        """, "postgresql");
+    assertEquals(List.of("MX018", "MX018"),
+        found.stream().map(SqlLinter.Finding::code).toList());
+    assertEquals(List.of(1, 3), found.stream().map(SqlLinter.Finding::statement).toList());
+    for (String statement : List.of("BEGIN TRANSACTION;", "BEGIN TRAN t1;", "BEGIN WORK;",
+        "BEGIN ISOLATION LEVEL SERIALIZABLE;", "BEGIN IMMEDIATE;", "START TRANSACTION;",
+        "start transaction read only;", "COMMIT;", "COMMIT WORK;", "commit transaction;",
+        "ROLLBACK;", "ROLLBACK WORK;", "COMMIT AND CHAIN;", "ROLLBACK TRAN AND CHAIN;")) {
+      assertEquals(Set.of("MX018"), codes(statement, "postgresql"), statement);
+    }
+    assertEquals(Set.of("MX018"), codes("BEGIN TRAN;\nUPDATE t SET a = 1 WHERE id = 2;\n"
+        + "COMMIT TRAN;", "sqlserver"));
+    assertEquals(Set.of("MX018"), codes("START TRANSACTION;\nINSERT INTO t VALUES (1);",
+        "mysql"));
+    assertEquals(Set.of("MX018"), codes("COMMIT;", "oracle"));
+    assertEquals(Set.of("MX018"), codes("COMMIT;", "h2"));
+    assertEquals(Set.of("MX018"), codes("BEGIN EXCLUSIVE;", "sqlite"));
+    // PostgreSQL's and SQLite's END after their BEGIN is a COMMIT.
+    assertEquals(List.of(1, 3), statements("BEGIN DEFERRED;\nINSERT INTO t VALUES (1);\n"
+        + "END TRANSACTION;", "sqlite"));
+    assertEquals(List.of(1, 3), statements("BEGIN;\nINSERT INTO t VALUES (1);\nEND;",
+        "postgresql"));
+  }
+
+  private static List<Integer> statements(String sql, String dialect) {
+    return SqlLinter.lint("test.sql", sql, dialect).stream()
+        .map(SqlLinter.Finding::statement).toList();
+  }
+
+  @Test
+  void transactionsInBlocksAndRoutinesAreFine() {
+    // A block's BEGIN, a savepoint, and a COMMIT inside a procedure body are not the migration's.
+    assertEquals(Set.of(), codes("BEGIN\n  INSERT INTO t VALUES (1);\nEND;", "oracle"));
+    assertEquals(Set.of(), codes("ROLLBACK TO SAVEPOINT s;", "postgresql"));
+    assertEquals(Set.of(), codes("ROLLBACK TO s;", "postgresql"));
+    assertEquals(Set.of(), codes("ROLLBACK WORK TO SAVEPOINT s;", "postgresql"));
+    assertEquals(Set.of(), codes("""
+        CREATE PROCEDURE p()
+        BEGIN
+          INSERT INTO t VALUES (1);
+          COMMIT;
+        END;
+        """, "mysql"));
+    assertEquals(Set.of(), codes("""
+        CREATE PROCEDURE p() LANGUAGE plpgsql AS $$
+        BEGIN
+          COMMIT;
+        END;
+        $$;
+        """, "postgresql"));
+    // Savepoints stay inside Migrax's transaction, SQL Server's too.
+    assertEquals(Set.of(), codes("SAVEPOINT s;\nRELEASE SAVEPOINT s;", "postgresql"));
+    assertEquals(Set.of(), codes("SAVE TRAN sp1;\nINSERT INTO t VALUES (1);\n"
+        + "ROLLBACK TRAN sp1;", "sqlserver"));
+    // A lone END without a BEGIN of a transaction is a cut block, which is not a COMMIT.
+    assertEquals(Set.of(), codes("IF 1=1\nBEGIN\n  SELECT 1;\nEND", "sqlserver"));
+    // Names that only start like one.
+    assertEquals(Set.of(), codes("INSERT INTO commit_log VALUES (1);", "postgresql"));
+    assertEquals(Set.of(), codes("CREATE TABLE ending (id int);", "postgresql"));
+  }
+
+  @Test
+  void transactionsAreTheMigrationsOwnWithoutMigraxsTransaction() {
+    assertEquals(Set.of(), codes("-- migrax:no-transaction\nBEGIN;\nINSERT INTO t VALUES (1);\n"
+        + "COMMIT;", "postgresql"));
+    assertEquals(Set.of(), codes("-- migrax:lint-ignore MX018\nCOMMIT;", "postgresql"));
+    assertEquals(Set.of(), codes("-- migrax:lint-ignore-file MX018\nBEGIN;\n"
+        + "INSERT INTO t VALUES (1);\nCOMMIT;", "postgresql"));
+  }
+
+  @Test
   void acceptsTheSafeForms() {
     assertEquals(Set.of(), codes("-- migrax:no-transaction\n"
         + "CREATE INDEX CONCURRENTLY i ON orders (customer_id);", "postgresql"));

@@ -70,6 +70,19 @@ public final class SqlLinter {
   private static final Pattern VOLATILE_DEFAULT = Pattern.compile(
       "(?i)DEFAULT\\s+(now\\(\\)|clock_timestamp\\(\\)|random\\(\\)|gen_random_uuid\\(\\)"
           + "|uuid_generate_v4\\(\\)|nextval\\(|timeofday\\(\\))");
+  /**
+   * A statement that starts, ends or undoes a transaction (upper case, one space between words):
+   * BEGIN of a transaction (a block's BEGIN is a routine), START TRANSACTION, COMMIT, ROLLBACK.
+   * Not a rollback to a savepoint: ROLLBACK ... TO, or SQL Server's ROLLBACK TRAN savepoint.
+   */
+  private static final Pattern TRANSACTION_CONTROL = Pattern.compile("^(?:BEGIN\\b.*"
+      + "|START TRANSACTION\\b.*|COMMIT\\b.*"
+      + "|ROLLBACK\\b(?! (?:WORK |TRANSACTION |TRAN )?TO\\b| TRAN(?:SACTION)? (?!AND\\b)\\S).*)$");
+  /**
+   * PostgreSQL's and SQLite's END, a COMMIT. Elsewhere a lone END is the rest of a block that was
+   * cut at a semicolon, so it counts only after a BEGIN or START TRANSACTION in the same file.
+   */
+  private static final Pattern END_TRANSACTION = Pattern.compile("^END(?: WORK| TRANSACTION)?$");
   private static final Pattern IGNORE = Pattern.compile("(?i)migrax:lint-ignore\\s+([\\w, ]+)");
   private static final Pattern IGNORE_FILE =
       Pattern.compile("(?i)migrax:lint-ignore-file\\s+([\\w, ]+)");
@@ -128,6 +141,8 @@ public final class SqlLinter {
     boolean transactional = !SqlScript.hasDirective(sql, "no-transaction");
     Set<String> fileIgnores = codes(IGNORE_FILE, sql);
     Set<String> createdTables = new HashSet<>();
+    // A BEGIN or START TRANSACTION was written in this migration: a later END is its COMMIT.
+    boolean openedTransaction = false;
     List<Finding> findings = new ArrayList<>();
     List<String> statements;
     try {
@@ -187,6 +202,23 @@ public final class SqlLinter {
                   + "schemas, so with migrax.schemas it is the login's default schema's table.",
               "Write ${migrax.schema}." + unqualified + ": Migrax fills in each schema."));
         }
+      }
+      boolean control = transactional && !SqlScript.isRoutine(raw)
+          && (TRANSACTION_CONTROL.matcher(upper).matches()
+              || openedTransaction && END_TRANSACTION.matcher(upper).matches());
+      if (control && upper.matches("^(?:BEGIN|START TRANSACTION)\\b.*")) {
+        openedTransaction = true;
+      }
+      if (control && !ignores.contains("MX018")) {
+        // Migrax runs the statements and records the migration in one transaction.
+        findings.add(finding("MX018", Severity.WARNING, file, number, text,
+            "Migrax already runs this migration in one transaction and records it there. A "
+                + "transaction of its own breaks that: after a COMMIT, a failure can leave the "
+                + "statements before it applied and the migration not recorded; a ROLLBACK "
+                + "undoes them while the migration is still recorded as applied.",
+            "Remove it: Migrax commits the migration once all of it succeeded. For statements "
+                + "that cannot run in a transaction, add a '-- migrax:no-transaction' line "
+                + "instead."));
       }
       Matcher create = CREATE_TABLE.matcher(text);
       if (create.find()) {
