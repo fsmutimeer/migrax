@@ -177,7 +177,8 @@ public class MigraxMigrator implements InitializingBean {
         .classLoader(classLoader()).locations(List.of()).javaPackage(null)
         .schemas(properties.getSchemas()).environment(properties.getEnv())
         .lockTimeout(properties.getLockTimeout() == null ? java.time.Duration.ZERO
-            : properties.getLockTimeout()).resume(properties.isResume())
+            : properties.getLockTimeout())
+        .tableLockTimeout(properties.getTableLockTimeout()).resume(properties.isResume())
         .placeholders(properties.getPlaceholders()).listeners(listeners);
     Map<String, Migration> byVersion = new LinkedHashMap<>();
     migrations.forEach(m -> byVersion.put(m.version(), m));

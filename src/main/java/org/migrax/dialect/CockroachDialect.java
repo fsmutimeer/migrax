@@ -217,6 +217,15 @@ public final class CockroachDialect extends PostgresDialect {
     return TableMigrationLock.acquire(connection, resource);
   }
 
+  /**
+   * Off: a CockroachDB schema change doesn't wait behind running queries the way PostgreSQL's
+   * does, and its {@code lock_timeout} covers row conflicts between transactions instead.
+   */
+  @Override
+  public java.util.Optional<TableLockTimeoutSql> tableLockTimeout() {
+    return java.util.Optional.empty();
+  }
+
   /** CockroachDB has no triggers that change the row being written. */
   @Override
   public java.util.List<String> syncColumns(String table, String oldColumn, String newColumn) {

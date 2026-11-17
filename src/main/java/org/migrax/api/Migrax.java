@@ -74,6 +74,7 @@ public final class Migrax {
   private final MigrationRunner.Options options;
   private final String environment;
   private final Duration lockTimeout;
+  private final Duration tableLockTimeout;
   private final String entityPackage;
   private final String naming;
   private final Path projectDirectory;
@@ -99,6 +100,7 @@ public final class Migrax {
     this.options = new MigrationRunner.Options(builder.resume, Map.copyOf(builder.placeholders));
     this.environment = builder.environment;
     this.lockTimeout = builder.lockTimeout;
+    this.tableLockTimeout = builder.tableLockTimeout;
     this.entityPackage = builder.entityPackage;
     this.naming = builder.naming;
     this.projectDirectory = builder.projectDirectory != null ? builder.projectDirectory
@@ -464,8 +466,8 @@ public final class Migrax {
 
   private MigrationRunner runner() {
     return new MigrationRunner().withLockTimeout(lockTimeout != null ? lockTimeout
-        : DatabaseMigrationLock.configuredTimeout()).withEnvironment(environment)
-        .withListeners(listeners);
+        : DatabaseMigrationLock.configuredTimeout()).withTableLockTimeout(tableLockTimeout)
+        .withEnvironment(environment).withListeners(listeners);
   }
 
   private Connection connect() throws SQLException {
@@ -546,6 +548,7 @@ public final class Migrax {
     private final Map<String, String> placeholders = new LinkedHashMap<>();
     private String environment;
     private Duration lockTimeout;
+    private Duration tableLockTimeout;
     private boolean resume;
     private String entityPackage;
     private String naming;
@@ -687,6 +690,19 @@ public final class Migrax {
       return this;
     }
 
+    /**
+     * How long a migration statement waits for a lock that another session holds on a table
+     * before the migration stops (PostgreSQL; default: 5 seconds, or
+     * {@code MIGRAX_TABLE_LOCK_TIMEOUT}); {@link Duration#ZERO} waits as long as the database
+     * does. A migration that stops this way changed nothing and can run again.
+     *
+     * @since 0.19.0
+     */
+    public Builder tableLockTimeout(Duration timeout) {
+      this.tableLockTimeout = timeout;
+      return this;
+    }
+
     /** Continue a migration that failed half way, when its steps are marked as safe to rerun. */
     public Builder resume(boolean resume) {
       this.resume = resume;
@@ -721,7 +737,8 @@ public final class Migrax {
      * Applies {@code migrax.*} settings, with full keys, as the framework integrations read
      * them from application config: {@code migrax.locations} (comma-separated),
      * {@code migrax.java-package}, {@code migrax.resume}, {@code migrax.schemas},
-     * {@code migrax.lock-timeout} (such as {@code 2m}), {@code migrax.env},
+     * {@code migrax.lock-timeout} (such as {@code 2m}), {@code migrax.table-lock-timeout}
+     * (such as {@code 30s}), {@code migrax.env},
      * {@code migrax.placeholders.<name>}, {@code migrax.package} and {@code migrax.naming}.
      * Missing and blank settings keep their current value.
      */
@@ -746,6 +763,10 @@ public final class Migrax {
       String timeout = setting(settings, "migrax.lock-timeout");
       if (timeout != null) {
         lockTimeout(DatabaseMigrationLock.parseTimeout(timeout));
+      }
+      String tableTimeout = setting(settings, "migrax.table-lock-timeout");
+      if (tableTimeout != null) {
+        tableLockTimeout(org.migrax.runner.TableLockTimeout.parse(tableTimeout));
       }
       String env = setting(settings, "migrax.env");
       if (env != null) {

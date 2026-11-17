@@ -95,6 +95,7 @@ migrations. Validate in CI with `migrax verify` instead.
 | `migrax.env` | | Environment: migrations marked `-- migrax:env <name>` run only there |
 | `migrax.resume` | `false` | Re-run a failed migration marked `-- migrax:resume-safe` |
 | `migrax.lock-timeout` | `0` | How long to wait while another instance migrates, for example `2m` |
+| `migrax.table-lock-timeout` | `5s` | How long a migration waits for a lock another session holds (PostgreSQL) before it stops; `0` for no limit ([details](../reference/configuration.md#table-lock-timeout)) |
 | `migrax.placeholders.<name>` | | Values for `${name}` placeholders |
 | `migrax.metrics.enabled` | `true` | Micrometer metrics of the migrations, when the application has a `MeterRegistry` ([Metrics and tracing](../guides/observability.md)) |
 | `migrax.tracing.enabled` | `true` | OpenTelemetry spans of the migrations, when the application has an `OpenTelemetry` |

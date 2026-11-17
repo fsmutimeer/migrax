@@ -73,6 +73,7 @@ Options are `-Dmigrax.*` properties (or `<configuration>` elements of the same n
 | `migrax.resume=true` | `--resume` | migrate |
 | `migrax.sql=true` | `--sql` | migrate |
 | `migrax.lockTimeout=2m` | `--lock-timeout` | migrate, rollback, repair, clean, generate |
+| `migrax.tableLockTimeout=30s` | `--table-lock-timeout` | migrate, rollback |
 | `migrax.steps=2`, `migrax.to=<migration>` | `--steps`, `--to` | rollback (`to` also migrate) |
 | `migrax.confirm=true` | `--yes` | rollback, repair, clean, baseline, backups |
 | `migrax.action=applied` | `--action` | repair |

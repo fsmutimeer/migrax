@@ -59,7 +59,8 @@ class DatabaseEngineIT {
       new Check("script timestamps", DatabaseEngineIT::exerciseScriptTimestamps),
       new Check("schemas", DatabaseEngineIT::exerciseSchemas),
       new Check("clean schema name", DatabaseEngineIT::exerciseCleanSchemaName),
-      new Check("schema file", DatabaseEngineIT::exerciseSchemaFile));
+      new Check("schema file", DatabaseEngineIT::exerciseSchemaFile),
+      new Check("PostgreSQL table lock timeout", DatabaseEngineIT::exerciseTableLockTimeout));
 
   /**
    * The databases the checks run on. An entry only says how to start the database and prepare
@@ -1116,6 +1117,118 @@ class DatabaseEngineIT {
       }
       assertEquals(false, org.migrax.plugin.DatabaseSchemaReader.objectNames(connection, null,
           "TABLE").stream().anyMatch("note"::equalsIgnoreCase), "note in the default schema");
+    }
+  }
+
+  /**
+   * A migration that waits for a table another session has locked stops after the table lock
+   * timeout instead of holding up every query on that table, is not recorded as failed, and
+   * runs once the table is free. Migrations outside a transaction keep the connection's own
+   * timeout, and the connection gets its own value back after every run.
+   */
+  private static void exerciseTableLockTimeout(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      if (!org.migrax.dialect.Dialects.forConnection(connection).orElseThrow().id()
+          .equals("postgresql")) {
+        return;
+      }
+    }
+    Path migrations = Files.createTempDirectory("migrax-table-lock");
+    Path free = migrations.resolve("V1__free_table.sql");
+    Files.writeString(free, "ALTER TABLE free_probe ADD COLUMN note VARCHAR(20);");
+    Path busy = migrations.resolve("V2__busy_table.sql");
+    Files.writeString(busy, "ALTER TABLE busy_probe ADD COLUMN note VARCHAR(20);");
+    Path own = migrations.resolve("V3__own_timeout.sql");
+    Files.writeString(own, "SET lock_timeout = '3s';\n"
+        + "ALTER TABLE busy_probe ADD COLUMN tag VARCHAR(20);");
+    Path index = migrations.resolve("V4__index.sql");
+    Files.writeString(index, "-- migrax:no-transaction\n"
+        + "CREATE INDEX CONCURRENTLY busy_note ON busy_probe (note);");
+    try (Connection holder = database.connect(); Connection migrator = database.connect()) {
+      try (Statement statement = holder.createStatement()) {
+        statement.execute("CREATE SCHEMA lock_probe");
+        statement.execute("CREATE TABLE lock_probe.busy_probe (id INT PRIMARY KEY)");
+        statement.execute("CREATE TABLE lock_probe.free_probe (id INT PRIMARY KEY)");
+      }
+      holder.setSchema("lock_probe");
+      migrator.setSchema("lock_probe");
+      // The value an application's pool gave the connection.
+      try (Statement statement = migrator.createStatement()) {
+        statement.execute("SET lock_timeout = '7s'");
+      }
+      MigrationRunner runner = new MigrationRunner()
+          .withTableLockTimeout(java.time.Duration.ofMillis(500));
+
+      // A long-running read holds the lock that every ALTER TABLE waits for. V1 is committed
+      // with the limit set, then V2 stops.
+      holder.setAutoCommit(false);
+      try (Statement statement = holder.createStatement()) {
+        statement.execute("LOCK TABLE busy_probe IN ACCESS SHARE MODE");
+      }
+      long start = System.nanoTime();
+      SQLException error = assertThrows(SQLException.class,
+          () -> runner.migrate(migrator, List.of(free, busy)));
+      assertTrue(System.nanoTime() - start < 20_000_000_000L, "it waited for the table");
+      assertTrue(error.getMessage().contains("(table lock timeout 500ms)")
+          && error.getMessage().contains("Nothing was changed"), error.getMessage());
+      assertEquals("7s", lockTimeout(migrator));
+      holder.rollback();
+
+      // Not recorded as failed, so it runs again without repair; V3's own value doesn't stay.
+      assertEquals(2, runner.migrate(migrator, List.of(free, busy, own)));
+      assertEquals("7s", lockTimeout(migrator));
+      try (Statement statement = migrator.createStatement()) {
+        statement.execute("SELECT note, tag FROM busy_probe");
+      }
+
+      // CREATE INDEX CONCURRENTLY waits for writes in progress, longer than the limit here: it
+      // runs outside a transaction, so the limit doesn't apply.
+      try (Statement statement = holder.createStatement()) {
+        statement.execute("INSERT INTO busy_probe (id) VALUES (1)");
+      }
+      Thread committer = new Thread(() -> {
+        try {
+          Thread.sleep(1500);
+          holder.commit();
+        } catch (Exception e) {
+          throw new IllegalStateException(e);
+        }
+      });
+      start = System.nanoTime();
+      committer.start();
+      assertEquals(1, runner.migrate(migrator, List.of(free, busy, own, index)));
+      committer.join();
+      assertTrue(System.nanoTime() - start > 1_000_000_000L, "the index didn't wait");
+      assertEquals("7s", lockTimeout(migrator));
+
+      // rollback stops the same way and keeps the migration applied.
+      Migration undo = Migration.ofSql("U3__own_timeout.sql",
+          "ALTER TABLE busy_probe DROP COLUMN tag;");
+      String version = Migration.load(own).version();
+      try (Statement statement = holder.createStatement()) {
+        statement.execute("LOCK TABLE busy_probe IN ACCESS SHARE MODE");
+      }
+      error = assertThrows(SQLException.class,
+          () -> runner.rollback(migrator, version, undo, MigrationRunner.Options.defaults()));
+      assertTrue(error.getMessage().startsWith("Rolling back '" + version + "' stopped waiting")
+          && error.getMessage().contains("run 'rollback' again"), error.getMessage());
+      assertEquals("7s", lockTimeout(migrator));
+      holder.rollback();
+      runner.rollback(migrator, version, undo, MigrationRunner.Options.defaults());
+      assertEquals("7s", lockTimeout(migrator));
+    } finally {
+      try (Connection connection = database.connect();
+           Statement statement = connection.createStatement()) {
+        statement.execute("DROP SCHEMA IF EXISTS lock_probe CASCADE");
+      }
+    }
+  }
+
+  private static String lockTimeout(Connection connection) throws SQLException {
+    try (Statement statement = connection.createStatement();
+         java.sql.ResultSet result = statement.executeQuery("SHOW lock_timeout")) {
+      result.next();
+      return result.getString(1);
     }
   }
 

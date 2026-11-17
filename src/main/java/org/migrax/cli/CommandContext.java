@@ -87,13 +87,17 @@ final class CommandContext {
     return project;
   }
 
-  /** The migration runner, waiting for the lock as long as --lock-timeout says. */
+  /**
+   * The migration runner, waiting for the lock as long as --lock-timeout says, and for a lock
+   * on a table as long as --table-lock-timeout says.
+   */
   MigrationRunner migrationRunner() {
     if (project == null) {
       return services.migrationRunner();
     }
     try {
       return services.migrationRunner().withLockTimeout(project.lockTimeout())
+          .withTableLockTimeout(project.tableLockTimeout())
           .withEnvironment(project.environment());
     } catch (UsageException e) {
       throw e;

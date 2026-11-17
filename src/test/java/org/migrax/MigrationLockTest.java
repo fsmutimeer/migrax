@@ -70,4 +70,15 @@ class MigrationLockTest {
     assertEquals(Duration.ofSeconds(45), DatabaseMigrationLock.parseTimeout("45"));
     assertThrows(IllegalArgumentException.class, () -> DatabaseMigrationLock.parseTimeout("soon"));
   }
+
+  @Test
+  void readsTableLockTimeouts() {
+    assertEquals(Duration.ofSeconds(5), org.migrax.runner.TableLockTimeout.DEFAULT);
+    assertEquals(Duration.ofSeconds(30), org.migrax.runner.TableLockTimeout.parse("30s"));
+    assertEquals(Duration.ZERO, org.migrax.runner.TableLockTimeout.parse("0"));
+    IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+        () -> org.migrax.runner.TableLockTimeout.parse("soon"));
+    assertTrue(error.getMessage().contains("Invalid table lock timeout 'soon'"),
+        error.getMessage());
+  }
 }

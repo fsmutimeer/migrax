@@ -22,6 +22,24 @@ import org.junit.jupiter.api.Test;
 class DialectCapabilitiesTest {
 
   @Test
+  void postgresSetsLockTimeoutAndKnowsItsFailure() {
+    TableLockTimeoutSql postgres = Dialects.byName("postgresql").tableLockTimeout().orElseThrow();
+    assertEquals("SHOW lock_timeout", postgres.read());
+    assertEquals("SET lock_timeout = '5000ms'", postgres.set(java.time.Duration.ofSeconds(5)));
+    assertEquals("SET lock_timeout = '1ms'", postgres.set(java.time.Duration.ofNanos(10)));
+    // PostgreSQL refuses more than 2147483647 ms.
+    assertEquals("SET lock_timeout = '2147483647ms'",
+        postgres.set(java.time.Duration.ofHours(800)));
+    assertEquals("SET lock_timeout = '7s'", postgres.restore("7s"));
+    assertEquals("SET lock_timeout = 'a''b'", postgres.restore("a'b"));
+    java.sql.SQLException timeout = new java.sql.SQLException(
+        "canceling statement due to lock timeout", "55P03");
+    assertTrue(postgres.isTimeout(timeout));
+    assertTrue(postgres.isTimeout(new java.sql.SQLException("wrapped", timeout)));
+    assertFalse(postgres.isTimeout(new java.sql.SQLException("syntax error", "42601")));
+  }
+
+  @Test
   void factsPerDatabase() {
     assertDialects("backslashEscapes", Dialect::backslashEscapes, "mysql", "mariadb", "tidb");
     assertDialects("dumpsHavePsqlCommands", Dialect::dumpsHavePsqlCommands,
@@ -35,6 +53,7 @@ class DialectCapabilitiesTest {
         "mysql", "tidb", "sqlite");
     assertDialects("hibernateValidationWorks", d -> !d.hibernateValidationWorks(), "sqlite");
     assertDialects("migrationLockLimit", d -> d.migrationLockLimit().isPresent(), "h2");
+    assertDialects("tableLockTimeout", d -> d.tableLockTimeout().isPresent(), "postgresql");
     assertDialects("caseSensitiveTableNames", Dialect::caseSensitiveTableNames,
         "mysql", "mariadb", "tidb");
     assertDialects("largeObjectTypesFromOrm", Dialect::largeObjectTypesFromOrm,

@@ -58,9 +58,9 @@ final class MigrateCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--to", "--env", "--sql", "--dry-run", "--json", "--resume", "--lock-timeout", "--schemas", "--url",
-        "--user", "--password", "--password-file", "--locations", "--java-package", "--classpath",
-        "--no-build", "--database");
+    return List.of("--to", "--env", "--sql", "--dry-run", "--json", "--resume", "--lock-timeout",
+        "--table-lock-timeout", "--schemas", "--url", "--user", "--password", "--password-file",
+        "--locations", "--java-package", "--classpath", "--no-build", "--database");
   }
 
   @Override

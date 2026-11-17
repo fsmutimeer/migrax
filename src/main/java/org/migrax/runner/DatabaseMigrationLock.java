@@ -114,7 +114,7 @@ public final class DatabaseMigrationLock {
 
   private static final Pattern DURATION = Pattern.compile("(\\d+)\\s*(ms|s|m|h)?");
 
-  private static String describe(Duration duration) {
+  static String describe(Duration duration) {
     long millis = duration.toMillis();
     return millis % 60_000 == 0 && millis > 0 ? millis / 60_000 + "m"
         : millis % 1000 == 0 ? millis / 1000 + "s" : millis + "ms";
