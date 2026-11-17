@@ -21,6 +21,11 @@ All notable changes to Migrax are listed here. The format follows
   migrating at startup next to Migrax. Setting values are never printed.
 - `status --json` names each migration's `file`, relative to the project folder, so editors
   and scripts open the right file when two modules have a migration with the same name.
+- `generate --json` prints one result object: the changes (with `destructive`), the possible
+  renames with the option and value that keep the data, the files created, the contract
+  migrations waiting in `.migrax/pending/`, and the columns `--keep-data` can't keep. It never
+  asks questions. When it stops at drops (MXE108), the error object still lists the changes and
+  renames. Editors no longer have to read the text output.
 
 ### Changed
 

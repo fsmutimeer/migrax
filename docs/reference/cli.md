@@ -14,7 +14,7 @@ service folder (the one with `pom.xml` or `build.gradle`), or pass `--dir <path>
 | `--dir <path>` | Project folder (default: current folder) |
 | `--no-build` | Do not run Maven/Gradle; use the classes and dependencies from the last build |
 | `--refresh` | Re-resolve dependencies even if cached |
-| `--json` | Machine-readable output (`plan`, `status`, `check`, `lint`, `drift`, `diff`, `verify`) |
+| `--json` | Machine-readable output (`plan`, `status`, `check`, `generate`, `lint`, `drift`, `diff`, `verify`) |
 | `--verbose`, `-v` | Show debug output, Hibernate's own log and stack traces |
 | `--no-input` | Never ask questions (the default when input is not a terminal) |
 
@@ -167,6 +167,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--rename t.old=new` | Treat a column change as a rename (comma-separated) |
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--no-input` | Never ask questions |
+| `--json` | Machine-readable output |
 | `--lock-timeout <time>` | Wait this long while another process migrates (e.g. 2m) |
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |

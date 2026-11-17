@@ -118,6 +118,44 @@ class CommandsTest {
   }
 
   @Test
+  void generateJsonReportsFilesChangesAndRenames() throws Exception {
+    setUp();
+    Result first = cli("generate", "--json");
+    assertEquals(0, first.code(), first.all());
+    java.util.Map<String, Object> created = json(first);
+    assertEquals(false, created.get("noChanges"), first.out());
+    var files = (java.util.List<?>) created.get("created");
+    assertEquals(1, files.size(), first.out());
+    assertTrue(files.get(0).toString().startsWith("src/main/resources/db/migration/0001_"),
+        first.out());
+    var operation = (java.util.Map<?, ?>) ((java.util.List<?>) created.get("operations")).get(0);
+    assertEquals("create_table", operation.get("kind"), first.out());
+    assertEquals(false, operation.get("destructive"), first.out());
+    assertEquals(java.util.List.of(), created.get("renames"), first.out());
+    assertTrue(first.err().contains("Created "), "the text goes to stderr: " + first.all());
+    assertEquals(0, cli("migrate").code());
+
+    Result none = cli("generate", "--json");
+    assertEquals(0, none.code(), none.all());
+    assertEquals(true, json(none).get("noChanges"), none.out());
+
+    renameInSnapshotAndDatabase();
+    // With --json it never asks, even with a console: the rename comes back in the result.
+    Result refused = ask("y\n", "generate", "--json");
+    assertEquals(1, refused.code(), refused.all());
+    java.util.Map<String, Object> stopped = json(refused);
+    assertEquals("MXE108", ((java.util.Map<?, ?>) stopped.get("error")).get("code"),
+        refused.out());
+    assertEquals(java.util.List.of(java.util.Map.of(
+        "what", "sample_entity.old_name to sample_entity.name",
+        "option", "--rename", "value", "sample_entity.old_name=name")),
+        stopped.get("renames"), refused.out());
+    assertTrue(((java.util.List<?>) stopped.get("operations")).stream().anyMatch(o ->
+        Boolean.TRUE.equals(((java.util.Map<?, ?>) o).get("destructive"))), refused.out());
+    assertFalse(refused.err().contains("[y/N]"), refused.all());
+  }
+
+  @Test
   void asksAboutRenamesInteractively() throws Exception {
     setUp();
     generateAndMigrate();
@@ -155,6 +193,23 @@ class CommandsTest {
     assertEquals(1, ended.out().split("Did you rename ", -1).length - 1, ended.out());
     assertTrue(ended.out().contains("Possible rename: customers.name to customers.full_name. "
         + "To keep the data, rerun with --rename customers.name=full_name."), ended.out());
+  }
+
+  @Test
+  void generateJsonOffersOneRenamePerColumnAndKeepsEarlyErrorsPlain() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate", "--package", "org.migrax.cli.renames.before").code());
+    Result offered = ask("n\nn\nn\n", "generate", "--package",
+        "org.migrax.cli.renames.after", "--json");
+    assertEquals(java.util.List.of(java.util.Map.of("what",
+        "customers.name to customers.full_name", "option", "--rename",
+        "value", "customers.name=full_name")), json(offered).get("renames"), offered.all());
+
+    Files.writeString(project.resolve("src/main/resources/application.properties"), "");
+    Files.delete(project.resolve(".migrax/snapshot.json"));
+    Result early = cli("generate", "--json");
+    assertEquals(1, early.code(), early.all());
+    assertEquals(java.util.Set.of("ok", "exitCode", "error"), json(early).keySet(), early.out());
   }
 
   @Test
@@ -453,10 +508,13 @@ class CommandsTest {
     assertEquals(1, clash.code(), clash.all());
     assertFalse(Files.exists(migrations().resolve("0001_baseline.sql")), clash.all());
 
-    Result generate = cli("generate", "--rename", "sample_entity.old_name=name");
+    Result generate = cli("generate", "--rename", "sample_entity.old_name=name", "--json");
     assertEquals(0, generate.code(), generate.all());
-    assertTrue(generate.out().indexOf("0001_baseline.sql")
-        < generate.out().indexOf("0002_rename_sample_entity_old_name.sql"), generate.out());
+    assertEquals(java.util.List.of("src/main/resources/db/migration/0001_baseline.sql",
+        "src/main/resources/db/migration/0002_rename_sample_entity_old_name.sql"),
+        json(generate).get("created"), generate.out());
+    assertTrue(generate.err().indexOf("0001_baseline.sql")
+        < generate.err().indexOf("0002_rename_sample_entity_old_name.sql"), generate.all());
     String status = cli("status").out();
     assertTrue(status.contains("[X] 0001_baseline.sql"), status);
     assertTrue(status.contains("[ ] 0002_rename_sample_entity_old_name.sql"), status);
@@ -1178,6 +1236,28 @@ class CommandsTest {
         "h2", org.migrax.diff.SnapshotStore.naming(snapshot));
     execute("ALTER TABLE sample_entity ADD COLUMN legacy VARCHAR(20) DEFAULT 'x' NOT NULL");
     execute("ALTER TABLE sample_entity ALTER COLUMN legacy DROP DEFAULT");
+  }
+
+  @Test
+  void generateJsonNamesTheWaitingContract() throws Exception {
+    setUp();
+    generateAndMigrate();
+    addLegacyColumn();
+    Result expand = cli("generate", "--zero-downtime", "--allow-destructive", "--json");
+    assertEquals(0, expand.code(), expand.all());
+    java.util.Map<String, Object> result = json(expand);
+    assertEquals(java.util.List.of(
+        "src/main/resources/db/migration/0002_remove_sample_entity_legacy_expand.sql"),
+        result.get("created"), expand.out());
+    assertEquals(java.util.List.of(
+        ".migrax/pending/0002_remove_sample_entity_legacy_contract.sql"),
+        result.get("waiting"), expand.out());
+
+    Result released = cli("generate", "--contract", "--json");
+    assertEquals(0, released.code(), released.all());
+    assertEquals(1, ((java.util.List<?>) json(released).get("created")).size(), released.out());
+    Result nothing = cli("generate", "--contract", "--json");
+    assertEquals(true, json(nothing).get("noChanges"), nothing.out());
   }
 
   @Test

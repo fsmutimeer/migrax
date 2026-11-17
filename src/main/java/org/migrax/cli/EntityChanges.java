@@ -72,7 +72,7 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
       for (Renames.TableRename candidate : Renames.tableCandidates(renamedTables, current)) {
         if (confirmRename(context,
             "Did you rename table " + candidate.from() + " to " + candidate.to() + "?",
-            "--rename-table " + shellWord(candidate.toString()))) {
+            "--rename-table", candidate.toString())) {
           tables.add(candidate);
         }
       }
@@ -94,8 +94,8 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
           }
           boolean yes = confirmRename(context, "Did you rename " + candidate.table() + "."
               + candidate.from() + " to " + target + "?",
-              "--rename " + shellWord(candidate.toString()));
-          if (yes || !context.interactive()) {
+              "--rename", candidate.toString());
+          if (yes || !asks(context)) {
             if (yes) {
               columns.add(candidate);
             }
@@ -124,18 +124,32 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
     return "'" + value.replace("'", "'\\''") + "'";
   }
 
-  /** Asks about a rename, or prints how to answer it with an option when Migrax can't ask. */
-  private static boolean confirmRename(CommandContext context, String question, String option)
-      throws Exception {
-    if (context.interactive()) {
+  /** Whether renames are asked about: with a console, and never with --json. */
+  private static boolean asks(CommandContext context) {
+    return context.interactive() && !context.args().flag("--json");
+  }
+
+  /**
+   * Asks about a rename, or prints how to answer it with an option when Migrax can't ask. With
+   * {@code --json} it never asks: the rename goes to the result's {@code renames}, with the
+   * option and its value as a tool passes them back.
+   */
+  private static boolean confirmRename(CommandContext context, String question, String option,
+                                       String value) throws Exception {
+    if (asks(context)) {
       boolean yes = context.confirm(question);
       if (yes || context.interactive()) {
         return yes;
       }
       // The input ended without an answer: print the hint as when Migrax can't ask.
     }
-    context.out().println("Possible rename: " + question.replace("Did you rename ", "")
-        .replace("?", "") + ". To keep the data, rerun with " + option + ".");
+    String what = question.replace("Did you rename ", "").replace("?", "");
+    context.out().println("Possible rename: " + what + ". To keep the data, rerun with "
+        + option + " " + shellWord(value) + ".");
+    if (context.args().flag("--json")) {
+      context.resultList("renames").add(JsonOut.object("what", what, "option", option,
+          "value", value));
+    }
     return false;
   }
 }

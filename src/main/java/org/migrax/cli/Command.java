@@ -56,6 +56,14 @@ interface Command {
     return false;
   }
 
+  /**
+   * True when a failure in {@code --json} mode also carries the result fields collected until
+   * then, next to {@code error}: {@code generate} stopping at drops still names the changes.
+   */
+  default boolean jsonResultOnError() {
+    return false;
+  }
+
   /** False for commands that don't look at the project, such as {@code version}. */
   default boolean needsProject() {
     return true;

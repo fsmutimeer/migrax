@@ -55,10 +55,12 @@ final class KeepData {
    * @param kept the forward operations whose data the rollback restores
    * @param notes what the rollback script's header says about it
    * @param warnings changes whose data can't be kept, or kept only by matching whole rows
+   * @param notKept the columns ({@code table.column}) whose data can't be kept
    */
   record Plan(List<Operation> forward, List<Operation> reverse, SchemaModel middle,
               List<String> restores, List<Operation> finish, List<String> cleanup,
-              List<Operation> kept, List<String> notes, List<String> warnings) {}
+              List<Operation> kept, List<String> notes, List<String> warnings,
+              List<String> notKept) {}
 
   /**
    * A column whose values sit in a backup table.
@@ -79,6 +81,7 @@ final class KeepData {
     List<Operation> kept = new ArrayList<>();
     List<String> notes = new ArrayList<>();
     List<String> warnings = new ArrayList<>();
+    List<String> notKept = new ArrayList<>();
     Map<String, String> keptTables = new LinkedHashMap<>();
     List<KeptColumn> keptColumns = new ArrayList<>();
     for (Operation operation : forward) {
@@ -112,6 +115,7 @@ final class KeepData {
               && !NOT_COMPARABLE.contains(logical(c))).toList();
         }
         if (key == null || key.isEmpty()) {
+          notKept.add(table + "." + column.name());
           warnings.add("--keep-data can't keep " + table + "." + column.name()
               + ": the table has no key and no other column to match its rows by.");
         } else {
@@ -178,7 +182,7 @@ final class KeepData {
     List<String> cleanup = keptColumns.stream()
         .map(column -> "DROP TABLE " + dialect.tableName(column.backup())).toList();
     return new Plan(newForward, newReverse, withNullable(before, keptColumns, madeNullable),
-        restores, finish, cleanup, kept, notes, warnings);
+        restores, finish, cleanup, kept, notes, warnings, notKept);
   }
 
   /**
