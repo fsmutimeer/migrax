@@ -19,6 +19,8 @@ All notable changes to Migrax are listed here. The format follows
   `application*.properties` / `.yml`, each with file and line, and the `migrax.*` key that
   replaces a setting where there is one. A forgotten dependency would keep the old tool
   migrating at startup next to Migrax. Setting values are never printed.
+- `status --json` names each migration's `file`, relative to the project folder, so editors
+  and scripts open the right file when two modules have a migration with the same name.
 
 ### Changed
 

@@ -68,6 +68,11 @@ final class StatusCommand implements Command {
     List<Migration> migrations = project.migrationsToRun(true);
     boolean problems = false;
     List<Object> json = new ArrayList<>();
+    // For --json: each migration's file relative to the project folder, so tools can open it.
+    Map<String, String> files = new LinkedHashMap<>();
+    for (Path file : project.migrationFiles()) {
+      files.put(String.valueOf(file.getFileName()), project.display(file));
+    }
     try (Connection connection = project.connect()) {
       for (String schema : project.schemasOrDefault()) {
         if (schema != null) {
@@ -81,7 +86,7 @@ final class StatusCommand implements Command {
         if (args.flag("--json")) {
           json.add(JsonOut.object("schema", schema, "migrations", rows.stream().map(row ->
               (Object) JsonOut.object("version", row.version(), "state", row.state(),
-                  "detail", row.detail())).toList()));
+                  "detail", row.detail(), "file", files.get(row.version()))).toList()));
           continue;
         }
         out.println("Migrations in " + project.displayMigrations() + " for "

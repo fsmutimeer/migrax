@@ -122,6 +122,8 @@ class McpServerTest {
     assertEquals(false, status.get("isError"));
     assertTrue(text(status).startsWith("migrax status exited with code 0"), text(status));
     assertTrue(text(status).contains("\"state\":\"pending\""), text(status));
+    assertTrue(text(status).contains(
+        "\"file\":\"src/main/resources/db/migration/0001_init.sql\""), text(status));
 
     var shown = result(call(writer, "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/call\","
         + "\"params\":{\"name\":\"show_migration\",\"arguments\":{\"name\":\"0001_init.sql\"}}}"));
