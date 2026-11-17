@@ -31,7 +31,17 @@ $ migrax migrate --json 2>/dev/null
 ```
 
 `status`, `plan`, `check`, `drift`, `lint`, `verify` and `init` keep the JSON shapes they had
-before 0.3.0; see their sections in the [CLI reference](cli.md).
+before 0.3.0, apart from the fields added below; see their sections in the
+[CLI reference](cli.md).
+
+Each migration in `status --json` has its `version` (the file name of a SQL migration),
+`state` (`applied`, `pending`, `outdated`, `skipped`, `failed`, `changed` or `missing`),
+`detail` and `file`: the
+path of the migration file relative to the project folder, such as
+`src/main/resources/db/migration/0002_add_email.sql`, so an editor opens the right file even
+when two modules have one with the same name. `file` is null for Java migrations and for a
+`missing` migration, whose file is gone. A folder outside the project folder gives an
+absolute path as the system writes it (with `\` on Windows).
 
 Each change in `plan --json` (`operations`) and `check --json` (`operations`, next to the
 plain-text `changes`) names its `kind`, `table`, `column` (null when the change is not about one

@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `status --json` names each migration's `file`, relative to the project folder, so editors
+  and scripts open the right file when two modules have a migration with the same name.
+
 ### Changed
 
 - `migrax-junit` now depends on JUnit 5.14.4 (was 5.11.4).

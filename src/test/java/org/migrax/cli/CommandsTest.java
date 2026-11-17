@@ -197,6 +197,13 @@ class CommandsTest {
     assertTrue(kept.err().contains("still exists"), kept.all());
 
     Files.delete(migrations().resolve("0001_initial.sql"));
+    Result missingStatus = cli("status", "--json");
+    assertEquals(1, missingStatus.code(), missingStatus.all());
+    var missingRow =
+        (java.util.Map<?, ?>) ((java.util.List<?>) json(missingStatus).get("migrations")).get(0);
+    assertEquals("missing", missingRow.get("state"), missingStatus.out());
+    assertTrue(missingRow.containsKey("file") && missingRow.get("file") == null,
+        missingStatus.out());
     Result missing = cli("migrate");
     assertEquals(1, missing.code());
     assertTrue(missing.err().contains(
@@ -824,6 +831,9 @@ class CommandsTest {
     assertEquals(0, status.code(), status.all());
     assertTrue(new Json.Parser(status.out()).parse().toString().contains("applied"),
         status.out());
+    var row = (java.util.Map<?, ?>) ((java.util.List<?>) json(status).get("migrations")).get(0);
+    assertEquals("src/main/resources/db/migration/" + row.get("version"), row.get("file"),
+        status.out());
     Result check = cli("check", "--json");
     assertTrue(new Json.Parser(check.out()).parse().toString().contains("ok=true"), check.out());
   }
@@ -1044,6 +1054,12 @@ class CommandsTest {
     Result status = cli("status", "--locations", locations);
     assertTrue(status.out().startsWith(
         "Migrations in src/main/resources/db/migration, db/dev-data for "), status.all());
+    var rows = (java.util.List<?>) json(cli("status", "--json", "--locations", locations))
+        .get("migrations");
+    assertEquals("src/main/resources/db/migration/0001_a.sql",
+        ((java.util.Map<?, ?>) rows.get(0)).get("file"), rows.toString());
+    assertEquals("db/dev-data/0002_seed.sql", ((java.util.Map<?, ?>) rows.get(1)).get("file"),
+        rows.toString());
 
     Result rollback = cli("rollback", "--yes", "--locations", locations);
     assertEquals(0, rollback.code(), rollback.all());
