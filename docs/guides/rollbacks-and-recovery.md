@@ -43,7 +43,20 @@ The rolled-back migrations become pending again, so `migrax migrate` re-applies 
 $ migrax generate --allow-destructive --keep-data
 ```
 
-With `--keep-data`, a migration that drops data keeps it, and its rollback script puts it back:
+With `--keep-data`, a migration that drops data keeps it, and its rollback script puts it back.
+Without it, `generate` asks in a terminal, and Enter keeps the data:
+
+```console
+$ migrax generate --allow-destructive
+A rollback of this migration restores the structure of orders.notes, but not the data.
+Keep the dropped data in backup tables so a rollback can restore it? [Y/n]
+```
+
+In CI, in scripts and with `--no-input` or `--json` it doesn't ask: it writes the migration
+without backups and prints a warning, so pass `--keep-data` there when you want the data kept. `migrax rollback` also prints, before it runs, each
+change whose data its scripts can't bring back.
+
+How the data is kept:
 
 - A dropped table is renamed to `migrax_backup_<migration>_<table>` instead. The rollback
   renames it back, with its rows, keys and indexes.

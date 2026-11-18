@@ -6,6 +6,15 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `generate --allow-destructive` without `--keep-data` now says which dropped tables and
+  columns a rollback would bring back without their data. In a terminal it asks whether to keep
+  that data in backup tables, and Enter keeps it; in CI, scripts and with `--no-input` it
+  prints a warning and writes the migration as before. `generate --json` lists them in
+  `dataNotKept`. When `generate` stops at drops (MXE108), its hint mentions `--keep-data`.
+- `rollback` prints, before it runs, each change whose data its scripts can't bring back.
+
 ## [0.19.0-rc.3] - 2026-11-18
 
 Release candidate for 0.19.0, for testing.

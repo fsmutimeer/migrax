@@ -75,6 +75,11 @@ final class CommandContext {
     return err;
   }
 
+  /** Whether a command asks its questions now: it may ask, and --json never asks. */
+  boolean asksQuestions() {
+    return interactive() && !args.flag("--json");
+  }
+
   /** Whether Migrax may ask questions (a console is attached and --no-input is not set). */
   boolean interactive() {
     return in != null && !inputEnded;
@@ -113,10 +118,18 @@ final class CommandContext {
 
   /** Asks a yes/no question; false when Migrax can't ask. */
   boolean confirm(String question) throws IOException {
+    return confirm(question, false);
+  }
+
+  /**
+   * Asks a yes/no question whose empty answer is {@code yes} ([Y/n]) or no ([y/N]); false when
+   * Migrax can't ask or the input ended.
+   */
+  boolean confirm(String question, boolean yes) throws IOException {
     if (!interactive()) {
       return false;
     }
-    out.print(question + " [y/N] ");
+    out.print(question + (yes ? " [Y/n] " : " [y/N] "));
     out.flush();
     String answer = in.readLine();
     if (answer == null) {
@@ -124,6 +137,11 @@ final class CommandContext {
       out.println();
       return false;
     }
-    return answer.trim().toLowerCase(Locale.ROOT).startsWith("y");
+    String word = answer.trim().toLowerCase(Locale.ROOT);
+    if (word.isEmpty()) {
+      return yes;
+    }
+    // Only a clear answer leaves the default: [Y/n] takes "ok" as yes, [y/N] as no.
+    return yes ? !word.startsWith("n") : word.startsWith("y");
   }
 }

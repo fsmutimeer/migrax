@@ -17,6 +17,9 @@ import java.util.Optional;
 
 /** Writes operations as migration SQL and rollback scripts. */
 final class MigrationSql {
+  /** Starts each rollback header line about data the script can't bring back. */
+  static final String DATA_WARNING = "-- WARNING: ";
+
   private MigrationSql() {}
 
   /**
@@ -85,6 +88,20 @@ final class MigrationSql {
   }
 
   /**
+   * Whether a rollback brings back the structure that {@code operation} drops or narrows, but
+   * not its data (unless the migration keeps it with {@code --keep-data}).
+   */
+  static boolean losesData(Operation operation) {
+    return operation instanceof DropColumn || operation instanceof DropTable
+        || operation instanceof AlterColumn alter && alter.destructive();
+  }
+
+  /** What an operation changes, for messages: {@code orders.notes}, {@code orders}. */
+  static String subject(Operation operation) {
+    return Migrations.summary(operation).replaceFirst("^\\S+ \\S+ ", "");
+  }
+
+  /**
    * The rollback script's header: what it can't restore, and for {@code --keep-data} what it
    * restores ({@code notes}) instead of a warning for the {@code kept} changes.
    */
@@ -97,10 +114,9 @@ final class MigrationSql {
       if (kept.contains(operation)) {
         continue;
       }
-      String subject = Migrations.summary(operation).replaceFirst("^\\S+ \\S+ ", "");
-      if (operation instanceof DropColumn || operation instanceof DropTable
-          || operation instanceof AlterColumn alter && alter.destructive()) {
-        header.append("-- WARNING: restores the structure of ").append(subject)
+      String subject = subject(operation);
+      if (losesData(operation)) {
+        header.append(DATA_WARNING).append("restores the structure of ").append(subject)
             .append(" but not its data.\n");
       } else if (operation instanceof AddColumn || operation instanceof CreateTable) {
         header.append("-- Note: deletes data written to ").append(subject)

@@ -24,7 +24,7 @@ the command's own fields:
 | `doctor` | `checks` (each with `status`: `ok`, `info`, `warn` or `fail`, `message`, `fix`), `failures`, `warnings` |
 | `new`, `squash` | `created`; `squash` also `replaces` |
 | `merge` | `renamed` (each with `from`, `to`), `snapshotRebuilt` |
-| `generate` | `noChanges`, `operations` (as in `check --json`, plus `destructive`), `renames`, `created`, `waiting`, `notKept`; see below |
+| `generate` | `noChanges`, `operations` (as in `check --json`, plus `destructive`), `renames`, `created`, `waiting`, `notKept`, `dataNotKept`; see below |
 
 ```console
 $ migrax migrate --json 2>/dev/null
@@ -69,7 +69,11 @@ inside it (a first baseline, the migration, the
 `--safe` online migration, the expand step, or with `--contract` the released contract
 migrations). `waiting` lists the contract migrations that `--zero-downtime` keeps in
 `.migrax/pending/` in this run; earlier ones still waiting are only mentioned in the text.
-`notKept` names the columns (`table.column`) whose data `--keep-data` can't keep. `noChanges`
+`notKept` names the columns (`table.column`) whose data `--keep-data` can't keep.
+`dataNotKept` names the dropped or narrowed tables and columns of a migration written without
+`--keep-data`, whose rollback brings back the structure but not the data. It is a report:
+the migration is already written. To let the user choose, ask when `generate` stops at drops
+(see below) and pass `--keep-data` with `--allow-destructive`. `noChanges`
 is true when the entities match the snapshot (or, on the first run, the database), and with
 `--contract` when nothing waits; `created` can still list the baseline of a first run.
 
@@ -85,7 +89,7 @@ $ migrax generate --json 2>/dev/null    # one line, wrapped here
 "summary":"add column orders.notes","table":"orders","column":"notes",
 "entity":"com.example.Order","destructive":false}],"renames":[],
 "created":["src/main/resources/db/migration/0004_add_orders_notes.sql"],"waiting":[],
-"notKept":[]}
+"notKept":[],"dataNotKept":[]}
 ```
 
 ### When a command fails

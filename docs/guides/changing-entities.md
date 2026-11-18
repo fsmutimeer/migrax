@@ -130,7 +130,8 @@ $ migrax generate
      ALTER TABLE test_table DROP COLUMN number_of_items;
 error[MXE108]: 1 destructive change(s) detected (marked [DESTRUCTIVE] above).
 Review them, then run 'migrax generate --allow-destructive'. If a column or table
-was renamed, pass --rename table.old=new or --rename-table old=new instead.
+was renamed, pass --rename table.old=new or --rename-table old=new instead. Add
+--keep-data to keep dropped data for a rollback.
 ```
 
 For a running production system, drop in two releases (expand and contract): first deploy code

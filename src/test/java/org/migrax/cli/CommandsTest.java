@@ -243,6 +243,77 @@ class CommandsTest {
   }
 
   @Test
+  void asksToKeepDroppedDataAndWarnsWhereItCannotAsk() throws Exception {
+    setUp();
+    String after = "org.migrax.cli.renames.after";
+    assertEquals(0, cli("generate", "--package", "org.migrax.cli.renames.before").code());
+    assertEquals(0, cli("migrate").code());
+    Path snapshot = project.resolve(".migrax/snapshot.json");
+    String snapshotBefore = Files.readString(snapshot);
+    String question = "A rollback of this migration restores the structure of customers.name, "
+        + "but not the data." + System.lineSeparator() + "Keep the dropped data in backup "
+        + "tables so a rollback can restore it? [Y/n]";
+    String warning = "Writing the migration without backups: a rollback of it restores the "
+        + "structure of customers.name, but not the data. Use --keep-data with "
+        + "--allow-destructive to keep dropped data.";
+
+    Result stopped = cli("generate", "--package", after, "--no-input");
+    assertEquals(1, stopped.code(), stopped.all());
+    assertTrue(stopped.err().contains("Add --keep-data to keep dropped data for a rollback."),
+        stopped.all());
+
+    // At a terminal, after no to both renames: Enter keeps the data, n doesn't.
+    Result kept = ask("n\nn\n\n", "generate", "--package", after, "--allow-destructive",
+        "--name", "kept");
+    assertEquals(0, kept.code(), kept.all());
+    assertTrue(kept.out().contains(question), kept.out());
+    assertTrue(written("kept", snapshot, snapshotBefore).contains("migrax_backup_"),
+        "Enter means --keep-data");
+
+    Result declined = ask("n\nn\nn\n", "generate", "--package", after,
+        "--allow-destructive", "--name", "declined");
+    assertTrue(declined.out().contains(question), declined.out());
+    assertFalse(declined.err().contains(warning), "the answer was heard: " + declined.all());
+    assertFalse(written("declined", snapshot, snapshotBefore).contains("migrax_backup_"));
+
+    // Input that ends at the question, --json, and scripts: today's migration and a warning.
+    Result ended = ask("n\nn\n", "generate", "--package", after, "--allow-destructive",
+        "--name", "ended");
+    assertTrue(ended.err().contains(warning), ended.all());
+    assertFalse(written("ended", snapshot, snapshotBefore).contains("migrax_backup_"));
+
+    Result json = cli("generate", "--package", after, "--allow-destructive", "--json",
+        "--name", "json");
+    assertEquals(java.util.List.of("customers.name"), json(json).get("dataNotKept"),
+        json.all());
+    written("json", snapshot, snapshotBefore);
+
+    Result scripted = cli("generate", "--package", after, "--allow-destructive", "--name",
+        "dropped");
+    assertEquals(0, scripted.code(), scripted.all());
+    assertTrue(scripted.err().contains(warning), scripted.all());
+
+    // rollback says so before it runs, also with --yes.
+    assertEquals(0, cli("migrate").code());
+    String lost = "0002_dropped.sql restores the structure of customers.name but not its data.";
+    Result dryRun = cli("rollback", "--dry-run");
+    assertTrue(dryRun.err().contains(lost), dryRun.all());
+    Result rollback = cli("rollback", "--yes");
+    assertEquals(0, rollback.code(), rollback.all());
+    assertTrue(rollback.err().contains(lost), rollback.all());
+  }
+
+  /** The SQL of migration 0002_{@code name}, removed again with the snapshot as before it. */
+  private String written(String name, Path snapshot, String snapshotBefore) throws Exception {
+    String sql = Files.readString(migrations().resolve("0002_" + name + ".sql"));
+    Files.delete(migrations().resolve("0002_" + name + ".sql"));
+    Files.delete(migrations().resolve("rollback/0002_" + name + ".sql"));
+    Files.delete(project.resolve(".migrax/history/0002_" + name + ".json"));
+    Files.writeString(snapshot, snapshotBefore);
+    return sql;
+  }
+
+  @Test
   void forgetRemovesMigrationsDeletedOnPurpose() throws Exception {
     setUp();
     generateAndMigrate();

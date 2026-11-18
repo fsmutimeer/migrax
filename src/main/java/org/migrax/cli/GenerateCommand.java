@@ -25,6 +25,7 @@ import org.migrax.runner.MigrationLoader;
 import org.migrax.runner.MigrationRunner;
 import org.migrax.util.Log;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.math.BigInteger;
 import java.nio.file.Files;
@@ -79,9 +80,10 @@ final class GenerateCommand implements Command {
         When a column or table seems renamed, Migrax asks (or pass --rename / --rename-table)
         so the data is kept. Drops need --allow-destructive; with --keep-data, dropped tables
         and columns go to migrax_backup_* tables and the rollback script restores them
-        ('migrax backups' lists and drops those tables). --safe (PostgreSQL, CockroachDB)
-        builds indexes and constraints on existing tables without blocking writes, in a second
-        migration.
+        ('migrax backups' lists and drops those tables). Without --keep-data, Migrax asks
+        whether to keep that data (Enter keeps it), or warns when it can't ask.
+        --safe (PostgreSQL, CockroachDB) builds indexes and constraints on existing tables
+        without blocking writes, in a second migration.
         --zero-downtime splits the change so the old and new application versions can run at
         the same time: an expand migration now (new columns and tables, a renamed column kept
         equal to its old name by a trigger, a renamed table's old name as a view) and a
@@ -105,8 +107,9 @@ final class GenerateCommand implements Command {
   /**
    * With --json: {@code noChanges}, {@code operations} (each with {@code destructive}),
    * {@code renames} it could not ask about, the {@code created} files, the contract migrations
-   * {@code waiting} in .migrax/pending, and the columns --keep-data could {@code notKept}.
-   * Stopping at drops (MXE108) still reports the operations and renames.
+   * {@code waiting} in .migrax/pending, the columns --keep-data could {@code notKept}, and
+   * the changes written without --keep-data whose data a rollback can't bring back
+   * ({@code dataNotKept}). Stopping at drops (MXE108) still reports the operations and renames.
    */
   @Override
   public boolean jsonResult() {
@@ -196,7 +199,8 @@ final class GenerateCommand implements Command {
       throw new UsageException(ErrorCode.DESTRUCTIVE_CHANGES, destructive.size()
           + " destructive change(s) detected (marked [DESTRUCTIVE] above).",
           "Review them, then run 'migrax generate --allow-destructive'. If a column or table "
-              + "was renamed, pass --rename table.old=new or --rename-table old=new instead.");
+              + "was renamed, pass --rename table.old=new or --rename-table old=new instead. "
+              + "Add --keep-data to keep dropped data for a rollback.");
     }
     Migrations.warnings(operations, changes.previous()).forEach(Log::warn);
     if (args.flag("--zero-downtime")) {
@@ -211,6 +215,8 @@ final class GenerateCommand implements Command {
       }
       out.println("Nothing has to wait for the old version: writing a normal migration.");
     }
+
+    boolean keepData = args.flag("--keep-data") || askKeepData(context, operations);
 
     // --safe on PostgreSQL: indexes and constraints on existing tables go to a second,
     // non-transactional migration that builds them without blocking writes.
@@ -275,7 +281,7 @@ final class GenerateCommand implements Command {
       SchemaModel afterMain = withoutOnline(changes.current(), online);
       List<Operation> mainReverse = new ArrayList<>(reverse);
       mainReverse.removeIf(o -> undoesAny(o, online));
-      if (args.flag("--keep-data")) {
+      if (keepData) {
         // The migration's number as in its file name: 0005 for 0005_drop_notes.
         KeepData.Plan keep = KeepData.apply(main, mainReverse, changes.previous(), dialect,
             name.split("_", 2)[0]);
@@ -462,9 +468,44 @@ final class GenerateCommand implements Command {
       }
     }
     context.result("renames", renames == null ? new ArrayList<>() : renames);
-    for (String key : List.of("created", "waiting", "notKept")) {
+    for (String key : List.of("created", "waiting", "notKept", "dataNotKept")) {
       context.resultList(key);
     }
+  }
+
+  /**
+   * Without --keep-data, names what a rollback of the new migration brings back without its
+   * data. At a terminal it asks whether to keep that data, yes by default. Scripts, CI and
+   * --json get a warning and the migration as before; --json lists the changes in
+   * {@code dataNotKept}.
+   *
+   * @return whether to write the migration as with --keep-data
+   */
+  private static boolean askKeepData(CommandContext context, List<Operation> operations)
+      throws IOException {
+    List<String> losing = operations.stream().filter(MigrationSql::losesData)
+        .map(MigrationSql::subject).toList();
+    if (losing.isEmpty()) {
+      return false;
+    }
+    String what = String.join(", ", losing);
+    if (context.asksQuestions()) {
+      context.out().println("A rollback of this migration restores the structure of " + what
+          + ", but not the data.");
+      boolean keep = context.confirm(
+          "Keep the dropped data in backup tables so a rollback can restore it?", true);
+      if (keep || context.interactive()) {
+        return keep;
+      }
+      // The input ended without an answer: warn as when Migrax can't ask.
+    }
+    // The migration is written next, and the snapshot moves on: a second generate finds no
+    // changes, so the hint is for the next time.
+    Log.warn("Writing the migration without backups: a rollback of it restores the structure "
+        + "of {}, but not the data. Use --keep-data with --allow-destructive to keep dropped "
+        + "data.", what);
+    context.resultList("dataNotKept").addAll(losing);
+    return false;
   }
 
   /** {@code generate --contract}: the waiting contract migrations join the migrations. */
