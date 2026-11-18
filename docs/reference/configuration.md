@@ -87,7 +87,9 @@ before and is run again with `--resume` keeps its failed record, as any failure 
 - Java migrations run with the limit, but a timeout there is recorded as failed as usual,
   because a Java migration may have committed part of its work.
 - A migration that writes its own `COMMIT`, `ROLLBACK`, `BEGIN` or `START TRANSACTION` may have
-  committed part of its work, so a timeout there is recorded as failed as usual. Lint rule
+  committed part of its work, so a timeout there is recorded as failed as usual. This includes
+  a command that comes from a placeholder or from a `beforeEachMigrate.sql` or
+  `afterEachMigrate.sql` callback, and a migration marked `-- migrax:no-split`. Lint rule
   MX018 warns about these statements.
 - `beforeMigrate.sql` and `afterMigrate.sql` callbacks run with the limit; `rollback` uses it
   as well.
