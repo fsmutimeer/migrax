@@ -13,6 +13,19 @@ import java.util.regex.Pattern;
  * @since 0.1.0
  */
 public final class SqlScript {
+  /**
+   * A statement that starts, ends or undoes a transaction (upper case, one space between words):
+   * BEGIN of a transaction (a block's BEGIN is a routine), START TRANSACTION, COMMIT, ROLLBACK.
+   * Not a rollback to a savepoint: ROLLBACK ... TO, or SQL Server's ROLLBACK TRAN savepoint.
+   */
+  private static final Pattern TRANSACTION_CONTROL = Pattern.compile("^(?:BEGIN\\b.*"
+      + "|START TRANSACTION\\b.*|COMMIT\\b.*"
+      + "|ROLLBACK\\b(?! (?:WORK |TRANSACTION |TRAN )?TO\\b| TRAN(?:SACTION)? (?!AND\\b)\\S).*)$");
+  /**
+   * PostgreSQL's and SQLite's END, a COMMIT. Elsewhere a lone END is the rest of a block that was
+   * cut at a semicolon, so it counts only after a BEGIN or START TRANSACTION in the same file.
+   */
+  private static final Pattern END_TRANSACTION = Pattern.compile("^END(?: WORK| TRANSACTION)?$");
   private static final Pattern PLACEHOLDER = Pattern.compile("\\$\\{([A-Za-z0-9_.-]+)}");
   /** {@code GO}, or {@code GO 5} to run the batch five times. */
   private static final Pattern GO_LINE = Pattern.compile("(?i)\\s*GO(?:\\s+(\\d+))?\\s*");
@@ -373,6 +386,54 @@ public final class SqlScript {
   public static boolean isRoutine(String statement) {
     String text = stripComments(statement).strip();
     return ROUTINE.matcher(text).lookingAt() || anonymousBlock(text, 0);
+  }
+
+  /**
+   * Whether a statement starts, ends or undoes a transaction ({@code BEGIN}, {@code START
+   * TRANSACTION}, {@code COMMIT}, {@code ROLLBACK}, and {@code END} once {@code opened} says a
+   * BEGIN came before). A routine's or block's BEGIN does not count; neither does a rollback to
+   * a savepoint.
+   *
+   * @since 0.19.0
+   */
+  public static boolean isTransactionControl(String statement, boolean opened) {
+    if (isRoutine(statement)) {
+      return false;
+    }
+    String upper = stripComments(statement).replaceAll("\\s+", " ").trim()
+        .toUpperCase(Locale.ROOT);
+    return TRANSACTION_CONTROL.matcher(upper).matches()
+        || opened && END_TRANSACTION.matcher(upper).matches();
+  }
+
+  /** Whether a transaction-control statement opens a transaction (BEGIN, START TRANSACTION). */
+  public static boolean opensTransaction(String statement) {
+    return stripComments(statement).strip().toUpperCase(Locale.ROOT)
+        .matches("(?s)(?:BEGIN|START\\s+TRANSACTION)\\b.*");
+  }
+
+  /**
+   * Whether a script commits, rolls back or starts a transaction of its own; then a failure in
+   * it may leave the statements before that committed. A script that can't be split, or is sent
+   * whole ({@code -- migrax:no-split}), counts as one that does, and so does a lone {@code END}
+   * (a COMMIT on PostgreSQL): counting too much only records a failure as before.
+   */
+  static boolean hasTransactionControl(String sql, boolean backslashEscapes) {
+    if (hasDirective(sql, "no-split")) {
+      return true;
+    }
+    List<String> statements;
+    try {
+      statements = split(sql, backslashEscapes);
+    } catch (IllegalArgumentException e) {
+      return true;
+    }
+    for (String statement : statements) {
+      if (isTransactionControl(statement, true)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Whether a statement is a PL/SQL block, which Oracle's tools end with a / line. */

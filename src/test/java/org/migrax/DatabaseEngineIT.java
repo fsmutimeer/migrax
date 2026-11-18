@@ -1216,6 +1216,34 @@ class DatabaseEngineIT {
       holder.rollback();
       runner.rollback(migrator, version, undo, MigrationRunner.Options.defaults());
       assertEquals("7s", lockTimeout(migrator));
+
+      // A migration with a COMMIT of its own has the statements before it committed when the
+      // wait runs out: it is recorded as failed, not run again as if nothing had changed.
+      Path committing = migrations.resolve("V5__own_commit.sql");
+      Files.writeString(committing, "INSERT INTO busy_probe (id) VALUES (100);\nCOMMIT;\n"
+          + "ALTER TABLE busy_probe ADD COLUMN extra INT;");
+      // The rollback above removed V3: apply it again so only V5 is left to wait.
+      assertEquals(1, runner.migrate(migrator, List.of(free, busy, own, index)), "V3 again");
+      try (Statement statement = holder.createStatement()) {
+        statement.execute("LOCK TABLE busy_probe IN ACCESS SHARE MODE");
+      }
+      error = assertThrows(SQLException.class,
+          () -> runner.migrate(migrator, List.of(free, busy, own, index, committing)));
+      assertTrue(error.getMessage().startsWith(
+              "Migration 'V5__own_commit.sql' failed and was not recorded as applied"),
+          error.getMessage());
+      assertFalse(error.getMessage().contains("Nothing was changed"), error.getMessage());
+      holder.rollback();
+      Exception again = assertThrows(Exception.class,
+          () -> runner.migrate(migrator, List.of(free, busy, own, index, committing)),
+          "a failed migration waits for repair");
+      assertTrue(again.getMessage().contains("V5__own_commit"), again.getMessage());
+      try (Statement statement = migrator.createStatement();
+           java.sql.ResultSet rows = statement.executeQuery(
+               "SELECT COUNT(*) FROM busy_probe WHERE id = 100")) {
+        rows.next();
+        assertEquals(1, rows.getInt(1), "the committed row was not inserted twice");
+      }
     } finally {
       try (Connection connection = database.connect();
            Statement statement = connection.createStatement()) {

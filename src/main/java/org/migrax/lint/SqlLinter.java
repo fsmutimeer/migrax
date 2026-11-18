@@ -70,19 +70,6 @@ public final class SqlLinter {
   private static final Pattern VOLATILE_DEFAULT = Pattern.compile(
       "(?i)DEFAULT\\s+(now\\(\\)|clock_timestamp\\(\\)|random\\(\\)|gen_random_uuid\\(\\)"
           + "|uuid_generate_v4\\(\\)|nextval\\(|timeofday\\(\\))");
-  /**
-   * A statement that starts, ends or undoes a transaction (upper case, one space between words):
-   * BEGIN of a transaction (a block's BEGIN is a routine), START TRANSACTION, COMMIT, ROLLBACK.
-   * Not a rollback to a savepoint: ROLLBACK ... TO, or SQL Server's ROLLBACK TRAN savepoint.
-   */
-  private static final Pattern TRANSACTION_CONTROL = Pattern.compile("^(?:BEGIN\\b.*"
-      + "|START TRANSACTION\\b.*|COMMIT\\b.*"
-      + "|ROLLBACK\\b(?! (?:WORK |TRANSACTION |TRAN )?TO\\b| TRAN(?:SACTION)? (?!AND\\b)\\S).*)$");
-  /**
-   * PostgreSQL's and SQLite's END, a COMMIT. Elsewhere a lone END is the rest of a block that was
-   * cut at a semicolon, so it counts only after a BEGIN or START TRANSACTION in the same file.
-   */
-  private static final Pattern END_TRANSACTION = Pattern.compile("^END(?: WORK| TRANSACTION)?$");
   private static final Pattern IGNORE = Pattern.compile("(?i)migrax:lint-ignore\\s+([\\w, ]+)");
   private static final Pattern IGNORE_FILE =
       Pattern.compile("(?i)migrax:lint-ignore-file\\s+([\\w, ]+)");
@@ -203,10 +190,9 @@ public final class SqlLinter {
               "Write ${migrax.schema}." + unqualified + ": Migrax fills in each schema."));
         }
       }
-      boolean control = transactional && !SqlScript.isRoutine(raw)
-          && (TRANSACTION_CONTROL.matcher(upper).matches()
-              || openedTransaction && END_TRANSACTION.matcher(upper).matches());
-      if (control && upper.matches("^(?:BEGIN|START TRANSACTION)\\b.*")) {
+      boolean control = transactional
+          && SqlScript.isTransactionControl(raw, openedTransaction);
+      if (control && SqlScript.opensTransaction(raw)) {
         openedTransaction = true;
       }
       if (control && !ignores.contains("MX018")) {

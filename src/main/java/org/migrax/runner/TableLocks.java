@@ -92,12 +92,14 @@ final class TableLocks {
 
   /**
    * Whether {@code failure} is a lock wait that ran out while every change of {@code script}
-   * was in one transaction, so the database undid them all.
+   * was in one transaction, so the database undid them all. Not when the script commits or
+   * rolls back on its own: the statements before that may be committed already.
    */
   boolean undidAll(Migration script, Exception failure) {
     return failure instanceof SQLException sqlFailure && sql.isTimeout(sqlFailure)
         && dialect.transactionalDdl() && !script.isJava()
-        && !SqlScript.hasDirective(script.sql(), "no-transaction");
+        && !SqlScript.hasDirective(script.sql(), "no-transaction")
+        && !SqlScript.hasTransactionControl(script.sql(), dialect.backslashEscapes());
   }
 
   /**

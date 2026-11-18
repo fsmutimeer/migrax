@@ -636,6 +636,15 @@ class CommandsTest {
         invalidTable.all());
     assertTrue(invalidTable.err().contains("For example --table-lock-timeout 30s."),
         invalidTable.all());
+
+    for (String tooLong : new String[] {"9223372036854775807h", "9223372036854775807s",
+        "99999999999999999999", "10000000000s", "9999999h"}) {
+      Result huge = cli("migrate", "--table-lock-timeout", tooLong);
+      assertTrue(huge.err().startsWith("error[MXE001]: Invalid table lock timeout"),
+          huge.all());
+      Result hugeLock = cli("migrate", "--lock-timeout", tooLong);
+      assertTrue(hugeLock.err().contains("Invalid lock timeout"), hugeLock.all());
+    }
   }
 
   @Test
