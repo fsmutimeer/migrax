@@ -66,6 +66,11 @@ the newest Migrax release (about 1 MB) into the IDE's own folder:
 
 An installed Migrax is always used first and is never changed by the plugin.
 
+When the path in **Settings > Tools > Migrax** no longer exists (a moved or deleted folder), a
+notification offers **Use the Installed Migrax** when it finds another Migrax on your computer,
+or else **Clear the Setting**, after which the plugin offers the download. It never switches by itself,
+since another Migrax version could write different migrations.
+
 ## The tool window
 
 Open **View > Tool Windows > Migrax**, or click the Migrax entry in the status bar.
@@ -77,12 +82,15 @@ Open **View > Tool Windows > Migrax**, or click the Migrax entry in the status b
 | Lint | Locking and risky SQL in the pending migrations, or all of them. Double-click opens the file. | [`migrax lint`](reference/cli.md#lint) |
 | Environments | Every configured database: in sync, pending, drift or unreachable | [`migrax environments`](reference/cli.md#environments) |
 
-The tab on screen loads again after a change; the others load when you open them.
+The tab on screen loads again after a change; the others load when you open them. This also
+happens when an entity, migration or settings file changes outside the tool window (saved,
+pulled or generated elsewhere), unless that check is turned off ([below](#in-the-editor)).
 
 ## The buttons
 
 The buttons run down the left side of the tool window. The same actions are in
-**Tools > Migrax**. A button with nothing to do is greyed out, and its tooltip says why, such as
+**Tools > Migrax**, and in a Migrax project also under **Migrax** when you right-click a file or
+folder in the Project view, or a SQL, Java or Kotlin file in the editor. A button with nothing to do is greyed out, and its tooltip says why, such as
 "No pending migrations at the last check".
 
 | Button | What it does | Same as |
@@ -142,6 +150,10 @@ entity, migration or settings file changes. That check may build the project; tu
 **"The Migrax command was not found."** Click **Download Migrax** in the notification, install
 Migrax from the [Download page](download.md), or set its path in **Settings > Tools > Migrax**.
 The settings page shows which command the plugin found.
+
+**"The Migrax command set in Settings > Tools > Migrax does not exist."** The folder was moved
+or deleted. Click **Use the Installed Migrax** or **Clear the Setting** in the notification
+([details](#the-migrax-command)), or correct the path.
 
 **"The path in Settings > Tools > Migrax is not a Migrax command."** The path points to a file
 or folder without the launcher. Correct it, or clear it to use the one on `PATH` or a download.
