@@ -1218,24 +1218,27 @@ class DatabaseEngineIT {
       assertEquals("7s", lockTimeout(migrator));
 
       // A migration with a COMMIT of its own has the statements before it committed when the
-      // wait runs out: it is recorded as failed, not run again as if nothing had changed.
+      // wait runs out: it is recorded as failed, not run again as if nothing had changed. The
+      // COMMIT comes from a placeholder, so only the statements as sent show it.
       Path committing = migrations.resolve("V5__own_commit.sql");
-      Files.writeString(committing, "INSERT INTO busy_probe (id) VALUES (100);\nCOMMIT;\n"
+      Files.writeString(committing, "INSERT INTO busy_probe (id) VALUES (100);\n${endtx};\n"
           + "ALTER TABLE busy_probe ADD COLUMN extra INT;");
+      MigrationRunner.Options withCommit =
+          new MigrationRunner.Options(false, java.util.Map.of("endtx", "COMMIT"));
       // The rollback above removed V3: apply it again so only V5 is left to wait.
       assertEquals(1, runner.migrate(migrator, List.of(free, busy, own, index)), "V3 again");
       try (Statement statement = holder.createStatement()) {
         statement.execute("LOCK TABLE busy_probe IN ACCESS SHARE MODE");
       }
-      error = assertThrows(SQLException.class,
-          () -> runner.migrate(migrator, List.of(free, busy, own, index, committing)));
+      error = assertThrows(SQLException.class, () -> runner.migrateAll(migrator,
+          Migration.load(List.of(free, busy, own, index, committing)), withCommit));
       assertTrue(error.getMessage().startsWith(
               "Migration 'V5__own_commit.sql' failed and was not recorded as applied"),
           error.getMessage());
       assertFalse(error.getMessage().contains("Nothing was changed"), error.getMessage());
       holder.rollback();
-      Exception again = assertThrows(Exception.class,
-          () -> runner.migrate(migrator, List.of(free, busy, own, index, committing)),
+      Exception again = assertThrows(Exception.class, () -> runner.migrateAll(migrator,
+          Migration.load(List.of(free, busy, own, index, committing)), withCommit),
           "a failed migration waits for repair");
       assertTrue(again.getMessage().contains("V5__own_commit"), again.getMessage());
       try (Statement statement = migrator.createStatement();

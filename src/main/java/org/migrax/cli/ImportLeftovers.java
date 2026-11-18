@@ -34,7 +34,12 @@ final class ImportLeftovers {
   record Leftover(String file, int line, String what, String action) {
     @Override
     public String toString() {
-      return file + ":" + line + ": " + what + ": " + action;
+      return printable(file) + ":" + line + ": " + printable(what) + ": " + action;
+    }
+
+    /** Control and format characters from the scanned files would steer the terminal: ?. */
+    private static String printable(String text) {
+      return UNPRINTABLE.matcher(text).replaceAll("?");
     }
   }
 
@@ -50,6 +55,13 @@ final class ImportLeftovers {
   private static final List<String> BUILD_FILES = List.of("pom.xml", "build.gradle",
       "build.gradle.kts");
   private static final int MAX_DEPTH = 8;
+  private static final Pattern UNPRINTABLE = Pattern.compile("[\\p{Cc}\\p{Cf}]");
+  private static final Pattern COORDINATE_PART = Pattern.compile("[a-z0-9][a-z0-9_.\\-]*");
+  /** The tools' Gradle plugin ids. */
+  private static final Set<String> PLUGIN_IDS = Set.of("org.flywaydb.flyway",
+      "org.liquibase.gradle");
+  /** Longer build script lines are generated, not written by hand: skipped. */
+  private static final int MAX_LINE = 10_000;
   /** Larger files are not build files or settings anyone writes by hand: skipped. */
   private static final long MAX_SIZE = 2_000_000;
   private static final Pattern GROUP_ID = Pattern.compile("<groupId>\\s*([^<\\s]+)\\s*</groupId>");
@@ -308,6 +320,9 @@ final class ImportLeftovers {
           line = line.substring(0, start) + (end < 0 ? "" : line.substring(end + 2));
         }
       }
+      if (line.length() > MAX_LINE) {
+        continue;
+      }
       if (line.contains("project(")) {
         continue; // A module of this build, even when its name has the tool in it.
       }
@@ -371,30 +386,26 @@ final class ImportLeftovers {
   }
 
   /**
-   * The group and artifact when quoted text is a coordinate or plugin id of the tool:
-   * {@code org.flywaydb...}, {@code org.liquibase...}, or {@code group:artifact[:version]} with
-   * a dotted group and an artifact named after the tool. The version may be anything
+   * The tool's plugin id ({@code org.flywaydb.flyway}), or the group and artifact when quoted
+   * text is {@code group:artifact[:version]} with a dotted group and an artifact named after the
+   * tool, both in lower case as published. The version may be anything
    * ({@code $flywayVersion}, {@code 10.+}) and is left out. Null for anything else, such as a
-   * URL or text with spaces.
+   * URL, text with spaces or capitals.
    */
   private static String coordinate(String quoted, String tool) {
     String[] parts = quoted.split(":", 3);
-    String name = "[A-Za-z0-9_.\\-]+";
-    if (!parts[0].matches(name) || parts.length > 1 && !parts[1].matches(name)) {
+    if (parts.length == 1) {
+      return PLUGIN_IDS.contains(quoted) && quoted.contains(tool) ? quoted : null;
+    }
+    String group = parts[0];
+    String artifact = parts[1];
+    if (!group.contains(".") || !COORDINATE_PART.matcher(group).matches()
+        || !COORDINATE_PART.matcher(artifact).matches()) {
       return null;
     }
-    String coordinate = parts.length > 1 ? parts[0] + ":" + parts[1] : parts[0];
-    String low = lower(coordinate);
-    if (low.startsWith("org.flywaydb") || low.startsWith("org.liquibase")) {
-      return low.contains(tool) ? coordinate : null;
-    }
-    if (parts.length < 2 || !parts[0].contains(".")) {
-      return null;
-    }
-    String artifact = lower(parts[1]);
     boolean named = artifact.startsWith(tool + "-") || artifact.endsWith("-" + tool)
         || artifact.contains("-" + tool + "-") || artifact.equals(tool);
-    return named ? coordinate : null;
+    return named ? group + ":" + artifact : null;
   }
 
   private static void scanProperties(String file, List<String> lines, String tool,
