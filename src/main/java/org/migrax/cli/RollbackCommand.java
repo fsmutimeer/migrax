@@ -5,6 +5,7 @@ import static org.migrax.cli.ExitCode.OK;
 import org.migrax.runner.Migration;
 import org.migrax.runner.MigrationLoader;
 import org.migrax.runner.MigrationRunner;
+import org.migrax.util.Log;
 
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -126,6 +127,16 @@ final class RollbackCommand implements Command {
         out.println((args.flag("--dry-run") ? "Would roll back " : "Rolling back ")
             + targets.size() + " migration(s), newest first:");
         targets.forEach(t -> out.println("  " + t.version()));
+        // What the scripts say they can't bring back, before anyone answers or passes --yes.
+        for (int i = 0; i < targets.size(); i++) {
+          String sql = scripts.get(i).sql();
+          for (String line : sql == null ? new String[0] : sql.split("\\R")) {
+            if (line.startsWith(MigrationSql.DATA_WARNING)) {
+              Log.warn("{} {}", targets.get(i).version(),
+                  line.substring(MigrationSql.DATA_WARNING.length()).strip());
+            }
+          }
+        }
         List<String> versions = targets.stream()
             .map(MigrationRunner.AppliedMigration::version).toList();
         if (args.flag("--dry-run")) {

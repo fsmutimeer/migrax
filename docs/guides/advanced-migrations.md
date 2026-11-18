@@ -109,6 +109,8 @@ and generate again:
 
 ```console
 $ migrax generate --allow-destructive
+A rollback of this migration restores the structure of customer.full_name, but not the data.
+Keep the dropped data in backup tables so a rollback can restore it? [Y/n] n
 Created src/main/resources/db/migration/0004_alter_customer_first_name_and_more.sql:
   - alter column customer.first_name
   - alter column customer.last_name

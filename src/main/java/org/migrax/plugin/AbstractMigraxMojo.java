@@ -136,6 +136,8 @@ abstract class AbstractMigraxMojo extends AbstractMojo {
   static String mavenHints(String text) {
     return text
         .replace("--allow-destructive", "-Dmigrax.allowDestructive=true")
+        // Only where a hint says to pass it; "--keep-data can't keep ..." stays as it is.
+        .replaceAll("\\b(Add|Use) --keep-data\\b", "$1 -Dmigrax.keepData=true")
         .replace("--rename-table ", "-Dmigrax.renameTables=")
         .replace("--rename ", "-Dmigrax.renames=")
         .replaceAll("'migrax (generate|migrate|check|plan|status|drift|lint|verify|merge|squash"

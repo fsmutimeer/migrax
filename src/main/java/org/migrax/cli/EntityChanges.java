@@ -95,7 +95,7 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
           boolean yes = confirmRename(context, "Did you rename " + candidate.table() + "."
               + candidate.from() + " to " + target + "?",
               "--rename", candidate.toString());
-          if (yes || !asks(context)) {
+          if (yes || !context.asksQuestions()) {
             if (yes) {
               columns.add(candidate);
             }
@@ -124,11 +124,6 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
     return "'" + value.replace("'", "'\\''") + "'";
   }
 
-  /** Whether renames are asked about: with a console, and never with --json. */
-  private static boolean asks(CommandContext context) {
-    return context.interactive() && !context.args().flag("--json");
-  }
-
   /**
    * Asks about a rename, or prints how to answer it with an option when Migrax can't ask. With
    * {@code --json} it never asks: the rename goes to the result's {@code renames}, with the
@@ -136,7 +131,7 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
    */
   private static boolean confirmRename(CommandContext context, String question, String option,
                                        String value) throws Exception {
-    if (asks(context)) {
+    if (context.asksQuestions()) {
       boolean yes = context.confirm(question);
       if (yes || context.interactive()) {
         return yes;
