@@ -86,7 +86,9 @@ before and is run again with `--resume` keeps its failed record, as any failure 
   would leave an invalid index behind.
 - Java migrations run with the limit, but a timeout there is recorded as failed as usual,
   because a Java migration may have committed part of its work.
-- A migration that writes its own `COMMIT` is not undone as a whole either.
+- A migration that writes its own `COMMIT`, `ROLLBACK`, `BEGIN` or `START TRANSACTION` may have
+  committed part of its work, so a timeout there is recorded as failed as usual. Lint rule
+  MX018 warns about these statements.
 - `beforeMigrate.sql` and `afterMigrate.sql` callbacks run with the limit; `rollback` uses it
   as well.
 - CockroachDB and YugabyteDB are left as they are.

@@ -1,11 +1,14 @@
 package org.migrax.cli;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -89,6 +92,85 @@ class ImportLeftoversTest {
         "app/build.gradle.kts:10: liquibase: remove it",
         "gradle/libs.versions.toml:3: liquibase-core: remove it"), found);
     assertTrue(found.stream().noneMatch(line -> line.contains("secret-value")));
+  }
+
+  @Test
+  void neverShowsAValueThatHasTheToolsNameInIt() throws Exception {
+    write("build.gradle", """
+        plugins { id 'org.flywaydb.flyway' version '11.0' }
+        password = 'flywaySECRET2'
+        def pw = System.getenv('PW') ?: 'flyway-SECRET4'
+        url = "jdbc:postgresql://admin:flyway-Pw9@db/app"
+        implementation libs.flyway.core
+        """);
+    write("gradle/libs.versions.toml", """
+        token = "flyway-SECRET12"
+        db = "jdbc:postgresql://admin:flyway-Pw9@db/app"
+        flyway-core = { module = "org.flywaydb:flyway-core", version = "11.0" }
+        """);
+    write("src/main/resources/application.properties", """
+        app.secret=abc\\
+          flyway.SECRET6
+        # spring.flyway.url=x\\
+        spring.flyway.enabled=false
+        """);
+    List<String> found = find("flyway");
+    assertEquals(List.of(
+        "build.gradle:1: org.flywaydb.flyway: remove it",
+        "build.gradle:5: libs.flyway.core: remove it",
+        "gradle/libs.versions.toml:3: flyway-core: remove it",
+        "src/main/resources/application.properties:4: spring.flyway.enabled: remove it"), found);
+    assertTrue(found.stream().noneMatch(line -> line.contains("SECRET")
+        || line.contains("Pw9")), found.toString());
+  }
+
+  @Test
+  void aBrokenPomIsScannedQuickly() throws Exception {
+    write("pom.xml", "<project>" + "<!-- <dependency>".repeat(40_000)
+        + "<dependency>".repeat(20_000) + "</project>");
+    assertTimeoutPreemptively(Duration.ofSeconds(5),
+        () -> assertEquals(List.of(), find("flyway")));
+  }
+
+  @Test
+  void findsGradleCoordinatesWithAnyVersionButShowsNoVersion() throws Exception {
+    write("build.gradle", String.join("\n",
+        "implementation \"org.flywaydb:flyway-core:$flywayVersion\"",
+        "implementation \"org.flywaydb:flyway-database-postgresql:${flywayVersion}\"",
+        "implementation 'org.liquibase:liquibase-core:4.+'",
+        "runtimeOnly 'com.acme:acme-flyway:1.0@jar'",
+        "url = 'jdbc:flyway-x:secret'"));
+    List<String> found = find("flyway");
+    assertEquals(List.of(
+        "build.gradle:1: org.flywaydb:flyway-core: remove it",
+        "build.gradle:2: org.flywaydb:flyway-database-postgresql: remove it",
+        "build.gradle:4: com.acme:acme-flyway: remove it"), found);
+    assertEquals(List.of("build.gradle:3: org.liquibase:liquibase-core: remove it"),
+        find("liquibase"));
+  }
+
+  @Test
+  void skipsLinksOutOfTheProjectAndHugeFiles(@TempDir Path elsewhere) throws Exception {
+    Files.writeString(elsewhere.resolve("pom.xml"),
+        "<project><dependency><groupId>org.flywaydb</groupId>"
+            + "<artifactId>flyway-core</artifactId></dependency></project>");
+    Files.createDirectories(project.resolve("modules"));
+    folderLink(project.resolve("modules/linked"), elsewhere);
+    write("big/pom.xml", "<project><dependency><groupId>org.flywaydb</groupId>"
+        + "<artifactId>flyway-core</artifactId></dependency>" + " ".repeat(2_100_000)
+        + "</project>");
+    assertEquals(List.of(), find("flyway"));
+  }
+
+  private static void folderLink(Path link, Path target) throws Exception {
+    if (System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win")) {
+      Process process = new ProcessBuilder("cmd", "/c", "mklink", "/J", link.toString(),
+          target.toString()).redirectErrorStream(true).start();
+      process.getInputStream().readAllBytes();
+      assertEquals(0, process.waitFor());
+    } else {
+      Files.createSymbolicLink(link, target);
+    }
   }
 
   @Test

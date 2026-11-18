@@ -103,13 +103,20 @@ public final class DatabaseMigrationLock {
       throw new IllegalArgumentException("Invalid lock timeout '" + value
           + "'. Use a duration such as 30s, 2m or 500ms.");
     }
-    long amount = Long.parseLong(matcher.group(1));
-    return switch (matcher.group(2) == null ? "s" : matcher.group(2)) {
-      case "ms" -> Duration.ofMillis(amount);
-      case "m" -> Duration.ofMinutes(amount);
-      case "h" -> Duration.ofHours(amount);
-      default -> Duration.ofSeconds(amount);
-    };
+    try {
+      long amount = Long.parseLong(matcher.group(1));
+      Duration duration = switch (matcher.group(2) == null ? "s" : matcher.group(2)) {
+        case "ms" -> Duration.ofMillis(amount);
+        case "m" -> Duration.ofMinutes(amount);
+        case "h" -> Duration.ofHours(amount);
+        default -> Duration.ofSeconds(amount);
+      };
+      // Waits are counted in nanoseconds: toNanos() throws when the value doesn't fit.
+      return Duration.ofNanos(duration.toNanos());
+    } catch (ArithmeticException | NumberFormatException e) {
+      throw new IllegalArgumentException("Invalid lock timeout '" + value
+          + "': too long. Use a duration such as 30s, 2m or 500ms.", e);
+    }
   }
 
   private static final Pattern DURATION = Pattern.compile("(\\d+)\\s*(ms|s|m|h)?");
