@@ -150,6 +150,31 @@ class ImportLeftoversTest {
   }
 
   @Test
+  void neverShowsAValueThatOnlyStartsLikeTheToolsGroup() throws Exception {
+    write("build.gradle", String.join("\n",
+        "token = 'org.flywaydb:Hunter2Secret'",
+        "other = 'org.flywaydbSECRET'",
+        "third = 'org.flywaydb:hunter2secret'",
+        "fourth = 'org.flywaydb.hunter2secret'",
+        "plugins { id 'org.flywaydb.flyway' version '11.0' }"));
+    assertEquals(List.of("build.gradle:5: org.flywaydb.flyway: remove it"), find("flyway"));
+  }
+
+  @Test
+  void showsControlCharactersAsQuestionMarks() throws Exception {
+    write("src/main/resources/application.properties", "spring.flyway.\u001b[2Jx=1\n");
+    assertEquals(List.of("src/main/resources/application.properties:1: "
+        + "spring.flyway.?[2Jx: remove it"), find("flyway"));
+  }
+
+  @Test
+  void aLongLineFullOfQuotesIsScannedQuickly() throws Exception {
+    write("build.gradle", "a\"\"".repeat(600_000) + "\nimplementation 'org.flywaydb:flyway-core'");
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> assertEquals(
+        List.of("build.gradle:2: org.flywaydb:flyway-core: remove it"), find("flyway")));
+  }
+
+  @Test
   void skipsLinksOutOfTheProjectAndHugeFiles(@TempDir Path elsewhere) throws Exception {
     Files.writeString(elsewhere.resolve("pom.xml"),
         "<project><dependency><groupId>org.flywaydb</groupId>"

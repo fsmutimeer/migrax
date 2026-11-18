@@ -26,6 +26,17 @@ public final class SqlScript {
    * cut at a semicolon, so it counts only after a BEGIN or START TRANSACTION in the same file.
    */
   private static final Pattern END_TRANSACTION = Pattern.compile("^END(?: WORK| TRANSACTION)?$");
+  /**
+   * A transaction command at the start of a statement or after a {@code ;} inside one, where a
+   * driver would send it on its own.
+   */
+  private static final Pattern MAY_CONTROL_TRANSACTION = Pattern.compile("(?i)(?:^|;)\\s*"
+      + "(?:(?:COMMIT|END|ROLLBACK|ABORT)(?:\\s+(?:WORK|TRANSACTION|AND\\s+(?:NO\\s+)?CHAIN))*"
+      + "\\s*(?:;|\\z)|BEGIN\\b|START\\s+TRANSACTION\\b|PREPARE\\s+TRANSACTION\\b"
+      + "|COMMIT\\s+PREPARED\\b)");
+  /** A PostgreSQL dollar-quoted body, such as {@code $$ ... $$} or {@code $fn$ ... $fn$}. */
+  private static final Pattern DOLLAR_QUOTED =
+      Pattern.compile("(?s)\\$([A-Za-z_][A-Za-z0-9_]*|)\\$.*?\\$\\1\\$");
   private static final Pattern PLACEHOLDER = Pattern.compile("\\$\\{([A-Za-z0-9_.-]+)}");
   /** {@code GO}, or {@code GO 5} to run the batch five times. */
   private static final Pattern GO_LINE = Pattern.compile("(?i)\\s*GO(?:\\s+(\\d+))?\\s*");
@@ -413,23 +424,18 @@ public final class SqlScript {
   }
 
   /**
-   * Whether a script commits, rolls back or starts a transaction of its own; then a failure in
-   * it may leave the statements before that committed. A script that can't be split, or is sent
-   * whole ({@code -- migrax:no-split}), counts as one that does, and so does a lone {@code END}
-   * (a COMMIT on PostgreSQL): counting too much only records a failure as before.
+   * Whether statements about to be sent may commit, roll back or start a transaction of their
+   * own; then a failure may leave the ones before that committed. A lone {@code END} (a COMMIT
+   * on PostgreSQL) counts, and so does such a command at the start of a line or after a
+   * {@code ;} inside a statement: the driver may split text that this class's splitter could
+   * not (PostgreSQL's {@code E'...'} strings). Counting too much only records a failure.
    */
-  static boolean hasTransactionControl(String sql, boolean backslashEscapes) {
-    if (hasDirective(sql, "no-split")) {
-      return true;
-    }
-    List<String> statements;
-    try {
-      statements = split(sql, backslashEscapes);
-    } catch (IllegalArgumentException e) {
-      return true;
-    }
+  static boolean hasTransactionControl(List<String> statements) {
     for (String statement : statements) {
-      if (isTransactionControl(statement, true)) {
+      // Routines too: the splitter may have taken the statements after one for its body.
+      String outsideBodies = DOLLAR_QUOTED.matcher(stripComments(statement)).replaceAll(" ");
+      if (isTransactionControl(statement, true)
+          || MAY_CONTROL_TRANSACTION.matcher(outsideBodies).find()) {
         return true;
       }
     }

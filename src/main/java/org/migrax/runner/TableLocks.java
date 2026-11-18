@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.List;
 
 /**
  * The table lock timeout of one run on one connection: set before the work that runs in a
@@ -92,14 +93,17 @@ final class TableLocks {
 
   /**
    * Whether {@code failure} is a lock wait that ran out while every change of {@code script}
-   * was in one transaction, so the database undid them all. Not when the script commits or
-   * rolls back on its own: the statements before that may be committed already.
+   * was in one transaction, so the database undid them all. {@code ran} holds the statements
+   * sent for it, placeholders filled in and callbacks included, or is null when Java code ran.
+   * Not when one of them may commit or roll back on its own: the statements before that may be
+   * committed already.
    */
-  boolean undidAll(Migration script, Exception failure) {
+  boolean undidAll(Migration script, List<String> ran, Exception failure) {
     return failure instanceof SQLException sqlFailure && sql.isTimeout(sqlFailure)
-        && dialect.transactionalDdl() && !script.isJava()
+        && dialect.transactionalDdl() && ran != null
         && !SqlScript.hasDirective(script.sql(), "no-transaction")
-        && !SqlScript.hasTransactionControl(script.sql(), dialect.backslashEscapes());
+        && !SqlScript.hasDirective(script.sql(), "no-split")
+        && !SqlScript.hasTransactionControl(ran);
   }
 
   /**

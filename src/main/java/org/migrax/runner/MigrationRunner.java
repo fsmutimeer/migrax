@@ -673,7 +673,7 @@ public final class MigrationRunner {
       // Waiting too long for a lock inside a transaction undid the whole migration, so a
       // plain rerun is safe. A migration that already has a failed record keeps it.
       if (existingFailure == null && tableLocks != null
-          && tableLocks.undidAll(migration, e)) {
+          && tableLocks.undidAll(migration, ran(migration, statements, callbacks), e)) {
         boolean forgotten = false;
         try {
           deleteFailure(connection, version);
@@ -727,6 +727,27 @@ public final class MigrationRunner {
       execute(connection, callback, statements);
       connection.commit();
     }
+  }
+
+  /**
+   * The statements sent for a migration, with its callbacks, as the database got them; null
+   * when Java code ran, which may have done anything.
+   */
+  static List<String> ran(Migration migration, Map<String, List<String>> statements,
+                          Map<String, Migration> callbacks) {
+    List<String> sentAll = new ArrayList<>();
+    for (Migration part : new Migration[] {callbacks.get("beforeEachMigrate.sql"), migration,
+        callbacks.get("afterEachMigrate.sql")}) {
+      if (part == null) {
+        continue;
+      }
+      List<String> sent = part.isJava() ? null : statements.get(part.version());
+      if (sent == null) {
+        return null;
+      }
+      sentAll.addAll(sent);
+    }
+    return sentAll;
   }
 
   private static void execute(Connection connection, Migration migration,
@@ -784,11 +805,12 @@ public final class MigrationRunner {
 
   private void revert(Connection connection, String version, Migration rollback,
                       Options options, TableLocks tableLocks) throws Exception {
+    List<String> commands = null;
     try {
       if (rollback.isJava()) {
         rollback.java().rollback(connection);
       } else {
-        List<String> commands = SqlScript.split(
+        commands = SqlScript.split(
             SqlScript.substitute(rollback.sql(), placeholders(connection, options)),
             backslashEscapes(connection));
         if (SqlScript.hasDirective(rollback.sql(), "no-transaction")) {
@@ -813,7 +835,7 @@ public final class MigrationRunner {
       connection.commit();
       Log.info("Rolled back migration '{}'.", version);
     } catch (Exception e) {
-      throw tableLocks != null && tableLocks.undidAll(rollback, e)
+      throw tableLocks != null && tableLocks.undidAll(rollback, commands, e)
           ? tableLocks.timedOut("Rolling back '" + version + "'", "rollback", e)
           : new SQLException("Rolling back '" + version + "' failed; it stays recorded as "
               + "applied. Some databases commit DDL immediately, so inspect the schema.", e);
