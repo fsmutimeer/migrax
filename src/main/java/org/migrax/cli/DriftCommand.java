@@ -8,6 +8,7 @@ import org.migrax.diff.SnapshotStore;
 import org.migrax.model.SchemaModel;
 import org.migrax.plugin.DatabaseSchemaReader;
 import org.migrax.runner.MigrationRunner;
+import org.migrax.util.Log;
 import org.migrax.verify.SchemaComparator;
 
 import java.io.PrintStream;
@@ -95,7 +96,7 @@ final class DriftCommand implements Command {
       } else {
         out.println(differences.size() + " difference(s) between the database and the "
             + against + ":");
-        differences.forEach(d -> out.println("  - " + d));
+        differences.forEach(d -> out.println("  - " + Log.terminalText(d.toString())));
         out.println("Someone changed the database outside migrations. Write a migration for "
             + "intended changes ('migrax new <name>'), or revert them.");
       }

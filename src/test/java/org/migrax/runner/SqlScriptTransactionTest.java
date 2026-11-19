@@ -52,6 +52,19 @@ class SqlScriptTransactionTest {
       assertEquals(1, SqlScript.split(escaped, false).size(), "kept as one statement");
       assertTrue(controls(escaped), command);
     }
+    // Text that hides a COMMIT from the splitter but not from the driver: an escaped quote in
+    // an E'...' string followed by --, and $$ at the end of a name, which starts no body.
+    assertTrue(controls("INSERT INTO t VALUES (E'\\'--'); COMMIT; ALTER TABLE t ADD x INT;"));
+    assertTrue(controls("INSERT INTO t VALUES (e'a\\\\\\'--'); COMMIT;"));
+    assertTrue(controls("SELECT 1 AS x$$; COMMIT; SELECT 2 AS y$$;"));
+    assertTrue(controls("SELECT 1 AS \"x\"; /* a /* nested */ comment */ COMMIT;"));
+    // A carriage return ends a -- comment for PostgreSQL too.
+    assertTrue(SqlScript.hasTransactionControl(List.of("SELECT 1; -- x\rCOMMIT; SELECT 2")));
+    // Code the driver also reads as strings, names and comments stays plain.
+    assertFalse(controls("INSERT INTO t VALUES ('a\\', 'COMMIT;');"));
+    assertFalse(SqlScript.hasTransactionControl(List.of("SELECT E'x\\' COMMIT;'")));
+    assertFalse(controls("SELECT a FROM t; /* x /* ; COMMIT; */ y */ SELECT 1;"));
+    assertFalse(controls("SELECT 1 AS x$y; DO $b$ BEGIN COMMIT; END $b$;"));
     // A statement sent whole that holds a COMMIT.
     assertTrue(SqlScript.hasTransactionControl(List.of(
         "INSERT INTO t VALUES (1);\nCOMMIT;\nALTER TABLE t ADD COLUMN x INT;")));

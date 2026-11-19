@@ -135,6 +135,100 @@ class SchemaFileTest {
   }
 
   @Test
+  void namesWithLineBreaksAreRefusedBeforeAnythingIsWritten() throws Exception {
+    // A line break would end a comment in the rollback script; the rest would run as SQL.
+    schema("CREATE TABLE customer (id BIGINT PRIMARY KEY, \"a\nDROP TABLE victim;--\" INT);");
+    Result refused = cli("generate");
+    assertEquals(1, refused.code(), refused.all());
+    assertTrue(refused.err().contains("MXE118"), refused.err());
+    assertTrue(refused.err().contains("a\\nDROP TABLE victim;--"), refused.err());
+    assertFalse(Files.exists(project.resolve("db/migrations")), "nothing written");
+
+    // The same name planted in the committed snapshot.
+    schema(CUSTOMER);
+    assertEquals(0, cli("generate").code());
+    Path snapshot = project.resolve(".migrax/snapshot.json");
+    String json = Files.readString(snapshot);
+    assertTrue(json.contains("\"email\""), json);
+    Files.writeString(snapshot, json.replace("\"email\"", "\"email\\nDROP TABLE victim;--\""));
+    schema(CUSTOMER.replace("    email VARCHAR(150) NOT NULL\n", "    id2 INT\n"));
+    Result planted = cli("generate", "--allow-destructive", "--no-input");
+    assertEquals(1, planted.code(), planted.all());
+    assertTrue(planted.err().contains("MXE118"), planted.err());
+    assertTrue(planted.err().contains(".migrax/snapshot.json"), planted.err());
+    assertEquals(1, migrations().size(), "no second migration");
+  }
+
+  private void execute(String jdbcUrl, String sql) throws Exception {
+    try (Connection connection = DriverManager.getConnection(jdbcUrl);
+         var statement = connection.createStatement()) {
+      statement.execute(sql);
+    }
+  }
+
+  private static final String ESC = String.valueOf((char) 27);
+
+  private static void assertNoEscape(Result result, String expected) {
+    assertTrue(result.all().contains(expected), result.all());
+    assertFalse(result.all().contains(ESC), "raw escape character in:\n" + result.all());
+  }
+
+  @Test
+  void aDatabaseBaselineWithSuchANameIsRefusedToo() throws Exception {
+    execute(url, "CREATE TABLE \"legacy\nx\" (id INT)");
+    schema(CUSTOMER);
+    Result refused = cli("generate");
+    assertEquals(1, refused.code(), refused.all());
+    assertTrue(refused.err().contains("MXE118"), refused.err());
+    assertTrue(refused.err().contains("A table in the database has a name"), refused.err());
+    assertTrue(refused.err().contains("legacy\\nx"), refused.err());
+  }
+
+  @Test
+  void escapeSequencesFromTheDatabaseOrFilesAreShownAsText() throws Exception {
+    schema(CUSTOMER);
+    assertEquals(0, cli("generate").code());
+    assertEquals(0, cli("migrate").code());
+    execute(url, "CREATE TABLE \"x" + ESC + "[2Jy\" (id INT)");
+
+    Result drift = cli("drift");
+    assertEquals(2, drift.code(), drift.all());
+    assertNoEscape(drift, "x\\u001b[2Jy");
+
+    String other = "jdbc:h2:mem:schema_file_other_" + (++databases) + ";DB_CLOSE_DELAY=-1";
+    execute(other, "CREATE TABLE \"z" + ESC + "]0;pwned\u0007\" (id INT)");
+    Result diff = cli("diff", other);
+    assertNoEscape(diff, "z\\u001b]0;pwned\\u0007");
+
+    Files.writeString(project.resolve("db/migrations/0002_drop.sql"),
+        "DROP TABLE \"x" + ESC + "[2Jy\";\n");
+    Result lint = cli("lint");
+    assertNoEscape(lint, "x\\u001b[2Jy");
+  }
+
+  @Test
+  void squashOptimizeRefusesSuchANameInTheHistorySnapshot() throws Exception {
+    schema(CUSTOMER);
+    assertEquals(0, cli("generate").code());
+    schema(CUSTOMER.replace("NOT NULL\n", "NOT NULL,\n  phone VARCHAR(30)\n"));
+    assertEquals(0, cli("generate").code());
+    List<Path> history;
+    try (Stream<Path> files = Files.walk(project.resolve(".migrax"))) {
+      history = files.filter(p -> p.toString().contains("history") && Files.isRegularFile(p))
+          .toList();
+    }
+    assertFalse(history.isEmpty(), "history snapshots written");
+    for (Path file : history) {
+      Files.writeString(file, Files.readString(file)
+          .replace("\"email\"", "\"email\\nDROP TABLE victim;--\""));
+    }
+    String last = migrations().get(1).replace(".sql", "");
+    Result squash = cli("squash", "--to", last, "--optimize", "--yes");
+    assertEquals(1, squash.code(), squash.all());
+    assertTrue(squash.err().contains("MXE118"), squash.all());
+  }
+
+  @Test
   void renamesKeepTheData() throws Exception {
     schema(CUSTOMER);
     assertEquals(0, cli("generate").code());

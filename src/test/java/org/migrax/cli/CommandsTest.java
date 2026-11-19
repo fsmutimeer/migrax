@@ -540,7 +540,9 @@ class CommandsTest {
         "db.mig\u0001ration")) {
       Result created = cli("new", "x", "--java", "--java-package", bad);
       assertEquals(1, created.code(), bad + ": " + created.all());
-      assertTrue(created.err().contains("Invalid Java package '" + bad + "'"), created.all());
+      // Control characters are shown as text, not sent to the terminal.
+      assertTrue(created.err().contains("Invalid Java package '"
+          + org.migrax.util.Log.terminalText(bad) + "'"), created.all());
     }
     // The migration loader takes a comma list and trims; new writes into the first package.
     for (String good : java.util.List.of("com.example.migrations", "db.café ",

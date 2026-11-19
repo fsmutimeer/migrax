@@ -150,6 +150,43 @@ class ImportLeftoversTest {
   }
 
   @Test
+  void neverShowsValuesInLongStringsOrCoordinatesOfOtherGroups() throws Exception {
+    write("build.gradle", String.join("\n",
+        "def a = /flywaySECRET1/",
+        "def b = $/flywaySECRET2 with / inside/$",
+        "def c = '''",
+        "flywaySECRET3 {",
+        "'''",
+        "def d = \"\"\"flywaySECRET4\"\"\"",
+        "def e = 'db.prod:flyway-hunter2secret'",
+        "ext.pairs = [\"k\": \"db.prod:flyway-hunter3secret\"]",
+        "def half = total / flywayCount",
+        "implementation 'com.acme:acme-flyway:1.0'"));
+    write("app/build.gradle.kts", String.join("\n",
+        "val token = \"\"\"",
+        "  flywaySECRET5",
+        "\"\"\"",
+        "val m = mapOf(\"pw\" to \"db.prod:flyway-hunter4secret\")",
+        "implementation(\"com.acme:acme-flyway:1.0\")"));
+    write("gradle/libs.versions.toml", String.join("\n",
+        "[libraries]",
+        "qf = { module = \"io.quarkus:quarkus-flyway\" }",
+        "noreturn = \"db.prod:flyway-hunter5secret\""));
+    List<String> found = find("flyway");
+    assertEquals(List.of(
+        "app/build.gradle.kts:4: flyway coordinate: remove it",
+        "app/build.gradle.kts:5: com.acme:acme-flyway: remove it",
+        "build.gradle:7: flyway coordinate: remove it",
+        "build.gradle:8: flyway coordinate: remove it",
+        "build.gradle:9: flywayCount: remove it",
+        "build.gradle:10: com.acme:acme-flyway: remove it",
+        "gradle/libs.versions.toml:2: io.quarkus:quarkus-flyway: remove it",
+        "gradle/libs.versions.toml:3: flyway coordinate: remove it"), found);
+    assertTrue(found.stream().noneMatch(line -> line.contains("SECRET")
+        || line.contains("hunter")), found.toString());
+  }
+
+  @Test
   void neverShowsAValueThatOnlyStartsLikeTheToolsGroup() throws Exception {
     write("build.gradle", String.join("\n",
         "token = 'org.flywaydb:Hunter2Secret'",

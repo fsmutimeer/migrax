@@ -134,3 +134,4 @@ meaning; new situations get new codes.
 | MXE115 | The schema file can't be read | Fix the statement the message names, start Docker, or pass `--scratch-url` with an empty database |
 | MXE116 | No environments configured | Give each environment a URL: `migrax.environments.<name>.url` or `MIGRAX_ENVIRONMENTS_<NAME>_URL` |
 | MXE117 | A migration waited too long for a locked table | Nothing was changed: run `migrate` (or `rollback`) again when the table is less busy, or raise `--table-lock-timeout` ([details](configuration.md#table-lock-timeout)) |
+| MXE118 | A name has a line break or control character | Rename the table, column or constraint in the entities, the schema file, the database or `.migrax/snapshot.json` (the message says where): Migrax writes names into SQL comments and messages, where these characters aren't safe |

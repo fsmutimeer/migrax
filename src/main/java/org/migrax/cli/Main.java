@@ -67,17 +67,17 @@ public final class Main {
       return dispatch(CommandRegistry.standard(), args, out, err, input, services, partial);
     } catch (UsageException e) {
       String hint = e.hint != null ? e.hint : "Run 'migrax help' to see the available commands.";
-      err.println("error[" + e.code.code + "]: " + e.getMessage());
-      err.println(hint);
+      err.println("error[" + e.code.code + "]: " + Log.terminalText(e.getMessage()));
+      err.println(Log.terminalText(hint));
       printJsonError(json, out, e.code, e.getMessage(), hint, partial);
       return ExitCode.ERROR;
     } catch (Throwable e) {
       ErrorCode code = ErrorCode.of(e);
       String message = Errors.describe(e);
-      err.println("error[" + code.code + "]: " + message);
+      err.println("error[" + code.code + "]: " + Log.terminalText(message));
       String hint = Errors.hint(e);
       if (hint != null) {
-        err.println(hint);
+        err.println(Log.terminalText(hint));
       }
       printJsonError(json, out, code, message, hint, partial);
       if (verbose) {

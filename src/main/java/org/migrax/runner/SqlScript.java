@@ -435,11 +435,104 @@ public final class SqlScript {
       // Routines too: the splitter may have taken the statements after one for its body.
       String outsideBodies = DOLLAR_QUOTED.matcher(stripComments(statement)).replaceAll(" ");
       if (isTransactionControl(statement, true)
-          || MAY_CONTROL_TRANSACTION.matcher(outsideBodies).find()) {
+          || MAY_CONTROL_TRANSACTION.matcher(outsideBodies).find()
+          || MAY_CONTROL_TRANSACTION.matcher(postgresCode(statement)).find()) {
         return true;
       }
     }
     return false;
+  }
+
+  /**
+   * {@code statement} with the text of its strings, quoted names, comments and dollar-quoted
+   * bodies replaced by spaces, read the way PostgreSQL and its driver read it: a backslash
+   * escapes the next character in {@code E'...'} strings, block comments nest, and a {@code $}
+   * right after a letter, digit or {@code _} belongs to a name ({@code x$$}), so it starts no
+   * body. What is left is the code the driver may split at {@code ;}.
+   */
+  static String postgresCode(String statement) {
+    StringBuilder code = new StringBuilder(statement.length());
+    int length = statement.length();
+    int i = 0;
+    while (i < length) {
+      char ch = statement.charAt(i);
+      char next = i + 1 < length ? statement.charAt(i + 1) : 0;
+      char before = i > 0 ? statement.charAt(i - 1) : 0;
+      int end;
+      if (ch == '-' && next == '-') {
+        end = i + 2;
+        while (end < length && statement.charAt(end) != '\n' && statement.charAt(end) != '\r') {
+          end++;
+        }
+      } else if (ch == '/' && next == '*') {
+        end = blockCommentEnd(statement, i);
+      } else if (ch == '\'') {
+        boolean escapes = (before == 'E' || before == 'e')
+            && (i < 2 || !isNameCharacter(statement.charAt(i - 2)));
+        end = quotedEnd(statement, i, '\'', escapes);
+      } else if (ch == '"') {
+        end = quotedEnd(statement, i, '"', false);
+      } else if (ch == '$' && !isNameCharacter(before)) {
+        Matcher body = DOLLAR_QUOTED.matcher(statement).region(i, length);
+        end = body.lookingAt() ? body.end() : i + 1;
+        if (end == i + 1) {
+          code.append(ch);
+          i++;
+          continue;
+        }
+      } else {
+        code.append(ch);
+        i++;
+        continue;
+      }
+      code.append(" ".repeat(end - i));
+      i = end;
+    }
+    return code.toString();
+  }
+
+  private static boolean isNameCharacter(char ch) {
+    return Character.isLetterOrDigit(ch) || ch == '_' || ch == '$';
+  }
+
+  /** The index after a nested block comment that starts at {@code start}. */
+  private static int blockCommentEnd(String text, int start) {
+    int depth = 0;
+    int i = start;
+    while (i < text.length() - 1) {
+      if (text.charAt(i) == '/' && text.charAt(i + 1) == '*') {
+        depth++;
+        i += 2;
+      } else if (text.charAt(i) == '*' && text.charAt(i + 1) == '/') {
+        i += 2;
+        if (--depth == 0) {
+          return i;
+        }
+      } else {
+        i++;
+      }
+    }
+    return text.length();
+  }
+
+  /** The index after a quoted text that starts at {@code start}; doubled quotes stay in it. */
+  private static int quotedEnd(String text, int start, char quote, boolean backslashEscapes) {
+    int i = start + 1;
+    while (i < text.length()) {
+      char ch = text.charAt(i);
+      if (backslashEscapes && ch == '\\') {
+        i += 2;
+      } else if (ch == quote) {
+        if (i + 1 < text.length() && text.charAt(i + 1) == quote) {
+          i += 2;
+        } else {
+          return i + 1;
+        }
+      } else {
+        i++;
+      }
+    }
+    return text.length();
   }
 
   /** Whether a statement is a PL/SQL block, which Oracle's tools end with a / line. */
