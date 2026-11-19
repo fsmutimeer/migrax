@@ -143,7 +143,7 @@ Applied 3 migration(s); 4 total in src/main/resources/db/migration.
   the rows that are left), or let [zero-downtime changes](zero-downtime.md) split the release.
 - Rolling back step 3 brings `full_name` back empty. Generate it with `--keep-data` to restore
   its values: see [Keeping dropped data](rollbacks-and-recovery.md#keeping-dropped-data).
-- With Migrax 0.17.1 and older, `generate` can give its file the number of a Java migration
+- With Migrax 0.19.0 and older, `generate` can give its file the number of a Java migration
   that has the highest number. If it does, rename the file and its rollback script to the next
   free number before you migrate.
 
