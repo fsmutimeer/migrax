@@ -6,8 +6,7 @@
 #         -e MIGRAX_DATABASE_URL=jdbc:postgresql://db:5432/app ... migrax migrate
 
 # Base images are pinned to a digest, so every build starts from the same image; Dependabot
-# updates the digests. The one apt step below takes the current security update of two packages
-# at build time.
+# updates the digests.
 
 # The drivers are plain jars: download them once, on the build machine's own platform.
 FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21@sha256:99e61abcff91a9b1333463bd8451fb18495d6eba9250ac66a338b518f8278320 AS drivers
@@ -15,15 +14,32 @@ COPY docker/drivers/pom.xml /build/pom.xml
 RUN mvn -q -B -f /build/pom.xml dependency:copy-dependencies \
       -DoutputDirectory=/build/drivers -DincludeScope=runtime
 
-FROM eclipse-temurin:21-jre@sha256:0b99b3376fbb50dbf9c0af8535fdd5b8eb0d3fdfc8b1e4967f383b6919f6901a
-# apt in the base image has CVE-2026-109518 (fixed in 3.2.1ubuntu0.1) and the base image is not
-# rebuilt yet. Remove this step once the pinned base image has the fix.
-RUN apt-get -o Acquire::Retries=0 update -qq --error-on=any \
-    && apt-get -o Acquire::Retries=0 install -y -qq --no-install-recommends --only-upgrade \
-         apt libapt-pkg7.0 \
-    && rm -rf /var/lib/apt/lists/* \
-    && dpkg --compare-versions "$(dpkg-query -W -f='${Version}' apt)" ge 3.2.1ubuntu0.1
+FROM eclipse-temurin:21-jre@sha256:ca73b4d3961703d6d7830a4361f49ef0478f8f28b39defc07bb72f4cc7f834f6 AS base
 
+# Java 21.0.13 in the base image has CVE-2026-114938 on x86-64 (fixed in 21.0.13.1) and the
+# base image is not rebuilt yet, so amd64 gets the fixed JRE from Adoptium, pinned by checksum.
+# The version check in the RUN below fails the build when the base image has another Java
+# version: then remove the jre-amd64 and runtime-* stages and the TARGETARCH selection.
+FROM scratch AS jre-amd64
+ADD --checksum=sha256:18f44fab9065217f3ba61d0eef8a7b5f3c3713aa7293001b0d4ac10ede3850f0 \
+    https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.13.1%2B2/OpenJDK21U-jre_x64_linux_hotspot_21.0.13.1_2.tar.gz \
+    /jre.tar.gz
+
+FROM base AS runtime-amd64
+RUN --mount=type=bind,from=jre-amd64,source=/jre.tar.gz,target=/tmp/jre.tar.gz \
+    { grep -qx 'JAVA_RUNTIME_VERSION="21.0.13+9-LTS"' /opt/java/openjdk/release \
+      || { echo "The base image has another Java version: remove the jre-amd64 and runtime-* stages." >&2; exit 1; }; } \
+    && rm -rf /opt/java/openjdk \
+    && mkdir -p /opt/java/openjdk \
+    && tar -xzf /tmp/jre.tar.gz -C /opt/java/openjdk --strip-components=1 --no-same-owner \
+    && grep -qx 'JAVA_RUNTIME_VERSION="21.0.13.1+2-LTS"' /opt/java/openjdk/release \
+    && java -version
+ENV JAVA_VERSION=jdk-21.0.13.1+2
+
+# arm64 is not affected and keeps the base image's Java.
+FROM base AS runtime-arm64
+
+FROM runtime-${TARGETARCH}
 ARG VERSION
 LABEL org.opencontainers.image.title="Migrax" \
       org.opencontainers.image.description="Migrations for JPA and Hibernate projects" \

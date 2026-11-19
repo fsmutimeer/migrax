@@ -15,6 +15,11 @@ All notable changes to Migrax are listed here. The format follows
   `dataNotKept`. When `generate` stops at drops (MXE108), its hint mentions `--keep-data`.
 - `rollback` prints, before it runs, each change whose data its scripts can't bring back.
 
+### Security
+
+- The amd64 container image runs Java 21.0.13.1, which fixes CVE-2026-114938 (a memory
+  overflow in Java's Base64 decoder on x86-64). The arm64 image is not affected.
+
 ## [0.19.0-rc.3] - 2026-11-18
 
 Release candidate for 0.19.0, for testing.
