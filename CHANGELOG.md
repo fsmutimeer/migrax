@@ -34,8 +34,8 @@ since 0.17.1:
   errors, `plan`/`check`/`diff` reports, lint findings and `drift` show such characters as
   text (an escape character as `\u001b`) instead of sending them to the terminal.
 - MySQL, MariaDB and TiDB: a backslash in a table or column comment, a table-generator
-  sequence name or a text default read from a MySQL or TiDB database (`diff --sql`) is now
-  written as `\\`. These databases read `\'` as a quote inside the string, so a comment such
+  sequence name or a text default of a schema file (read back through a MySQL or TiDB
+  database) is now written as `\\`. These databases read `\'` as a quote inside the string, so a comment such
   as `x\'; DROP TABLE t; -- ` ended the string early and the rest ran as SQL, and a comment
   ending in `\` (`C:\temp\`) broke the migration.
 - On PostgreSQL, a migration with a `COMMIT` hidden behind an `E'...'` string ending in `\'`,
