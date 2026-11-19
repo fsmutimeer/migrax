@@ -70,6 +70,10 @@ final class ImportLeftovers {
   private static final Pattern YAML_KEY =
       Pattern.compile("^(\\s*)([A-Za-z0-9_.%\\-\"']+)\\s*:(?:\\s+(.*))?$");
   private static final Pattern NAME_TOKEN = Pattern.compile("[A-Za-z0-9_.:\\-]+");
+  private static final Pattern LAST_WORD = Pattern.compile("([A-Za-z][A-Za-z0-9]*)\\z");
+  private static final Set<String> DEPENDENCY_WORDS = Set.of("implementation", "api",
+      "compileOnly", "runtimeOnly", "compile", "runtime", "classpath", "annotationProcessor",
+      "kapt", "developmentOnly", "platform", "enforcedPlatform", "id", "plugin");
 
   private ImportLeftovers() {}
 
@@ -468,9 +472,10 @@ final class ImportLeftovers {
    * text is {@code group:artifact[:version]} with a dotted group and an artifact named after the
    * tool, both in lower case as published. The version may be anything
    * ({@code $flywayVersion}, {@code 10.+}) and is left out. Null for anything else, such as a
-   * URL, text with spaces or capitals. Assigned or passed along as a value ({@code x = '...'},
-   * {@code "key" to "..."}), text that isn't in the tool's own group may be anything, so it is
-   * not shown: then just the tool is named ({@code flyway coordinate}).
+   * URL, text with spaces or capitals. The text is shown only after a Gradle configuration or
+   * plugin word ({@link #isConfiguration}) or a catalog's {@code module =}; anywhere else
+   * ({@code x = '...'}, {@code "key" to "..."}) it may be any value, so just the tool is named
+   * ({@code flyway coordinate}).
    */
   private static String coordinate(String quoted, String tool, String before) {
     String[] parts = quoted.split(":", 3);
@@ -488,27 +493,34 @@ final class ImportLeftovers {
     if (!named) {
       return null;
     }
-    boolean ownGroup = group.equals("org.flywaydb") || group.equals("org.liquibase");
-    return ownGroup || isDependency(before) ? group + ":" + artifact : tool + " coordinate";
+    return isDependency(before) ? group + ":" + artifact : tool + " coordinate";
   }
 
   /**
    * Whether quoted text after {@code before} is a dependency or plugin
-   * ({@code implementation '...'}, {@code classpath("...")}) rather than a value.
+   * ({@code implementation '...'}, {@code classpath("...")}, a catalog's {@code module = "..."})
+   * rather than a value, which may be anything.
    */
   private static boolean isDependency(String before) {
     String text = before.stripTrailing();
-    if (text.isEmpty()) {
-      return false;
+    if (text.endsWith("=")) {
+      return endsWithWord(text.substring(0, text.length() - 1).stripTrailing(), "module");
     }
-    char last = text.charAt(text.length() - 1);
-    // A version catalog's module = "group:artifact" is a dependency too.
-    if (last == '=' && endsWithWord(text.substring(0, text.length() - 1).stripTrailing(),
-        "module")) {
-      return true;
+    if (text.endsWith("(")) {
+      text = text.substring(0, text.length() - 1).stripTrailing();
     }
-    // Kotlin's "key" to "value" pairs a value with its key.
-    return last == '(' || Character.isLetter(last) && !endsWithWord(text, "to");
+    Matcher word = LAST_WORD.matcher(text);
+    return word.find() && isConfiguration(word.group(1));
+  }
+
+  /**
+   * A Gradle configuration or plugin call: {@code implementation}, {@code classpath},
+   * {@code testRuntimeOnly}, {@code liquibaseRuntime}, {@code platform}, {@code id}...
+   */
+  private static boolean isConfiguration(String word) {
+    return DEPENDENCY_WORDS.contains(word) || word.endsWith("Implementation")
+        || word.endsWith("Api") || word.endsWith("CompileOnly") || word.endsWith("RuntimeOnly")
+        || word.endsWith("Runtime") || word.endsWith("AnnotationProcessor");
   }
 
   private static void scanProperties(String file, List<String> lines, String tool,

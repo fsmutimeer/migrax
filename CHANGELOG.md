@@ -33,13 +33,18 @@ since 0.17.1:
   line in the rollback script, and the rest of the name ran as SQL on `rollback`. Messages,
   errors, `plan`/`check`/`diff` reports, lint findings and `drift` show such characters as
   text (an escape character as `\u001b`) instead of sending them to the terminal.
+- MySQL, MariaDB and TiDB: a backslash in a table or column comment, a table-generator
+  sequence name or a text default read from a MySQL or TiDB database (`diff --sql`) is now
+  written as `\\`. These databases read `\'` as a quote inside the string, so a comment such
+  as `x\'; DROP TABLE t; -- ` ended the string early and the rest ran as SQL, and a comment
+  ending in `\` (`C:\temp\`) broke the migration.
 - On PostgreSQL, a migration with a `COMMIT` hidden behind an `E'...'` string ending in `\'`,
-  or after a name ending in `$$`, was reported as MXE117 "Nothing was changed" when it then
-  waited too long for a table lock, although the statements before the `COMMIT` were
-  committed. It is now recorded as failed.
+  or after a name ending in `$$` (including a name with non-ASCII letters), was reported as
+  MXE117 "Nothing was changed" when it then waited too long for a table lock, although the
+  statements before the `COMMIT` were committed. It is now recorded as failed.
 - `import` no longer shows values written in Groovy slashy strings (`/.../`, `$/.../$`) or
-  triple-quoted strings, and shows a `group:artifact` from another group only where it is a
-  dependency; elsewhere it says `flyway coordinate` or `liquibase coordinate`.
+  triple-quoted strings, and shows a quoted `group:artifact` only where it is a dependency;
+  elsewhere it says `flyway coordinate` or `liquibase coordinate`.
 
 ## [0.19.0-rc.4] - 2026-11-19
 

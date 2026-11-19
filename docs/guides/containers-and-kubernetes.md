@@ -25,9 +25,9 @@ for MySQL servers), SQL Server, SQLite and H2. It runs as a non-root user, for `
 
 !!! warning "CVE-2026-114938 in Java (November 2026)"
     Java's Base64 decoder can overflow memory on x86-64 servers (Java 17, 21 and 25 before
-    17.0.21.1, 21.0.13.1 and 25.0.5.1). The `amd64` image runs Java 21.0.13.1 from 0.19.0
-    on; older images, 0.17.1 included, still have the affected Java. On x86-64, use 0.19.0 or
-    newer. The `arm64` image is not affected.
+    17.0.21.1, 21.0.13.1 and 25.0.5.1). The `amd64` image runs Java 21.0.13.1 from
+    0.19.0-rc.4 on; older images, 0.17.1 included, still have the affected Java. On x86-64,
+    use 0.19.0 or newer. The `arm64` image is not affected.
 
 ```console
 $ docker run --rm -v "$PWD/src/main/resources/db/migration:/migrations:ro" \

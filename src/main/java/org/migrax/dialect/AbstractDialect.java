@@ -38,12 +38,12 @@ public abstract class AbstractDialect implements Dialect {
       SchemaModel.Sequence s = x.sequence();
       long start = (s.initialValue() == null ? 1L : s.initialValue()) - 1;
       return "INSERT INTO " + tableName(s.table()) + " (" + q(s.nameColumn()) + ", "
-          + q(s.valueColumn()) + ") VALUES (" + literal(s.name()) + ", " + start + ")";
+          + q(s.valueColumn()) + ") VALUES (" + text(s.name()) + ", " + start + ")";
     }
     if (o instanceof DropSequence x && x.sequence() != null && x.sequence().inTable()) {
       SchemaModel.Sequence s = x.sequence();
       return "DELETE FROM " + tableName(s.table()) + " WHERE " + q(s.nameColumn()) + " = "
-          + literal(s.name());
+          + text(s.name());
     }
     if (o instanceof CreateSequence x) return createSequence(x.sequence());
     if (o instanceof DropSequence x) return dropSequence(x.name());
@@ -181,12 +181,21 @@ public abstract class AbstractDialect implements Dialect {
 
   /** A comment as a SQL value: a string literal, or NULL to remove it. */
   protected String commentValue(String comment) {
-    return comment == null ? "NULL" : literal(comment);
+    return comment == null ? "NULL" : text(comment);
   }
 
   /** A SQL string literal. */
   protected static String literal(String value) {
     return "'" + value.replace("'", "''") + "'";
+  }
+
+  /**
+   * Text from the model (a comment, a sequence name) as a string literal for this database.
+   * Where a backslash escapes the next character ({@link #backslashEscapes()}), it is doubled
+   * too: there {@code 'x\'} doesn't end the string, so the rest of the text would run as SQL.
+   */
+  private String text(String value) {
+    return literal(backslashEscapes() ? value.replace("\\", "\\\\") : value);
   }
 
   protected String addColumn(String table, SchemaModel.Column column) {

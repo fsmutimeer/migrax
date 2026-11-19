@@ -447,8 +447,9 @@ public final class SqlScript {
    * {@code statement} with the text of its strings, quoted names, comments and dollar-quoted
    * bodies replaced by spaces, read the way PostgreSQL and its driver read it: a backslash
    * escapes the next character in {@code E'...'} strings, block comments nest, and a {@code $}
-   * right after a letter, digit or {@code _} belongs to a name ({@code x$$}), so it starts no
-   * body. What is left is the code the driver may split at {@code ;}.
+   * right after a letter, digit, {@code _} or non-ASCII character belongs to a name
+   * ({@code x$$}), so it starts no body. What is left is the code the driver may split at
+   * {@code ;}.
    */
   static String postgresCode(String statement) {
     StringBuilder code = new StringBuilder(statement.length());
@@ -491,8 +492,9 @@ public final class SqlScript {
     return code.toString();
   }
 
+  /** PostgreSQL and its driver count every character above ASCII as part of a name. */
   private static boolean isNameCharacter(char ch) {
-    return Character.isLetterOrDigit(ch) || ch == '_' || ch == '$';
+    return ch > 127 || Character.isLetterOrDigit(ch) || ch == '_' || ch == '$';
   }
 
   /** The index after a nested block comment that starts at {@code start}. */

@@ -31,7 +31,7 @@ Prometheus metrics. At the end, the pipeline runs the migrations instead of the 
 
 !!! info "Tested with"
 
-    Migrax 0.19.0, Spring Boot 3.5.7, Hibernate 6.6.33, Micrometer 1.15.5, PostgreSQL 17.
+    Migrax 0.17.1, Spring Boot 3.5.7, Hibernate 6.6.33, Micrometer 1.15.5, PostgreSQL 17.
     Every output below was copied from a real run; log lines are shortened to the message.
 
 ## The setup
@@ -51,7 +51,7 @@ starters, the application has Actuator, the Prometheus registry and the Migrax s
 <dependency>
   <groupId>org.migrax</groupId>
   <artifactId>migrax-spring-boot-starter</artifactId>
-  <version>0.19.0</version>
+  <version>0.17.1</version>
 </dependency>
 ```
 

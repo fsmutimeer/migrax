@@ -161,13 +161,17 @@ class ImportLeftoversTest {
         "def e = 'db.prod:flyway-hunter2secret'",
         "ext.pairs = [\"k\": \"db.prod:flyway-hunter3secret\"]",
         "def half = total / flywayCount",
-        "implementation 'com.acme:acme-flyway:1.0'"));
+        "implementation 'com.acme:acme-flyway:1.0'",
+        "password 'acme.secret:flyway-pa55word'",
+        "def own = 'org.flywaydb:flyway-pa66word'"));
     write("app/build.gradle.kts", String.join("\n",
         "val token = \"\"\"",
         "  flywaySECRET5",
         "\"\"\"",
         "val m = mapOf(\"pw\" to \"db.prod:flyway-hunter4secret\")",
-        "implementation(\"com.acme:acme-flyway:1.0\")"));
+        "implementation(\"com.acme:acme-flyway:1.0\")",
+        "testImplementation(platform(\"com.acme:acme-flyway-bom:1.0\"))",
+        "liquibaseRuntime \"org.liquibase:liquibase-core:4.0\""));
     write("gradle/libs.versions.toml", String.join("\n",
         "[libraries]",
         "qf = { module = \"io.quarkus:quarkus-flyway\" }",
@@ -176,14 +180,19 @@ class ImportLeftoversTest {
     assertEquals(List.of(
         "app/build.gradle.kts:4: flyway coordinate: remove it",
         "app/build.gradle.kts:5: com.acme:acme-flyway: remove it",
+        "app/build.gradle.kts:6: com.acme:acme-flyway-bom: remove it",
         "build.gradle:7: flyway coordinate: remove it",
         "build.gradle:8: flyway coordinate: remove it",
         "build.gradle:9: flywayCount: remove it",
         "build.gradle:10: com.acme:acme-flyway: remove it",
+        "build.gradle:11: flyway coordinate: remove it",
+        "build.gradle:12: flyway coordinate: remove it",
         "gradle/libs.versions.toml:2: io.quarkus:quarkus-flyway: remove it",
         "gradle/libs.versions.toml:3: flyway coordinate: remove it"), found);
     assertTrue(found.stream().noneMatch(line -> line.contains("SECRET")
-        || line.contains("hunter")), found.toString());
+        || line.contains("hunter") || line.contains("word")), found.toString());
+    assertTrue(find("liquibase").contains("app/build.gradle.kts:7: liquibaseRuntime: remove it"),
+        find("liquibase").toString());
   }
 
   @Test

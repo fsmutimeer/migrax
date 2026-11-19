@@ -743,8 +743,10 @@ class DatabaseEngineIT {
   private static void exerciseCheckAndCommentChanges(Database database) throws Exception {
     org.migrax.model.SchemaModel first = probe(List.of("price >= 0"), "Things we sell",
         "In cents", null);
+    // A backslash and a quote must read back as written on every database (MySQL reads \ as
+    // an escape in strings, the others don't).
     org.migrax.model.SchemaModel second = probe(List.of("price > 0", "discount <= 100"),
-        "Products we sell", null, "Percent");
+        "Products we sell", null, "Percent, C:\\temp\\ and it's");
     org.migrax.model.SchemaModel third = probe(List.of(), null, null, null);
     Path folder = Files.createTempDirectory("migrax-checks-it");
     List<Path> files = new java.util.ArrayList<>();
