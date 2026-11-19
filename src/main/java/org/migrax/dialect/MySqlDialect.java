@@ -261,12 +261,23 @@ public class MySqlDialect extends AbstractDialect {
    */
   @Override
   protected String column(SchemaModel.Column c) {
-    return super.column(c) + (c.comment() == null ? "" : " COMMENT " + literal(c.comment()));
+    return super.column(c) + (c.comment() == null ? "" : " COMMENT " + commentValue(c.comment()));
+  }
+
+  /**
+   * Text as a string literal here. MySQL, MariaDB and TiDB read a backslash in a string as an
+   * escape (unless sql_mode has NO_BACKSLASH_ESCAPES): {@code 'x\'} doesn't end the string, so
+   * text with a backslash could end it later and turn the rest into SQL. Doubling it keeps the
+   * text as written. With NO_BACKSLASH_ESCAPES it is still safe, but the text reads back with
+   * doubled backslashes.
+   */
+  static String quoted(String value) {
+    return literal(value.replace("\\", "\\\\"));
   }
 
   @Override
   protected String tableComment(String table, String comment) {
-    return "ALTER TABLE " + q(table) + " COMMENT = " + literal(comment == null ? "" : comment);
+    return "ALTER TABLE " + q(table) + " COMMENT = " + commentValue(comment == null ? "" : comment);
   }
 
   @Override
@@ -504,7 +515,7 @@ public class MySqlDialect extends AbstractDialect {
               || "char".equals(logicalType) || "text".equals(logicalType))) {
         // MySQL reports a text default without its quotes. A text column's default is a literal
         // unless it is an expression, which ends in a parenthesis: (uuid()).
-        return "'" + value.replace("'", "''") + "'";
+        return quoted(value);
       }
       return value;
     }

@@ -57,6 +57,7 @@ class SqlScriptTransactionTest {
     assertTrue(controls("INSERT INTO t VALUES (E'\\'--'); COMMIT; ALTER TABLE t ADD x INT;"));
     assertTrue(controls("INSERT INTO t VALUES (e'a\\\\\\'--'); COMMIT;"));
     assertTrue(controls("SELECT 1 AS x$$; COMMIT; SELECT 2 AS y$$;"));
+    assertTrue(controls("SELECT 1 AS €$$; COMMIT; SELECT 1 AS x$$;"));
     assertTrue(controls("SELECT 1 AS \"x\"; /* a /* nested */ comment */ COMMIT;"));
     // A carriage return ends a -- comment for PostgreSQL too.
     assertTrue(SqlScript.hasTransactionControl(List.of("SELECT 1; -- x\rCOMMIT; SELECT 2")));

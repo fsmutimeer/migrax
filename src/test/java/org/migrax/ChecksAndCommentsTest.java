@@ -6,8 +6,10 @@ import org.migrax.dialect.PostgresDialect;
 import org.migrax.diff.DiffEngine;
 import org.migrax.model.SchemaModel;
 import org.migrax.ops.AddCheck;
+import org.migrax.ops.CreateSequence;
 import org.migrax.ops.CreateTable;
 import org.migrax.ops.DropCheck;
+import org.migrax.ops.DropSequence;
 import org.migrax.ops.Operation;
 import org.migrax.ops.SetComment;
 import org.migrax.util.Json;
@@ -83,6 +85,41 @@ class ChecksAndCommentsTest {
         new SchemaModel.Check("ck_c", "a or (b and c)")));
     assertFalse(SchemaModel.sameCheck(new SchemaModel.Check("ck_c", "name <> 'a b'"),
         new SchemaModel.Check("ck_c", "name <> 'ab'")));
+  }
+
+  @Test
+  void aBackslashInACommentStaysInTheStringOnMySql() {
+    // MySQL reads \' as a quote inside the string: without doubling the backslash, the
+    // string would end later and the rest of the comment would run as SQL.
+    String hostile = "x\\'; DROP TABLE victim; -- ";
+    for (String id : List.of("mysql", "mariadb", "tidb")) {
+      Dialect dialect = Dialects.byName(id);
+      assertEquals("ALTER TABLE product MODIFY COLUMN price int NOT NULL COMMENT "
+          + "'x\\\\''; DROP TABLE victim; -- '",
+          dialect.render(new SetComment("product", price(hostile), hostile)), id);
+      assertEquals("ALTER TABLE product COMMENT = 'C:\\\\temp\\\\'",
+          dialect.render(new SetComment("product", null, "C:\\temp\\")), id);
+    }
+    // Elsewhere a backslash is an ordinary character: only '' escapes.
+    assertEquals("COMMENT ON TABLE product IS 'C:\\temp\\'",
+        Dialects.byName("postgresql").render(new SetComment("product", null, "C:\\temp\\")));
+  }
+
+  @Test
+  void sequenceRowsAndDefaultsReadFromMySqlKeepTheirBackslashes() {
+    SchemaModel.Sequence row = new SchemaModel.Sequence("a\\'; DROP TABLE v; --", 1L, 1L,
+        "ids", "name", "val");
+    for (String id : List.of("mysql", "mariadb", "tidb")) {
+      String insert = Dialects.byName(id).render(new CreateSequence(row));
+      assertTrue(insert.contains("'a\\\\''; DROP TABLE v; --'"), id + ": " + insert);
+      String delete = Dialects.byName(id).render(new DropSequence(row.name(), row));
+      assertTrue(delete.endsWith("'a\\\\''; DROP TABLE v; --'"), id + ": " + delete);
+    }
+    assertTrue(Dialects.byName("postgresql").render(new CreateSequence(row))
+        .contains("'a\\''; DROP TABLE v; --'"));
+    // MySQL reports a text default without quotes; quoted again, a backslash stays one.
+    assertEquals("'C:\\\\temp\\\\'",
+        Dialects.byName("mysql").schemaCatalog().columnDefault("varchar", "C:\\temp\\"));
   }
 
   @Test

@@ -16,7 +16,7 @@
 #   MIGRAX_JAR                    A Migrax jar to use instead of downloading one
 set -u
 
-MIGRAX_VERSION=${MIGRAX_VERSION:-0.17.1}
+MIGRAX_VERSION=${MIGRAX_VERSION:-0.19.0}
 OUT=${MIGRAX_OUT:-migrax-ci}
 mkdir -p "$OUT"
 OUT=$(cd "$OUT" && pwd)

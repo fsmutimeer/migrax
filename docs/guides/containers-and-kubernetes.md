@@ -16,7 +16,7 @@ or build is needed.
 ## The container image
 
 ```
-ghcr.io/fsmutimeer/migrax:0.17.1
+ghcr.io/fsmutimeer/migrax:0.19.0
 ```
 
 It has Java, Migrax and these JDBC drivers: PostgreSQL (also for CockroachDB and YugabyteDB), MariaDB (also
@@ -27,14 +27,14 @@ for MySQL servers), SQL Server, SQLite and H2. It runs as a non-root user, for `
     Java's Base64 decoder can overflow memory on x86-64 servers (Java 17, 21 and 25 before
     17.0.21.1, 21.0.13.1 and 25.0.5.1). The `amd64` image runs Java 21.0.13.1 from
     0.19.0-rc.4 on; older images, 0.17.1 included, still have the affected Java. On x86-64,
-    use 0.19.0-rc.4 or newer. The `arm64` image is not affected.
+    use 0.19.0 or newer. The `arm64` image is not affected.
 
 ```console
 $ docker run --rm -v "$PWD/src/main/resources/db/migration:/migrations:ro" \
     -e MIGRAX_DATABASE_URL=jdbc:postgresql://db:5432/shop \
     -e MIGRAX_DATABASE_USER=shop -e MIGRAX_DATABASE_PASSWORD_FILE=/run/secrets/db-password \
     -v "$PWD/db-password:/run/secrets/db-password:ro" \
-    ghcr.io/fsmutimeer/migrax:0.17.1 migrate
+    ghcr.io/fsmutimeer/migrax:0.19.0 migrate
 Applying migration '0001_initial.sql'...
 Successfully applied migration '0001_initial.sql'.
 Applied 1 migration(s); 1 total in /migrations.
@@ -55,7 +55,7 @@ $ docker run --rm -v "$PWD:/workspace" -w /workspace \
     -e MIGRAX_DATABASE_USER=shop -e MIGRAX_DATABASE_PASSWORD=secret \
     -e MIGRAX_LOCATIONS=filesystem:db/migrations -e MIGRAX_SCHEMA_FILE=db/schema.sql \
     -e MIGRAX_SCRATCH_URL=jdbc:postgresql://scratch:5432/scratch \
-    ghcr.io/fsmutimeer/migrax:0.17.1 generate
+    ghcr.io/fsmutimeer/migrax:0.19.0 generate
 Read db/schema.sql: 1 table(s).
 No snapshot yet: using the current database schema as the baseline.
 Created db/migrations/0001_initial.sql:
@@ -73,7 +73,7 @@ empty one with `--url`, for example `verify --url jdbc:postgresql://verify:5432/
 Usually the migrations are baked into an image built with each version of the application:
 
 ```dockerfile
-FROM ghcr.io/fsmutimeer/migrax:0.17.1
+FROM ghcr.io/fsmutimeer/migrax:0.19.0
 COPY src/main/resources/db/migration/ /migrations/
 # The snapshot lets 'migrax drift' compare the database with what the migrations produce.
 COPY .migrax/snapshot.json /workspace/.migrax/snapshot.json
@@ -85,7 +85,7 @@ MySQL Connector/J (also for TiDB) and Oracle's driver aren't included, because t
 differ from Migrax's. Add them in your image:
 
 ```dockerfile
-FROM ghcr.io/fsmutimeer/migrax:0.17.1
+FROM ghcr.io/fsmutimeer/migrax:0.19.0
 ADD --chmod=644 https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.1.0/mysql-connector-j-9.1.0.jar /opt/migrax/drivers/
 ```
 

@@ -6,6 +6,25 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-19
+
+The first stable release since 0.17.1. It contains everything in the release candidates
+0.17.2-rc.1 to 0.19.0-rc.4 (each in the [changelog](https://migrax.org/project/changelog/)),
+plus the fixes in this section. The main changes
+since 0.17.1:
+
+- `generate`, `check` and `plan` no longer wait for Maven or Gradle after an entity edit.
+- PostgreSQL: a migration waits at most 5 seconds for a table that another session has
+  locked (MXE117, `--table-lock-timeout`), so queries on that table don't queue behind it.
+- `generate` asks whether to keep the data it drops, so a rollback can restore it; `rollback`
+  warns about data its scripts can't bring back.
+- `verify` starts its throwaway database in the version of yours.
+- New lint rule MX018 (transaction control in a migration); `import` lists what still ties
+  the project to the old tool; JSON output for `status`, `generate`, `plan` and `check`.
+- Security: passwords stay hidden in more URLs and messages, the MCP server only reads files
+  of the project, and the container image has the fixed Java (CVE-2026-114938), `apt`
+  (CVE-2026-109518) and newer JDBC drivers.
+
 ### Security
 
 - Migrax refuses table, column and constraint names with a line break or another control
@@ -14,13 +33,18 @@ All notable changes to Migrax are listed here. The format follows
   line in the rollback script, and the rest of the name ran as SQL on `rollback`. Messages,
   errors, `plan`/`check`/`diff` reports, lint findings and `drift` show such characters as
   text (an escape character as `\u001b`) instead of sending them to the terminal.
+- MySQL, MariaDB and TiDB: a backslash in a table or column comment, a table-generator
+  sequence name or a text default of a schema file (read back through a MySQL or TiDB
+  database) is now written as `\\`. These databases read `\'` as a quote inside the string, so a comment such
+  as `x\'; DROP TABLE t; -- ` ended the string early and the rest ran as SQL, and a comment
+  ending in `\` (`C:\temp\`) broke the migration.
 - On PostgreSQL, a migration with a `COMMIT` hidden behind an `E'...'` string ending in `\'`,
-  or after a name ending in `$$`, was reported as MXE117 "Nothing was changed" when it then
-  waited too long for a table lock, although the statements before the `COMMIT` were
-  committed. It is now recorded as failed.
+  or after a name ending in `$$` (including a name with non-ASCII letters), was reported as
+  MXE117 "Nothing was changed" when it then waited too long for a table lock, although the
+  statements before the `COMMIT` were committed. It is now recorded as failed.
 - `import` no longer shows values written in Groovy slashy strings (`/.../`, `$/.../$`) or
-  triple-quoted strings, and shows a `group:artifact` from another group only where it is a
-  dependency; elsewhere it says `flyway coordinate` or `liquibase coordinate`.
+  triple-quoted strings, and shows a quoted `group:artifact` only where it is a dependency;
+  elsewhere it says `flyway coordinate` or `liquibase coordinate`.
 
 ## [0.19.0-rc.4] - 2026-11-19
 
@@ -1144,7 +1168,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.4...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...v0.19.0
 [0.19.0-rc.4]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.3...v0.19.0-rc.4
 [0.19.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.2...v0.19.0-rc.3
 [0.19.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.1...v0.19.0-rc.2
