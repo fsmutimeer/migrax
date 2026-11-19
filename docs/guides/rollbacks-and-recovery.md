@@ -56,6 +56,10 @@ In CI, in scripts and with `--no-input` or `--json` it doesn't ask: it writes th
 without backups and prints a warning, so pass `--keep-data` there when you want the data kept. `migrax rollback` also prints, before it runs, each
 change whose data its scripts can't bring back.
 
+Answer `n` when you drop the data on purpose, for example a column of personal data or
+passwords you no longer want to store. Kept data stays in a backup table in every database
+the migration runs on, until you drop it with `migrax backups --drop`.
+
 How the data is kept:
 
 - A dropped table is renamed to `migrax_backup_<migration>_<table>` instead. The rollback

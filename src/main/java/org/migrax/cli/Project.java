@@ -750,11 +750,12 @@ final class Project implements AutoCloseable {
    */
   ModelExtractor.Result extract(Dialect dialect) throws Exception {
     Path file = schemaFile();
-    if (file != null) {
-      return SchemaFile.read(this, file, dialect);
-    }
-    return ModelExtractor.extract(loader(true), entityPackages(), naming(), dialect,
-        readerSettings(), extractorMode());
+    ModelExtractor.Result result = file != null
+        ? SchemaFile.read(this, file, dialect)
+        : ModelExtractor.extract(loader(true), entityPackages(), naming(), dialect,
+            readerSettings(), extractorMode());
+    Names.check(result.model(), file != null ? display(file) : "the entities");
+    return result;
   }
 
   /**

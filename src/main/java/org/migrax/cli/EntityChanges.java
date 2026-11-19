@@ -60,6 +60,7 @@ record EntityChanges(SchemaModel previous, SchemaModel current, List<Operation> 
     } else {
       previous = SchemaModel.empty();
     }
+    Names.check(previous, hasSnapshot ? project.display(project.snapshot()) : "the database");
     current = DatabaseBaseline.align(current, previous, dialect);
     if (project.schemaFile() != null) {
       current = SchemaFile.withNamesFrom(current, previous);

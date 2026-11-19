@@ -19,6 +19,7 @@ import org.migrax.ops.DropUnique;
 import org.migrax.ops.Operation;
 import org.migrax.ops.RenameColumn;
 import org.migrax.ops.RenameTable;
+import org.migrax.util.Log;
 import org.migrax.verify.TableStats;
 import java.io.PrintStream;
 import java.util.List;
@@ -35,14 +36,14 @@ final class Reports {
     out.println(operations.size() + " change(s) for " + dialect.id() + ":");
     for (int i = 0; i < operations.size(); i++) {
       Operation operation = operations.get(i);
-      out.printf("%3d. %s%s%n", i + 1, Migrations.summary(operation),
+      out.printf("%3d. %s%s%n", i + 1, Log.terminalText(Migrations.summary(operation)),
           operation.destructive() ? "  [DESTRUCTIVE]" : "");
       for (String line : dialect.render(operation).split("\n")) {
-        out.println("     " + line + (line.endsWith(";") ? "" : ";"));
+        out.println("     " + Log.terminalText(line) + (line.endsWith(";") ? "" : ";"));
       }
       TableStats table = stats == null ? null : stats.get(table(operation));
       if (table != null) {
-        out.println("     impact: " + table(operation) + " " + table.describe());
+        out.println("     impact: " + Log.terminalText(table(operation)) + " " + table.describe());
       }
     }
   }
@@ -116,11 +117,11 @@ final class Reports {
 
   static void printFindings(PrintStream out, List<SqlLinter.Finding> findings) {
     for (SqlLinter.Finding finding : findings) {
-      out.println(finding.file() + ", statement " + finding.statement() + ": "
-          + finding.severity().name().toLowerCase(Locale.ROOT) + " " + finding.code());
-      out.println("  " + finding.sql());
-      out.println("  " + finding.message());
-      out.println("  Fix: " + finding.fix());
+      out.println(Log.terminalText(finding.file() + ", statement " + finding.statement() + ": "
+          + finding.severity().name().toLowerCase(Locale.ROOT) + " " + finding.code()));
+      out.println("  " + Log.terminalText(finding.sql()));
+      out.println("  " + Log.terminalText(finding.message()));
+      out.println("  Fix: " + Log.terminalText(finding.fix()));
     }
   }
 }

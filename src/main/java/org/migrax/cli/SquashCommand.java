@@ -120,6 +120,7 @@ final class SquashCommand implements Command {
       body.append("\n-- Resulting schema only; data statements of the replaced migrations are "
           + "not included.\n");
       SchemaModel schema = SnapshotStore.load(history);
+      Names.check(schema, project.display(history));
       for (Operation operation : dialect.prepare(
           context.diffEngine().diff(SchemaModel.empty(), schema), SchemaModel.empty(), schema)) {
         body.append(dialect.render(operation)).append(";\n");

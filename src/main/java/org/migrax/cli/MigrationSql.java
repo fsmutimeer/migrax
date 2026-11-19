@@ -109,12 +109,14 @@ final class MigrationSql {
                                        List<Operation> kept, List<String> notes) {
     StringBuilder header = new StringBuilder("-- Rollback for ").append(fileName)
         .append(". 'migrax rollback' runs it.\n");
-    notes.forEach(note -> header.append("-- ").append(note).append('\n'));
+    // Names.check refuses names with line breaks; printable() keeps every comment one line
+    // even if one gets here.
+    notes.forEach(note -> header.append("-- ").append(Names.printable(note)).append('\n'));
     for (Operation operation : forward) {
       if (kept.contains(operation)) {
         continue;
       }
-      String subject = subject(operation);
+      String subject = Names.printable(subject(operation));
       if (losesData(operation)) {
         header.append(DATA_WARNING).append("restores the structure of ").append(subject)
             .append(" but not its data.\n");

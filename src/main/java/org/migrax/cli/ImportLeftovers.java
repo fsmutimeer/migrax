@@ -302,6 +302,8 @@ final class ImportLeftovers {
   private static void scanBuildScript(String file, List<String> lines, String tool,
                                       String comment, List<Leftover> found) {
     boolean inBlockComment = false;
+    boolean groovy = file.endsWith(".gradle");
+    StringBuilder openString = new StringBuilder();
     for (int i = 0; i < lines.size(); i++) {
       String line = lines.get(i);
       if (inBlockComment) {
@@ -323,6 +325,7 @@ final class ImportLeftovers {
       if (line.length() > MAX_LINE) {
         continue;
       }
+      line = blankLongStrings(line, groovy, comment, openString);
       if (line.contains("project(")) {
         continue; // A module of this build, even when its name has the tool in it.
       }
@@ -331,6 +334,80 @@ final class ImportLeftovers {
         found.add(new Leftover(file, i + 1, name, "remove it"));
       }
     }
+  }
+
+  /**
+   * {@code line} with the text of triple-quoted strings ({@code """..."""}, {@code '''...'''})
+   * and, in Groovy, slashy strings ({@code /.../}, {@code $/.../$}) replaced by spaces: their
+   * text is a value, possibly over several lines. {@code open} holds the closing delimiter of
+   * a string still open at the end of the line, empty when none is.
+   */
+  private static String blankLongStrings(String line, boolean groovy, String comment,
+                                         StringBuilder open) {
+    StringBuilder result = new StringBuilder(line.length());
+    int i = 0;
+    while (i < line.length()) {
+      if (open.length() > 0) {
+        int end = closing(line, i, open.toString());
+        int stop = end < 0 ? line.length() : end + open.length();
+        result.append(" ".repeat(stop - i));
+        if (end >= 0) {
+          open.setLength(0);
+        }
+        i = stop;
+        continue;
+      }
+      if (line.startsWith(comment, i)) {
+        result.append(line, i, line.length());
+        break;
+      }
+      char ch = line.charAt(i);
+      if (line.startsWith("\"\"\"", i) || line.startsWith("'''", i)) {
+        open.append(line, i, i + 3);
+        result.append("   ");
+        i += 3;
+      } else if (ch == '"' || ch == '\'') {
+        int end = line.indexOf(ch, i + 1);
+        int stop = end < 0 ? line.length() : end + 1;
+        result.append(line, i, stop);
+        i = stop;
+      } else if (groovy && line.startsWith("$/", i)) {
+        open.append("/$");
+        result.append("  ");
+        i += 2;
+      } else if (groovy && ch == '/' && !line.startsWith("/*", i)
+          && startsValue(result.toString())) {
+        open.append('/');
+        result.append(' ');
+        i++;
+      } else {
+        result.append(ch);
+        i++;
+      }
+    }
+    return result.toString();
+  }
+
+  /** Where {@code delimiter} closes a string in {@code line} from {@code from}, or -1. */
+  private static int closing(String line, int from, String delimiter) {
+    int end = line.indexOf(delimiter, from);
+    // A slashy string's / can be escaped as \/.
+    while (end > 0 && delimiter.equals("/") && line.charAt(end - 1) == '\\') {
+      end = line.indexOf(delimiter, end + 1);
+    }
+    return end;
+  }
+
+  /** Whether a / after {@code before} starts a Groovy slashy string rather than dividing. */
+  private static boolean startsValue(String before) {
+    String text = before.stripTrailing();
+    return text.isEmpty() || "=(,:[?!{~".indexOf(text.charAt(text.length() - 1)) >= 0
+        || endsWithWord(text, "return");
+  }
+
+  private static boolean endsWithWord(String text, String word) {
+    return text.endsWith(word) && (text.length() == word.length()
+        || !Character.isLetterOrDigit(text.charAt(text.length() - word.length() - 1)));
   }
 
   /** The first name of the tool on a build script line, reading quoted text as described. */
@@ -349,8 +426,9 @@ final class ImportLeftovers {
         if (flushed != null) {
           return flushed;
         }
+        String before = unquoted.toString();
         unquoted.setLength(0);
-        String coordinate = coordinate(quoted, tool);
+        String coordinate = coordinate(quoted, tool, before);
         if (coordinate != null) {
           return coordinate;
         }
@@ -390,9 +468,11 @@ final class ImportLeftovers {
    * text is {@code group:artifact[:version]} with a dotted group and an artifact named after the
    * tool, both in lower case as published. The version may be anything
    * ({@code $flywayVersion}, {@code 10.+}) and is left out. Null for anything else, such as a
-   * URL, text with spaces or capitals.
+   * URL, text with spaces or capitals. Assigned or passed along as a value ({@code x = '...'},
+   * {@code "key" to "..."}), text that isn't in the tool's own group may be anything, so it is
+   * not shown: then just the tool is named ({@code flyway coordinate}).
    */
-  private static String coordinate(String quoted, String tool) {
+  private static String coordinate(String quoted, String tool, String before) {
     String[] parts = quoted.split(":", 3);
     if (parts.length == 1) {
       return PLUGIN_IDS.contains(quoted) && quoted.contains(tool) ? quoted : null;
@@ -405,7 +485,30 @@ final class ImportLeftovers {
     }
     boolean named = artifact.startsWith(tool + "-") || artifact.endsWith("-" + tool)
         || artifact.contains("-" + tool + "-") || artifact.equals(tool);
-    return named ? group + ":" + artifact : null;
+    if (!named) {
+      return null;
+    }
+    boolean ownGroup = group.equals("org.flywaydb") || group.equals("org.liquibase");
+    return ownGroup || isDependency(before) ? group + ":" + artifact : tool + " coordinate";
+  }
+
+  /**
+   * Whether quoted text after {@code before} is a dependency or plugin
+   * ({@code implementation '...'}, {@code classpath("...")}) rather than a value.
+   */
+  private static boolean isDependency(String before) {
+    String text = before.stripTrailing();
+    if (text.isEmpty()) {
+      return false;
+    }
+    char last = text.charAt(text.length() - 1);
+    // A version catalog's module = "group:artifact" is a dependency too.
+    if (last == '=' && endsWithWord(text.substring(0, text.length() - 1).stripTrailing(),
+        "module")) {
+      return true;
+    }
+    // Kotlin's "key" to "value" pairs a value with its key.
+    return last == '(' || Character.isLetter(last) && !endsWithWord(text, "to");
   }
 
   private static void scanProperties(String file, List<String> lines, String tool,

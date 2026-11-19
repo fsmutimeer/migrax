@@ -373,7 +373,8 @@ final class GenerateCommand implements Command {
       printBaseline(context, baselineFile, changes.previous());
     }
     StringBuilder notes = new StringBuilder();
-    plan.notes().forEach(note -> notes.append("-- Note: ").append(note).append('\n'));
+    plan.notes().forEach(
+        note -> notes.append("-- Note: ").append(Names.printable(note)).append('\n'));
     String expandHeader = "-- Expand step of a zero-downtime change: safe while instances of "
         + "the old version still run.\n-- The contract step (" + contractName + ") waits in "
         + project.root().relativize(PendingContracts.folder(project)).toString()
@@ -490,8 +491,8 @@ final class GenerateCommand implements Command {
     }
     String what = String.join(", ", losing);
     if (context.asksQuestions()) {
-      context.out().println("A rollback of this migration restores the structure of " + what
-          + ", but not the data.");
+      context.out().println("A rollback of this migration restores the structure of "
+          + Log.terminalText(what) + ", but not the data.");
       boolean keep = context.confirm(
           "Keep the dropped data in backup tables so a rollback can restore it?", true);
       if (keep || context.interactive()) {

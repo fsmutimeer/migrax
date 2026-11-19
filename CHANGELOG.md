@@ -6,6 +6,22 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Security
+
+- Migrax refuses table, column and constraint names with a line break or another control
+  character (MXE118), whether they come from the entities, the schema file, the database
+  (the first `generate`) or `.migrax/snapshot.json`. A line break in a name ended a comment
+  line in the rollback script, and the rest of the name ran as SQL on `rollback`. Messages,
+  errors, `plan`/`check`/`diff` reports, lint findings and `drift` show such characters as
+  text (an escape character as `\u001b`) instead of sending them to the terminal.
+- On PostgreSQL, a migration with a `COMMIT` hidden behind an `E'...'` string ending in `\'`,
+  or after a name ending in `$$`, was reported as MXE117 "Nothing was changed" when it then
+  waited too long for a table lock, although the statements before the `COMMIT` were
+  committed. It is now recorded as failed.
+- `import` no longer shows values written in Groovy slashy strings (`/.../`, `$/.../$`) or
+  triple-quoted strings, and shows a `group:artifact` from another group only where it is a
+  dependency; elsewhere it says `flyway coordinate` or `liquibase coordinate`.
+
 ## [0.19.0-rc.4] - 2026-11-19
 
 Release candidate for 0.19.0, for testing.
