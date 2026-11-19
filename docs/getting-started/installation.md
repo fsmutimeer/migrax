@@ -131,7 +131,7 @@ different Java for one terminal session, set `JAVA_HOME` there:
 === "Windows (PowerShell)"
 
     ```powershell
-    $env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot"
+    $env:JAVA_HOME = "C:\path\to\jdk-25"
     ```
 
 === "macOS and Linux"
@@ -141,6 +141,10 @@ different Java for one terminal session, set `JAVA_HOME` there:
     ```
 
 Extra JVM options go in `MIGRAX_JAVA_OPTS`.
+
+Keep that Java up to date: Migrax gets Java's security fixes from it. For CVE-2026-114938
+(November 2026, Java's Base64 decoder on x86-64), use at least Java 17.0.21.1, 21.0.13.1 or
+25.0.5.1; `java -version` shows which one you have.
 
 ## Updating and uninstalling
 
