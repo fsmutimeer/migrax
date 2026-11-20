@@ -25,9 +25,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** {@code migrax doctor}: check Java, build, entities and the database connection. */
 final class DoctorCommand implements Command {
+
+  // A URL scheme (RFC 3986); capped so a long token is never taken for one.
+  private static final Pattern URL_SCHEME = Pattern.compile("[A-Za-z][A-Za-z0-9+.-]{0,30}://");
 
   @Override
   public String name() {
@@ -221,8 +226,7 @@ final class DoctorCommand implements Command {
 
     String skipped = project.skippedUrlVariable();
     if (skipped != null) {
-      doctor.warn(skipped + " is not a JDBC URL ("
-          + RuntimeJdbc.sanitizeUrl(System.getenv(skipped))
+      doctor.warn(skipped + " is not a JDBC URL (" + urlKind(System.getenv(skipped))
           + "), so Migrax skips it. Set migrax.url or MIGRAX_DATABASE_URL for Migrax.");
     }
     if (!project.hasUrl()) {
@@ -317,6 +321,16 @@ final class DoctorCommand implements Command {
       return null;
     }
     return springVersion != null ? spring : micronautVersion != null ? micronaut : null;
+  }
+
+  /**
+   * What kind of value a skipped URL variable holds, without any of it: its scheme
+   * ({@code it starts with postgres://}), or that it does not look like a URL. The rest can hold
+   * a password in forms no masking knows, so it is never shown.
+   */
+  static String urlKind(String value) {
+    Matcher scheme = URL_SCHEME.matcher(value == null ? "" : value.strip());
+    return scheme.lookingAt() ? "it starts with " + scheme.group() : "it does not look like a URL";
   }
 
   private static boolean loadable(ClassLoader loader, String name) {
