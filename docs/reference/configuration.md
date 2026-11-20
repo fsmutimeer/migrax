@@ -12,7 +12,8 @@ When you do want to set something, every setting can come from several places.
 1. **Command line options**, such as `--url` or `--naming`.
 2. **System properties**: `-Dmigrax.<key>`, set through `MIGRAX_JAVA_OPTS`.
 3. **Environment variables**: `MIGRAX_<KEY>`, with dots and dashes turned into underscores.
-4. **Application configuration**: `migrax.<key>` in your application's own files.
+4. **Application configuration**: `migrax.<key>` in `migrax.properties` in the project folder,
+   then in your application's own files (below).
 5. **Your framework's settings**, such as `spring.datasource.url`.
 
 Application configuration files, from lowest to highest priority:
@@ -24,8 +25,17 @@ Application configuration files, from lowest to highest priority:
 | `application.properties`, `application.yml`, `application.yaml` | Spring Boot, Quarkus, Micronaut, Helidon SE |
 | `application-<profile>.*`, `microprofile-config-<profile>.properties` | the active profile |
 
+`migrax.properties` in the project folder (next to `pom.xml` or `build.gradle`, or on its own
+in a project [without Java](../frameworks/any-language.md)) is Migrax's own file: its `migrax.*`
+keys win over all of the files above. The `migrax` command, the Maven goals and the Gradle
+plugin read it; the startup integrations read the application's settings instead. It also
+marks the project folder, so commands find it from any folder below. It is not the
+`migrax.properties` that the [Jakarta EE integration](../frameworks/jakarta-ee.md) reads from
+`src/main/resources`.
+
 The active profile comes from `MIGRAX_PROFILE`, `QUARKUS_PROFILE`, `SPRING_PROFILES_ACTIVE`,
-`MICRONAUT_ENVIRONMENTS` or `MP_CONFIG_PROFILE`, or the matching key in the configuration.
+`MICRONAUT_ENVIRONMENTS` or `MP_CONFIG_PROFILE`, or the matching key in the configuration
+(`migrax.profile` in `migrax.properties` first).
 Several comma-separated profiles are loaded in order. `${VAR}` and `${VAR:default}` placeholders
 in values are resolved from the environment.
 

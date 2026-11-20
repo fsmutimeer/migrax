@@ -24,6 +24,34 @@ class ProjectContextTest {
   }
 
   @Test
+  void migraxPropertiesMarksAProjectWithoutABuildFile() throws Exception {
+    // A Python service inside a repository whose root has a pom.xml.
+    Files.writeString(directory.resolve("pom.xml"), "<project/>");
+    Path service = directory.resolve("services/shop");
+    Path nested = service.resolve("db/migrations");
+    Files.createDirectories(nested);
+    Files.writeString(service.resolve("migrax.properties"), "migrax.url=jdbc:sqlite:shop.db\n");
+
+    assertEquals(service, ProjectContext.findRoot(nested));
+  }
+
+  @Test
+  void theJakartaFileInResourcesDoesNotStopTheSearch() throws Exception {
+    Path root = directory.resolve("app");
+    Path migrations = root.resolve("src/main/resources/db/migration");
+    Files.createDirectories(migrations);
+    Files.writeString(root.resolve("pom.xml"), "<project/>");
+    Files.writeString(root.resolve("src/main/resources/migrax.properties"),
+        "migrax.locations=db/migration\n");
+    Files.createDirectories(root.resolve("target/classes"));
+    Files.writeString(root.resolve("target/classes/migrax.properties"),
+        "migrax.locations=db/migration\n");
+
+    assertEquals(root, ProjectContext.findRoot(migrations));
+    assertEquals(root, ProjectContext.findRoot(root.resolve("target/classes")));
+  }
+
+  @Test
   void usesMavenGroupIdWhenEntityPackageIsNotSpecified() throws Exception {
     Path root = directory.resolve("project");
     Files.createDirectories(root);

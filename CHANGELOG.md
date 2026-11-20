@@ -6,6 +6,15 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `migrax.properties` in the project folder: Migrax's own settings file (`migrax.url`,
+  `migrax.user`, `migrax.locations` and every other `migrax.*` key), for projects without
+  `application.properties`, such as Python, Node.js or Go services with hand-written SQL. It
+  wins over the application's files and loses to environment variables and options. It also
+  marks the project folder, so commands find it from a folder below, also inside a repository
+  whose root has a `pom.xml`. Without a database URL in such a project, the error now points
+  to `migrax.url in migrax.properties` instead of a Spring setting.
+
 ## [0.19.0] - 2026-11-19
 
 The first stable release since 0.17.1. It contains everything in the release candidates

@@ -202,9 +202,17 @@ final class Project implements AutoCloseable {
     return ProjectDatabaseConfig.detectFramework(config(), root);
   }
 
-  /** The detected framework's database URL setting, e.g. datasources.default.url. */
+  /**
+   * The detected framework's database URL setting, e.g. datasources.default.url; for a project
+   * without a framework or a Maven or Gradle build (Python, Node.js, Go), Migrax's own file.
+   */
   String urlSetting() throws Exception {
-    return ProjectDatabaseConfig.urlSetting(framework());
+    ProjectDatabaseConfig.Framework framework = framework();
+    if (framework == ProjectDatabaseConfig.Framework.UNKNOWN
+        && ProjectBuild.detect(root) == ProjectBuild.Tool.NONE) {
+      return "migrax.url in migrax.properties";
+    }
+    return ProjectDatabaseConfig.urlSetting(framework);
   }
 
   boolean hasUrl() throws Exception {
