@@ -29,8 +29,9 @@ public final class RuntimeJdbc {
    * Everything after the first of these counts as its value: a mistyped password can hold the ;
    * or & that ends a setting, and the text after it can't be told from the next setting.
    */
-  private static final Pattern SECRET_NAME =
-      Pattern.compile("(?i)(?:password\\d*|pwd|secret|key|token)\\s*=\\s*");
+  private static final Pattern SECRET_NAME = Pattern.compile(
+      "(?i)(?:password\\d*|passwd|passphrase|pass|pswd|psw|pwd|pw|secret|key|token"
+          + "|credentials?)\\s*=\\s*");
   /** Where the user starts when // was mistyped; these databases have no user:password@ form. */
   private static final Pattern MISTYPED_START =
       Pattern.compile("(?i)^[^a-z]*jdbc:(?!h2:|sqlite:|derby:|hsqldb:)[a-z0-9]+:");
@@ -65,7 +66,9 @@ public final class RuntimeJdbc {
     // The password is masked: the user:password@ rule is skipped so the Oracle user stays visible.
     boolean oracle = !sanitized.equals(url);
     // password=, MySQL's password1= to password3=, SQL Server's pwd=, keyStoreSecret= and
-    // aadSecurePrincipalSecret= (any name ending in secret), and SQLCipher's key= in a SQLite URL.
+    // aadSecurePrincipalSecret= (any name ending in secret), and SQLCipher's key= in a SQLite URL;
+    // also the short and spelled-out forms people type (passwd=, pass=, pw=, psw=, pswd=,
+    // passphrase=, credentials=), which a driver may pass on even when it doesn't know them.
     // Before the user:password@ rule, so a password with @ in it can't be taken for the end of
     // that part. Hiding harmless settings by mistake is fine.
     Matcher name = SECRET_NAME.matcher(sanitized);
