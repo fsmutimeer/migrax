@@ -15,6 +15,13 @@ All notable changes to Migrax are listed here. The format follows
   whose root has a `pom.xml`. Without a database URL in such a project, the error now points
   to `migrax.url in migrax.properties` instead of a Spring setting.
 
+### Fixed
+- A `DATABASE_URL` or `DB_URL` that is not a JDBC URL, as applications in other languages set
+  it (`postgres://...`, `sqlite:///...`), made every command fail with "No JDBC driver accepts
+  URL", even with `migrax.url` set. Migrax now skips such a value and reads the next setting;
+  `doctor` and the "No database URL found" error say it was skipped. A JDBC URL in these
+  variables works as before.
+
 ## [0.19.0] - 2026-11-19
 
 The first stable release since 0.17.1. It contains everything in the release candidates

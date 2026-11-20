@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.UnaryOperator;
 
 public final class ProjectDatabaseConfig {
   private static final List<String> URL_KEYS = List.of(
@@ -48,7 +49,27 @@ public final class ProjectDatabaseConfig {
       "javax.persistence.jdbc.password",
       "hibernate.connection.password");
 
+  /**
+   * Variables that hosting platforms and frameworks in other languages set for any application,
+   * often not as a JDBC URL ({@code postgres://...}, {@code sqlite:///...}). Such a value can't
+   * reach a JDBC driver, so Migrax skips it and reads the next setting instead.
+   */
+  private static final List<String> GENERIC_URL_VARIABLES = List.of("DATABASE_URL", "DB_URL");
+
   private ProjectDatabaseConfig() {}
+
+  /** The main database's URL, looked up as {@link #load} does. */
+  static String url(Map<String, String> config, Map<String, String> overrides,
+                    UnaryOperator<String> environment, List<String> skipped) {
+    String helidon = helidonDataSource(config);
+    String micronaut = micronautDataSource(config);
+    return setting(overrides, "url", "migrax.url", "MIGRAX_DATABASE_URL",
+        environmentKeys(List.of("QUARKUS_DATASOURCE_JDBC_URL", "QUARKUS_DATASOURCE_URL",
+            "SPRING_DATASOURCE_URL", "DATASOURCES_DEFAULT_URL"), helidon, "DATASOURCE_URL",
+            GENERIC_URL_VARIABLES),
+        configKeys("migrax.url", URL_KEYS, helidon, HELIDON_URL_KEYS, micronaut, "url"), config,
+        environment, skipped);
+  }
 
   public static Credentials load(Path resourcesDirectory, Map<String, String> overrides)
       throws IOException {
@@ -56,11 +77,7 @@ public final class ProjectDatabaseConfig {
     String helidon = helidonDataSource(config);
     String micronaut = micronautDataSource(config);
 
-    String url = setting(overrides, "url", "migrax.url", "MIGRAX_DATABASE_URL",
-        environmentKeys(List.of("QUARKUS_DATASOURCE_JDBC_URL", "QUARKUS_DATASOURCE_URL",
-            "SPRING_DATASOURCE_URL", "DATASOURCES_DEFAULT_URL"), helidon, "DATASOURCE_URL",
-            List.of("DATABASE_URL", "DB_URL")),
-        configKeys("migrax.url", URL_KEYS, helidon, HELIDON_URL_KEYS, micronaut, "url"), config);
+    String url = url(config, overrides, System::getenv, null);
     String user = setting(overrides, "user", "migrax.user", "MIGRAX_DATABASE_USER",
         environmentKeys(List.of("QUARKUS_DATASOURCE_USERNAME", "SPRING_DATASOURCE_USERNAME",
             "DATASOURCES_DEFAULT_USERNAME"), helidon, "DATASOURCE_USER",
@@ -835,8 +852,30 @@ public final class ProjectDatabaseConfig {
       List<String> environmentKeys,
       List<String> configKeys,
       Map<String, String> config) {
+    return setting(overrides, overrideKey, property, migraxEnvironment, environmentKeys,
+        configKeys, config, System::getenv, null);
+  }
+
+  /**
+   * One setting, in Migrax's order: option, system property, Migrax's variable, its file, the
+   * framework and generic variables, the config keys.
+   *
+   * @param environment the environment variables ({@code System::getenv}; tests pass others)
+   * @param skipped collects the generic URL variables passed over for not holding a JDBC URL,
+   *     only those this lookup really reached; null to collect nothing
+   */
+  static String setting(
+      Map<String, String> overrides,
+      String overrideKey,
+      String property,
+      String migraxEnvironment,
+      List<String> environmentKeys,
+      List<String> configKeys,
+      Map<String, String> config,
+      UnaryOperator<String> environment,
+      List<String> skipped) {
     String value = firstNonBlank(overrides.get(overrideKey),
-        System.getProperty(property), System.getenv(migraxEnvironment));
+        System.getProperty(property), environment.apply(migraxEnvironment));
     if (value != null) {
       return resolve(value);
     }
@@ -844,15 +883,23 @@ public final class ProjectDatabaseConfig {
     // MIGRAX_DATABASE_PASSWORD_FILE, and the same for the user and URL.
     String fromFile = fromFile(overrides.get(overrideKey + "-file"), "--" + overrideKey + "-file");
     if (fromFile == null) {
-      fromFile = fromFile(System.getenv(migraxEnvironment + "_FILE"), migraxEnvironment + "_FILE");
+      fromFile = fromFile(environment.apply(migraxEnvironment + "_FILE"),
+          migraxEnvironment + "_FILE");
     }
     if (fromFile != null) {
       return fromFile;
     }
     for (String key : environmentKeys) {
-      value = System.getenv(key);
+      value = environment.apply(key);
       if (value != null && !value.isBlank()) {
-        return resolve(value);
+        String resolved = resolve(value);
+        if (resolved != null && !usableUrl(key, resolved)) {
+          if (skipped != null) {
+            skipped.add(key);
+          }
+          continue;
+        }
+        return resolved;
       }
     }
     for (String key : configKeys) {
@@ -862,6 +909,28 @@ public final class ProjectDatabaseConfig {
       }
     }
     return null;
+  }
+
+  /** False only for a generic URL variable whose value is not a JDBC URL. */
+  static boolean usableUrl(String variable, String value) {
+    return !GENERIC_URL_VARIABLES.contains(variable)
+        || value.regionMatches(true, 0, "jdbc:", 0, "jdbc:".length());
+  }
+
+  /**
+   * The generic URL variable ({@code DATABASE_URL}, {@code DB_URL}) that the database URL lookup
+   * passed over because it holds no JDBC URL; null when the URL came from a setting before it,
+   * or none was passed over. Explains a missing URL or a different database than expected.
+   *
+   * <p>Internal: used by the command line, not a supported API.
+   *
+   * @since 0.19.1
+   */
+  public static String skippedUrlVariable(Path resourcesDirectory, Map<String, String> overrides)
+      throws IOException {
+    List<String> skipped = new java.util.ArrayList<>();
+    url(loadConfig(resourcesDirectory), overrides, System::getenv, skipped);
+    return skipped.isEmpty() ? null : skipped.get(0);
   }
 
   private static void loadProperties(Path file, Map<String, String> values) throws IOException {
