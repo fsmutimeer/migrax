@@ -219,6 +219,12 @@ final class DoctorCommand implements Command {
       doctor.info("Snapshot: none yet; the first generate uses the database as baseline");
     }
 
+    String skipped = project.skippedUrlVariable();
+    if (skipped != null) {
+      doctor.warn(skipped + " is not a JDBC URL ("
+          + RuntimeJdbc.sanitizeUrl(System.getenv(skipped))
+          + "), so Migrax skips it. Set migrax.url or MIGRAX_DATABASE_URL for Migrax.");
+    }
     if (!project.hasUrl()) {
       doctor.fail("Database URL not configured",
           "Set " + project.urlSetting() + ", MIGRAX_DATABASE_URL, or pass --url.");

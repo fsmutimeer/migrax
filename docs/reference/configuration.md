@@ -120,7 +120,12 @@ migration.
 | Helidon MP | `javax.sql.DataSource.<name>.dataSource.url` (or `jdbcUrl`, `URL`) | `...dataSource.user` / `...dataSource.password` |
 | Helidon SE | `db.connection.url` | `db.connection.username` / `.password` |
 | Jakarta EE | `jakarta.persistence.jdbc.url`, `javax.persistence.jdbc.url`, `hibernate.connection.url` | `...jdbc.user` / `...jdbc.password` |
-| Any | `DATABASE_URL`, `DB_URL` | `DB_USERNAME` / `DB_PASSWORD` |
+| Any | `DATABASE_URL`, `DB_URL` (only a JDBC URL, see below) | `DB_USERNAME` / `DB_PASSWORD` |
+
+`DATABASE_URL` and `DB_URL` are often set for an application in another language, as
+`postgres://...` or `sqlite:///...`. Migrax uses them only when they hold a JDBC URL
+(`jdbc:...`); otherwise it skips them and reads the next setting, such as `migrax.url`.
+`migrax doctor` says so, and so does the error when no other URL is found.
 
 ### Hibernate settings
 

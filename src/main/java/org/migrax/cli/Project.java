@@ -161,14 +161,29 @@ final class Project implements AutoCloseable {
     return ProjectDatabaseConfig.migraxSetting(config(), key);
   }
 
+  /** The database settings given as options, which win over every other setting. */
+  private Map<String, String> overrides() {
+    return Map.of(
+        "url", args.option("--url", ""),
+        "user", args.option("--user", ""),
+        "password", args.option("--password", ""),
+        "password-file", args.option("--password-file", ""),
+        "locations", args.option("--locations", ""));
+  }
+
+  /**
+   * DATABASE_URL or DB_URL when the main database's URL lookup passed over it for not holding a
+   * JDBC URL (postgres://..., as other languages set it); null otherwise and for --database.
+   */
+  String skippedUrlVariable() throws Exception {
+    return database == null
+        ? ProjectDatabaseConfig.skippedUrlVariable(resources(), overrides())
+        : null;
+  }
+
   ProjectDatabaseConfig.Credentials credentials() throws Exception {
     if (credentials == null) {
-      Map<String, String> overrides = Map.of(
-          "url", args.option("--url", ""),
-          "user", args.option("--user", ""),
-          "password", args.option("--password", ""),
-          "password-file", args.option("--password-file", ""),
-          "locations", args.option("--locations", ""));
+      Map<String, String> overrides = overrides();
       ProjectDatabaseConfig.Credentials loaded;
       if (database == null) {
         loaded = ProjectDatabaseConfig.load(resources(), overrides);
@@ -192,8 +207,10 @@ final class Project implements AutoCloseable {
                 + database.toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]", "_")
                 + "_URL, or pass --url.");
       }
+      String skipped = skippedUrlVariable();
       throw new UsageException(ErrorCode.NO_DATABASE_URL, "No database URL found.",
-          "Set " + urlSetting() + ", set MIGRAX_DATABASE_URL, or pass --url.");
+          (skipped == null ? "" : skipped + " is set but is not a JDBC URL, so Migrax skips it. ")
+              + "Set " + urlSetting() + ", set MIGRAX_DATABASE_URL, or pass --url.");
     }
     return credentials();
   }

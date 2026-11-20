@@ -50,10 +50,10 @@ The commands that compare the database with Java entities (`generate`, `check`, 
     The file also marks the project folder: Migrax finds it from any folder below, and the
     [IntelliJ plugin](../intellij.md) finds the project by it.
 
-    Environment variables work too and win over the file. That includes `DATABASE_URL` and
-    `DB_URL`: if your environment sets one for the application, it must be a JDBC URL, or set
-    `MIGRAX_DATABASE_URL`, which comes first. The container image doesn't see the file, so it
-    needs the variables:
+    Environment variables work too and win over the file. A `DATABASE_URL` or `DB_URL` that
+    your environment sets for the application counts only as a JDBC URL: `postgres://...` or
+    `sqlite:///...` is skipped, and Migrax uses the file. The container image doesn't see the
+    file, so it needs the variables:
 
     ```bash
     export MIGRAX_DATABASE_URL=jdbc:postgresql://localhost:5432/shop
