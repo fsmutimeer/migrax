@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.20.0-rc.1] - 2026-11-20
+
+Release candidate for 0.20.0, for testing.
+
 ### Added
 - `migrax.properties` in the project folder: Migrax's own settings file (`migrax.url`,
   `migrax.user`, `migrax.locations` and every other `migrax.*` key), for projects without
@@ -1184,7 +1188,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.20.0-rc.1...HEAD
+[0.20.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.19.0...v0.20.0-rc.1
 [0.19.0]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...v0.19.0
 [0.19.0-rc.4]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.3...v0.19.0-rc.4
 [0.19.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.2...v0.19.0-rc.3
