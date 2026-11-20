@@ -1,12 +1,14 @@
 ---
 seo_title: "IntelliJ IDEA plugin for database migrations"
-description: "The Migrax plugin for IntelliJ IDEA: generate, review, apply and roll back database migrations from JPA entities without leaving the editor. Free, for Community and Ultimate."
+description: "The Migrax plugin for IntelliJ IDEA and the other JetBrains IDEs: generate, review, apply and roll back database migrations without leaving the editor. Free, for IntelliJ IDEA, PyCharm, WebStorm, GoLand, Rider and more."
 ---
 # IntelliJ IDEA plugin
 
 The Migrax plugin brings Migrax into IntelliJ IDEA: a tool window with the state of every
 migration, buttons for the everyday commands, an icon next to entity classes whose changes are
-not in a migration yet, and lint findings marked inside migration files.
+not in a migration yet, and lint findings marked inside migration files. It also runs in
+PyCharm, WebStorm, GoLand, Rider and the other JetBrains IDEs, for projects with
+[hand-written SQL migrations](frameworks/any-language.md).
 
 The plugin has no migration logic of its own. Every button runs the Migrax command line in the
 background and shows its answer, so the IDE gives exactly the result your terminal and your CI
@@ -20,10 +22,10 @@ is on [GitHub](https://github.com/fsmutimeer/migrax-intellij).
 
 | What | Needed |
 |---|---|
-| IDE | IntelliJ IDEA 2024.2 or newer, Community or Ultimate |
+| IDE | IntelliJ IDEA 2024.2 or newer (Community or Ultimate), or another JetBrains IDE from 2024.2 on: PyCharm, WebStorm, GoLand, Rider and the others |
 | Migrax | 0.17 or newer. Without one, the plugin offers to download it ([below](#the-migrax-command)) |
 | Java | 17 or newer, for the Migrax command |
-| Project | JPA/Hibernate entities and a `pom.xml` or `build.gradle`, as for the [command line](getting-started/quickstart.md) |
+| Project | Migrations in SQL files. For **Generate**, **Plan**, **Drift** and **Verify** also JPA/Hibernate entities and a `pom.xml` or `build.gradle`, as for the [command line](getting-started/quickstart.md) |
 
 Some buttons need more:
 
@@ -32,13 +34,16 @@ Some buttons need more:
 - **Verify** starts a throwaway database: in memory for H2, HSQLDB and Derby, in Docker for the
   others.
 - **Kotlin entities** need the Kotlin plugin, which comes with IntelliJ IDEA.
+- **Roll Back's** list of what it brings back without data needs Migrax 0.19 or newer, and
+  `migrax.properties` in the project folder needs Migrax 0.20 or newer.
 
 ## Install
 
 1. In IntelliJ IDEA open **Settings > Plugins > Marketplace**, search for **Migrax** and click
    **Install**.
 2. Open your service's project. The plugin finds Migrax projects by their `.migrax` folder,
-   `migrax.properties` or `migrax.*` settings, also in a sub-folder up to three levels deep.
+   `migrax.properties` or `migrax.*` settings, also in a sub-folder up to three levels deep, or
+   by a database set for the project ([below](#the-projects-database)).
 3. In a project that does not use Migrax yet, click **Set up Migrax** in the Migrax tool window
    (or **Tools > Migrax > Set Up Migrax...**) and pick the service's folder. It runs
    [`migrax init`](reference/cli.md#init) there and shows what Migrax detected.
@@ -71,6 +76,21 @@ notification offers **Use the Installed Migrax** when it finds another Migrax on
 or else **Clear the Setting**, after which the plugin offers the download. It never switches by itself,
 since another Migrax version could write different migrations.
 
+### The project's database
+
+The plugin's commands use the database in the project's own settings, as in a terminal. For a
+project whose settings Migrax can't read from a file (such as a Python project that gets its
+database from environment variables in a terminal, which the IDE doesn't see), or to use another
+database in the IDE, set it in **Settings > Tools > Migrax > This Project**: the JDBC URL, the
+user, the password and the migrations folder.
+
+- They are kept for you only: in the IDE's workspace file, which is normally not committed, and
+  the password in the IDE's password store.
+- Every Migrax command gets them as `MIGRAX_DATABASE_URL`, `MIGRAX_DATABASE_USER`,
+  `MIGRAX_DATABASE_PASSWORD` and `MIGRAX_LOCATIONS`, so they win over the project's files and
+  work with every Migrax version. A user or password left empty comes from the files.
+- Clearing the URL also forgets the saved password.
+
 ## The tool window
 
 Open **View > Tool Windows > Migrax**, or click the Migrax entry in the status bar.
@@ -100,7 +120,7 @@ folder in the Project view, or a SQL, Java or Kotlin file in the editor. A butto
 | Generate Migration | Writes the next migration from your entity changes and opens it with its rollback script. It asks "Did you rename ...?" for a change that looks like a rename, and asks before dropping tables or columns, keeping a backup of the dropped data by default. | [`migrax generate`](reference/cli.md#generate) |
 | Show Plan | Opens the Plan tab | [`migrax plan`](reference/cli.md#plan) |
 | Migrate... | Shows the database and the pending migrations, then applies them | [`migrax migrate`](reference/cli.md#migrate) |
-| Roll Back... | Shows the database and the newest applied migration, then rolls it back | [`migrax rollback`](reference/cli.md#rollback) |
+| Roll Back... | Shows the database and the newest applied migration, and the tables and columns that come back without their data (dropped by a migration made without a backup), then rolls it back | [`migrax rollback`](reference/cli.md#rollback) |
 | Repair... | Removes migrations whose file was deleted from the history, and marks a failed one as applied or to run again | [`migrax repair`](reference/cli.md#repair) |
 | Drift | Lists changes made to the database outside the migrations | [`migrax drift`](reference/cli.md#drift) |
 | Doctor | Checks Java, the build, the entities and the database connection | [`migrax doctor`](reference/cli.md#doctor) |
@@ -126,13 +146,25 @@ cancelled: stopping halfway could leave a migration half applied.
   Migration** or **Show Plan**. Turn it off in **Settings > Editor > General > Gutter Icons**.
 - **Migration files:** a risky statement is underlined (red for errors), and its tooltip gives
   the [lint rule](reference/lint-rules.md), the message and the fix. The text in the editor is
-  checked, also before you save it.
+  checked, also before you save it. **Alt+Enter** on a finding ignores it for that statement
+  (`-- migrax:lint-ignore MX007` above it) or for the whole file, and for MX012 adds
+  `-- migrax:no-transaction`. These aren't offered on a migration the database has already run:
+  editing it would change its checksum.
 - **Status bar:** "Migrax: 2 pending", "Migrax: in sync", with failed migrations and entity
   changes that are not in a migration yet. A click checks again and opens the tool window.
 
 The status bar, the margin icons and the greyed-out buttons check again about 5 seconds after an
 entity, migration or settings file changes. That check may build the project; turn it off in
 **Settings > Tools > Migrax**.
+
+## Untrusted projects
+
+In a project the IDE doesn't trust (opened in Safe Mode), the plugin runs nothing: no status
+check, no lint marks, no actions. A project's settings files can fill the database URL with your
+environment variables and point it at another server, so opening a cloned repository must not
+make Migrax connect anywhere. The status bar says "Migrax: not trusted" and the buttons are
+greyed out. Trust the project with the Safe Mode banner, then click **Refresh** in the Migrax
+tool window.
 
 ## Limitations
 
@@ -143,7 +175,9 @@ entity, migration or settings file changes. That check may build the project; tu
   the command line.
 - Squash and merge are not in the IDE yet: use [`migrax squash`](reference/cli.md#squash) and
   [`migrax merge`](reference/cli.md#merge).
-- Other JetBrains IDEs are not supported yet.
+- In IDEs without Java support (PyCharm, WebStorm, GoLand, Rider and others) there is no icon
+  next to entity classes. In a project without a Maven or Gradle build, Generate, Plan, Drift and
+  Verify are greyed out: they compare entity classes.
 
 ## Troubleshooting
 
