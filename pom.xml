@@ -83,7 +83,7 @@
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-api</artifactId>
-      <version>1.67.0</version>
+      <version>1.68.0</version>
       <scope>provided</scope>
     </dependency>
     <!-- Compile-only: CdiListeners looks the listeners up in Helidon and Jakarta EE servers. -->
@@ -96,7 +96,7 @@
     <dependency>
       <groupId>io.opentelemetry</groupId>
       <artifactId>opentelemetry-sdk-testing</artifactId>
-      <version>1.67.0</version>
+      <version>1.68.0</version>
       <scope>test</scope>
     </dependency>
     <dependency>
