@@ -295,6 +295,24 @@ class ProjectDatabaseConfigTest {
   }
 
   @Test
+  void sanitizesTheShortAndSpelledOutPasswordNames() {
+    java.util.function.UnaryOperator<String> clean = org.migrax.plugin.RuntimeJdbc::sanitizeUrl;
+    for (String name : new String[] {
+        "passwd", "pass", "pw", "PW", "psw", "pswd", "passphrase", "sslpassphrase", "credential",
+        "credentials"}) {
+      assertEquals("jdbc:postgresql://db/shop?user=me&" + name + "=***",
+          clean.apply("jdbc:postgresql://db/shop?user=me&" + name + "=supersecret"), name);
+    }
+    assertEquals("jdbc:sqlserver://db;databaseName=shop;pw=***",
+        clean.apply("jdbc:sqlserver://db;databaseName=shop;pw=supersecret"));
+    // Settings that only look alike stay readable.
+    assertEquals("jdbc:postgresql://db/shop?sslmode=require&passwordless=true",
+        clean.apply("jdbc:postgresql://db/shop?sslmode=require&passwordless=true"));
+    assertEquals("jdbc:postgresql://db/shop?user=me",
+        clean.apply("jdbc:postgresql://db/shop?user=me"));
+  }
+
+  @Test
   void sanitizesOracleAndSqlServerPasswordForms() {
     java.util.function.UnaryOperator<String> clean = org.migrax.plugin.RuntimeJdbc::sanitizeUrl;
     assertEquals("jdbc:oracle:thin:scott/***@db:1521/FREEPDB1",

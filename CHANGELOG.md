@@ -22,6 +22,14 @@ All notable changes to Migrax are listed here. The format follows
   `doctor` and the "No database URL found" error say it was skipped. A JDBC URL in these
   variables works as before.
 
+### Security
+- A password in a JDBC URL setting named `passwd`, `pass`, `pw`, `psw`, `pswd`,
+  `passphrase` or `credential(s)` (for example `jdbc:postgresql://db/shop?passwd=...`) was
+  shown in `doctor`, `status` and error messages; only `password`, `pwd`, `secret`, `key` and
+  `token` were masked. These names are masked now too, and a failed connection with such a URL
+  hides the driver's message, as it already did for the others. If you used such a setting,
+  consider changing the password: this output can end up in CI logs and saved reports.
+
 ## [0.19.0] - 2026-11-19
 
 The first stable release since 0.17.1. It contains everything in the release candidates
