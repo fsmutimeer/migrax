@@ -194,6 +194,13 @@ public final class ProjectDatabaseConfig {
     loadProperties(resourcesDirectory.resolve("application.properties"), config);
     loadYaml(resourcesDirectory.resolve("application.yml"), config);
     loadYaml(resourcesDirectory.resolve("application.yaml"), config);
+    // Migrax's own file in the project folder, for projects without such application config
+    // (Python, Node.js, Go): it wins over the application's files, also their profiles.
+    Map<String, String> own = new LinkedHashMap<>();
+    Path project = projectFolder(resourcesDirectory);
+    if (project != null) {
+      loadProperties(project.resolve(OWN_FILE), own);
+    }
 
     String profiles = firstNonBlank(
         System.getProperty("migrax.profile"), System.getenv("MIGRAX_PROFILE"),
@@ -201,6 +208,7 @@ public final class ProjectDatabaseConfig {
         System.getenv("SPRING_PROFILES_ACTIVE"),
         System.getenv("MICRONAUT_ENVIRONMENTS"),
         System.getenv("MP_CONFIG_PROFILE"),
+        resolve(own.get("migrax.profile")),
         resolve(config.get("migrax.profile")),
         resolve(config.get("quarkus.profile")),
         resolve(config.get("spring.profiles.active")),
@@ -221,7 +229,23 @@ public final class ProjectDatabaseConfig {
         loadYaml(resourcesDirectory.resolve("application-" + profile + ".yaml"), config);
       }
     }
+    config.putAll(own);
     return config;
+  }
+
+  /** Migrax's own settings file, in the project folder (where a build file would be). */
+  private static final String OWN_FILE = "migrax.properties";
+
+  /**
+   * The project folder of {@code <project>/src/main/resources}, the resources folder every
+   * caller passes; null for another folder.
+   */
+  private static Path projectFolder(Path resourcesDirectory) {
+    Path resources = resourcesDirectory.toAbsolutePath().normalize();
+    if (!resources.endsWith(Path.of("src", "main", "resources"))) {
+      return null;
+    }
+    return resources.resolve("../../..").normalize();
   }
 
   /** Internal key: the data source a persistence.xml unit names. */

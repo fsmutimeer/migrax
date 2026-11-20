@@ -173,6 +173,16 @@ class MainTest {
   }
 
   @Test
+  void missingDatabaseUrlWithoutABuildPointsToMigraxProperties() throws Exception {
+    // Hand-written SQL in a Python, Node.js or Go project: no framework, no Maven or Gradle.
+    // The file without a URL also pins the project folder here.
+    Files.writeString(project.resolve("migrax.properties"), "migrax.locations=filesystem:sql\n");
+    Result migrate = inProject("migrate");
+    assertEquals(1, migrate.code());
+    assertTrue(migrate.err().contains("Set migrax.url in migrax.properties"), migrate.err());
+  }
+
+  @Test
   void missingDatabaseUrlIsExplained() throws Exception {
     Files.writeString(project.resolve("pom.xml"),
         "<project><groupId>org.migrax.cli.fixture</groupId></project>");

@@ -36,7 +36,24 @@ The commands that compare the database with Java entities (`generate`, `check`, 
     CREATE TABLE customer (id INT PRIMARY KEY, name VARCHAR(100) NOT NULL);
     ```
 
-2. Tell Migrax the database, as a JDBC URL:
+2. Tell Migrax the database, as a JDBC URL, in a `migrax.properties` file in the project
+   folder:
+
+    ```properties title="migrax.properties"
+    migrax.url=jdbc:postgresql://localhost:5432/shop
+    migrax.user=shop
+    migrax.password=${SHOP_DB_PASSWORD}
+    migrax.locations=filesystem:db/migrations
+    ```
+
+    `${SHOP_DB_PASSWORD}` is read from the environment, so the password stays out of the file.
+    The file also marks the project folder: Migrax finds it from any folder below, and the
+    [IntelliJ plugin](../intellij.md) finds the project by it.
+
+    Environment variables work too and win over the file. That includes `DATABASE_URL` and
+    `DB_URL`: if your environment sets one for the application, it must be a JDBC URL, or set
+    `MIGRAX_DATABASE_URL`, which comes first. The container image doesn't see the file, so it
+    needs the variables:
 
     ```bash
     export MIGRAX_DATABASE_URL=jdbc:postgresql://localhost:5432/shop

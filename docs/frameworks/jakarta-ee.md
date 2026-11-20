@@ -105,7 +105,8 @@ Jakarta EE has no standard place for application settings, so Migrax reads them 
 `migrax.properties` in the application (`src/main/resources`), from MicroProfile Config where
 the server has it, from environment variables (`MIGRAX_DATASOURCE`, `MIGRAX_LOCATIONS`,
 `MIGRAX_PLACEHOLDERS_<NAME>`, ...) and from system properties. Each one overrides the one
-before.
+before. (A `migrax.properties` in the project folder, next to `pom.xml`, is a different file:
+the `migrax` command's own [settings](../reference/configuration.md).)
 
 !!! note "JPA providers"
 

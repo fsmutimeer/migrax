@@ -177,6 +177,101 @@ class ProjectDatabaseConfigTest {
   }
 
   @Test
+  void readsMigraxPropertiesInTheProjectFolderWithoutAnyApplicationConfig(@TempDir Path project)
+      throws Exception {
+    // A Python, Node.js or Go project: no src/main/resources at all.
+    Files.writeString(project.resolve("migrax.properties"), """
+        migrax.url=jdbc:postgresql://localhost:5432/shop
+        migrax.user=shop
+        migrax.locations=filesystem:db/migrations
+        """);
+    Path projectResources = project.resolve("src/main/resources");
+
+    var settings = ProjectDatabaseConfig.load(projectResources, Map.of());
+
+    assertEquals("jdbc:postgresql://localhost:5432/shop", settings.url());
+    assertEquals("shop", settings.user());
+    assertEquals(project.resolve("db/migrations"), ProjectDatabaseConfig
+        .resolveMigrationDirectory(settings.locations(), project, projectResources));
+  }
+
+  @Test
+  void migraxPropertiesWinsOverApplicationConfigButNotOverOptions(@TempDir Path project)
+      throws Exception {
+    Path projectResources = Files.createDirectories(project.resolve("src/main/resources"));
+    Files.writeString(projectResources.resolve("application.properties"), """
+        migrax.url=jdbc:postgresql://localhost:5432/from-application
+        migrax.locations=filesystem:from-application
+        """);
+    Files.writeString(project.resolve("migrax.properties"), """
+        migrax.url=jdbc:postgresql://localhost:5432/from-own-file
+        """);
+
+    var settings = ProjectDatabaseConfig.load(projectResources, Map.of());
+    assertEquals("jdbc:postgresql://localhost:5432/from-own-file", settings.url());
+    // Keys the file leaves out still come from the application config.
+    assertEquals("filesystem:from-application", settings.locations());
+
+    var overridden = ProjectDatabaseConfig.load(projectResources,
+        Map.of("url", "jdbc:postgresql://localhost:5432/from-option"));
+    assertEquals("jdbc:postgresql://localhost:5432/from-option", overridden.url());
+  }
+
+  @Test
+  void aSystemPropertyWinsOverMigraxProperties(@TempDir Path project) throws Exception {
+    Files.writeString(project.resolve("migrax.properties"),
+        "migrax.url=jdbc:postgresql://localhost:5432/from-own-file\n");
+    System.setProperty("migrax.url", "jdbc:postgresql://localhost:5432/from-property");
+    try {
+      assertEquals("jdbc:postgresql://localhost:5432/from-property",
+          ProjectDatabaseConfig.load(project.resolve("src/main/resources"), Map.of()).url());
+    } finally {
+      System.clearProperty("migrax.url");
+    }
+  }
+
+  @Test
+  void migraxPropertiesHoldsFurtherDatabasesToo(@TempDir Path project) throws Exception {
+    Files.writeString(project.resolve("migrax.properties"), """
+        migrax.url=jdbc:postgresql://localhost:5432/shop
+        migrax.databases.reports.url=jdbc:postgresql://localhost:5432/reports
+        """);
+
+    var reports = ProjectDatabaseConfig.loadDatabase(project.resolve("src/main/resources"),
+        "reports", Map.of());
+
+    assertEquals("jdbc:postgresql://localhost:5432/reports", reports.url());
+  }
+
+  @Test
+  void migraxPropertiesCanPickTheProfile(@TempDir Path project) throws Exception {
+    Path projectResources = Files.createDirectories(project.resolve("src/main/resources"));
+    Files.writeString(projectResources.resolve("application.properties"), """
+        migrax.url=jdbc:postgresql://localhost:5432/default
+        """);
+    Files.writeString(projectResources.resolve("application-ci.properties"), """
+        migrax.url=jdbc:postgresql://localhost:5432/ci
+        """);
+    Files.writeString(project.resolve("migrax.properties"), "migrax.profile=ci\n");
+
+    assertEquals("jdbc:postgresql://localhost:5432/ci",
+        ProjectDatabaseConfig.load(projectResources, Map.of()).url());
+  }
+
+  @Test
+  void aResourcesFolderOutsideSrcMainResourcesHasNoOwnFile(@TempDir Path project)
+      throws Exception {
+    Files.writeString(project.resolve("migrax.properties"),
+        "migrax.url=jdbc:postgresql://localhost:5432/elsewhere\n");
+    Path config = Files.createDirectories(project.resolve("config"));
+    Files.writeString(config.resolve("application.properties"),
+        "migrax.url=jdbc:postgresql://localhost:5432/application\n");
+
+    assertEquals("jdbc:postgresql://localhost:5432/application",
+        ProjectDatabaseConfig.load(config, Map.of()).url());
+  }
+
+  @Test
   void acceptsClasspathLocationsAndRejectsUnsupportedLocationLists() {
     assertEquals(resources.resolve("custom/migrations"), ProjectDatabaseConfig
         .resolveMigrationDirectory(

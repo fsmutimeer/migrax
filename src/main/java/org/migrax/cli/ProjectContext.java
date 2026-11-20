@@ -35,11 +35,22 @@ final class ProjectContext {
           return directory;
         }
       }
-      if (Files.exists(directory.resolve(".migrax"))) {
+      // Migrax's own files mark a project without a build file (Python, Node.js, Go). The
+      // Jakarta EE integration's migrax.properties in the resources (or their build copy)
+      // marks nothing.
+      if (Files.exists(directory.resolve(".migrax"))
+          || (Files.isRegularFile(directory.resolve("migrax.properties"))
+              && !isResources(directory))) {
         return directory;
       }
     }
     return current;
+  }
+
+  private static boolean isResources(Path directory) {
+    return directory.endsWith(Path.of("src", "main", "resources"))
+        || directory.endsWith(Path.of("target", "classes"))
+        || directory.endsWith(Path.of("build", "resources", "main"));
   }
 
   static String packageName(Path root, String requested) throws Exception {
