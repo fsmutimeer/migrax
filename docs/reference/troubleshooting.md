@@ -22,6 +22,13 @@ debug output and stack traces.
     your framework. Set it there, or use `MIGRAX_DATABASE_URL` / `--url`. See
     [Configuration](configuration.md).
 
+    A project without a framework, such as a Python, Node.js or Go service with hand-written SQL,
+    keeps its settings in `migrax.properties` in the project folder (`migrax.url=jdbc:...`); see
+    [Any language](../frameworks/any-language.md). If the error says `DATABASE_URL` or `DB_URL`
+    is set but is not a JDBC URL, Migrax skipped it: those variables count only as `jdbc:...`, so
+    the `postgres://...` your application uses doesn't reach Migrax. Set `migrax.url` or
+    `MIGRAX_DATABASE_URL` for Migrax.
+
 ??? question "Hibernate could not read the entity mapping; scanning JPA annotations instead"
 
     Migrax fell back to annotation scanning. Run with `--extractor hibernate` to see the exact
