@@ -93,14 +93,15 @@ final class GenerateCommand implements Command {
         adds it to the migration folder.
         When a generated migration file was deleted, generate stops (MXE119): restore the file,
         or run generate --rebuild-snapshot to move the snapshot back to the history snapshot of
-        the newest generated migration before the deleted ones, then generate again.
+        the newest generated migration before the deleted ones, then generate again; with no
+        migration file left at all it asks for --yes first.
         Always review the generated SQL; Migrax lints it for you.""";
   }
 
   @Override
   public List<String> options() {
     return List.of("--name", "--allow-destructive", "--keep-data", "--safe", "--zero-downtime",
-        "--contract", "--rebuild-snapshot", "--rename",
+        "--contract", "--rebuild-snapshot", "--yes", "--rename",
         "--rename-table",
         "--no-input", "--json", "--lock-timeout", "--dialect", "--package", "--naming",
         "--extractor", "--schema-file", "--scratch-url",

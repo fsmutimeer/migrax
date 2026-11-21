@@ -29,6 +29,8 @@ Release candidate for 0.20.0, for testing.
   file and the project folder above it was set up.
 - `generate --rebuild-snapshot` moves `.migrax/snapshot.json` back to the history snapshot of
   the newest generated migration before the deleted ones, after one was deleted on purpose.
+  With no migration file left at all (a wrong `--locations`, say) it asks for `--yes` before
+  it removes the snapshot.
 
 ### Changed
 - `generate` stops with MXE119 when a generated migration file was deleted after the snapshot
@@ -44,7 +46,9 @@ Release candidate for 0.20.0, for testing.
   `auth=`), a password where the port should be when the `@host` is missing
   (`//root:password/shop`), Oracle URLs after a mistyped `jdbc:`, behind wrappers with `-` in
   their name, as `h2:oracle:`, and with the user and password quoted together. A driver that
-  fails with a plain `Error` no longer shows a URL that may hold a password.
+  fails with a plain `Error` no longer shows a URL that may hold a password. Also hidden: an
+  Oracle URL whose later password setting holds an `@`, and a URL typed without `//` and
+  `@host` (`jdbc:postgresql:postgres:password/shop`).
 - `doctor` names a skipped non-JDBC `DATABASE_URL` only by a known scheme (`postgres://`,
   `mysql://`, ...); for any other text before `://` it says only that it is a URL.
 

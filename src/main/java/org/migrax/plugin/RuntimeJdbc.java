@@ -74,6 +74,12 @@ public final class RuntimeJdbc {
         : ORACLE_NO_HOST.matcher(url).replaceAll("$1***");
     // The password is masked: the user:password@ rule is skipped so the Oracle user stays visible.
     boolean oracle = !sanitized.equals(url);
+    // A later setting whose value holds an @ (wallet_password=Ab@cd) moved the last @ into that
+    // value, so the Oracle rule took the setting's name with it: hide everything after the user.
+    int laterSecret = oracle ? secretValueStart(url) : -1;
+    if (laterSecret >= 0 && url.indexOf('@', laterSecret) >= 0) {
+      return sanitized.substring(0, sanitized.indexOf("***") + 3);
+    }
     // password=, MySQL's password1= to password3=, SQL Server's pwd=, keyStoreSecret= and
     // aadSecurePrincipalSecret= (any name ending in secret), and SQLCipher's key= in a SQLite URL;
     // also the short and spelled-out forms people type (passwd=, pass=, pw=, psw=, pswd=,
@@ -156,11 +162,22 @@ public final class RuntimeJdbc {
 
   /**
    * //root:password/shop, with the @host forgotten: what stands where the port should be is not
-   * a number, so it may be the password. Hidden up to the end of the host part.
+   * a number, so it may be the password. Hidden up to the end of the host part. With no // at
+   * all, everything after the colon that follows jdbc:name: is hidden.
    */
   private static String withoutPortPassword(String url) {
     int slashes = url.indexOf("//");
     if (slashes < 0) {
+      // jdbc:postgresql:postgres:password/shop, with the // forgotten too: a driver may still
+      // accept it. After jdbc:name:, anything after a further : may be the password; it runs
+      // to the end, because a mistyped URL can't be split reliably.
+      Matcher mistyped = MISTYPED_START.matcher(url);
+      if (mistyped.lookingAt()) {
+        int colon = url.indexOf(':', mistyped.end());
+        if (colon >= 0 && colon + 1 < url.length()) {
+          return url.substring(0, colon + 1) + "***";
+        }
+      }
       return url;
     }
     int start = slashes + 2;

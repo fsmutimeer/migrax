@@ -102,6 +102,19 @@ class RuntimeJdbcTest {
         {"jdbc:postgresql://db/shop?sslmode=require", "jdbc:postgresql://db/shop?sslmode=require"},
         {"jdbc:postgresql://db/shop?passwordless=true",
             "jdbc:postgresql://db/shop?passwordless=true"},
+        {"jdbc:oracle:thin:scott/tiger@//h:1521/svc?oracle.net.wallet_password=Ab@Kx9q",
+            "jdbc:oracle:thin:scott/***"},
+        {"jdbc:oracle:thin:/@h?password=Ab@Kx9q", "jdbc:oracle:thin:/***"},
+        {"jdbc:postgresql:postgres:Tiger9/shop", "jdbc:postgresql:postgres:***"},
+        {"jdbc:mysql:root:Tiger9/db", "jdbc:mysql:root:***"},
+        {"jdbc:a:b:c:oracle:thin:scott/Tiger9", "jdbc:a:b:***"},
+        {"jdbc:postgresql:shop", "jdbc:postgresql:shop"},
+        // Embedded databases' own forms have a colon after the name: they stay readable.
+        {"jdbc:sqlite:C:/data/app.db", "jdbc:sqlite:C:/data/app.db"},
+        {"jdbc:derby:memory:shop;create=true", "jdbc:derby:memory:shop;create=true"},
+        {"jdbc:hsqldb:mem:shop", "jdbc:hsqldb:mem:shop"},
+        {"jdbc:h2:file:./data/x", "jdbc:h2:file:./data/x"},
+        {"JDBC:H2:mem:x", "JDBC:H2:mem:x"},
     };
     for (String[] c : cases) {
       assertEquals(c[1], RuntimeJdbc.sanitizeUrl(c[0]), c[0]);
@@ -337,7 +350,8 @@ class RuntimeJdbcTest {
     String secret = "jdbc:mysql://db/shop?password=" + "abcd;".repeat(100_000);
     assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
       assertTrue(RuntimeJdbc.sanitizeUrl(slashes).endsWith("/***@db"));
-      assertEquals(oracle, RuntimeJdbc.sanitizeUrl(oracle));
+      // Mistyped (no // and no @): everything after jdbc:oracle:a: may be a password.
+      assertEquals("jdbc:oracle:a:***", RuntimeJdbc.sanitizeUrl(oracle));
       assertTrue(message(secret, secret).endsWith(HIDDEN));
     });
   }
