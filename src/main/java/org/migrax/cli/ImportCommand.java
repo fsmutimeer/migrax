@@ -27,7 +27,7 @@ final class ImportCommand implements Command {
 
   @Override
   public String summary() {
-    return "Adopt a database managed by Flyway or Liquibase";
+    return "Adopt a database managed by another migration tool";
   }
 
   @Override

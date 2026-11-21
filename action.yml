@@ -33,6 +33,11 @@ outputs:
   findings:
     description: Number of lint findings in changed migrations.
     value: ${{ steps.migrax.outputs.findings }}
+  sarif:
+    description: >-
+      Path of the lint findings as SARIF 2.1.0, for github/codeql-action/upload-sarif; empty when
+      the pull request changes no migration. Its paths are relative to the repository's root.
+    value: ${{ steps.migrax.outputs.sarif }}
 
 runs:
   using: composite
@@ -72,7 +77,8 @@ runs:
         fi
         if [ -n "$FILES" ]; then
           # shellcheck disable=SC2086
-          sh "$MIGRAX" lint $FILES --json > "$OUT/lint.json" 2> "$OUT/lint.err"
+          sh "$MIGRAX" lint $FILES --json --sarif "$OUT/lint.sarif" > "$OUT/lint.json" \
+            2> "$OUT/lint.err"
         else
           echo '{"files":0,"findings":[]}' > "$OUT/lint.json"
         fi
@@ -92,6 +98,11 @@ runs:
         echo "lint_errors=$ERRORS" >> "$GITHUB_OUTPUT"
         echo "lint_exit=$LINT" >> "$GITHUB_OUTPUT"
         echo "out=$OUT" >> "$GITHUB_OUTPUT"
+        if [ -f "$OUT/lint.sarif" ]; then
+          echo "sarif=$OUT/lint.sarif" >> "$GITHUB_OUTPUT"
+        else
+          echo "sarif=" >> "$GITHUB_OUTPUT"
+        fi
         cat "$OUT/check.err" "$OUT/lint.err" 2>/dev/null
         exit 0
 

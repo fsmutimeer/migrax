@@ -277,7 +277,8 @@ public final class DatabaseSchemaReader {
     List<String> declaredInteger = new ArrayList<>();
     try (ResultSet result = metadata.getColumns(catalog, schema, table, "%")) {
       while (result.next()) {
-        if (inOtherSchema(result, schema)) {
+        // The table name is a pattern here: _ and % in it match other tables too (a_b, axb).
+        if (inOtherSchema(result, schema) || !table.equals(result.getString("TABLE_NAME"))) {
           continue;
         }
         // Oracle returns the default as a LONG, readable only before any later column.

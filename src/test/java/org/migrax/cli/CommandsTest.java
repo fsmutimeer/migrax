@@ -53,6 +53,19 @@ class CommandsTest {
     return ask(null, args);
   }
 
+  /** Runs migrax with --dir pointing at {@code dir} instead of the project folder. */
+  private static Result cliIn(Path dir, String... args) {
+    String[] full = java.util.Arrays.copyOf(args, args.length + 2);
+    full[args.length] = "--dir";
+    full[args.length + 1] = dir.toString();
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    ByteArrayOutputStream err = new ByteArrayOutputStream();
+    int code = Main.run(full, new PrintStream(out, true, StandardCharsets.UTF_8),
+        new PrintStream(err, true, StandardCharsets.UTF_8));
+    return new Result(code, out.toString(StandardCharsets.UTF_8),
+        err.toString(StandardCharsets.UTF_8));
+  }
+
   private void setUp() throws Exception {
     Files.writeString(project.resolve("pom.xml"),
         "<project><groupId>org.migrax.cli.fixture</groupId></project>");
@@ -335,6 +348,16 @@ class CommandsTest {
     assertTrue(missing.err().contains(
         "migrax repair 0001_initial.sql --action forget --yes"), missing.all());
 
+    String rollbackScript = Files.readString(migrations().resolve("rollback/0001_initial.sql"));
+    Files.delete(migrations().resolve("rollback/0001_initial.sql"));
+    Result noFile = cli("rollback", "--yes");
+    assertEquals(1, noFile.code(), noFile.all());
+    assertTrue(noFile.err().contains("The migration file of 0001_initial.sql is missing"),
+        noFile.all());
+    assertTrue(noFile.err().contains(
+        "migrax repair 0001_initial.sql --action forget --yes"), noFile.all());
+    Files.writeString(migrations().resolve("rollback/0001_initial.sql"), rollbackScript);
+
     Result unconfirmed = cli("repair", "0001_initial", "--action", "forget");
     assertEquals(1, unconfirmed.code());
 
@@ -350,6 +373,42 @@ class CommandsTest {
     assertEquals(0, migrate.code(), migrate.all());
     Result again = cli("repair", "0001_initial", "--action", "forget", "--yes");
     assertTrue(again.out().contains("nothing to forget"), again.out());
+  }
+
+  @Test
+  void generateStopsWhenTheSnapshotIncludesADeletedMigration() throws Exception {
+    setUp();
+    assertEquals(0, cli("generate").code());
+    Path history = project.resolve(".migrax/history");
+    Files.copy(history.resolve("0001_initial.json"), history.resolve("0002_gone.json"));
+    Files.copy(history.resolve("0001_initial.json"), history.resolve("0003_also.json"));
+
+    Result ahead = cli("generate");
+    assertEquals(1, ahead.code(), ahead.all());
+    assertTrue(ahead.err().contains("MXE119"), ahead.all());
+    assertTrue(ahead.err().contains("it includes 0002_gone.sql, 0003_also.sql"), ahead.all());
+    assertTrue(ahead.err().contains("migrax generate --rebuild-snapshot"), ahead.all());
+
+    Result rebuilt = cli("generate", "--rebuild-snapshot");
+    assertEquals(0, rebuilt.code(), rebuilt.all());
+    assertTrue(rebuilt.out().contains("from the history snapshot of 0001_initial.sql"),
+        rebuilt.out());
+    assertFalse(Files.exists(history.resolve("0002_gone.json")));
+    assertFalse(Files.exists(history.resolve("0003_also.json")));
+    Result nothing = cli("generate");
+    assertEquals(0, nothing.code(), nothing.all());
+    assertTrue(nothing.out().contains("No changes detected."), nothing.out());
+    assertTrue(cli("generate", "--rebuild-snapshot").out().contains("nothing to rebuild"));
+
+    Files.delete(migrations().resolve("0001_initial.sql"));
+    Files.delete(migrations().resolve("rollback/0001_initial.sql"));
+    assertEquals(1, cli("generate").code());
+    Result removed = cli("generate", "--rebuild-snapshot");
+    assertEquals(0, removed.code(), removed.all());
+    assertFalse(Files.exists(project.resolve(".migrax/snapshot.json")));
+    Result again = cli("generate");
+    assertEquals(0, again.code(), again.all());
+    assertTrue(Files.exists(migrations().resolve("0001_initial.sql")), again.all());
   }
 
   @Test
@@ -389,6 +448,32 @@ class CommandsTest {
     assertEquals(0, json.code(), json.all());
     Object parsed = new Json.Parser(json.out()).parse();
     assertTrue(parsed.toString().contains("MX001"), json.out());
+    var first = (java.util.Map<?, ?>) ((java.util.List<?>) json(json).get("findings")).get(0);
+    assertEquals(1, ((Number) first.get("line")).intValue(), json.out());
+    assertTrue(first.get("safeSql").toString().contains("CREATE INDEX CONCURRENTLY idx_name"),
+        json.out());
+    assertTrue(warnings.out().replace("\r\n", "\n").contains("  Safe SQL:\n"
+        + "    -- migrax:no-transaction\n"
+        + "    CREATE INDEX CONCURRENTLY idx_name ON customer (name);"), warnings.out());
+
+    Path sarifFile = project.resolve("out/lint.sarif");
+    Result sarif = cli("lint", "--all", "--dialect", "postgresql", "--sarif",
+        sarifFile.toString());
+    assertEquals(0, sarif.code(), sarif.all());
+    var document = (java.util.Map<?, ?>) new Json.Parser(Files.readString(sarifFile)).parse();
+    assertEquals("2.1.0", document.get("version"));
+    var run = (java.util.Map<?, ?>) ((java.util.List<?>) document.get("runs")).get(0);
+    var results = (java.util.List<?>) run.get("results");
+    assertEquals(2, results.size(), document.toString());
+    var result = (java.util.Map<?, ?>) results.get(1);
+    assertEquals("MX009", result.get("ruleId"));
+    assertEquals("warning", result.get("level"));
+    var physical = (java.util.Map<?, ?>) ((java.util.Map<?, ?>) ((java.util.List<?>)
+        result.get("locations")).get(0)).get("physicalLocation");
+    assertEquals("src/main/resources/db/migration/0001_index.sql",
+        ((java.util.Map<?, ?>) physical.get("artifactLocation")).get("uri"));
+    assertEquals(2, ((Number) ((java.util.Map<?, ?>) physical.get("region"))
+        .get("startLine")).intValue());
 
     Files.writeString(migrations().resolve("0002_ignored.sql"),
         "-- migrax:lint-ignore MX001\nCREATE INDEX idx_x ON customer (x);\n");
@@ -406,6 +491,20 @@ class CommandsTest {
     Result json = cli("verify", "--json", "--package", "org.migrax.cli.noentitieshere");
     assertFalse(json.out().contains("no entities"), json.out());
     assertTrue(json.err().contains("verify found no entities"), json.err());
+
+    // Entities mapped in XML have no annotations to find.
+    Path metaInf = Files.createDirectories(project.resolve("target/classes/META-INF"));
+    Files.writeString(metaInf.resolve("persistence.xml"), "<persistence/>");
+    assertTrue(cli("verify", "--package", "org.migrax.cli.noentitieshere").all()
+        .contains("verify found no entities"));
+    Files.writeString(metaInf.resolve("persistence.xml"),
+        "<persistence><mapping-file>META-INF/shop.xml</mapping-file></persistence>");
+    Result mapped = cli("verify", "--package", "org.migrax.cli.noentitieshere");
+    assertFalse(mapped.all().contains("found no entities"), mapped.all());
+    Files.delete(metaInf.resolve("persistence.xml"));
+    Files.writeString(metaInf.resolve("orm.xml"), "<entity-mappings/>");
+    Result orm = cli("verify", "--package", "org.migrax.cli.noentitieshere");
+    assertFalse(orm.all().contains("found no entities"), orm.all());
   }
 
   @Test
@@ -991,6 +1090,41 @@ class CommandsTest {
         status.out());
     Result check = cli("check", "--json");
     assertTrue(new Json.Parser(check.out()).parse().toString().contains("ok=true"), check.out());
+
+    Result both = cli("status", "--json", "--check");
+    assertEquals(0, both.code(), both.all());
+    var statusPart = (java.util.Map<?, ?>) json(both).get("status");
+    assertEquals(row, ((java.util.List<?>) statusPart.get("migrations")).get(0), both.out());
+    assertEquals(true, ((java.util.Map<?, ?>) json(both).get("check")).get("ok"), both.out());
+    Path snapshot = project.resolve(".migrax/snapshot.json");
+    String saved = Files.readString(snapshot);
+    Files.writeString(snapshot, saved.replace("\"sample_entity\"", "\"old_entity\""));
+    Result changes = cli("status", "--json", "--check");
+    assertEquals(2, changes.code(), changes.all());
+    assertEquals(false, ((java.util.Map<?, ?>) json(changes).get("check")).get("ok"),
+        changes.out());
+    Result text = cli("status", "--check");
+    assertEquals(2, text.code(), text.all());
+    assertTrue(text.out().contains("[X] 0001_initial.sql"), text.all());
+    assertTrue(text.err().contains("entity change(s) have no migration"), text.all());
+    Files.writeString(snapshot, saved);
+
+    Path page = project.resolve("out/report.html");
+    var report = json(cli("report", "--json", "--html", page.toString()));
+    assertEquals("out/report.html", report.get("file"), report.toString());
+    assertEquals(1, ((Number) report.get("tables")).intValue(), report.toString());
+    assertEquals(0, ((Number) report.get("driftDifferences")).intValue(), report.toString());
+    assertTrue(report.get("summary").toString().startsWith("1 table(s)"), report.toString());
+
+    Path below = project.resolve("src/main");
+    var init = json(cliIn(below, "init", "--json"));
+    assertEquals(true, init.get("parentFolder"), init.toString());
+    assertEquals(project.toAbsolutePath().toString(), init.get("root"), init.toString());
+    assertEquals(true, init.get("snapshotExists"), init.toString());
+    Result initText = cliIn(below, "init");
+    assertTrue(initText.out().contains("so the project folder above it was set up"),
+        initText.out());
+    assertFalse(cli("init").out().contains("above it"));
   }
 
   /** Parses a command's stdout, which must be exactly one JSON object. */

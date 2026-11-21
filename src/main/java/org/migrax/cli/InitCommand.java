@@ -30,19 +30,32 @@ final class InitCommand implements Command {
 
   @Override
   public String usage() {
-    return "migrax init";
+    return "migrax init [--json]";
   }
 
   @Override
   public String description() {
     return """
         Creates the .migrax folder and the migration folder, then shows the entity package,
-        database, dialect and naming Migrax detected. Safe to run more than once.""";
+        database, dialect and naming Migrax detected. Safe to run more than once.
+        A folder without a build file or migrax.properties belongs to the nearest folder above
+        it that has one: init sets up that folder and says so.""";
   }
 
   @Override
   public List<String> options() {
-    return List.of("--package", "--locations", "--naming");
+    return List.of("--json", "--package", "--locations", "--naming");
+  }
+
+  /**
+   * With --json: {@code root}, {@code parentFolder} (true when --dir or the current folder is
+   * below the folder set up), {@code buildTool}, {@code package}, {@code framework},
+   * {@code naming}, {@code database} (password hidden), {@code dialect}, {@code migrations},
+   * {@code migrationsCreated}, {@code snapshot}, {@code snapshotExists} and {@code cache}.
+   */
+  @Override
+  public boolean jsonResult() {
+    return true;
   }
 
   @Override
@@ -54,23 +67,48 @@ final class InitCommand implements Command {
     boolean created = !Files.isDirectory(migrations);
     Files.createDirectories(migrations);
     String packageName = project.packageNameOrNull();
-
-    out.println("Migrax is set up in " + project.root().toAbsolutePath());
-    out.println();
-    row(out, "Build tool", switch (ProjectBuild.detect(project.root())) {
+    Path requested = Path.of(context.args().option("--dir", ".")).toAbsolutePath().normalize();
+    if (Files.isRegularFile(requested)) {
+      requested = requested.getParent();
+    }
+    boolean parentFolder = !requested.equals(project.root().toAbsolutePath().normalize());
+    String buildTool = switch (ProjectBuild.detect(project.root())) {
       case MAVEN -> "Maven";
       case GRADLE -> "Gradle";
-      case NONE -> "none found (set MIGRAX_CLASSPATH to your compiled classes and jars)";
-    });
+      case NONE -> null;
+    };
+    String database = project.hasUrl()
+        ? RuntimeJdbc.sanitizeUrl(project.credentials().url()) : null;
+    String dialect = project.hasUrl() ? dialectOrMessage(project.credentials().url()) : null;
+    context.result("root", project.root().toAbsolutePath().toString());
+    context.result("parentFolder", parentFolder);
+    context.result("buildTool", buildTool);
+    context.result("package", packageName);
+    context.result("framework", project.framework().label());
+    context.result("naming", project.naming().id());
+    context.result("database", database);
+    context.result("dialect", dialect);
+    context.result("migrations", project.display(migrations));
+    context.result("migrationsCreated", created);
+    context.result("snapshot", project.display(project.snapshot()));
+    context.result("snapshotExists", Files.exists(project.snapshot()));
+    context.result("cache", project.display(state));
+
+    out.println("Migrax is set up in " + project.root().toAbsolutePath());
+    if (parentFolder) {
+      out.println("(" + requested + " has no pom.xml, build.gradle or migrax.properties, so the "
+          + "project folder above it was set up.)");
+    }
+    out.println();
+    row(out, "Build tool", buildTool != null ? buildTool
+        : "none found (set MIGRAX_CLASSPATH to your compiled classes and jars)");
     row(out, "Entity package", packageName == null
         ? "not found: pass --package or set MIGRAX_PACKAGE" : packageName);
     row(out, "Framework", project.framework().label());
     row(out, "Naming", project.naming().id() + " (set migrax.naming to change)");
-    row(out, "Database", project.hasUrl()
-        ? RuntimeJdbc.sanitizeUrl(project.credentials().url())
+    row(out, "Database", database != null ? database
         : "not configured: set " + project.urlSetting() + ", MIGRAX_DATABASE_URL or --url");
-    row(out, "Dialect", project.hasUrl() ? dialectOrMessage(project.credentials().url())
-        : "detected from the database URL");
+    row(out, "Dialect", dialect != null ? dialect : "detected from the database URL");
     row(out, "Migrations", project.display(migrations) + (created ? " (created)" : ""));
     row(out, "Snapshot", project.display(project.snapshot())
         + (Files.exists(project.snapshot()) ? "" : " (written by the first generate)"));

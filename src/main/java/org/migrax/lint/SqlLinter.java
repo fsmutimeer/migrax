@@ -29,9 +29,24 @@ public final class SqlLinter {
    * One problem.
    *
    * @param statement 1-based statement number in the file
+   * @param line 1-based line where the statement's SQL starts, or 0 when unknown (since
+   *     0.20.0)
+   * @param safeSql the safer SQL written with the statement's own names, ready to copy, or null
+   *     (since 0.20.0)
    */
   public record Finding(String code, Severity severity, String file, int statement,
-                        String sql, String message, String fix) {}
+                        String sql, String message, String fix, int line, String safeSql) {
+
+    /**
+     * A finding without a line or safe SQL, as before 0.20.0.
+     *
+     * @since 0.20.0
+     */
+    public Finding(String code, Severity severity, String file, int statement, String sql,
+                   String message, String fix) {
+      this(code, severity, file, statement, sql, message, fix, 0, null);
+    }
+  }
 
   /** A name, maybe qualified or quoted, or with a placeholder such as ${migrax.schema}. */
   private static final String IDENT = "[\\w$#.\"`\\[\\]{}]+";
@@ -70,6 +85,32 @@ public final class SqlLinter {
   private static final Pattern VOLATILE_DEFAULT = Pattern.compile(
       "(?i)DEFAULT\\s+(now\\(\\)|clock_timestamp\\(\\)|random\\(\\)|gen_random_uuid\\(\\)"
           + "|uuid_generate_v4\\(\\)|nextval\\(|timeofday\\(\\))");
+  private static final String ALTER_HEAD =
+      "(?i)^ALTER TABLE (?:IF EXISTS )?(?:ONLY )?(" + IDENT + ") ";
+  private static final Pattern SET_NOT_NULL = Pattern.compile(ALTER_HEAD
+      + "ALTER (?:COLUMN )?(" + IDENT + ") SET NOT NULL$");
+  /** ADD CONSTRAINT name FOREIGN KEY / CHECK / UNIQUE / PRIMARY KEY, and what follows. */
+  private static final Pattern ADD_CONSTRAINT = Pattern.compile(ALTER_HEAD
+      + "ADD CONSTRAINT (" + IDENT + ") (FOREIGN KEY|CHECK|UNIQUE|PRIMARY KEY)\\b ?(.*)$");
+  private static final Pattern ADD_PRIMARY_KEY = Pattern.compile(ALTER_HEAD
+      + "ADD PRIMARY KEY ?(\\([^()]*\\))$");
+  private static final Pattern COLUMN_LIST = Pattern.compile("^\\([^()]*\\)$");
+  /** A second action in one ALTER TABLE: the safe SQL is then left to the author. */
+  private static final Pattern MORE_ACTIONS = Pattern.compile("(?i),\\s*(?:ADD|DROP|ALTER"
+      + "|VALIDATE|RENAME|SET|RESET|OWNER|ENABLE|DISABLE|INHERIT|NO|CLUSTER|REPLICA|FORCE"
+      + "|ATTACH|DETACH)\\b");
+  private static final Pattern CREATE_INDEX_HEAD =
+      Pattern.compile("(?i)^(CREATE (?:UNIQUE )?INDEX) (?!CONCURRENTLY\\b)");
+  private static final Pattern REINDEX_HEAD = Pattern.compile(
+      "(?i)^(REINDEX (?:\\([^)]*\\) )?(?:INDEX|TABLE|SCHEMA|DATABASE)) (?!CONCURRENTLY\\b)");
+  private static final Pattern DROP_INDEX_HEAD =
+      Pattern.compile("(?i)^(DROP INDEX) (?!CONCURRENTLY\\b)");
+  private static final Pattern REFRESH_HEAD =
+      Pattern.compile("(?i)^(REFRESH MATERIALIZED VIEW) (?!CONCURRENTLY\\b)");
+  private static final Pattern DETACH = Pattern.compile(ALTER_HEAD
+      + "DETACH PARTITION (" + IDENT + ")( CONCURRENTLY| FINALIZE)?$");
+  private static final String NO_TRANSACTION = "-- migrax:no-transaction\n";
+  private static final String LATER = "-- In a later migration:\n";
   private static final Pattern IGNORE = Pattern.compile("(?i)migrax:lint-ignore\\s+([\\w, ]+)");
   private static final Pattern IGNORE_FILE =
       Pattern.compile("(?i)migrax:lint-ignore-file\\s+([\\w, ]+)");
@@ -165,6 +206,7 @@ public final class SqlLinter {
       }
     }
 
+    int[] lines = statementLines(sql, statements);
     for (int i = 0; i < statements.size(); i++) {
       String raw = statements.get(i);
       String text = SqlScript.stripComments(raw).replaceAll("\\s+", " ").trim();
@@ -229,7 +271,8 @@ public final class SqlLinter {
               "Building this index blocks writes to " + normalize(index.group(3))
                   + " until it finishes.",
               "Use CREATE INDEX CONCURRENTLY in its own migration that starts with "
-                  + "'-- migrax:no-transaction' ('migrax generate --safe' does this)."));
+                  + "'-- migrax:no-transaction' ('migrax generate --safe' does this).",
+              concurrently(CREATE_INDEX_HEAD, text)));
         }
         if (lockChecks && concurrent && transactional) {
           found.add(finding("MX012", Severity.ERROR, file, number, text,
@@ -238,7 +281,8 @@ public final class SqlLinter {
         }
       }
       if (lockChecks && transactional
-          && upper.matches("^(DROP INDEX CONCURRENTLY|REINDEX .*CONCURRENTLY|VACUUM).*")) {
+          && (upper.matches("^(DROP INDEX CONCURRENTLY|REINDEX .*CONCURRENTLY|VACUUM).*")
+              || upper.matches("^ALTER TABLE .* DETACH PARTITION \\S+ CONCURRENTLY;?$"))) {
         found.add(finding("MX012", Severity.ERROR, file, number, text,
             "This statement cannot run inside a transaction.",
             "Add a '-- migrax:no-transaction' line to this migration."));
@@ -276,32 +320,35 @@ public final class SqlLinter {
             "SET NOT NULL scans all of " + table + " while holding an exclusive lock.",
             "First ADD CONSTRAINT ... CHECK (column IS NOT NULL) NOT VALID, then VALIDATE "
                 + "CONSTRAINT in a later migration; PostgreSQL 12+ then sets NOT NULL without "
-                + "a scan."));
+                + "a scan.", setNotNullSafely(text)));
       }
       if (lockChecks && existing && upper.contains(" FOREIGN KEY ")
           && upper.contains(" ADD CONSTRAINT ") && !upper.contains("NOT VALID")) {
         found.add(finding("MX005", Severity.WARNING, file, number, text,
             "Adding a foreign key checks every row while blocking writes to both tables.",
             "Add it with NOT VALID, then run ALTER TABLE ... VALIDATE CONSTRAINT in a later "
-                + "migration ('migrax generate --safe' does this)."));
+                + "migration ('migrax generate --safe' does this).", notValid(text)));
       }
       if (lockChecks && existing && upper.matches(".* ADD CONSTRAINT \\S+ UNIQUE .*")
           && !upper.contains("USING INDEX")) {
         found.add(finding("MX006", Severity.WARNING, file, number, text,
             "Adding a unique constraint builds its index while blocking writes to " + table + ".",
             "CREATE UNIQUE INDEX CONCURRENTLY first, then ADD CONSTRAINT ... UNIQUE USING "
-                + "INDEX ('migrax generate --safe' does this)."));
+                + "INDEX ('migrax generate --safe' does this).", usingIndex(text)));
       }
       if (lockChecks && existing && upper.matches(".* ADD CONSTRAINT \\S+ CHECK .*")
           && !upper.contains("NOT VALID")) {
         found.add(finding("MX014", Severity.WARNING, file, number, text,
             "Adding a check constraint scans " + table + " while holding an exclusive lock.",
-            "Add it with NOT VALID, then VALIDATE CONSTRAINT in a later migration."));
+            "Add it with NOT VALID, then VALIDATE CONSTRAINT in a later migration.",
+            notValid(text)));
       }
-      if (lockChecks && existing && upper.matches(".* ADD (CONSTRAINT \\S+ )?PRIMARY KEY.*")) {
+      if (lockChecks && existing && upper.matches(".* ADD (CONSTRAINT \\S+ )?PRIMARY KEY.*")
+          && !upper.contains("USING INDEX")) {
         found.add(finding("MX013", Severity.WARNING, file, number, text,
             "Adding a primary key builds an index while blocking writes to " + table + ".",
-            "CREATE UNIQUE INDEX CONCURRENTLY, then ADD CONSTRAINT ... PRIMARY KEY USING INDEX."));
+            "CREATE UNIQUE INDEX CONCURRENTLY, then ADD CONSTRAINT ... PRIMARY KEY USING INDEX.",
+            usingIndex(text)));
       }
       boolean rebuildDrop = upper.matches("^DROP TABLE .*")
           && rebuilt.contains(normalize(text.substring("DROP TABLE ".length()).trim()));
@@ -321,7 +368,8 @@ public final class SqlLinter {
       boolean rebuildCopy = REBUILD_RENAME.matcher(text).find() || (renamed.find()
           && moved.contains(normalize(renamed.group(1)) + "." + normalize(renamed.group(2))));
       if (!rebuildCopy && (upper.matches("^(RENAME TABLE|EXEC SP_RENAME).*")
-          || upper.startsWith("ALTER TABLE") && upper.matches(".* RENAME (COLUMN |TO ).*"))) {
+          || upper.startsWith("ALTER TABLE") && upper.matches(".* RENAME (COLUMN |TO ).*")
+          || upper.matches("^ALTER (SCHEMA|VIEW|MATERIALIZED VIEW|SEQUENCE) .* RENAME TO .*"))) {
         found.add(finding("MX008", Severity.WARNING, file, number, text,
             "Application instances still running the old code use the old name and will fail.",
             "Rename in steps: add the new name, write to both, switch reads, then remove the "
@@ -345,19 +393,225 @@ public final class SqlLinter {
             "TRUNCATE deletes all rows and cannot be undone by a rollback script.",
             "Make sure this is intended and backed up."));
       }
+      if (lockChecks) {
+        lintPostgresLocks(found, file, number, text, upper);
+      }
       if (onlineIndexes && indexOnExisting && !ONLINE.matcher(upper).find()) {
         found.add(finding("MX015", Severity.INFO, file, number, text,
             "Index builds lock the table unless they run online.",
             "Use WITH (ONLINE = ON) on SQL Server Enterprise or ONLINE on Oracle Enterprise "
                 + "for large tables."));
       }
+      boolean literalSpacing = hasSpacedLiteral(raw);
       for (Finding finding : found) {
+        if (literalSpacing && finding.safeSql() != null) {
+          // The safe SQL is built from the statement with its spaces collapsed.
+          finding = new Finding(finding.code(), finding.severity(), finding.file(),
+              finding.statement(), finding.sql(), finding.message(), finding.fix(), 0, null);
+        }
         if (!ignores.contains(finding.code())) {
           findings.add(finding);
         }
       }
     }
-    return findings;
+    List<Finding> located = new ArrayList<>();
+    for (Finding f : findings) {
+      int line = f.statement() >= 1 && f.statement() <= lines.length ? lines[f.statement() - 1]
+          : 0;
+      located.add(new Finding(f.code(), f.severity(), f.file(), f.statement(), f.sql(),
+          f.message(), f.fix(), line, f.safeSql()));
+    }
+    return located;
+  }
+
+  /**
+   * PostgreSQL statements that have a form that doesn't block (MX020), and statements that
+   * rewrite a whole table under an exclusive lock (MX021).
+   */
+  private static void lintPostgresLocks(List<Finding> found, String file, int number,
+                                        String text, String upper) {
+    if (upper.startsWith("REINDEX ") && !upper.contains("CONCURRENTLY")
+        && !upper.matches("^REINDEX (\\([^)]*\\) )?SYSTEM .*")) {
+      found.add(finding("MX020", Severity.WARNING, file, number, text,
+          "REINDEX blocks writes to the table, and queries that use the index, until it "
+              + "finishes.",
+          "Use REINDEX ... CONCURRENTLY (PostgreSQL 12+) in a migration that starts with "
+              + "'-- migrax:no-transaction'.", concurrently(REINDEX_HEAD, text)));
+    } else if (upper.startsWith("DROP INDEX ") && !upper.startsWith("DROP INDEX CONCURRENTLY")) {
+      // CONCURRENTLY takes one index and no CASCADE.
+      boolean oneIndex = !text.contains(",") && !upper.matches(".*\\bCASCADE\\b.*");
+      found.add(finding("MX020", Severity.WARNING, file, number, text,
+          "DROP INDEX waits for every query on the table and then blocks all of them until it "
+              + "is done.",
+          "Use DROP INDEX CONCURRENTLY in a migration that starts with "
+              + "'-- migrax:no-transaction'. On a small, quiet table the lock is short: then "
+              + "'-- migrax:lint-ignore MX020' accepts it.",
+          oneIndex ? concurrently(DROP_INDEX_HEAD, text) : null));
+    } else if (upper.startsWith("REFRESH MATERIALIZED VIEW ")
+        && !upper.startsWith("REFRESH MATERIALIZED VIEW CONCURRENTLY")
+        // WITH NO DATA only empties the view: the lock is short, and CONCURRENTLY can't.
+        && !upper.matches(".*\\bWITH NO DATA\\b.*")) {
+      found.add(finding("MX020", Severity.WARNING, file, number, text,
+          "Refreshing a materialized view blocks reads of it until the refresh finishes.",
+          "Use REFRESH MATERIALIZED VIEW CONCURRENTLY; the view needs a unique index on "
+              + "plain columns for that.", concurrently(REFRESH_HEAD, text, false)));
+    } else {
+      Matcher detach = DETACH.matcher(bare(text));
+      if (detach.find() && detach.group(3) == null) {
+        found.add(finding("MX020", Severity.WARNING, file, number, text,
+            "Detaching a partition blocks every query on " + normalize(detach.group(1))
+                + " until it is done.",
+            "Use DETACH PARTITION ... CONCURRENTLY (PostgreSQL 14+) in a migration that starts "
+                + "with '-- migrax:no-transaction'.",
+            NO_TRANSACTION + bare(text) + " CONCURRENTLY;"));
+      }
+    }
+    if (upper.matches("^VACUUM (\\([^)]*\\bFULL\\b[^)]*\\)|FULL\\b).*")
+        || upper.matches("^CLUSTER\\b.*")
+        || upper.matches("^ALTER (TABLE|INDEX|MATERIALIZED VIEW) .* SET (TABLESPACE|LOGGED"
+            + "|UNLOGGED)\\b.*")) {
+      found.add(finding("MX021", Severity.WARNING, file, number, text,
+          "This rewrites the whole table while holding an exclusive lock: reads and writes "
+              + "wait until it finishes.",
+          "Run it in a maintenance window, or rebuild the table online with an extension such "
+              + "as pg_repack (for VACUUM FULL and CLUSTER)."));
+    }
+  }
+
+  /** Whether a string in the statement holds a line break or several spaces in a row. */
+  private static boolean hasSpacedLiteral(String raw) {
+    Matcher literal = STRING.matcher(SqlScript.stripComments(raw));
+    while (literal.find()) {
+      if (literal.group().matches("(?s).*(\\s\\s|[\\r\\n\\t]).*")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** The statement without its closing semicolon. */
+  private static String bare(String text) {
+    String trimmed = text.strip();
+    return trimmed.endsWith(";") ? trimmed.substring(0, trimmed.length() - 1).strip() : trimmed;
+  }
+
+  /** The statement with CONCURRENTLY after its head, in a no-transaction migration. */
+  private static String concurrently(Pattern head, String text) {
+    return concurrently(head, text, true);
+  }
+
+  private static String concurrently(Pattern head, String text, boolean noTransaction) {
+    Matcher matcher = head.matcher(bare(text));
+    if (!matcher.find()) {
+      return null;
+    }
+    return (noTransaction ? NO_TRANSACTION : "")
+        + matcher.replaceFirst(Matcher.quoteReplacement(matcher.group(1)) + " CONCURRENTLY ")
+        + ";";
+  }
+
+  /** SET NOT NULL through a NOT VALID check, validated later. */
+  private static String setNotNullSafely(String text) {
+    Matcher matcher = SET_NOT_NULL.matcher(bare(text));
+    if (!matcher.find()) {
+      return null;
+    }
+    String table = matcher.group(1);
+    String column = matcher.group(2);
+    String check = constraintName(normalize(table) + "_" + normalize(column) + "_not_null");
+    String alter = "ALTER TABLE " + table + " ";
+    return alter + "ADD CONSTRAINT " + check + " CHECK (" + column + " IS NOT NULL) NOT VALID;\n"
+        + LATER
+        + alter + "VALIDATE CONSTRAINT " + check + ";\n"
+        + "-- migrax:lint-ignore MX004\n"
+        + alter + "ALTER COLUMN " + column + " SET NOT NULL;\n"
+        + alter + "DROP CONSTRAINT " + check + ";";
+  }
+
+  /** A foreign key or check added NOT VALID, validated later. */
+  private static String notValid(String text) {
+    String statement = bare(text);
+    Matcher matcher = ADD_CONSTRAINT.matcher(statement);
+    if (!matcher.find() || MORE_ACTIONS.matcher(statement).find()
+        || !matcher.group(3).toUpperCase(Locale.ROOT).matches("FOREIGN KEY|CHECK")) {
+      return null;
+    }
+    return statement + " NOT VALID;\n" + LATER
+        + "ALTER TABLE " + matcher.group(1) + " VALIDATE CONSTRAINT " + matcher.group(2) + ";";
+  }
+
+  /** A unique constraint or primary key on an index built CONCURRENTLY first. */
+  private static String usingIndex(String text) {
+    String statement = bare(text);
+    String table;
+    String name;
+    String kind;
+    String columns;
+    Matcher named = ADD_CONSTRAINT.matcher(statement);
+    Matcher primary = ADD_PRIMARY_KEY.matcher(statement);
+    if (named.find()) {
+      table = named.group(1);
+      name = named.group(2);
+      kind = named.group(3).toUpperCase(Locale.ROOT);
+      columns = named.group(4).strip();
+      if (!kind.equals("UNIQUE") && !kind.equals("PRIMARY KEY")
+          || !COLUMN_LIST.matcher(columns).matches()) {
+        return null;
+      }
+    } else if (primary.find()) {
+      table = primary.group(1);
+      name = constraintName(normalize(table) + "_pkey");
+      kind = "PRIMARY KEY";
+      columns = primary.group(2);
+    } else {
+      return null;
+    }
+    return NO_TRANSACTION
+        + "CREATE UNIQUE INDEX CONCURRENTLY " + name + " ON " + table + " " + columns + ";\n"
+        + "-- In the next migration, without no-transaction:\n"
+        + "ALTER TABLE " + table + " ADD CONSTRAINT " + name + " " + kind + " USING INDEX "
+        + name + ";";
+  }
+
+  /** PostgreSQL keeps the first 63 bytes of a name. */
+  private static String constraintName(String name) {
+    return name.length() > 63 ? name.substring(0, 63) : name;
+  }
+
+  /**
+   * The line each statement's SQL starts on, after the comments before it; 0 when the statement
+   * can't be found in the file as written (a placeholder or a rewritten batch).
+   */
+  static int[] statementLines(String sql, List<String> statements) {
+    int[] lines = new int[statements.size()];
+    int from = 0;
+    int line = 1;
+    int counted = 0;
+    for (int i = 0; i < statements.size(); i++) {
+      String raw = statements.get(i).strip();
+      int at = raw.isEmpty() ? -1 : sql.indexOf(raw, from);
+      if (at < 0) {
+        continue;
+      }
+      int start = at;
+      for (String part : raw.split("\n", -1)) {
+        String trimmed = part.strip();
+        if (!trimmed.isEmpty() && !trimmed.startsWith("--")) {
+          start = Math.max(at, sql.indexOf(trimmed, start));
+          break;
+        }
+        start += part.length() + 1;
+      }
+      for (int c = counted; c < start; c++) {
+        if (sql.charAt(c) == '\n') {
+          line++;
+        }
+      }
+      counted = start;
+      lines[i] = line;
+      from = at + raw.length();
+    }
+    return lines;
   }
 
   /**
@@ -380,8 +634,13 @@ public final class SqlLinter {
 
   private static Finding finding(String code, Severity severity, String file, int statement,
                                  String sql, String message, String fix) {
+    return finding(code, severity, file, statement, sql, message, fix, null);
+  }
+
+  private static Finding finding(String code, Severity severity, String file, int statement,
+                                 String sql, String message, String fix, String safeSql) {
     String shortSql = sql.length() > 140 ? sql.substring(0, 137) + "..." : sql;
-    return new Finding(code, severity, file, statement, shortSql, message, fix);
+    return new Finding(code, severity, file, statement, shortSql, message, fix, 0, safeSql);
   }
 
   private static Set<String> codes(Pattern pattern, String text) {

@@ -67,7 +67,8 @@ final class GenerateCommand implements Command {
   public String usage() {
     return "migrax generate [--name <name>] [--allow-destructive [--keep-data]] [--safe]\n"
         + "       migrax generate --zero-downtime [--name <name>] [--allow-destructive]\n"
-        + "       migrax generate --contract";
+        + "       migrax generate --contract\n"
+        + "       migrax generate --rebuild-snapshot";
   }
 
   @Override
@@ -90,13 +91,16 @@ final class GenerateCommand implements Command {
         contract migration for the next release (drops, NOT NULL, narrower types, new
         constraints). The contract migration waits in .migrax/pending/; generate --contract
         adds it to the migration folder.
+        When a generated migration file was deleted, generate stops (MXE119): restore the file,
+        or run generate --rebuild-snapshot to move the snapshot back to the history snapshot of
+        the newest generated migration before the deleted ones, then generate again.
         Always review the generated SQL; Migrax lints it for you.""";
   }
 
   @Override
   public List<String> options() {
     return List.of("--name", "--allow-destructive", "--keep-data", "--safe", "--zero-downtime",
-        "--contract", "--rename",
+        "--contract", "--rebuild-snapshot", "--rename",
         "--rename-table",
         "--no-input", "--json", "--lock-timeout", "--dialect", "--package", "--naming",
         "--extractor", "--schema-file", "--scratch-url",
@@ -110,6 +114,8 @@ final class GenerateCommand implements Command {
    * {@code waiting} in .migrax/pending, the columns --keep-data could {@code notKept}, and
    * the changes written without --keep-data whose data a rollback can't bring back
    * ({@code dataNotKept}). Stopping at drops (MXE108) still reports the operations and renames.
+   * With --rebuild-snapshot: {@code rebuilt}, and the deleted migrations whose history was
+   * removed ({@code forgotten}, as in repair).
    */
   @Override
   public boolean jsonResult() {
@@ -137,7 +143,14 @@ final class GenerateCommand implements Command {
           + (args.flag("--keep-data") ? "--keep-data" : "--safe") + ".",
           "Generate the zero-downtime change on its own.");
     }
+    if (args.flag("--rebuild-snapshot")) {
+      startResult(context, null);
+      return SnapshotAhead.rebuild(context);
+    }
     boolean hasSnapshot = Files.exists(project.snapshot());
+    if (hasSnapshot) {
+      SnapshotAhead.requireNone(project);
+    }
     if (!hasSnapshot && !project.hasUrl()) {
       throw new UsageException(ErrorCode.NO_DATABASE_URL,
           "No database URL found, and there is no snapshot yet.",

@@ -48,7 +48,7 @@ final class ReportCommand implements Command {
 
   @Override
   public String usage() {
-    return "migrax report [--html <file>]";
+    return "migrax report [--html <file>] [--json]";
   }
 
   @Override
@@ -62,9 +62,20 @@ final class ReportCommand implements Command {
 
   @Override
   public List<String> options() {
-    return List.of("--html", "--env", "--schemas", "--dialect", "--package", "--naming",
+    return List.of("--html", "--json", "--env", "--schemas", "--dialect", "--package", "--naming",
         "--extractor", "--schema-file", "--scratch-url", "--url", "--user", "--password",
         "--password-file", "--locations", "--classpath", "--no-build", "--database");
+  }
+
+  /**
+   * With --json: the {@code file} written (relative to the project folder when inside it), the
+   * {@code summary} line, and the counts: {@code tables}, {@code migrations}, {@code pending},
+   * {@code lintFindings}, {@code unmigratedChanges} (null when the entities could not be read)
+   * and {@code driftDifferences} (null when drift was not checked).
+   */
+  @Override
+  public boolean jsonResult() {
+    return true;
   }
 
   @Override
@@ -158,6 +169,14 @@ final class ReportCommand implements Command {
         findings, project.displayMigrations(), drift, databaseNote);
     Files.createDirectories(target.toAbsolutePath().getParent());
     Files.writeString(target, HtmlReport.render(data));
+    context.result("file", project.display(target));
+    context.result("summary", HtmlReport.summary(data));
+    context.result("tables", schema == null ? 0 : schema.tables().size());
+    context.result("migrations", rows.size());
+    context.result("pending", pending.size());
+    context.result("lintFindings", findings.size());
+    context.result("unmigratedChanges", unmigrated == null ? null : unmigrated.size());
+    context.result("driftDifferences", drift == null ? null : drift.size());
     out.println("Wrote " + project.display(target) + ": " + HtmlReport.summary(data) + ".");
     return OK;
   }

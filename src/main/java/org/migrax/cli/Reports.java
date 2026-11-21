@@ -112,7 +112,8 @@ final class Reports {
   static List<Object> findingsJson(List<SqlLinter.Finding> findings) {
     return findings.stream().map(f -> (Object) JsonOut.object("code", f.code(),
         "severity", f.severity(), "file", f.file(), "statement", f.statement(),
-        "message", f.message(), "fix", f.fix(), "sql", f.sql())).toList();
+        "message", f.message(), "fix", f.fix(), "sql", f.sql(), "line", f.line(),
+        "safeSql", f.safeSql())).toList();
   }
 
   static void printFindings(PrintStream out, List<SqlLinter.Finding> findings) {
@@ -122,6 +123,10 @@ final class Reports {
       out.println("  " + Log.terminalText(finding.sql()));
       out.println("  " + Log.terminalText(finding.message()));
       out.println("  Fix: " + Log.terminalText(finding.fix()));
+      if (finding.safeSql() != null) {
+        out.println("  Safe SQL:");
+        finding.safeSql().lines().forEach(line -> out.println("    " + Log.terminalText(line)));
+      }
     }
   }
 }

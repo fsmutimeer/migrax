@@ -13,8 +13,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** {@code migrax lint}: find locking and risky SQL in migrations. */
@@ -37,7 +39,7 @@ final class LintCommand implements Command {
 
   @Override
   public String usage() {
-    return "migrax lint [files...] [--all] [--strict] [--json]";
+    return "migrax lint [files...] [--all] [--strict] [--json] [--sarif <file>]";
   }
 
   @Override
@@ -46,12 +48,15 @@ final class LintCommand implements Command {
         Checks pending migrations (or the given files, or --all) for statements that block
         tables, fail on existing data, or break running application instances, and suggests
         safe alternatives. Exits with 1 on errors, or on warnings with --strict.
-        Silence a finding with '-- migrax:lint-ignore MX001' before the statement.""";
+        Silence a finding with '-- migrax:lint-ignore MX001' before the statement.
+        --sarif also writes the findings as SARIF 2.1.0, which GitHub code scanning, GitLab
+        and Azure DevOps show on the SQL line in a pull request; its paths are relative to the
+        current folder, so run lint from the repository's root.""";
   }
 
   @Override
   public List<String> options() {
-    return List.of("--all", "--strict", "--json", "--dialect", "--url", "--locations",
+    return List.of("--all", "--strict", "--json", "--sarif", "--dialect", "--url", "--locations",
         "--database");
   }
 
@@ -88,9 +93,25 @@ final class LintCommand implements Command {
       }
     }
     List<SqlLinter.Finding> findings = new ArrayList<>();
+    Map<String, Path> shown = new HashMap<>();
     for (Path file : files) {
+      shown.put(project.display(file), file);
       findings.addAll(SqlLinter.lint(project.display(file), Files.readString(file), dialect,
           !project.schemas().isEmpty()));
+    }
+    String sarif = args.option("--sarif");
+    if (!Project.blank(sarif)) {
+      Path target = Path.of(sarif);
+      Path base = Path.of(System.getProperty("user.dir"));
+      if (!target.isAbsolute()) {
+        target = base.resolve(target);
+      }
+      Path folder = target.getParent();
+      if (folder != null) {
+        Files.createDirectories(folder);
+      }
+      Files.writeString(target, SarifReport.render(findings, shown, base) + "\n");
+      err.println("Wrote " + project.display(target) + " (SARIF).");
     }
     boolean errors = findings.stream().anyMatch(f -> f.severity() == SqlLinter.Severity.ERROR);
     boolean warnings = findings.stream().anyMatch(f -> f.severity() == SqlLinter.Severity.WARNING);

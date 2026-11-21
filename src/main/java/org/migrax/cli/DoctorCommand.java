@@ -21,10 +21,12 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,7 +34,20 @@ import java.util.regex.Pattern;
 final class DoctorCommand implements Command {
 
   // A URL scheme (RFC 3986); capped so a long token is never taken for one.
-  private static final Pattern URL_SCHEME = Pattern.compile("[A-Za-z][A-Za-z0-9+.-]{0,30}://");
+  private static final Pattern URL_SCHEME =
+      Pattern.compile("([A-Za-z][A-Za-z0-9.-]{0,30})([+][A-Za-z0-9_]{1,20})?://");
+  /**
+   * Schemes doctor names: the dialect ids and the other common URL schemes. Any other text
+   * before :// could be a secret and is not shown.
+   */
+  private static final Set<String> KNOWN_SCHEMES = knownSchemes();
+
+  private static Set<String> knownSchemes() {
+    Set<String> schemes = new HashSet<>(Dialects.NAMES);
+    schemes.addAll(List.of("postgres", "pgsql", "postgis", "cockroach", "mysqlx", "sqlite3",
+        "libsql", "mssql", "redis", "rediss", "mongodb", "clickhouse", "http", "https", "file"));
+    return Set.copyOf(schemes);
+  }
 
   @Override
   public String name() {
@@ -330,7 +345,12 @@ final class DoctorCommand implements Command {
    */
   static String urlKind(String value) {
     Matcher scheme = URL_SCHEME.matcher(value == null ? "" : value.strip());
-    return scheme.lookingAt() ? "it starts with " + scheme.group() : "it does not look like a URL";
+    if (!scheme.lookingAt()) {
+      return "it does not look like a URL";
+    }
+    return KNOWN_SCHEMES.contains(scheme.group(1).toLowerCase(Locale.ROOT))
+        ? "it starts with " + scheme.group(1) + (scheme.group(2) == null ? "" : "+...")
+            + "://" : "it starts with a URL scheme";
   }
 
   private static boolean loadable(ClassLoader loader, String name) {

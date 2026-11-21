@@ -27,7 +27,8 @@ enum ErrorCode {
   SCHEMA_FILE_FAILED("MXE115", "The schema file can't be read"),
   NO_ENVIRONMENTS("MXE116", "No environments configured"),
   TABLE_BUSY("MXE117", "A migration waited too long for a locked table"),
-  CONTROL_CHARACTER_IN_NAME("MXE118", "A name has a line break or control character");
+  CONTROL_CHARACTER_IN_NAME("MXE118", "A name has a line break or control character"),
+  SNAPSHOT_AHEAD("MXE119", "The snapshot includes a deleted migration");
 
   final String code;
   final String title;
