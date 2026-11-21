@@ -1,7 +1,7 @@
 # Documentation site build (see CONTRIBUTING.md)
 # [imaging]: Pillow and CairoSVG for the link preview images (social plugin, CI only).
-mkdocs-material[imaging]==9.7.7
+mkdocs-material[imaging]==9.8.1
 # RSS feed of the blog (feed_rss_created.xml at the site root).
-mkdocs-rss-plugin==1.19.0
+mkdocs-rss-plugin==1.20.0
 # MkDocs 2.0 drops the plugin and theme system Material relies on.
 mkdocs>=1.6,<2
