@@ -16,7 +16,8 @@ class DoctorUrlKindTest {
     Map<String, String> expected = new LinkedHashMap<>();
     expected.put("postgres://shop:secret@db:5432/shop?sslmode=require",
         "it starts with postgres://");
-    expected.put("postgresql+psycopg2://u:p@db/shop", "it starts with postgresql+psycopg2://");
+    expected.put("postgresql+psycopg2://u:p@db/shop", "it starts with postgresql+...://");
+    expected.put("postgresql+Tiger9secret://u:p@db/shop", "it starts with postgresql+...://");
     expected.put("sqlite:///shop.db", "it starts with sqlite://");
     // Forms that password masking misses: none of their text may appear.
     expected.put("postgres://db/shop?passwd=secret", "it starts with postgres://");
@@ -28,6 +29,9 @@ class DoctorUrlKindTest {
     expected.put("", NOT_A_URL);
     // Longer than any real scheme: could be a token, so it is not shown either.
     expected.put("a".repeat(32) + "://db/shop", NOT_A_URL);
+    // A scheme Migrax doesn't know could be a token too: only that it is a URL is shown.
+    expected.put("Tiger9secret://db/shop", "it starts with a URL scheme");
+    expected.put("postgres+" + "b".repeat(21) + "://db", NOT_A_URL);
     expected.forEach((value, kind) -> assertEquals(kind, DoctorCommand.urlKind(value), value));
     assertEquals(NOT_A_URL, DoctorCommand.urlKind(null));
   }

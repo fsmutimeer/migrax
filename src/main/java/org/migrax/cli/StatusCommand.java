@@ -41,21 +41,25 @@ final class StatusCommand implements Command {
 
   @Override
   public String usage() {
-    return "migrax status [--json]";
+    return "migrax status [--json] [--check]";
   }
 
   @Override
   public String description() {
     return """
         Lists migrations as applied [X], pending [ ] or a problem [!], without changing the
-        database. Exits with code 1 when a migration failed, changed or is missing.""";
+        database. Exits with code 1 when a migration failed, changed or is missing.
+        --check also does what 'migrax check' does, in the same run: exits with code 2 when
+        the entities changed without a migration. With --json the output is then
+        {"status": <the status JSON>, "check": <the check JSON>}.""";
   }
 
   @Override
   public List<String> options() {
-    return List.of("--json", "--env", "--schemas", "--url", "--user", "--password",
-        "--password-file", "--locations", "--java-package", "--classpath", "--no-build",
-        "--database");
+    return List.of("--json", "--check", "--env", "--schemas", "--url", "--user", "--password",
+        "--password-file", "--locations", "--java-package", "--package", "--naming",
+        "--extractor", "--schema-file", "--scratch-url", "--classpath", "--no-build",
+        "--refresh", "--database");
   }
 
   @Override
@@ -120,11 +124,20 @@ final class StatusCommand implements Command {
         out.println(String.join(", ", summary) + ".");
       }
     }
-    if (args.flag("--json")) {
-      out.println(JsonOut.write(json.size() == 1 ? json.get(0) : json));
-    } else if (problems) {
+    Object status = json.size() == 1 ? json.get(0) : json;
+    if (!args.flag("--json") && problems) {
       err.println("Some migrations need attention. See 'migrax help repair'.");
     }
-    return problems ? ERROR : OK;
+    if (!args.flag("--check")) {
+      if (args.flag("--json")) {
+        out.println(JsonOut.write(status));
+      }
+      return problems ? ERROR : OK;
+    }
+    CheckCommand.Result check = CheckCommand.check(context, args.flag("--json"));
+    if (args.flag("--json")) {
+      out.println(JsonOut.write(JsonOut.object("status", status, "check", check.json())));
+    }
+    return problems ? ERROR : check.code();
   }
 }

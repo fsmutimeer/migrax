@@ -118,6 +118,19 @@ final class RollbackCommand implements Command {
             scripts.add(Migration.ofSql(target.version(), Files.readString(script)));
           }
         }
+        List<String> gone = new ArrayList<>();
+        for (String version : missing) {
+          if (project.migrationFile(version) == null) {
+            gone.add(version);
+          }
+        }
+        if (!gone.isEmpty()) {
+          throw new UsageException("The migration file of " + String.join(", ", gone)
+              + " is missing, and so is its rollback script.",
+              "If you deleted it on purpose, remove it from the history with 'migrax repair "
+                  + String.join(" ", gone) + " --action forget --yes'. Otherwise restore the "
+                  + "file and write its rollback script.");
+        }
         if (!missing.isEmpty()) {
           throw new UsageException("No rollback script for " + String.join(", ", missing) + ".",
               "Write one in " + project.display(project.folderOf(missing.get(0))

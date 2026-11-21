@@ -35,6 +35,18 @@ class DatabaseSchemaReaderTest {
   }
 
   @Test
+  void aTableNameIsNotAPattern() throws Exception {
+    try (var connection = DriverManager.getConnection("jdbc:h2:mem:table_pattern");
+         var statement = connection.createStatement()) {
+      statement.execute("CREATE TABLE A_B (ID INT)");
+      statement.execute("CREATE TABLE AXB (ID INT, OTHER INT)");
+      var tables = DatabaseSchemaReader.read(connection).tables();
+      var ab = tables.stream().filter(t -> t.name().equals("a_b")).findFirst().orElseThrow();
+      assertEquals(1, ab.columns().size(), ab.toString());
+    }
+  }
+
+  @Test
   void readsTheSequenceBehindAColumnDefault() {
     assertEquals("customer_seq",
         DatabaseSchemaReader.defaultSequence("nextval('customer_seq'::regclass)"));

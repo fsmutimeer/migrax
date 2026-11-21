@@ -24,14 +24,16 @@ the command's own fields:
 | `doctor` | `checks` (each with `status`: `ok`, `info`, `warn` or `fail`, `message`, `fix`), `failures`, `warnings` |
 | `new`, `squash` | `created`; `squash` also `replaces` |
 | `merge` | `renamed` (each with `from`, `to`), `snapshotRebuilt` |
-| `generate` | `noChanges`, `operations` (as in `check --json`, plus `destructive`), `renames`, `created`, `waiting`, `notKept`, `dataNotKept`; see below |
+| `generate` | `noChanges`, `operations` (as in `check --json`, plus `destructive`), `renames`, `created`, `waiting`, `notKept`, `dataNotKept`; with `--rebuild-snapshot`, `rebuilt` and `forgotten` (the deleted migrations whose history was removed); see below |
+| `init` | `root`, `parentFolder` (true when the folder you ran it in is below the project folder it set up), `buildTool`, `package`, `framework`, `naming`, `database` (password hidden), `dialect`, `migrations`, `migrationsCreated`, `snapshot`, `snapshotExists`, `cache` |
+| `report` | `file` (the page written), `summary`, `tables`, `migrations`, `pending`, `lintFindings`, `unmigratedChanges` (null when the entities could not be read), `driftDifferences` (null when drift was not checked) |
 
 ```console
 $ migrax migrate --json 2>/dev/null
 {"ok":true,"exitCode":0,"schemas":[{"schema":null,"applied":1,"total":1}]}
 ```
 
-`status`, `plan`, `check`, `drift`, `lint`, `verify` and `init` keep the JSON shapes they had
+`status`, `plan`, `check`, `drift`, `lint` and `verify` keep the JSON shapes they had
 before 0.3.0, apart from the fields added below; see their sections in the
 [CLI reference](cli.md).
 
@@ -43,6 +45,14 @@ path of the migration file relative to the project folder, such as
 when two modules have one with the same name. `file` is null for Java migrations and for a
 `missing` migration, whose file is gone. A folder outside the project folder gives an
 absolute path as the system writes it (with `\` on Windows).
+
+Each finding in `lint --json` (and in `plan --json` and the MCP server's lint) has `code`,
+`severity`, `file`, `statement` (its number in the file), `line` (where its SQL starts; 0 when
+unknown), `message`, `fix`, `sql`, and `safeSql`: the safer SQL with the statement's own names,
+ready to copy, or null when Migrax has none for it.
+
+`status --json --check` prints `{"status": ..., "check": ...}`: the `status --json` output
+and the `check --json` output in one run, so an editor needs one command after each save.
 
 Each change in `plan --json` (`operations`) and `check --json` (`operations`, next to the
 plain-text `changes`) names its `kind`, `table`, `column` (null when the change is not about one
@@ -135,3 +145,4 @@ meaning; new situations get new codes.
 | MXE116 | No environments configured | Give each environment a URL: `migrax.environments.<name>.url` or `MIGRAX_ENVIRONMENTS_<NAME>_URL` |
 | MXE117 | A migration waited too long for a locked table | Nothing was changed: run `migrate` (or `rollback`) again when the table is less busy, or raise `--table-lock-timeout` ([details](configuration.md#table-lock-timeout)) |
 | MXE118 | A name has a line break or control character | Rename the table, column or constraint in the entities, the schema file, the database or `.migrax/snapshot.json` (the message says where): Migrax writes names into SQL comments and messages, where these characters aren't safe |
+| MXE119 | The snapshot includes a deleted migration | A generated migration file was deleted after generate moved `.migrax/snapshot.json` on, so the next generate would find nothing to write. Restore the file, or, if you deleted it on purpose, run `migrax generate --rebuild-snapshot`, then `migrax generate` |

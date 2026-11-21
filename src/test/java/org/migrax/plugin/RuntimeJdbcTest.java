@@ -35,6 +35,9 @@ class RuntimeJdbcTest {
   public static final class TrippingDriver implements Driver {
     @Override
     public Connection connect(String url, Properties info) {
+      if (url.contains("plain")) {
+        throw new Error("Bad URL: " + url);
+      }
       if (url.contains("error")) {
         throw new NoClassDefFoundError("Could not initialize for: " + url);
       }
@@ -77,6 +80,45 @@ class RuntimeJdbcTest {
     Files.writeString(services.resolve("java.sql.Driver"), TrippingDriver.class.getName());
     return new URLClassLoader(new URL[] {folder.toUri().toURL()},
         RuntimeJdbcTest.class.getClassLoader());
+  }
+
+  @Test
+  void passwordsInMistypedUrlsAreHidden() {
+    String[][] cases = {
+        {"jdbc:mysql://root:Tiger9/shop", "jdbc:mysql://root:***/shop"},
+        {"jdbc:mysql://db:3306/shop", "jdbc:mysql://db:3306/shop"},
+        {"jdbc:mysql://h1:3306,h2:Tiger9/shop", "jdbc:mysql://h1:3306,h2:***/shop"},
+        {"jdbc:postgresql://[::1]:5432/shop", "jdbc:postgresql://[::1]:5432/shop"},
+        {"jbdc:oracle:thin:scott/Tiger9@db:1521/x", "jbdc:oracle:thin:scott/***@db:1521/x"},
+        {"jdbc:p6spy-log:oracle:thin:scott/Tiger9@db", "jdbc:p6spy-log:oracle:thin:scott/***@db"},
+        {"jdbc:h2:oracle:scott/Tiger9@db", "jdbc:h2:oracle:scott/***@db"},
+        {"jdbc:oracle:thin:\"scott/Tiger9\"/x@db", "jdbc:oracle:thin:\"scott/***@db"},
+        {"jdbc:oracle:thin:\"scott\"/Tiger9@db", "jdbc:oracle:thin:\"scott\"/***@db"},
+        {"jdbc:postgresql://db/shop?user=a&paswd=Tiger9",
+            "jdbc:postgresql://db/shop?user=a&paswd=***"},
+        {"jdbc:postgresql://db/shop?auth=Tiger9", "jdbc:postgresql://db/shop?auth=***"},
+        {"jdbc:postgresql://db/shop?%70assword=Tiger9",
+            "jdbc:postgresql://db/shop?%70assword=***"},
+        {"jdbc:postgresql://db/shop?sslmode=require", "jdbc:postgresql://db/shop?sslmode=require"},
+        {"jdbc:postgresql://db/shop?passwordless=true",
+            "jdbc:postgresql://db/shop?passwordless=true"},
+    };
+    for (String[] c : cases) {
+      assertEquals(c[1], RuntimeJdbc.sanitizeUrl(c[0]), c[0]);
+    }
+    // A long URL is still read quickly.
+    String longUrl = "jdbc:postgresql://db/shop?" + "a".repeat(200_000) + "="
+        + "b=".repeat(100_000);
+    assertTimeoutPreemptively(Duration.ofSeconds(5), () -> RuntimeJdbc.sanitizeUrl(longUrl));
+  }
+
+  @Test
+  void aPlainDriverErrorShowsNoneOfThePassword(@TempDir Path folder) throws Exception {
+    try (URLClassLoader loader = withTrippingDriver(folder)) {
+      SQLException failure = assertThrows(SQLException.class, () -> RuntimeJdbc.connect(loader,
+          "jdbc:trip://u:Tiger9@db/plain", null, null));
+      assertFalse(failure.getMessage().contains("Tiger9"), failure.getMessage());
+    }
   }
 
   @Test

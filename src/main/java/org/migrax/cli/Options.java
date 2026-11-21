@@ -16,7 +16,7 @@ final class Options {
       "--package", "--dir", "--locations", "--dialect", "--url", "--user", "--password",
       "--classpath", "--name", "--schema", "--action", "--naming", "--extractor", "--rename",
       "--rename-table", "--to", "--steps", "--image", "--java-package", "--schemas", "--table",
-      "--lock-timeout", "--table-lock-timeout", "--password-file", "--env", "--html",
+      "--lock-timeout", "--table-lock-timeout", "--password-file", "--env", "--html", "--sarif",
       "--source-user", "--source-password-file", "--database", "--schema-file", "--scratch-url",
       "--environments", "--timeout");
   /** Options without a value. */
@@ -25,7 +25,8 @@ final class Options {
       "--refresh", "--yes", "-y", "--help", "-h", "--version", "-V", "--json", "--safe",
       "--impact", "--strict", "--no-input", "--optimize", "--java", "--entities",
       "--skip-rollbacks", "--all", "--allow-generate", "--sql", "--keep-data", "--drop",
-      "--zero-downtime", "--contract", "--no-drift", "--migrations-only");
+      "--zero-downtime", "--contract", "--no-drift", "--migrations-only",
+      "--rebuild-snapshot", "--check");
 
   private static final Map<String, String> HELP = new LinkedHashMap<>();
 
@@ -35,6 +36,7 @@ final class Options {
         "--database <name>       Work on migrax.databases.<name> instead of the default database");
     HELP.put("--package", "--package <name>        Entity package (default: MIGRAX_PACKAGE or pom groupId)");
     HELP.put("--name", "--name <name>           Migration file name (default: next number + description)");
+    HELP.put("--sarif", "--sarif <file>          Also write the findings as SARIF 2.1.0 for code scanning");
     HELP.put("--html", "--html <file>           Where to write the page (default: migrax-report.html)");
     HELP.put("--allow-destructive", "--allow-destructive     Allow drops and narrowing type changes");
     HELP.put("--drop", "--drop [<migration>]    Drop the backup tables (all, or one migration's)");
@@ -46,6 +48,10 @@ final class Options {
         "--zero-downtime         Split into an expand migration now and a contract one later");
     HELP.put("--contract",
         "--contract              Add the waiting contract migrations to the migration folder");
+    HELP.put("--check",
+        "--check                 Also check the entities against the snapshot, as check does");
+    HELP.put("--rebuild-snapshot",
+        "--rebuild-snapshot      Move the snapshot back after a migration file was deleted");
     HELP.put("--rename", "--rename t.old=new      Treat a column change as a rename (comma-separated)");
     HELP.put("--rename-table", "--rename-table old=new  Treat a table change as a rename");
     HELP.put("--no-input", "--no-input              Never ask questions");

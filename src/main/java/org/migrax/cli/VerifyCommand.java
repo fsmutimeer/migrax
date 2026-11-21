@@ -144,8 +144,10 @@ final class VerifyCommand implements Command {
                 + "instead.");
           }
         }
+        // Entities mapped in orm.xml have no annotations for the scan to find.
         boolean noEntities = validated && !schemaFile
-            && JpaExtractor.scanEntities(loader, packageName).isEmpty();
+            && JpaExtractor.scanEntities(loader, packageName).isEmpty()
+            && !hasMappingFile(loader);
         if (!validated) {
           SchemaModel expected = project.extract(dialect).model();
           noEntities = !schemaFile && expected.tables().isEmpty();
@@ -192,6 +194,23 @@ final class VerifyCommand implements Command {
       out.println(ok ? "Verified." : "Verification failed.");
     }
     return ok ? OK : ERROR;
+  }
+
+  /** Whether the project maps entities in XML: orm.xml, or a mapping-file in persistence.xml. */
+  private static boolean hasMappingFile(ClassLoader loader) {
+    if (loader.getResource("META-INF/orm.xml") != null) {
+      return true;
+    }
+    java.net.URL persistence = loader.getResource("META-INF/persistence.xml");
+    if (persistence == null) {
+      return false;
+    }
+    try (java.io.InputStream in = persistence.openStream()) {
+      return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)
+          .contains("<mapping-file");
+    } catch (java.io.IOException e) {
+      return false;
+    }
   }
 
   /**

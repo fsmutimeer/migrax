@@ -6,6 +6,49 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- `status --check` also checks the entities against the snapshot in the same run, and
+  `status --json --check` prints both results in one object: one command instead of two
+  after each saved file.
+- Lint findings carry the safer SQL with the statement's own names, ready to copy, for MX001,
+  MX004, MX005, MX006, MX013, MX014 and MX020 (`Safe SQL` in the text output, `safeSql` in
+  JSON), and the `line` where the statement starts.
+- `migrax lint --sarif <file>` writes the findings as SARIF 2.1.0, so GitHub code scanning,
+  Azure DevOps and others show them on the SQL line in a pull request. The GitHub Action writes
+  it too (output `sarif`).
+- PostgreSQL lint rules MX020 (`REINDEX`, `DROP INDEX`, `REFRESH MATERIALIZED VIEW` and
+  `DETACH PARTITION` without `CONCURRENTLY`) and MX021 (`VACUUM FULL`, `CLUSTER`,
+  `SET TABLESPACE`, `SET LOGGED`/`UNLOGGED`, which rewrite the table under an exclusive lock).
+  MX008 also flags renamed views, materialized views, sequences and schemas, and MX012
+  `DETACH PARTITION ... CONCURRENTLY` inside a transaction.
+- `init --json` and `report --json`. `init` also says when the folder it ran in has no build
+  file and the project folder above it was set up.
+- `generate --rebuild-snapshot` moves `.migrax/snapshot.json` back to the history snapshot of
+  the newest generated migration before the deleted ones, after one was deleted on purpose.
+
+### Changed
+- `generate` stops with MXE119 when a generated migration file was deleted after the snapshot
+  moved on. Before, it reported "No changes detected" and the deleted changes were never
+  written again.
+- `rollback` says when the migration file itself is missing, and how to remove it from the
+  history with `repair --action forget`, instead of only "No rollback script".
+- `migrax help` describes `import` without naming other tools.
+
+### Security
+- More password forms are hidden in database URLs shown in messages, `doctor`, `status` and
+  reports: misspelled or percent-encoded setting names (`paswd=`, `pasword=`, `%70assword=`,
+  `auth=`), a password where the port should be when the `@host` is missing
+  (`//root:password/shop`), Oracle URLs after a mistyped `jdbc:`, behind wrappers with `-` in
+  their name, as `h2:oracle:`, and with the user and password quoted together. A driver that
+  fails with a plain `Error` no longer shows a URL that may hold a password.
+- `doctor` names a skipped non-JDBC `DATABASE_URL` only by a known scheme (`postgres://`,
+  `mysql://`, ...); for any other text before `://` it says only that it is a URL.
+
+### Fixed
+- Reading a table whose name has `_` or `%` could also read the columns of a table the name
+  matches as a pattern (`a_b` and `axb`).
+- `verify` no longer warns that it found no entities when they are mapped in `orm.xml`.
+
 ## [0.20.0-rc.1] - 2026-11-20
 
 Release candidate for 0.20.0, for testing.

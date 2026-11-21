@@ -31,13 +31,14 @@ service folder (the one with `pom.xml` or `build.gradle`), or pass `--dir <path>
 ### init
 
 ```
-migrax init
+migrax init [--json]
 ```
 
-Creates the .migrax folder and the migration folder, then shows the entity package, database, dialect and naming Migrax detected. Safe to run more than once.
+Creates the .migrax folder and the migration folder, then shows the entity package, database, dialect and naming Migrax detected. Safe to run more than once. A folder without a build file or `migrax.properties` belongs to the nearest folder above it that has one: init sets up that folder and says so.
 
 | Option | Meaning |
 |---|---|
+| `--json` | Machine-readable output |
 | `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
@@ -152,9 +153,10 @@ For a database whose tables already exist (created by hand, by a script or by an
 migrax generate [--name <name>] [--allow-destructive [--keep-data]] [--safe]
 migrax generate --zero-downtime [--name <name>] [--allow-destructive]
 migrax generate --contract
+migrax generate --rebuild-snapshot
 ```
 
-Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`; with `--keep-data`, dropped tables and columns go to `migrax_backup_*` tables and the rollback script restores them (`migrax backups` lists and drops those tables). Without `--keep-data`, Migrax asks whether to keep that data (Enter keeps it), or warns when it can't ask. `--safe` (PostgreSQL, CockroachDB) builds indexes and constraints on existing tables without blocking writes, in a second migration. `--zero-downtime` splits the change so the old and new application versions can run at the same time: an expand migration now (new columns and tables, a renamed column kept equal to its old name by a trigger, a renamed table's old name as a view) and a contract migration for the next release (drops, NOT NULL, narrower types, new constraints). The contract migration waits in `.migrax/pending/`; `generate --contract` adds it to the migration folder. Always review the generated SQL; Migrax lints it for you.
+Compiles the project if needed, compares the entities with `.migrax/snapshot.json` and writes a numbered SQL file plus a rollback script (`rollback/<file>`). On the first run, with no snapshot, the current database schema is the baseline: its tables are written to `0001_baseline.sql`, which that database records as applied without running it. When a column or table seems renamed, Migrax asks (or pass `--rename` / `--rename-table`) so the data is kept. Drops need `--allow-destructive`; with `--keep-data`, dropped tables and columns go to `migrax_backup_*` tables and the rollback script restores them (`migrax backups` lists and drops those tables). Without `--keep-data`, Migrax asks whether to keep that data (Enter keeps it), or warns when it can't ask. `--safe` (PostgreSQL, CockroachDB) builds indexes and constraints on existing tables without blocking writes, in a second migration. `--zero-downtime` splits the change so the old and new application versions can run at the same time: an expand migration now (new columns and tables, a renamed column kept equal to its old name by a trigger, a renamed table's old name as a view) and a contract migration for the next release (drops, NOT NULL, narrower types, new constraints). The contract migration waits in `.migrax/pending/`; `generate --contract` adds it to the migration folder. When a generated migration file was deleted, generate stops (MXE119): restore the file, or run `generate --rebuild-snapshot` to move the snapshot back to the history snapshot of the newest generated migration before the deleted ones, then generate again. Always review the generated SQL; Migrax lints it for you.
 
 | Option | Meaning |
 |---|---|
@@ -164,6 +166,7 @@ Compiles the project if needed, compares the entities with `.migrax/snapshot.jso
 | `--safe` | Non-blocking indexes and constraints (PostgreSQL, CockroachDB) |
 | `--zero-downtime` | Split into an expand migration now and a contract one later |
 | `--contract` | Add the waiting contract migrations to the migration folder |
+| `--rebuild-snapshot` | Move the snapshot back after a migration file was deleted |
 | `--rename t.old=new` | Treat a column change as a rename (comma-separated) |
 | `--rename-table old=new` | Treat a table change as a rename |
 | `--no-input` | Never ask questions |
@@ -222,14 +225,15 @@ Applies pending SQL and Java migrations in order, then new or changed repeatable
 *Alias:* `showmigrations`
 
 ```
-migrax status [--json]
+migrax status [--json] [--check]
 ```
 
-Lists migrations as applied [X], pending [ ] or a problem [!], without changing the database. Exits with code 1 when a migration failed, changed or is missing.
+Lists migrations as applied [X], pending [ ] or a problem [!], without changing the database. Exits with code 1 when a migration failed, changed or is missing. `--check` also does what `migrax check` does, in the same run: exits with code 2 when the entities changed without a migration. With `--json` the output is then `{"status": <the status JSON>, "check": <the check JSON>}`.
 
 | Option | Meaning |
 |---|---|
 | `--json` | Machine-readable output |
+| `--check` | Also check the entities against the snapshot, as check does |
 | `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--url <jdbc-url>` | Database URL (default: application config) |
@@ -238,8 +242,14 @@ Lists migrations as applied [X], pending [ ] or a problem [!], without changing 
 | `--password-file <path>` | Read the database password from a file (mounted secret) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
 | `--java-package <pkg>` | Package of Java migrations (default: db.migration; `db.<name>` with --database) |
+| `--package <name>` | Entity package (default: MIGRAX_PACKAGE or pom groupId) |
+| `--naming <strategy>` | spring, jpa, jpa-snake or micronaut (default: detected) |
+| `--extractor <mode>` | auto, hibernate, eclipselink, openjpa, spring-data-jdbc, micronaut-data or annotations (default: auto) |
+| `--schema-file <path>` | SQL file with the desired schema, instead of entities |
+| `--scratch-url <url>` | Empty database to read the schema file in (default: Docker) |
 | `--classpath <paths>` | Extra classpath; skips Maven/Gradle resolution |
 | `--no-build` | Do not run Maven/Gradle; use compiled classes |
+| `--refresh` | Re-resolve dependencies even if cached |
 | `--database <name>` | Work on `migrax.databases.<name>` instead of the default database |
 | `--dir <path>` | Project folder (default: current folder) |
 
@@ -344,16 +354,17 @@ Exits with code 2 when the entities differ from `.migrax/snapshot.json`, and wit
 ### lint
 
 ```
-migrax lint [files...] [--all] [--strict] [--json]
+migrax lint [files...] [--all] [--strict] [--json] [--sarif <file>]
 ```
 
-Checks pending migrations (or the given files, or `--all`) for statements that block tables, fail on existing data, or break running application instances, and suggests safe alternatives. Exits with 1 on errors, or on warnings with `--strict`. Silence a finding with `-- migrax:lint-ignore MX001` before the statement.
+Checks pending migrations (or the given files, or `--all`) for statements that block tables, fail on existing data, or break running application instances, and suggests safe alternatives. Exits with 1 on errors, or on warnings with `--strict`. Silence a finding with `-- migrax:lint-ignore MX001` before the statement. `--sarif` also writes the findings as SARIF 2.1.0, which GitHub code scanning, GitLab and Azure DevOps show on the SQL line in a pull request; its paths are relative to the current folder, so run lint from the repository's root.
 
 | Option | Meaning |
 |---|---|
 | `--all` | Lint every migration, not only pending ones |
 | `--strict` | Fail on warnings too |
 | `--json` | Machine-readable output |
+| `--sarif <file>` | Also write the findings as SARIF 2.1.0 for code scanning |
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |
 | `--url <jdbc-url>` | Database URL (default: application config) |
 | `--locations <paths>` | Migration folders, comma-separated (e.g. filesystem:db/sql) |
@@ -464,7 +475,7 @@ Asks each environment's database (`migrax.environments.<name>.url`) which migrat
 ### report
 
 ```
-migrax report [--html <file>]
+migrax report [--html <file>] [--json]
 ```
 
 Writes one HTML page (default `migrax-report.html`) for reviews and CI artifacts: the schema with a diagram, entity changes that have no migration yet, every migration with its status and lint findings, and drift between the database and the snapshot. Parts that need the database are skipped when it can't be reached.
@@ -472,6 +483,7 @@ Writes one HTML page (default `migrax-report.html`) for reviews and CI artifacts
 | Option | Meaning |
 |---|---|
 | `--html <file>` | Where to write the page (default: migrax-report.html) |
+| `--json` | Machine-readable output |
 | `--env <name>` | Environment for migrations marked '-- migrax:env' |
 | `--schemas <a,b>` | Run for each schema (multi-tenant) |
 | `--dialect <name>` | postgresql, cockroachdb, yugabytedb, mysql, mariadb, tidb, sqlserver, oracle, h2, hsqldb, derby, sqlite |

@@ -46,8 +46,28 @@ jobs:
 | `report` | `true` | Write the HTML report and upload it; the comment links to it |
 | `github-token` | `${{ github.token }}` | Token used to comment |
 
-Outputs: `changes` (entity changes without a migration) and `findings` (lint findings in
-changed migrations).
+Outputs: `changes` (entity changes without a migration), `findings` (lint findings in
+changed migrations) and `sarif` (those findings as a SARIF file).
+
+To see the lint findings on the SQL lines of the pull request, upload the SARIF file to code
+scanning. This needs the `security-events: write` permission, and `working-directory` must be
+the repository's root, because the paths in the file are relative to it:
+
+```yaml title=".github/workflows/migrations.yml"
+    steps:
+      - uses: actions/checkout@v7
+      - id: migrax
+        uses: fsmutimeer/migrax@v0.19.0
+      - if: steps.migrax.outputs.sarif != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.migrax.outputs.sarif }}
+          category: migrax
+```
+
+Other CI systems that read SARIF (Azure DevOps, GitLab with a SARIF converter) can use
+`migrax lint --sarif migrax-lint.sarif` from the repository's root: the paths in the file are
+relative to the folder lint runs in.
 
 ## GitLab CI
 

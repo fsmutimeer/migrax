@@ -49,24 +49,37 @@ final class CheckCommand implements Command {
         "--scratch-url", "--classpath", "--no-build", "--refresh", "--database");
   }
 
+  /** What check found: its exit code and its --json object. */
+  record Result(int code, Map<String, Object> json) {}
+
   @Override
   public int run(CommandContext context) throws Exception {
+    Result result = check(context, context.args().flag("--json"));
+    if (context.args().flag("--json")) {
+      context.out().println(JsonOut.write(result.json()));
+    }
+    return result.code();
+  }
+
+  /**
+   * Compares the entities with the snapshot; prints the text report unless {@code json}. Also
+   * used by {@code status --check}.
+   */
+  static Result check(CommandContext context, boolean json) throws Exception {
     Project project = context.project();
-    Args args = context.args();
     PrintStream out = context.out();
     PrintStream err = context.err();
     Map<String, List<String>> duplicates =
         DuplicateMigrations.unresolved(project, context.migrationRunner());
     Dialect dialect = project.dialect(true, err);
     EntityChanges changes = EntityChanges.read(context, dialect, project.hasUrl(), false);
-    if (args.flag("--json")) {
-      out.println(JsonOut.write(JsonOut.object(
-          "ok", duplicates.isEmpty() && changes.operations().isEmpty(),
-          "changes", changes.operations().stream().map(Migrations::summary).toList(),
-          "operations", changes.operations().stream()
-              .map(o -> Reports.operationJson(o, changes.entities())).toList(),
-          "conflicts", new ArrayList<>(duplicates.values()))));
-    } else {
+    Map<String, Object> result = JsonOut.object(
+        "ok", duplicates.isEmpty() && changes.operations().isEmpty(),
+        "changes", changes.operations().stream().map(Migrations::summary).toList(),
+        "operations", changes.operations().stream()
+            .map(o -> Reports.operationJson(o, changes.entities())).toList(),
+        "conflicts", new ArrayList<>(duplicates.values()));
+    if (!json) {
       if (!duplicates.isEmpty()) {
         err.println("Migrations share numbers: " + duplicates.values() + ". "
             + DuplicateMigrations.advice(duplicates));
@@ -87,9 +100,8 @@ final class CheckCommand implements Command {
         err.println("Run 'migrax generate' and commit the result.");
       }
     }
-    if (!duplicates.isEmpty()) {
-      return ERROR;
-    }
-    return changes.operations().isEmpty() ? OK : CHANGES_DETECTED;
+    int code = !duplicates.isEmpty() ? ERROR
+        : changes.operations().isEmpty() ? OK : CHANGES_DETECTED;
+    return new Result(code, result);
   }
 }

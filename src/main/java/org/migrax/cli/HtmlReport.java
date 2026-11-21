@@ -191,7 +191,9 @@ final class HtmlReport {
           .append(finding.statement()).append(pending ? " <span class=\"badge pending\">"
               + "pending</span>" : "").append("</div>\n<pre>").append(esc(finding.sql()))
           .append("</pre>\n<p>").append(esc(finding.message())).append("</p>\n<p><b>Fix:</b> ")
-          .append(esc(finding.fix())).append("</p>\n</div>\n");
+          .append(esc(finding.fix())).append("</p>\n")
+          .append(finding.safeSql() == null ? "" : "<pre>" + esc(finding.safeSql()) + "</pre>\n")
+          .append("</div>\n");
     }
     html.append("</section>\n");
   }
