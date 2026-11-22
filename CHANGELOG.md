@@ -48,7 +48,7 @@ Release candidate for 0.20.0, for testing.
   their name, as `h2:oracle:`, and with the user and password quoted together. A driver that
   fails with a plain `Error` no longer shows a URL that may hold a password. Also hidden: an
   Oracle URL whose later password setting holds an `@`, and a URL typed without `//` and
-  `@host` (`jdbc:postgresql:postgres:password/shop`).
+  `@host` (`jdbc:postgresql:postgres:password/shop`), also when a `//` comes only later in it.
 - `doctor` names a skipped non-JDBC `DATABASE_URL` only by a known scheme (`postgres://`,
   `mysql://`, ...); for any other text before `://` it says only that it is a URL.
 

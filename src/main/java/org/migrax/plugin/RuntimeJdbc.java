@@ -44,6 +44,13 @@ public final class RuntimeJdbc {
   /** Where the user starts when // was mistyped; these databases have no user:password@ form. */
   private static final Pattern MISTYPED_START =
       Pattern.compile("(?i)^[^a-z]*[a-z]{2,8}:(?!h2:|sqlite:|derby:|hsqldb:)[a-z0-9_-]+:");
+  /**
+   * A URL typed right: jdbc: and up to four name: parts (p6spy:, tc:postgresql:15:), then //. A
+   * later :// (sslrootcert=file:///ca.pem) doesn't count. A fixed number of parts: any number
+   * would make a long URL overflow the stack.
+   */
+  private static final Pattern TYPED_RIGHT =
+      Pattern.compile("(?i)^[^a-z]*[a-z]{2,8}:(?:[a-z0-9_.-]+:){0,4}//");
   private static final Pattern SQL_STATE = Pattern.compile("[0-9A-Z]{5}");
   /** SQL state class 08 is a connection failure, whatever tripped the driver. */
   private static final String CONNECTION_FAILURE = "08001";
@@ -162,23 +169,27 @@ public final class RuntimeJdbc {
 
   /**
    * //root:password/shop, with the @host forgotten: what stands where the port should be is not
-   * a number, so it may be the password. Hidden up to the end of the host part. With no // at
-   * all, everything after the colon that follows jdbc:name: is hidden.
+   * a number, so it may be the password. Hidden up to the end of the host part. When no //
+   * directly follows jdbc:name: (or more name: parts), everything after the colon that follows
+   * jdbc:name: is hidden.
    */
   private static String withoutPortPassword(String url) {
     int slashes = url.indexOf("//");
-    if (slashes < 0) {
-      // jdbc:postgresql:postgres:password/shop, with the // forgotten too: a driver may still
-      // accept it. After jdbc:name:, anything after a further : may be the password; it runs
-      // to the end, because a mistyped URL can't be split reliably.
+    if (!TYPED_RIGHT.matcher(url).lookingAt()) {
+      // jdbc:postgresql:postgres:password/shop, with the // forgotten too, or a // only later
+      // (password//shop, ?a=b//c): after jdbc:name:, anything after a further : may be the
+      // password; it runs to the end, because a mistyped URL can't be split reliably. A // in
+      // front of the name (//root:password/shop) keeps the host rule below.
       Matcher mistyped = MISTYPED_START.matcher(url);
-      if (mistyped.lookingAt()) {
+      if (mistyped.lookingAt() && (slashes < 0 || slashes > mistyped.end())) {
         int colon = url.indexOf(':', mistyped.end());
         if (colon >= 0 && colon + 1 < url.length()) {
           return url.substring(0, colon + 1) + "***";
         }
       }
-      return url;
+      if (slashes < 0) {
+        return url;
+      }
     }
     int start = slashes + 2;
     int end = start;
