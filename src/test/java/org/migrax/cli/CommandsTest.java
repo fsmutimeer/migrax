@@ -393,6 +393,8 @@ class CommandsTest {
     assertEquals(0, rebuilt.code(), rebuilt.all());
     assertTrue(rebuilt.out().contains("from the history snapshot of 0001_initial.sql"),
         rebuilt.out());
+    assertTrue(rebuilt.out().contains("0002_gone.json"), rebuilt.out());
+    assertTrue(rebuilt.out().contains("0003_also.json"), rebuilt.out());
     assertFalse(Files.exists(history.resolve("0002_gone.json")));
     assertFalse(Files.exists(history.resolve("0003_also.json")));
     Result nothing = cli("generate");
@@ -403,7 +405,12 @@ class CommandsTest {
     Files.delete(migrations().resolve("0001_initial.sql"));
     Files.delete(migrations().resolve("rollback/0001_initial.sql"));
     assertEquals(1, cli("generate").code());
-    Result removed = cli("generate", "--rebuild-snapshot");
+    Result unsure = cli("generate", "--rebuild-snapshot");
+    assertEquals(1, unsure.code(), unsure.all());
+    assertTrue(unsure.err().contains("No migration file found"), unsure.all());
+    assertTrue(unsure.err().contains("--yes"), unsure.all());
+    assertTrue(Files.exists(project.resolve(".migrax/snapshot.json")));
+    Result removed = cli("generate", "--rebuild-snapshot", "--yes");
     assertEquals(0, removed.code(), removed.all());
     assertFalse(Files.exists(project.resolve(".migrax/snapshot.json")));
     Result again = cli("generate");

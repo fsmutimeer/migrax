@@ -18,9 +18,9 @@ import java.util.stream.Stream;
  * Finds a snapshot that is ahead of the migration files: generate wrote a migration and moved
  * {@code snapshot.json} on, then the migration file was deleted. The next generate would find
  * nothing to do, so it stops instead, and {@code generate --rebuild-snapshot} moves the
- * snapshot back to the history snapshot of the newest generated migration before them. Each generated migration leaves
- * its model in {@code .migrax/history/<name>.json}; a history entry newer than every migration
- * file, whose file is gone, marks the deleted migration.
+ * snapshot back to the history snapshot of the newest generated migration before them. Each
+ * generated migration leaves its model in {@code .migrax/history/<name>.json}; a history entry
+ * newer than every migration file, whose file is gone, marks the deleted migration.
  */
 final class SnapshotAhead {
   private static final Pattern NUMBER = Pattern.compile("^[vV]?(\\d+)");
@@ -59,8 +59,8 @@ final class SnapshotAhead {
 
   /**
    * Moves the snapshot back to the history snapshot of the newest generated migration before the
-   * deleted ones, and removes the history of the deleted ones. Without any migration left, the snapshot is removed, so the
-   * next generate starts from the database as on a first run.
+   * deleted ones, and removes the history of the deleted ones. Without any migration left, the
+   * snapshot is removed, so the next generate starts from the database as on a first run.
    */
   static int rebuild(CommandContext context) throws Exception {
     Project project = context.project();
@@ -71,6 +71,14 @@ final class SnapshotAhead {
       out.println(project.display(project.snapshot())
           + " matches the migration files; nothing to rebuild.");
       return ExitCode.OK;
+    }
+    if (project.migrationFiles().isEmpty() && !context.args().flag("--yes", "-y")) {
+      // A wrong --locations or migration folder makes every generated migration look deleted.
+      throw new UsageException("No migration file found in " + project.displayMigrations()
+          + ", so this would remove " + project.display(project.snapshot()) + " and the history "
+          + "of " + String.join(", ", deleted.stream().map(name -> name + ".sql").toList()) + ".",
+          "Check --locations and the migration folder. If you deleted every migration on "
+              + "purpose, rerun with --yes.");
     }
     Path snapshot = project.snapshot();
     String newest = historyNames(project).stream()
@@ -96,6 +104,7 @@ final class SnapshotAhead {
     for (String name : deleted) {
       Files.deleteIfExists(project.historySnapshot(name));
       context.resultList("forgotten").add(name + ".sql");
+      out.println("Removed " + project.display(project.historySnapshot(name)) + ".");
     }
     out.println("Next: run 'migrax generate' to write the changes again.");
     return ExitCode.OK;

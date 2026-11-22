@@ -54,6 +54,11 @@ public final class SqlLinter {
   private static final Pattern ENDS_WITH_END = Pattern.compile("(?is).*\\bEND(?:\\s+\\w+)?\\s*;?\\s*");
   private static final Pattern DOLLAR_QUOTED = Pattern.compile("(?s)\\$(\\w*)\\$.*?\\$\\1\\$");
   private static final Pattern STRING = Pattern.compile("'(?:[^']|'')*'");
+  /**
+   * A string or a quoted name: their spaces and line breaks are part of them. Safe SQL is only
+   * written for PostgreSQL, where names are quoted with ".
+   */
+  private static final Pattern QUOTED = Pattern.compile(STRING.pattern() + "|\"[^\"]*\"");
 
   /**
    * Whether a procedure, function or trigger took in the statements after it: its text holds
@@ -478,9 +483,9 @@ public final class SqlLinter {
     }
   }
 
-  /** Whether a string in the statement holds a line break or several spaces in a row. */
+  /** Whether a string or quoted name holds a line break or several spaces in a row. */
   private static boolean hasSpacedLiteral(String raw) {
-    Matcher literal = STRING.matcher(SqlScript.stripComments(raw));
+    Matcher literal = QUOTED.matcher(SqlScript.stripComments(raw));
     while (literal.find()) {
       if (literal.group().matches("(?s).*(\\s\\s|[\\r\\n\\t]).*")) {
         return true;

@@ -86,6 +86,8 @@ class LinterAndRenamesTest {
     // Spaces inside a string would be collapsed: no safe SQL then.
     assertEquals(null, only("ALTER TABLE orders ADD CONSTRAINT c CHECK (code <> 'a  b');")
         .safeSql());
+    assertEquals(null, only("ALTER TABLE orders ADD CONSTRAINT c CHECK (\"q  y\" > 0);")
+        .safeSql());
     // Two actions in one statement: the author splits them.
     assertEquals(null, SqlLinter.lint("test.sql", "ALTER TABLE orders ADD CONSTRAINT positive "
         + "CHECK (total > 0), ADD COLUMN note text;", "postgresql").get(0).safeSql());

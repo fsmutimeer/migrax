@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.20.0-rc.2] - 2026-11-21
+
+Release candidate for 0.20.0, for testing.
+
 ### Added
 - `status --check` also checks the entities against the snapshot in the same run, and
   `status --json --check` prints both results in one object: one command instead of two
@@ -25,6 +29,8 @@ All notable changes to Migrax are listed here. The format follows
   file and the project folder above it was set up.
 - `generate --rebuild-snapshot` moves `.migrax/snapshot.json` back to the history snapshot of
   the newest generated migration before the deleted ones, after one was deleted on purpose.
+  With no migration file left at all (a wrong `--locations`, say) it asks for `--yes` before
+  it removes the snapshot.
 
 ### Changed
 - `generate` stops with MXE119 when a generated migration file was deleted after the snapshot
@@ -40,7 +46,9 @@ All notable changes to Migrax are listed here. The format follows
   `auth=`), a password where the port should be when the `@host` is missing
   (`//root:password/shop`), Oracle URLs after a mistyped `jdbc:`, behind wrappers with `-` in
   their name, as `h2:oracle:`, and with the user and password quoted together. A driver that
-  fails with a plain `Error` no longer shows a URL that may hold a password.
+  fails with a plain `Error` no longer shows a URL that may hold a password. Also hidden: an
+  Oracle URL whose later password setting holds an `@`, and a URL typed without `//` and
+  `@host` (`jdbc:postgresql:postgres:password/shop`), also when a `//` comes only later in it.
 - `doctor` names a skipped non-JDBC `DATABASE_URL` only by a known scheme (`postgres://`,
   `mysql://`, ...); for any other text before `://` it says only that it is a URL.
 
@@ -1239,7 +1247,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.20.0-rc.1...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.20.0-rc.2...HEAD
+[0.20.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.20.0-rc.1...v0.20.0-rc.2
 [0.20.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.19.0...v0.20.0-rc.1
 [0.19.0]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...v0.19.0
 [0.19.0-rc.4]: https://github.com/fsmutimeer/migrax/compare/v0.19.0-rc.3...v0.19.0-rc.4
