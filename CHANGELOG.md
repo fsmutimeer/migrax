@@ -6,8 +6,12 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.20.0-rc.3] - 2026-11-24
+
+Release candidate for 0.20.0, for testing.
+
 ### Fixed
-- Hibernate 8 projects (tested with 8.0.0.CR1) are read through Hibernate's own mapping again.
+- Hibernate 8 projects (tested with 8.0.0.CR1) are now read through Hibernate's own mapping.
   Before, Migrax warned that it could not read the mapping and fell back to scanning
   annotations, which can give a different schema (in our test, a sequence was missing).
 
@@ -1252,7 +1256,8 @@ First release.
 - **Command line.** Installers for Windows, macOS and Linux; works from any service folder
   without configuration.
 
-[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.20.0-rc.2...HEAD
+[Unreleased]: https://github.com/fsmutimeer/migrax/compare/v0.20.0-rc.3...HEAD
+[0.20.0-rc.3]: https://github.com/fsmutimeer/migrax/compare/v0.20.0-rc.2...v0.20.0-rc.3
 [0.20.0-rc.2]: https://github.com/fsmutimeer/migrax/compare/v0.20.0-rc.1...v0.20.0-rc.2
 [0.20.0-rc.1]: https://github.com/fsmutimeer/migrax/compare/v0.19.0...v0.20.0-rc.1
 [0.19.0]: https://github.com/fsmutimeer/migrax/compare/v0.17.1...v0.19.0
