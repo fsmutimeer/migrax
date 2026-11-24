@@ -273,7 +273,7 @@ public final class HibernateSchemaReader {
     }
 
     List<SchemaModel.ForeignKey> keys = new ArrayList<>();
-    for (ForeignKey key : table.getForeignKeys().values()) {
+    for (ForeignKey key : foreignKeys(table)) {
       if (!key.isCreationEnabled() || key.getReferencedTable() == null) {
         continue;
       }
@@ -641,7 +641,20 @@ public final class HibernateSchemaReader {
     return indexes;
   }
 
-  /** Index.getColumns() exists from 6.2; before that, getColumnIterator(). */
+  /** Table.getForeignKeys() is a map up to Hibernate 7 and a collection from Hibernate 8. */
+  @SuppressWarnings("unchecked")
+  private static List<ForeignKey> foreignKeys(Table table) {
+    Object keys = call(table, "getForeignKeys");
+    if (keys instanceof Map<?, ?> byKey) {
+      keys = byKey.values();
+    }
+    return new ArrayList<>((java.util.Collection<ForeignKey>) keys);
+  }
+
+  /**
+   * Index.getColumns() exists from 6.2 to 7.x, getSelectables() from 8 (columns only, like
+   * getColumns()); before 6.2, getColumnIterator().
+   */
   @SuppressWarnings("unchecked")
   private static List<Column> indexColumns(Index index) {
     Object columns = call(index, "getColumns");
@@ -649,6 +662,14 @@ public final class HibernateSchemaReader {
       return (List<Column>) list;
     }
     List<Column> result = new ArrayList<>();
+    if (call(index, "getSelectables") instanceof List<?> selectables) {
+      for (Object selectable : selectables) {
+        if (selectable instanceof Column column) {
+          result.add(column);
+        }
+      }
+      return result;
+    }
     ((java.util.Iterator<Column>) call(index, "getColumnIterator")).forEachRemaining(result::add);
     return result;
   }
