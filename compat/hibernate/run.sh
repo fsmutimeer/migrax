@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Hibernate compatibility matrix: for each Hibernate version, copies the fixture project, pins
-# that version (Hibernate 4 and 5 also switch the entities to javax.persistence), then runs Migrax
-# doctor, generate, migrate, check and verify on H2. verify replays the migrations on a fresh
-# database, has that Hibernate version validate the schema, and round-trips the rollbacks.
+# that version (Hibernate 4 and 5 also switch the entities to javax.persistence; Hibernate 8
+# moves the comments onto @Table and @Column), then runs Migrax doctor, generate, migrate, check
+# and verify on H2. verify replays the migrations on a fresh database, has that Hibernate version
+# validate the schema, and round-trips the rollbacks.
 #
 # Usage: compat/hibernate/run.sh [version ...]     (default: the versions below)
 # Set MIGRAX to the launcher to test (default: migrax on PATH). Exits 1 if any version fails.
@@ -12,7 +13,7 @@ MIGRAX="${MIGRAX:-migrax}"
 VERSIONS="${*:-4.0.1.Final 4.1.12.Final 4.2.21.Final 4.3.11.Final 5.0.12.Final 5.1.17.Final 5.2.18.Final 5.3.36.Final 5.4.33.Final 5.5.9.Final \
 5.6.15.Final 6.0.2.Final 6.1.7.Final 6.2.52.Final \
 6.3.2.Final 6.4.10.Final 6.5.3.Final 6.6.58.Final 7.0.10.Final 7.1.36.Final 7.2.25.Final \
-7.3.13.Final 7.4.12.Final}"
+7.3.13.Final 7.4.17.Final 8.0.0.CR1}"
 WORK="${WORK:-$HERE/work}"
 failed=0
 
@@ -31,6 +32,13 @@ for v in $VERSIONS; do
     if [[ $v == 5.[0-2].* ]]; then
       sed -i 's#<dependencies>#<dependencies><dependency><groupId>javax.xml.bind</groupId><artifactId>jaxb-api</artifactId><version>2.3.1</version></dependency><dependency><groupId>org.glassfish.jaxb</groupId><artifactId>jaxb-runtime</artifactId><version>2.3.9</version></dependency>#' pom.xml
     fi
+  fi
+  if [[ $v == 8.* ]]; then
+    # Hibernate 8 removed @Comment: comments go on @Table and @Column (Jakarta Persistence 3.2).
+    f=src/main/java/com/matrix/Customer.java
+    sed -i 's/@Table(name = "customers", /&comment = "People who buy from the shop", /' "$f"
+    sed -i 's/@Column(length = 2000/&, comment = "Written by the support team"/' "$f"
+    sed -i '/@org.hibernate.annotations.Comment/d' "$f"
   fi
   if [[ $v == 4.* ]]; then
     # Hibernate 4 predates java.time: its applications map dates with java.util.Date.

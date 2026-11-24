@@ -63,7 +63,7 @@ class HibernateValidationTest {
   @Test
   void readsTheOwnMappingOfHibernate4AndNewer() {
     for (String version : List.of("4.0.1.Final", "4.1.12.Final", "4.3.11.Final", "5.0.12.Final",
-        "6.6.58.Final", "7.4.12.Final")) {
+        "6.6.58.Final", "7.4.12.Final", "8.0.0.CR1")) {
       assertEquals(true, ModelExtractor.readsMapping(version), version);
     }
     for (String version : List.of("3.6.10.Final", "3.3.2.GA")) {

@@ -28,7 +28,7 @@ schema**, and the rollback scripts are tested.
 | before 4.0 | `javax.persistence` | older applications | Annotation scanning only |
 
 Tested patch versions: 4.0.1, 4.1.12, 4.2.21, 4.3.11, 5.0.12, 5.1.17, 5.2.18, 5.3.36, 5.4.33, 5.5.9, 5.6.15, 6.0.2, 6.1.7,
-6.2.52, 6.3.2, 6.4.10, 6.5.3, 6.6.58, 7.0.10, 7.1.36, 7.2.25, 7.3.13 and 7.4.12.
+6.2.52, 6.3.2, 6.4.10, 6.5.3, 6.6.58, 7.0.10, 7.1.36, 7.2.25, 7.3.13 and 7.4.17.
 
 !!! note "Hibernate 5.0 to 5.2 need JAXB"
 

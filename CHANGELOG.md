@@ -6,6 +6,11 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Hibernate 8 projects (tested with 8.0.0.CR1) are read through Hibernate's own mapping again.
+  Before, Migrax warned that it could not read the mapping and fell back to scanning
+  annotations, which can give a different schema (in our test, a sequence was missing).
+
 ## [0.20.0-rc.2] - 2026-11-21
 
 Release candidate for 0.20.0, for testing.
