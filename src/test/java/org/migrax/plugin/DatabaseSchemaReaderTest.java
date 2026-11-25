@@ -217,6 +217,17 @@ class DatabaseSchemaReaderTest {
     }
   }
 
+  /** PostgreSQL asks pg_depend; where that fails (here H2 has none), nothing is left out. */
+  @Test
+  void extensionObjectsAreEmptyWhereThereAreNone() throws Exception {
+    try (var connection = DriverManager.getConnection("jdbc:h2:mem:extension-objects")) {
+      for (String name : Dialects.NAMES) {
+        assertEquals(Set.of(), catalog(name).extensionObjects(connection, "PUBLIC"), name);
+        assertEquals(Set.of(), catalog(name).extensionObjects(connection, null), name);
+      }
+    }
+  }
+
   private static SchemaCatalog catalog(String dialect) {
     return Dialects.byName(dialect).schemaCatalog();
   }

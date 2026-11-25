@@ -205,10 +205,19 @@ need `-- migrax:no-transaction` at the top of the migration.
 
 The Migrax build includes a suite that runs migrations and Hibernate validation against real
 MySQL, MariaDB, TiDB (7.5 and 8.5), PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai),
-CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, and on HSQLDB, Derby and SQLite:
+CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, the database images of Supabase
+(Postgres 17), AlloyDB Omni 17 and Vitess 24 (the engine behind PlanetScale), and on HSQLDB,
+Derby and SQLite:
 
 ```bash
 mvn verify -Pdatabase-integration    # needs Docker
 ```
 
 Run it with your production engine version before you rely on a new database version.
+
+On Vitess (PlanetScale), `generate --zero-downtime` can't be used: Vitess doesn't accept the
+triggers Migrax writes to keep the old and new columns in sync.
+
+On PostgreSQL, tables, views and sequences that belong to an extension (PostGIS's
+`spatial_ref_sys`, the views of `pg_stat_statements`) are not part of the schema Migrax reads,
+and `clean` keeps them. An entity mapped onto such a table looks missing to Migrax.

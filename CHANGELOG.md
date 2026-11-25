@@ -6,6 +6,17 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Tested on Supabase Postgres 17, AlloyDB Omni 17 and Vitess 24 (the engine behind
+  PlanetScale), with the same checks as every other database. On Vitess,
+  `generate --zero-downtime` can't be used: Vitess doesn't accept the triggers Migrax writes.
+
+### Fixed
+- PostgreSQL: tables, views and sequences that belong to an extension are left
+  alone. Before, `clean` stopped with "cannot drop view ... because extension
+  pg_stat_statements requires it", and the first `generate` on a PostGIS database offered to
+  drop `spatial_ref_sys`.
+
 ## [0.20.0-rc.3] - 2026-11-24
 
 Release candidate for 0.20.0, for testing.
