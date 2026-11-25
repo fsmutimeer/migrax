@@ -217,6 +217,17 @@ class DatabaseSchemaReaderTest {
     }
   }
 
+  /** Checks come sorted by name, whatever order the database returned them in. */
+  @Test
+  void checksAreSortedByName() {
+    var details = new SchemaCatalog.Details();
+    details.addCheck("T", "b_ck", "x > 1");
+    details.addCheck("t", "B_ck", "x > 2");
+    details.addCheck("t", "a_ck", "x > 0");
+    assertEquals(List.of("a_ck", "B_ck", "b_ck"),
+        details.checks("t").stream().map(SchemaModel.Check::name).toList());
+  }
+
   /** PostgreSQL asks pg_depend; where that fails (here H2 has none), nothing is left out. */
   @Test
   void extensionObjectsAreEmptyWhereThereAreNone() throws Exception {
