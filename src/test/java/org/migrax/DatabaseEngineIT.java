@@ -124,6 +124,20 @@ class DatabaseEngineIT {
           .withDatabaseName("postgres").withUsername("postgres").withPassword("test")),
       // Vitess is the engine PlanetScale runs: one unsharded keyspace, reached as MySQL.
       embedded("Vitess 24", DatabaseEngineIT::startVitess),
+      // PostgreSQL with a popular extension installed in the test database, as applications
+      // run it. PostGIS adds the table spatial_ref_sys to the schema Migrax works in.
+      container("TimescaleDB 2.32 (PostgreSQL 17)", () -> postgresImage(
+          "timescale/timescaledb:2.32.1-pg17"), withExtension("timescaledb")),
+      container("PostGIS 3.6 (PostgreSQL 17)", () -> postgresImage("postgis/postgis:17-3.6"),
+          withExtension("postgis")),
+      container("pgvector 0.8 (PostgreSQL 17)", () -> postgresImage(
+          "pgvector/pgvector:0.8.7-pg17"), withExtension("vector")),
+      // A MySQL server build with its own patches: the MySQL dialect must treat it as MySQL.
+      container("Percona Server 8.4", () -> new MySQLContainer<>(
+          org.testcontainers.utility.DockerImageName.parse("percona/percona-server:8.4.11")
+              .asCompatibleSubstituteFor("mysql"))
+          .withDatabaseName("migrax_test").withUsername("test").withPassword("test"),
+          DatabaseEngineIT::allowMySqlTriggers),
       embedded("Derby 10.16", () -> Started.of(
           new Database("jdbc:derby:memory:migrax_it;create=true", "", ""))),
       // In memory: every connection of this JVM shares the database by its name.
@@ -184,6 +198,24 @@ class DatabaseEngineIT {
       }
       return new Started(Database.of(container), container);
     });
+  }
+
+  /** A PostgreSQL-based image that takes the official image's settings. */
+  private static PostgreSQLContainer<?> postgresImage(String image) {
+    return new PostgreSQLContainer<>(org.testcontainers.utility.DockerImageName.parse(image)
+        .asCompatibleSubstituteFor("postgres"))
+        .withDatabaseName("migrax_test").withUsername("test").withPassword("test");
+  }
+
+  /** Installs a PostgreSQL extension in the test database, in its default schema. */
+  private static Setup withExtension(String extension) {
+    return container -> {
+      try (Connection connection = DriverManager.getConnection(container.getJdbcUrl(),
+          container.getUsername(), container.getPassword());
+           Statement statement = connection.createStatement()) {
+        statement.execute("CREATE EXTENSION IF NOT EXISTS " + extension);
+      }
+    };
   }
 
   /** In-process databases, or a container this class starts and stops itself. */

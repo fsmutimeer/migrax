@@ -387,10 +387,11 @@ public class PostgresDialect extends AbstractDialect {
     public void readChecksAndComments(Connection connection, String catalog, String schema,
                                       List<String> tables, Details details) {
       String namespace = schema == null ? "current_schema()" : "?";
+      // Sorted, so the list is the same on every run; the server returns rows in no fixed order.
       for (String[] row : query(connection, "SELECT rel.relname, con.conname, "
           + "pg_get_constraintdef(con.oid) FROM pg_constraint con JOIN pg_class rel ON rel.oid = "
           + "con.conrelid JOIN pg_namespace n ON n.oid = rel.relnamespace WHERE con.contype = 'c' "
-          + "AND n.nspname = " + namespace, schema)) {
+          + "AND n.nspname = " + namespace + " ORDER BY rel.relname, con.conname", schema)) {
         details.addCheck(row[0], row[1], unwrapCheck(row[2]));
       }
       for (String[] row : query(connection, "SELECT c.relname, NULL, obj_description(c.oid, "
