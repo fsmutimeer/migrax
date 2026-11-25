@@ -205,9 +205,10 @@ need `-- migrax:no-transaction` at the top of the migration.
 
 The Migrax build includes a suite that runs migrations and Hibernate validation against real
 MySQL, MariaDB, TiDB (7.5 and 8.5), PostgreSQL, SQL Server, Oracle (XE 21 and Free 23ai),
-CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, the database images of Supabase
-(Postgres 17), AlloyDB Omni 17 and Vitess 24 (the engine behind PlanetScale), and on HSQLDB,
-Derby and SQLite:
+CockroachDB and YugabyteDB (2024.2 and 2026.1) containers, and the database images of Supabase
+(Postgres 17), AlloyDB Omni 17 and Vitess 24 (the engine behind PlanetScale). It also runs on
+PostgreSQL 17 with TimescaleDB, PostGIS or pgvector installed, on Percona Server for MySQL 8.4,
+and on HSQLDB, Derby and SQLite:
 
 ```bash
 mvn verify -Pdatabase-integration    # needs Docker

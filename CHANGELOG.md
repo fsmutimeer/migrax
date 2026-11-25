@@ -10,6 +10,8 @@ All notable changes to Migrax are listed here. The format follows
 - Tested on Supabase Postgres 17, AlloyDB Omni 17 and Vitess 24 (the engine behind
   PlanetScale), with the same checks as every other database. On Vitess,
   `generate --zero-downtime` can't be used: Vitess doesn't accept the triggers Migrax writes.
+- Tested on PostgreSQL 17 with TimescaleDB, PostGIS or pgvector installed, and on Percona
+  Server for MySQL 8.4.
 
 ### Fixed
 - PostgreSQL: tables, views and sequences that belong to an extension are left
