@@ -9,6 +9,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -400,6 +401,19 @@ public class PostgresDialect extends AbstractDialect {
           + "'r' AND a.attnum > 0 AND n.nspname = " + namespace, schema, schema)) {
         details.addComment(row[0], row[1], row[2]);
       }
+    }
+
+    /** Objects with an extension dependency ({@code deptype 'e'}) in {@code pg_depend}. */
+    @Override
+    public Set<String> extensionObjects(Connection connection, String schema) {
+      String namespace = schema == null ? "current_schema()" : "?";
+      Set<String> names = new HashSet<>();
+      for (String[] row : query(connection, "SELECT c.relname FROM pg_class c JOIN pg_namespace n "
+          + "ON n.oid = c.relnamespace JOIN pg_depend d ON d.objid = c.oid AND d.classid = "
+          + "'pg_class'::regclass AND d.deptype = 'e' WHERE n.nspname = " + namespace, schema)) {
+        names.add(row[0]);
+      }
+      return names;
     }
 
     @Override

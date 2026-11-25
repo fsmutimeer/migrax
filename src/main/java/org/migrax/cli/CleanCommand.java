@@ -50,9 +50,10 @@ final class CleanCommand implements Command {
     return """
         Empties the database so 'migrax migrate' can rebuild it from the migrations: drops every
         table (the migration history too), view and sequence in the configured schema. Data is
-        deleted and can't be restored. Migration files and the snapshot are not touched.
-        Asks before dropping; --yes confirms without asking. --dry-run lists what would be
-        dropped. Set MIGRAX_CLEAN_DISABLED=true on servers where clean must never run.""";
+        deleted and can't be restored. Migration files and the snapshot are not touched. On
+        PostgreSQL, objects that belong to an extension are kept. Asks before dropping; --yes
+        confirms without asking. --dry-run lists what would be dropped. Set
+        MIGRAX_CLEAN_DISABLED=true on servers where clean must never run.""";
   }
 
   @Override

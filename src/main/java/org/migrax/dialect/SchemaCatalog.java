@@ -164,6 +164,19 @@ public class SchemaCatalog {
   }
 
   /**
+   * The tables, views and sequences of a schema that belong to an installed extension (PostGIS's
+   * {@code spatial_ref_sys}, the views of {@code pg_stat_statements}), as the database spells
+   * their names. Migrax leaves them alone: they come and go with the extension. None by default.
+   *
+   * @param connection the connection
+   * @param schema the schema, or null for the connection's default
+   * @return the names; empty when there are none or they can't be read
+   */
+  public Set<String> extensionObjects(Connection connection, String schema) {
+    return Set.of();
+  }
+
+  /**
    * The sequences in a schema, as the database spells their names. The default asks the
    * standard {@code information_schema.sequences} view.
    *
@@ -244,7 +257,7 @@ public class SchemaCatalog {
         }
       }
     } catch (SQLException e) {
-      Log.debug("Could not read checks or comments: {}", e.getMessage());
+      Log.debug("Could not read catalog details: {}", e.getMessage());
       if (!autoCommit(connection)) {
         try {
           connection.rollback();

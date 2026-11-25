@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import org.migrax.dialect.Dialect;
@@ -49,11 +50,13 @@ public final class DatabaseSchemaReader {
     Log.debug("Reading database schema metadata for catalog '{}', schema '{}'", catalog, schema);
     List<SchemaModel.Table> tables = new ArrayList<>();
     List<String> names = new ArrayList<>();
+    Set<String> extension = schemaCatalog.extensionObjects(connection, schema);
     try (ResultSet result = metadata.getTables(catalog, schema, "%", new String[]{"TABLE"})) {
       while (result.next()) {
         String name = result.getString("TABLE_NAME");
         String lower = name == null ? "" : name.toLowerCase(java.util.Locale.ROOT);
-        if (name == null || inOtherSchema(result, schema) || lower.startsWith("migrax_")
+        if (name == null || inOtherSchema(result, schema) || extension.contains(name)
+            || lower.startsWith("migrax_")
             || lower.equals("flyway_schema_history")
             || lower.equals("databasechangelog") || lower.equals("databasechangeloglock")
             // SQL Server's master database reports these system tables as user tables.
@@ -434,8 +437,8 @@ public final class DatabaseSchemaReader {
 
   /**
    * Every object of a type ({@code TABLE} or {@code VIEW}) in the schema, Migrax's own tables
-   * included, as the database spells the names. SQLite's internal tables and Oracle's recycle
-   * bin are left out.
+   * included, as the database spells the names. SQLite's internal tables, Oracle's recycle bin
+   * and objects that belong to an extension (PostGIS's {@code spatial_ref_sys}) are left out.
    *
    * @param schema the schema, or null for the connection's default
    * @since 0.2.0
@@ -444,15 +447,15 @@ public final class DatabaseSchemaReader {
       throws SQLException {
     DatabaseMetaData metadata = connection.getMetaData();
     List<String> names = new ArrayList<>();
-    // Only a named schema needs the dialect; looking it up can cost a query.
+    SchemaCatalog schemaCatalog = schemaCatalog(connection);
     String catalog = schema == null || schema.isBlank() ? connection.getCatalog()
-        : schemaCatalog(connection).catalogFor(connection, schema);
-    String resolved = resolveSchema(connection, metadata, schema,
-        () -> schemaCatalog(connection));
+        : schemaCatalog.catalogFor(connection, schema);
+    String resolved = resolveSchema(connection, metadata, schema, () -> schemaCatalog);
+    Set<String> extension = schemaCatalog.extensionObjects(connection, resolved);
     try (ResultSet result = metadata.getTables(catalog, resolved, "%", new String[]{type})) {
       while (result.next()) {
         String name = result.getString("TABLE_NAME");
-        if (name != null && !inOtherSchema(result, resolved)
+        if (name != null && !inOtherSchema(result, resolved) && !extension.contains(name)
             && !name.toLowerCase(Locale.ROOT).startsWith("sqlite_")
             && !name.startsWith("BIN$")) {
           names.add(name);
@@ -477,8 +480,10 @@ public final class DatabaseSchemaReader {
         () -> schemaCatalog);
     String database = schema == null || schema.isBlank() ? connection.getCatalog()
         : schemaCatalog.catalogFor(connection, schema);
+    Set<String> extension = schemaCatalog.extensionObjects(connection, resolved);
     try {
-      List<String> names = schemaCatalog.sequencesIn(connection, database, resolved);
+      List<String> names = schemaCatalog.sequencesIn(connection, database, resolved).stream()
+          .filter(name -> name == null || !extension.contains(name)).toList();
       if (names.isEmpty() && schema != null && !schema.isBlank()) {
         // A login without rights on another schema sees none of its sequences either.
         Log.debug("No sequences visible in schema '{}'", resolved);

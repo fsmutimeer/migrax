@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * CockroachDB dialect. CockroachDB speaks PostgreSQL's protocol and is reached with the
@@ -25,6 +26,17 @@ public final class CockroachDialect extends PostgresDialect {
   @Override
   public String id() {
     return "cockroachdb";
+  }
+
+  /** CockroachDB has no extensions that own tables: no need to ask. */
+  @Override
+  public SchemaCatalog schemaCatalog() {
+    return new Catalog() {
+      @Override
+      public Set<String> extensionObjects(Connection connection, String schema) {
+        return Set.of();
+      }
+    };
   }
 
   /** PostgreSQL's lock checks describe PostgreSQL itself, not CockroachDB. */

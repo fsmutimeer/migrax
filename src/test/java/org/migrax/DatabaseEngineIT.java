@@ -30,15 +30,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DatabaseEngineIT {
   /**
    * Every engine runs every check, or with {@code -Dmigrax.it.engines=PostgreSQL,Oracle} only
-   * the engines whose name contains one of the given words.
+   * the engines whose name contains one of the given words; {@code -Dmigrax.it.skip-engines}
+   * leaves out the engines whose name contains one of its words.
    */
   @TestFactory
   Stream<DynamicTest> appliesAndTracksMigrationsOnSupportedEngines() {
     String only = System.getProperty("migrax.it.engines", "");
-    return ENGINES.stream().filter(engine -> only.isBlank() || java.util.Arrays.stream(
-            only.split(",")).anyMatch(word -> engine.name().toLowerCase(java.util.Locale.ROOT)
-            .contains(word.trim().toLowerCase(java.util.Locale.ROOT))))
-        .map(engine -> DynamicTest.dynamicTest(engine.name(), () -> runChecks(engine)));
+    String skip = System.getProperty("migrax.it.skip-engines", "");
+    List<Engine> selected = ENGINES.stream()
+        .filter(engine -> only.isBlank() || namedIn(engine, only))
+        .filter(engine -> skip.isBlank() || !namedIn(engine, skip)).toList();
+    // A mistyped name must not pass by testing nothing.
+    assertFalse(selected.isEmpty(), "No engine matches migrax.it.engines=" + only);
+    return selected.stream().map(engine -> DynamicTest.dynamicTest(engine.name(), () -> runChecks(engine)));
+  }
+
+  /** Whether the engine's name contains one of the comma-separated words. */
+  private static boolean namedIn(Engine engine, String words) {
+    String name = engine.name().toLowerCase(java.util.Locale.ROOT);
+    return java.util.Arrays.stream(words.split(",")).map(String::trim)
+        .filter(word -> !word.isEmpty())
+        .anyMatch(word -> name.contains(word.toLowerCase(java.util.Locale.ROOT)));
   }
 
   /**
@@ -59,6 +71,7 @@ class DatabaseEngineIT {
       new Check("script timestamps", DatabaseEngineIT::exerciseScriptTimestamps),
       new Check("schemas", DatabaseEngineIT::exerciseSchemas),
       new Check("clean schema name", DatabaseEngineIT::exerciseCleanSchemaName),
+      new Check("extension objects", DatabaseEngineIT::exerciseExtensionObjects),
       new Check("schema file", DatabaseEngineIT::exerciseSchemaFile),
       new Check("PostgreSQL table lock timeout", DatabaseEngineIT::exerciseTableLockTimeout));
 
@@ -102,6 +115,15 @@ class DatabaseEngineIT {
       container("YugabyteDB 2024.2", () -> new YugabyteWithPostgresDriver(
           "yugabytedb/yugabyte:2024.2.11.0-b36")
           .withDatabaseName("migrax_test").withUsername("test").withPassword("test")),
+      // Hosted services that speak the PostgreSQL or MySQL protocol, through their own images.
+      // Supabase's image creates its roles itself; only their password is set.
+      embedded("Supabase Postgres 17", DatabaseEngineIT::startSupabase),
+      container("AlloyDB Omni 17", () -> new PostgreSQLContainer<>(
+          org.testcontainers.utility.DockerImageName.parse("google/alloydbomni:17.10.0")
+              .asCompatibleSubstituteFor("postgres"))
+          .withDatabaseName("postgres").withUsername("postgres").withPassword("test")),
+      // Vitess is the engine PlanetScale runs: one unsharded keyspace, reached as MySQL.
+      embedded("Vitess 24", DatabaseEngineIT::startVitess),
       embedded("Derby 10.16", () -> Started.of(
           new Database("jdbc:derby:memory:migrax_it;create=true", "", ""))),
       // In memory: every connection of this JVM shares the database by its name.
@@ -164,9 +186,51 @@ class DatabaseEngineIT {
     });
   }
 
-  /** In-process databases: no container to start. */
+  /** In-process databases, or a container this class starts and stops itself. */
   private static Engine embedded(String name, Starter starter) {
     return new Engine(name, starter);
+  }
+
+  private static void startOrClose(org.testcontainers.containers.GenericContainer<?> container) {
+    try {
+      container.start();
+    } catch (RuntimeException e) {
+      container.close();
+      throw e;
+    }
+  }
+
+  /**
+   * Supabase's database image, reached as its superuser role, as the other PostgreSQL engines
+   * are: only a superuser can add a table to an extension (the extension objects check).
+   */
+  private static Started startSupabase() {
+    org.testcontainers.containers.GenericContainer<?> supabase =
+        new org.testcontainers.containers.GenericContainer<>("supabase/postgres:17.12.0.005")
+            .withEnv("POSTGRES_PASSWORD", "test").withExposedPorts(5432)
+            .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forLogMessage(
+                ".*database system is ready to accept connections.*", 2)
+                .withStartupTimeout(java.time.Duration.ofMinutes(5)));
+    startOrClose(supabase);
+    String url = "jdbc:postgresql://" + supabase.getHost() + ":" + supabase.getMappedPort(5432)
+        + "/postgres";
+    return new Started(new Database(url, "supabase_admin", "test"), supabase);
+  }
+
+  /** Vitess's test server: MySQL protocol on its base port + 3, no password. */
+  private static Started startVitess() {
+    int port = 33574;
+    org.testcontainers.containers.GenericContainer<?> vitess =
+        new org.testcontainers.containers.GenericContainer<>("vitess/vttestserver:v24.0.5-mysql84")
+            .withEnv("PORT", String.valueOf(port)).withEnv("KEYSPACES", "migrax_test")
+            .withEnv("NUM_SHARDS", "1").withEnv("MYSQL_BIND_HOST", "0.0.0.0")
+            .withExposedPorts(port + 3)
+            .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forListeningPort()
+                .withStartupTimeout(java.time.Duration.ofMinutes(5)));
+    startOrClose(vitess);
+    String url = "jdbc:mysql://" + vitess.getHost() + ":" + vitess.getMappedPort(port + 3)
+        + "/migrax_test";
+    return new Started(new Database(url, "root", ""), vitess);
   }
 
   private static void runChecks(Engine engine) throws Exception {
@@ -979,6 +1043,56 @@ class DatabaseEngineIT {
     }
   }
 
+  /**
+   * PostgreSQL: the tables, views and sequences of an extension (as PostGIS's spatial_ref_sys
+   * or the views of pg_stat_statements) are neither read as part of the schema nor dropped by
+   * clean.
+   */
+  private static void exerciseExtensionObjects(Database database) throws Exception {
+    try (Connection connection = database.connect()) {
+      if (!org.migrax.dialect.Dialects.forConnection(connection).orElseThrow().id()
+          .equals("postgresql")) {
+        return;
+      }
+    }
+    try {
+      try (Connection connection = database.connect();
+           Statement statement = connection.createStatement()) {
+        statement.execute("CREATE SCHEMA ext_probe");
+        // A view of its own, and a table and a sequence added to it.
+        statement.execute("CREATE EXTENSION pg_buffercache SCHEMA ext_probe");
+        statement.execute("CREATE TABLE ext_probe.member (id INT PRIMARY KEY)");
+        statement.execute("CREATE SEQUENCE ext_probe.member_seq");
+        statement.execute("ALTER EXTENSION pg_buffercache ADD TABLE ext_probe.member");
+        statement.execute("ALTER EXTENSION pg_buffercache ADD SEQUENCE ext_probe.member_seq");
+        statement.execute("CREATE TABLE ext_probe.own_table (id INT PRIMARY KEY)");
+        assertEquals(List.of("own_table"), org.migrax.plugin.DatabaseSchemaReader.read(
+            connection, "ext_probe", false).tables().stream()
+            .map(org.migrax.model.SchemaModel.Table::name).toList());
+        assertExtensionObjectsHidden(connection, List.of("own_table"));
+      }
+      assertEquals(0, cleanSchema(database, "ext_probe"));
+      try (Connection connection = database.connect()) {
+        assertExtensionObjectsHidden(connection, List.of());
+      }
+    } finally {
+      try (Connection connection = database.connect();
+           Statement statement = connection.createStatement()) {
+        statement.execute("DROP SCHEMA IF EXISTS ext_probe CASCADE");
+      }
+    }
+  }
+
+  private static void assertExtensionObjectsHidden(Connection connection, List<String> tables)
+      throws SQLException {
+    assertEquals(tables, org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+        "ext_probe", "TABLE"));
+    assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.objectNames(connection,
+        "ext_probe", "VIEW"));
+    assertEquals(List.of(), org.migrax.plugin.DatabaseSchemaReader.sequencesIn(connection,
+        "ext_probe"));
+  }
+
   private static int cleanSchema(Database database, String schema) throws Exception {
     return clean(database, "--schema", schema);
   }
@@ -1351,6 +1465,10 @@ class DatabaseEngineIT {
   /** generate --zero-downtime: both application versions between expand and contract. */
   private static void exerciseZeroDowntime(Database database) throws Exception {
     try (Connection connection = database.connect()) {
+      // Vitess (PlanetScale) can't create the triggers that keep old and new columns in sync.
+      if (connection.getMetaData().getDatabaseProductVersion().contains("Vitess")) {
+        return;
+      }
       org.migrax.cli.ZeroDowntimeScenario.run(connection,
           org.migrax.dialect.Dialects.forConnection(connection).orElseThrow());
     }
