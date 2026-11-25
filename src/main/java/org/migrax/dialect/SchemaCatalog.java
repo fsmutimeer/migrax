@@ -9,6 +9,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -339,10 +340,15 @@ public class SchemaCatalog {
      * The checks of a table.
      *
      * @param table the table
-     * @return its checks, in the order found, unmodifiable; empty when it has none
+     * @return its checks, sorted by name, unmodifiable; empty when it has none
      */
     public List<SchemaModel.Check> checks(String table) {
-      return List.copyOf(checks.getOrDefault(table.toLowerCase(Locale.ROOT), List.of()));
+      // Sorted, so the list is the same on every run; databases return rows in no fixed order.
+      return checks.getOrDefault(table.toLowerCase(Locale.ROOT), List.of()).stream()
+          .sorted(Comparator.comparing(
+              (SchemaModel.Check check) -> check.name().toLowerCase(Locale.ROOT))
+              .thenComparing(SchemaModel.Check::name))
+          .toList();
     }
 
     /**

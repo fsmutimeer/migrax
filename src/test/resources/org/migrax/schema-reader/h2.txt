@@ -64,8 +64,8 @@ table golden_parent comment=Parent's table
   Index[name=golden_parent_big_uq, columns=[big, negative], unique=true]
   Index[name=golden_parent_name_idx, columns=[name], unique=false]
   ForeignKey[name=golden_parent_manager_fk, columns=[manager_id], referencedTable=golden_parent, referencedColumns=[id]]
-  Check[name=golden_counter_range, expression="COUNTER" > "NEGATIVE"]
   Check[name=golden_counter_positive, expression="COUNTER" >= 0]
+  Check[name=golden_counter_range, expression="COUNTER" > "NEGATIVE"]
 
 ## read exact
 table golden_child comment=null
@@ -121,8 +121,8 @@ table golden_parent comment=Parent's table
   Index[name=golden_parent_big_uq, columns=[big, negative], unique=true]
   Index[name=golden_parent_name_idx, columns=[name], unique=false]
   ForeignKey[name=golden_parent_manager_fk, columns=[manager_id], referencedTable=golden_parent, referencedColumns=[id]]
-  Check[name=golden_counter_range, expression="COUNTER" > "NEGATIVE"]
   Check[name=golden_counter_positive, expression="COUNTER" >= 0]
+  Check[name=golden_counter_range, expression="COUNTER" > "NEGATIVE"]
 
 ## views
 GOLDEN_VIEW

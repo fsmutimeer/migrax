@@ -14,6 +14,8 @@ All notable changes to Migrax are listed here. The format follows
   Server for MySQL 8.4.
 
 ### Fixed
+- Check constraints read from an existing database or a schema file are listed in name
+  order, so the SQL Migrax writes for them is the same on every run.
 - PostgreSQL: tables, views and sequences that belong to an extension are left
   alone. Before, `clean` stopped with "cannot drop view ... because extension
   pg_stat_statements requires it", and the first `generate` on a PostGIS database offered to
