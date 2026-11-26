@@ -1,6 +1,6 @@
 ---
 seo_title: "Supported databases"
-description: "Migrax supports PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, CockroachDB, YugabyteDB, TiDB, SQLite, H2, HSQLDB and Derby."
+description: "Migrax supports PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, CockroachDB, YugabyteDB, TiDB, SQLite, H2, HSQLDB and Derby, and is tested on Supabase, AlloyDB Omni, Vitess and Percona Server."
 ---
 # Databases
 
@@ -21,6 +21,36 @@ description: "Migrax supports PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Co
 
 The dialect comes from the JDBC URL. When there is no database URL (for example in a CI step that
 only plans), pass `--dialect`.
+
+## Hosted and compatible databases
+
+Databases that speak PostgreSQL's or MySQL's protocol use that driver and dialect; there is
+nothing extra to set up. These are tested with every build (see
+[Testing against real engines](#testing-against-real-engines)):
+
+| Database | Connect with | Notes |
+|---|---|---|
+| Supabase (Postgres 17) | `jdbc:postgresql://` | Use the direct connection or the session pooler (see below) |
+| AlloyDB Omni 17 | `jdbc:postgresql://` | Same SQL as PostgreSQL |
+| PostgreSQL with TimescaleDB, PostGIS or pgvector | `jdbc:postgresql://` | The extensions' own tables are left alone (see below) |
+| Vitess 24 (PlanetScale) | `jdbc:mysql://` | `generate --zero-downtime` can't be used (see below) |
+| Percona Server for MySQL 8.4 | `jdbc:mysql://` | Same SQL as MySQL |
+
+Services that run one of these engines, such as Amazon Aurora, Google AlloyDB or Neon, connect
+the same way, but are not part of the test suite yet.
+
+**Connection poolers.** On PostgreSQL, the migration lock is a session lock, so `migrate` needs
+one database session from start to end. Connect directly or through a pooler in session mode
+(on Supabase, the direct connection or the session pooler), not through a pooler in
+transaction mode.
+
+**Extensions.** Tables, views and sequences that belong to a PostgreSQL extension (PostGIS's
+`spatial_ref_sys`, the views of `pg_stat_statements`) are not part of the schema Migrax reads:
+`generate` never offers to drop them and `clean` keeps them. An entity mapped onto such a table
+looks missing to Migrax.
+
+**Vitess and PlanetScale.** Vitess doesn't accept triggers, and `generate --zero-downtime` uses
+triggers to keep the old and new columns in sync. Every other command works as on MySQL.
 
 ## CockroachDB
 
@@ -216,9 +246,5 @@ mvn verify -Pdatabase-integration    # needs Docker
 
 Run it with your production engine version before you rely on a new database version.
 
-On Vitess (PlanetScale), `generate --zero-downtime` can't be used: Vitess doesn't accept the
-triggers Migrax writes to keep the old and new columns in sync.
-
-On PostgreSQL, tables, views and sequences that belong to an extension (PostGIS's
-`spatial_ref_sys`, the views of `pg_stat_statements`) are not part of the schema Migrax reads,
-and `clean` keeps them. An entity mapped onto such a table looks missing to Migrax.
+What differs on Vitess and on PostgreSQL with extensions is listed under
+[Hosted and compatible databases](#hosted-and-compatible-databases).
