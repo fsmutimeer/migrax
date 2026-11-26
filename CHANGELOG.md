@@ -6,6 +6,10 @@ All notable changes to Migrax are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.20.0-rc.3] - 2026-11-26
+
+Release candidate for 0.20.0, for testing.
+
 ### Added
 - Tested on Supabase Postgres 17, AlloyDB Omni 17 and Vitess 24 (the engine behind
   PlanetScale), with the same checks as every other database. On Vitess,
@@ -20,12 +24,6 @@ All notable changes to Migrax are listed here. The format follows
   alone. Before, `clean` stopped with "cannot drop view ... because extension
   pg_stat_statements requires it", and the first `generate` on a PostGIS database offered to
   drop `spatial_ref_sys`.
-
-## [0.20.0-rc.3] - 2026-11-24
-
-Release candidate for 0.20.0, for testing.
-
-### Fixed
 - Hibernate 8 projects (tested with 8.0.0.CR1) are now read through Hibernate's own mapping.
   Before, Migrax warned that it could not read the mapping and fell back to scanning
   annotations, which can give a different schema (in our test, a sequence was missing).
