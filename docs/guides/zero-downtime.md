@@ -150,6 +150,10 @@ triggers). On other databases,
 `--zero-downtime` stops with an explanation; rename the column in two releases by hand, or
 generate without `--zero-downtime` during a maintenance window.
 
+Vitess (the engine behind PlanetScale) is reached as MySQL, so Migrax writes the trigger, but
+Vitess rejects it when the expand migration runs. On Vitess, rename columns without
+`--zero-downtime`.
+
 ## Renamed tables
 
 The expand migration renames the table and creates a view with the old name. The old version
